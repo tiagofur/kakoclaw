@@ -21,6 +21,7 @@ import (
 	"github.com/sipeed/picoclaw/pkg/config"
 	"github.com/sipeed/picoclaw/pkg/logger"
 	"github.com/sipeed/picoclaw/pkg/providers"
+	"github.com/sipeed/picoclaw/pkg/ratelimit"
 	"github.com/sipeed/picoclaw/pkg/session"
 	"github.com/sipeed/picoclaw/pkg/tools"
 	"github.com/sipeed/picoclaw/pkg/utils"
@@ -165,6 +166,16 @@ func (al *AgentLoop) ProcessDirectWithChannel(ctx context.Context, content, sess
 }
 
 func (al *AgentLoop) processMessage(ctx context.Context, msg bus.InboundMessage) (string, error) {
+	// Issue #9: Rate limiting
+	// Check user rate limit
+	userKey := fmt.Sprintf("user:%s", msg.SenderID)
+	if !ratelimit.GetGlobalLimiter().Allow(userKey) {
+		logger.WarnCF("agent", "Rate limit exceeded for user", map[string]interface{}{
+			"sender_id": msg.SenderID,
+		})
+		return "Rate limit exceeded. Please wait a moment before sending more messages.", nil
+	}
+
 	// Add message preview to log
 	preview := utils.Truncate(msg.Content, 80)
 	logger.InfoCF("agent", fmt.Sprintf("Processing message from %s:%s: %s", msg.Channel, msg.SenderID, preview),
