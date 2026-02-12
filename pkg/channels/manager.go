@@ -149,6 +149,19 @@ func (m *Manager) initChannels() error {
 		}
 	}
 
+	if m.config.Channels.Signal.Enabled && m.config.Channels.Signal.PhoneNumber != "" {
+		logger.DebugC("channels", "Attempting to initialize Signal channel")
+		signalCh, err := NewSignalChannel(m.config.Channels.Signal, m.bus)
+		if err != nil {
+			logger.ErrorCF("channels", "Failed to initialize Signal channel", map[string]interface{}{
+				"error": err.Error(),
+			})
+		} else {
+			m.channels["signal"] = signalCh
+			logger.InfoC("channels", "Signal channel enabled successfully")
+		}
+	}
+
 	logger.InfoCF("channels", "Channel initialization completed", map[string]interface{}{
 		"enabled_channels": len(m.channels),
 	})

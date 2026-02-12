@@ -76,6 +76,7 @@ type ChannelsConfig struct {
 	QQ       QQConfig       `json:"qq"`
 	DingTalk DingTalkConfig `json:"dingtalk"`
 	Slack    SlackConfig    `json:"slack"`
+	Signal   SignalConfig   `json:"signal"`
 }
 
 type WhatsAppConfig struct {
@@ -132,6 +133,12 @@ type SlackConfig struct {
 	BotToken  string   `json:"bot_token" env:"PICOCLAW_CHANNELS_SLACK_BOT_TOKEN"`
 	AppToken  string   `json:"app_token" env:"PICOCLAW_CHANNELS_SLACK_APP_TOKEN"`
 	AllowFrom []string `json:"allow_from" env:"PICOCLAW_CHANNELS_SLACK_ALLOW_FROM"`
+}
+
+type SignalConfig struct {
+	Enabled     bool                `json:"enabled" env:"PICOCLAW_CHANNELS_SIGNAL_ENABLED"`
+	PhoneNumber string              `json:"phone_number" env:"PICOCLAW_CHANNELS_SIGNAL_PHONE_NUMBER"`
+	AllowFrom   FlexibleStringSlice `json:"allow_from" env:"PICOCLAW_CHANNELS_SIGNAL_ALLOW_FROM"`
 }
 
 type ProvidersConfig struct {
@@ -227,13 +234,18 @@ func DefaultConfig() *Config {
 				ClientSecret: "",
 				AllowFrom:    FlexibleStringSlice{},
 			},
-			Slack: SlackConfig{
-				Enabled:   false,
-				BotToken:  "",
-				AppToken:  "",
-				AllowFrom: []string{},
-			},
+		Slack: SlackConfig{
+			Enabled:   false,
+			BotToken:  "",
+			AppToken:  "",
+			AllowFrom: []string{},
 		},
+		Signal: SignalConfig{
+			Enabled:     false,
+			PhoneNumber: "",
+			AllowFrom:   FlexibleStringSlice{},
+		},
+	},
 		Providers: ProvidersConfig{
 			Anthropic:  ProviderConfig{},
 			OpenAI:     ProviderConfig{},
