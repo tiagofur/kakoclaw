@@ -118,6 +118,21 @@ make build-all
 make install
 ```
 
+### 📱 Install on Android (Termux)
+
+Run PicoClaw on your Android device!
+
+```bash
+# In Termux (from F-Droid)
+curl -fsSL https://raw.githubusercontent.com/sipeed/picoclaw/main/scripts/install-termux.sh | bash
+
+# Or manually
+git clone https://github.com/sipeed/picoclaw.git
+cd picoclaw && make build && make install
+```
+
+📖 [Complete Android Guide](ANDROID.md) | [Termux Documentation](docs/deployment/termux-android.md)
+
 ### 🚀 Quick Start
 
 > [!TIP]
