@@ -25,6 +25,7 @@ import (
 	"github.com/sipeed/picoclaw/pkg/channels"
 	"github.com/sipeed/picoclaw/pkg/config"
 	"github.com/sipeed/picoclaw/pkg/cron"
+	"github.com/sipeed/picoclaw/pkg/doctor"
 	"github.com/sipeed/picoclaw/pkg/heartbeat"
 	"github.com/sipeed/picoclaw/pkg/logger"
 	"github.com/sipeed/picoclaw/pkg/migrate"
@@ -111,6 +112,8 @@ func main() {
 		migrateCmd()
 	case "auth":
 		authCmd()
+	case "doctor":
+		doctorCmd()
 	case "cron":
 		cronCmd()
 	case "skills":
@@ -179,6 +182,7 @@ func printHelp() {
 	fmt.Println("  onboard     Initialize picoclaw configuration and workspace")
 	fmt.Println("  agent       Interact with the agent directly")
 	fmt.Println("  auth        Manage authentication (login, logout, status)")
+	fmt.Println("  doctor      Run health checks and diagnostics")
 	fmt.Println("  gateway     Start picoclaw gateway")
 	fmt.Println("  status      Show picoclaw status")
 	fmt.Println("  cron        Manage scheduled tasks")
@@ -800,6 +804,21 @@ func statusCmd() {
 				fmt.Printf("  %s (%s): %s\n", provider, cred.AuthMethod, status)
 			}
 		}
+	}
+}
+
+func doctorCmd() {
+	configPath := getConfigPath()
+
+	fmt.Printf("%s PicoClaw Doctor\n", logo)
+	fmt.Println("==================")
+	fmt.Println()
+
+	results := doctor.RunChecks(configPath)
+	doctor.PrintResults(results)
+
+	if doctor.HasErrors(results) {
+		os.Exit(1)
 	}
 }
 
