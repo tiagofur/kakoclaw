@@ -78,6 +78,16 @@ func (c *TelegramChannel) SetTranscriber(transcriber *voice.GroqTranscriber) {
 	c.transcriber = transcriber
 }
 
+// cleanupThinking stops the thinking animation and cleans up resources (issue #36)
+func (c *TelegramChannel) cleanupThinking(chatID string) {
+	if stop, ok := c.stopThinking.Load(chatID); ok {
+		if cf, ok := stop.(*thinkingCancel); ok && cf != nil {
+			cf.Cancel()
+		}
+		c.stopThinking.Delete(chatID)
+	}
+}
+
 func (c *TelegramChannel) Start(ctx context.Context) error {
 	logger.InfoC("telegram", "Starting Telegram bot (polling mode)...")
 
@@ -126,16 +136,13 @@ func (c *TelegramChannel) Send(ctx context.Context, msg bus.OutboundMessage) err
 
 	chatID, err := parseChatID(msg.ChatID)
 	if err != nil {
+		// Clean up thinking animation even on error (issue #36)
+		c.cleanupThinking(msg.ChatID)
 		return fmt.Errorf("invalid chat ID: %w", err)
 	}
 
 	// Stop thinking animation
-	if stop, ok := c.stopThinking.Load(msg.ChatID); ok {
-		if cf, ok := stop.(*thinkingCancel); ok && cf != nil {
-			cf.Cancel()
-		}
-		c.stopThinking.Delete(msg.ChatID)
-	}
+	c.cleanupThinking(msg.ChatID)
 
 	htmlContent := markdownToTelegramHTML(msg.Content)
 
@@ -310,16 +317,13 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, update telego.Updat
 		})
 	}
 
-	// Stop any previous thinking animation
+	// Stop any previous thinking animation (issue #36)
 	chatIDStr := fmt.Sprintf("%d", chatID)
-	if prevStop, ok := c.stopThinking.Load(chatIDStr); ok {
-		if cf, ok := prevStop.(*thinkingCancel); ok && cf != nil {
-			cf.Cancel()
-		}
-	}
+	c.cleanupThinking(chatIDStr)
 
-	// Create new context for thinking animation with timeout
-	thinkCtx, thinkCancel := context.WithTimeout(ctx, 5*time.Minute)
+	// Create new context for thinking animation with shorter timeout (issue #36)
+	// Reduced from 5 minutes to 2 minutes to prevent hanging
+	thinkCtx, thinkCancel := context.WithTimeout(ctx, 2*time.Minute)
 	c.stopThinking.Store(chatIDStr, &thinkingCancel{fn: thinkCancel})
 
 	pMsg, err := c.bot.SendMessage(ctx, tu.Message(tu.ID(chatID), "Thinking... 💭"))
@@ -336,6 +340,18 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, update telego.Updat
 			for {
 				select {
 				case <-thinkCtx.Done():
+					// Context cancelled or timeout - clean up placeholder (issue #36)
+					if thinkCtx.Err() == context.DeadlineExceeded {
+						// Timeout reached, delete placeholder and send error message
+						c.placeholders.Delete(chatIDStr)
+						c.stopThinking.Delete(chatIDStr)
+						_, sendErr := c.bot.SendMessage(context.Background(), tu.Message(tu.ID(chatID), "⏱️ Request timed out. Please try again."))
+						if sendErr != nil {
+							logger.ErrorCF("telegram", "Failed to send timeout message", map[string]interface{}{
+								"error": sendErr.Error(),
+							})
+						}
+					}
 					return
 				case <-ticker.C:
 					i++
@@ -345,6 +361,8 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, update telego.Updat
 						logger.DebugCF("telegram", "Failed to edit thinking message", map[string]interface{}{
 							"error": editErr.Error(),
 						})
+						// If edit fails, stop the animation to prevent spam
+						return
 					}
 				}
 			}
