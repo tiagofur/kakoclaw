@@ -144,6 +144,7 @@ type ProvidersConfig struct {
 	Gemini     ProviderConfig `json:"gemini"`
 	Nvidia     ProviderConfig `json:"nvidia"`
 	Moonshot   ProviderConfig `json:"moonshot"`
+	Ollama     ProviderConfig `json:"ollama"`
 }
 
 type ProviderConfig struct {
@@ -243,6 +244,7 @@ func DefaultConfig() *Config {
 			Gemini:     ProviderConfig{},
 			Nvidia:     ProviderConfig{},
 			Moonshot:   ProviderConfig{},
+			Ollama:     ProviderConfig{},
 		},
 		Gateway: GatewayConfig{
 			Host: "0.0.0.0",
@@ -298,6 +300,7 @@ func parseProviderEnvVars(cfg *Config) {
 		"gemini":     &cfg.Providers.Gemini,
 		"nvidia":     &cfg.Providers.Nvidia,
 		"moonshot":   &cfg.Providers.Moonshot,
+		"ollama":     &cfg.Providers.Ollama,
 	}
 
 	for name, provider := range providers {

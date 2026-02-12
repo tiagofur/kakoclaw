@@ -233,7 +233,7 @@ func CreateProvider(cfg *config.Config) (LLMProvider, error) {
 		actualModel := model[idx+1:]
 		
 		switch explicitProvider {
-		case "openai", "anthropic", "openrouter", "groq", "zhipu", "gemini", "moonshot", "nvidia":
+		case "openai", "anthropic", "openrouter", "groq", "zhipu", "gemini", "moonshot", "nvidia", "ollama":
 			providerName = explicitProvider
 			model = actualModel
 			lowerModel = strings.ToLower(model)
@@ -303,6 +303,13 @@ func CreateProvider(cfg *config.Config) (LLMProvider, error) {
 				apiKey = cfg.Providers.VLLM.APIKey
 				apiBase = cfg.Providers.VLLM.APIBase
 			}
+		case "ollama":
+			// Issue #75: Ollama local LLM support
+			apiBase = cfg.Providers.Ollama.APIBase
+			if apiBase == "" {
+				apiBase = "http://localhost:11434"
+			}
+			return NewOllamaProvider(apiBase), nil
 		}
 	}
 
@@ -385,6 +392,10 @@ func CreateProvider(cfg *config.Config) (LLMProvider, error) {
 			apiBase = cfg.Providers.VLLM.APIBase
 			proxy = cfg.Providers.VLLM.Proxy
 
+		case (strings.Contains(lowerModel, "ollama") || strings.HasPrefix(model, "ollama/")) && cfg.Providers.Ollama.APIBase != "":
+			// Issue #75: Ollama support
+			return NewOllamaProvider(cfg.Providers.Ollama.APIBase), nil
+
 		default:
 			if cfg.Providers.OpenRouter.APIKey != "" {
 				apiKey = cfg.Providers.OpenRouter.APIKey
@@ -418,7 +429,7 @@ func GetProviderForModel(model string) (provider string, actualModel string) {
 	if idx := strings.Index(model, "/"); idx > 0 {
 		explicitProvider := strings.ToLower(model[:idx])
 		switch explicitProvider {
-		case "openai", "anthropic", "openrouter", "groq", "zhipu", "gemini", "moonshot", "nvidia":
+		case "openai", "anthropic", "openrouter", "groq", "zhipu", "gemini", "moonshot", "nvidia", "ollama":
 			return explicitProvider, model[idx+1:]
 		}
 	}
