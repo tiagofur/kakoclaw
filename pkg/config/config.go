@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/caarlos0/env/v11"
@@ -146,10 +147,10 @@ type ProvidersConfig struct {
 }
 
 type ProviderConfig struct {
-	APIKey     string `json:"api_key" env:"PICOCLAW_PROVIDERS_{{.Name}}_API_KEY"`
-	APIBase    string `json:"api_base" env:"PICOCLAW_PROVIDERS_{{.Name}}_API_BASE"`
-	Proxy      string `json:"proxy,omitempty" env:"PICOCLAW_PROVIDERS_{{.Name}}_PROXY"`
-	AuthMethod string `json:"auth_method,omitempty" env:"PICOCLAW_PROVIDERS_{{.Name}}_AUTH_METHOD"`
+	APIKey     string `json:"api_key"`
+	APIBase    string `json:"api_base"`
+	Proxy      string `json:"proxy,omitempty"`
+	AuthMethod string `json:"auth_method,omitempty"`
 }
 
 type GatewayConfig struct {
@@ -277,7 +278,44 @@ func LoadConfig(path string) (*Config, error) {
 		return nil, err
 	}
 
+	// Parse provider environment variables manually (issue #66)
+	// caarlos0/env doesn't support {{.Name}} placeholders
+	parseProviderEnvVars(cfg)
+
 	return cfg, nil
+}
+
+// parseProviderEnvVars manually parses environment variables for providers
+// This fixes issue #66 where {{.Name}} placeholders don't work with caarlos0/env
+func parseProviderEnvVars(cfg *Config) {
+	providers := map[string]*ProviderConfig{
+		"anthropic":  &cfg.Providers.Anthropic,
+		"openai":     &cfg.Providers.OpenAI,
+		"openrouter": &cfg.Providers.OpenRouter,
+		"groq":       &cfg.Providers.Groq,
+		"zhipu":      &cfg.Providers.Zhipu,
+		"vllm":       &cfg.Providers.VLLM,
+		"gemini":     &cfg.Providers.Gemini,
+		"nvidia":     &cfg.Providers.Nvidia,
+		"moonshot":   &cfg.Providers.Moonshot,
+	}
+
+	for name, provider := range providers {
+		prefix := fmt.Sprintf("PICOCLAW_PROVIDERS_%s_", strings.ToUpper(name))
+
+		if apiKey := os.Getenv(prefix + "API_KEY"); apiKey != "" {
+			provider.APIKey = apiKey
+		}
+		if apiBase := os.Getenv(prefix + "API_BASE"); apiBase != "" {
+			provider.APIBase = apiBase
+		}
+		if proxy := os.Getenv(prefix + "PROXY"); proxy != "" {
+			provider.Proxy = proxy
+		}
+		if authMethod := os.Getenv(prefix + "AUTH_METHOD"); authMethod != "" {
+			provider.AuthMethod = authMethod
+		}
+	}
 }
 
 func SaveConfig(path string, cfg *Config) error {
