@@ -1,0 +1,1410 @@
+# Reporte Completo: PicoClaw
+
+## Índice
+1. [¿Qué es PicoClaw?](#qué-es-picoclaw)
+2. [Propósito y Filosofía](#propósito-y-filosofía)
+3. [Características Principales](#características-principales)
+4. [Arquitectura del Sistema](#arquitectura-del-sistema)
+5. [Funcionalidades Detalladas](#funcionalidades-detalladas)
+6. [Estructura del Código](#estructura-del-código)
+7. [Herramientas Disponibles](#herramientas-disponibles)
+8. [Canales de Comunicación](#canales-de-comunicación)
+9. [Proveedores de LLM](#proveedores-de-llm)
+10. [Sistema de Skills](#sistema-de-skills)
+11. [Posibles Mejoras](#posibles-mejoras)
+12. [Nuevas Features Sugeridas](#nuevas-features-sugeridas)
+13. [Optimizaciones de Código](#optimizaciones-de-código)
+
+---
+
+## ¿Qué es PicoClaw?
+
+**PicoClaw** es un asistente personal de IA ultraligero escrito en Go, inspirado en [nanobot](https://github.com/HKUDS/nanobot). Es una refactorización completa desde cero donde el propio agente de IA impulsó toda la migración arquitectónica y optimización de código.
+
+### Estadísticas del Proyecto
+- **Lenguaje**: Go (56 archivos, ~13,600 líneas de código)
+- **Versión**: 0.1.0
+- **Licencia**: MIT
+- **Memoria**: <10MB RAM
+- **Tiempo de arranque**: <1 segundo
+- **Hardware mínimo**: $10 (placas Linux de bajo costo)
+
+---
+
+## Propósito y Filosofía
+
+### Objetivo Principal
+Proveer un asistente de IA eficiente que pueda ejecutarse en hardware mínimo, haciendo la inteligencia artificial accesible para todos, independientemente de sus recursos computacionales.
+
+### Filosofía de Diseño
+1. **Simplicidad sobre complejidad**: Código limpio y mantenible
+2. **Rendimiento sobre features**: Priorizar velocidad y eficiencia
+3. **Control y privacidad del usuario**: Datos locales, código abierto
+4. **Operación transparente**: El usuario siempre sabe qué está haciendo
+5. **Desarrollo impulsado por la comunidad**: Código abierto y colaborativo
+
+### Comparativa con Otras Soluciones
+
+| Característica | OpenClaw | NanoBot | **PicoClaw** |
+|---------------|----------|---------|--------------|
+| **Lenguaje** | TypeScript | Python | **Go** |
+| **RAM** | >1GB | >100MB | **<10MB** |
+| **Arranque** (0.8GHz) | >500s | >30s | **<1s** |
+| **Costo Hardware** | Mac Mini $599 | Linux SBC ~$50 | **Cualquier Linux $10** |
+
+---
+
+## Características Principales
+
+### 🪶 Ultra-Ligero
+- **<10MB** de memoria RAM
+- **99%** más pequeño que Clawdbot
+- Binary único autocontenido
+
+### 💰 Costo Mínimo
+- Corre en hardware de **$10**
+- **98%** más barato que Mac Mini
+- Sin dependencias externas pesadas
+
+### ⚡️ Velocidad
+- Arranque en **1 segundo** incluso en CPU de 0.6GHz
+- **400x** más rápido que alternativas
+- Respuestas instantáneas
+
+### 🌍 Portabilidad Real
+- Binary único para RISC-V, ARM y x86
+- Una compilación, cualquier plataforma
+- Compatibilidad cross-platform
+
+### 🤖 Bootstrapping con IA
+- **95%** del core generado por agentes
+- Refinamiento human-in-the-loop
+- Implementación nativa en Go
+
+---
+
+## Arquitectura del Sistema
+
+### Diagrama de Componentes
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        PicoClaw                              │
+├─────────────────────────────────────────────────────────────┤
+│  CLI (cmd/picoclaw/main.go)                                 │
+│  ├── onboard                                                │
+│  ├── agent (modo interactivo/directo)                      │
+│  ├── gateway (servidor multi-canal)                        │
+│  ├── cron (tareas programadas)                             │
+│  ├── skills (gestión de habilidades)                       │
+│  ├── auth (autenticación OAuth)                            │
+│  ├── status                                                │
+│  └── migrate (migración desde OpenClaw)                    │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      Core Packages                          │
+├─────────────────────────────────────────────────────────────┤
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
+│  │   Agent      │  │   Config     │  │   Providers  │      │
+│  │  (agent/)    │  │  (config/)   │  │ (providers/) │      │
+│  └──────────────┘  └──────────────┘  └──────────────┘      │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
+│  │   Tools      │  │   Channels   │  │    Bus       │      │
+│  │  (tools/)    │  │ (channels/)  │  │   (bus/)     │      │
+│  └──────────────┘  └──────────────┘  └──────────────┘      │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
+│  │   Skills     │  │   Session    │  │    Cron      │      │
+│  │  (skills/)   │  │ (session/)   │  │  (cron/)     │      │
+│  └──────────────┘  └──────────────┘  └──────────────┘      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Flujo de Datos
+
+```
+Usuario → Canal (Telegram/Discord/etc) → MessageBus → Agent Loop → LLM Provider
+                                              ↓
+                                         Tool Registry
+                                              ↓
+                              [Web Search] [File Ops] [Shell] [Subagent]
+                                              ↓
+                                    Respuesta → Canal → Usuario
+```
+
+---
+
+## Funcionalidades Detalladas
+
+### 1. Modo Agente (CLI)
+
+#### Modo Directo
+```bash
+picoclaw agent -m "¿Qué es 2+2?"
+```
+
+#### Modo Interactivo
+```bash
+picoclaw agent
+# Inicia chat interactivo con readline (historial, edición)
+```
+
+#### Características:
+- Historial de comandos (100 líneas)
+- Soporte para sesiones múltiples (`-s session_name`)
+- Modo debug (`--debug`)
+- Respuestas formateadas
+
+### 2. Gateway Multi-Canal
+
+Inicia un servidor que escucha múltiples canales simultáneamente:
+
+```bash
+picoclaw gateway
+```
+
+Servicios que se inician:
+- **Cron Service**: Ejecución de tareas programadas
+- **Heartbeat Service**: Monitoreo de estado
+- **Channel Manager**: Gestión de canales habilitados
+- **Agent Loop**: Procesamiento de mensajes
+
+### 3. Sistema de Autenticación
+
+Soporta OAuth y tokens:
+
+```bash
+# Login con OAuth (flujo de navegador)
+picoclaw auth login --provider openai
+
+# Login con device code (headless)
+picoclaw auth login --provider openai --device-code
+
+# Login con token manual
+picoclaw auth login --provider anthropic
+
+# Ver estado
+picoclaw auth status
+
+# Logout
+picoclaw auth logout --provider openai
+```
+
+### 4. Tareas Programadas (Cron)
+
+```bash
+# Listar trabajos
+picoclaw cron list
+
+# Agregar trabajo recurrente
+picoclaw cron add -n "recordatorio" -m "Revisar emails" -e 3600
+
+# Agregar con expresión cron
+picoclaw cron add -n "daily" -m "Backup" -c "0 9 * * *"
+
+# Eliminar trabajo
+picoclaw cron remove <job_id>
+
+# Habilitar/Deshabilitar
+picoclaw cron enable <job_id>
+picoclaw cron disable <job_id>
+```
+
+### 5. Gestión de Skills
+
+```bash
+# Listar skills instalados
+picoclaw skills list
+
+# Instalar skill desde GitHub
+picoclaw skills install sipeed/picoclaw-skills/weather
+
+# Buscar skills disponibles
+picoclaw skills search
+
+# Ver detalles
+picoclaw skills show weather
+
+# Eliminar skill
+picoclaw skills remove weather
+
+# Instalar skills built-in
+picoclaw skills install-builtin
+picoclaw skills list-builtin
+```
+
+### 6. Migración desde OpenClaw
+
+```bash
+# Migración completa
+picoclaw migrate
+
+# Solo configuración
+picoclaw migrate --config-only
+
+# Solo workspace
+picoclaw migrate --workspace-only
+
+# Simulación (sin cambios)
+picoclaw migrate --dry-run
+
+# Forzar sin confirmación
+picoclaw migrate --force
+
+# Sincronizar nuevamente
+picoclaw migrate --refresh
+```
+
+---
+
+## Estructura del Código
+
+### Organización de Paquetes
+
+```
+pkg/
+├── agent/           # Core del agente y loop principal
+│   ├── loop.go      # Lógica principal del agente
+│   ├── context.go   # Builder de contexto
+│   └── memory.go    # Gestión de memoria
+├── auth/            # Autenticación OAuth y tokens
+│   ├── oauth.go     # Flujos OAuth
+│   ├── pkce.go      # PKCE para OAuth
+│   ├── token.go     # Gestión de tokens
+│   └── store.go     # Almacenamiento de credenciales
+├── bus/             # Message bus interno
+│   ├── bus.go       # Implementación del bus
+│   └── types.go     # Tipos de mensajes
+├── channels/        # Integraciones con mensajería
+│   ├── telegram.go  # Bot de Telegram
+│   ├── discord.go   # Bot de Discord
+│   ├── slack.go     # Integración Slack
+│   ├── whatsapp.go  # WhatsApp bridge
+│   ├── feishu.go    # Feishu/Lark
+│   ├── dingtalk.go  # DingTalk
+│   ├── qq.go        # QQ
+│   ├── maixcam.go   # MaixCAM
+│   ├── manager.go   # Gestor de canales
+│   └── base.go      # Interfaces base
+├── config/          # Configuración
+│   └── config.go    # Estructura y carga de config
+├── cron/            # Tareas programadas
+│   └── service.go   # Servicio cron
+├── heartbeat/       # Monitoreo
+│   └── service.go   # Heartbeat
+├── logger/          # Logging estructurado
+│   └── logger.go    # Logger con campos
+├── migrate/         # Migración OpenClaw
+│   ├── migrate.go   # Lógica de migración
+│   ├── config.go    # Migración de config
+│   └── workspace.go # Migración de workspace
+├── providers/       # Proveedores de LLM
+│   ├── types.go     # Interfaces comunes
+│   ├── http_provider.go  # Provider HTTP genérico
+│   ├── claude_provider.go   # Anthropic Claude
+│   └── codex_provider.go    # OpenAI Codex
+├── session/         # Gestión de sesiones
+│   └── manager.go   # Manager de sesiones
+├── skills/          # Sistema de skills
+│   ├── loader.go    # Carga de skills
+│   └── installer.go # Instalación de skills
+├── tools/           # Herramientas del agente
+│   ├── base.go      # Interface de tool
+│   ├── registry.go  # Registro de tools
+│   ├── filesystem.go # Operaciones de archivo
+│   ├── edit.go      # Edición de archivos
+│   ├── shell.go     # Ejecución shell
+│   ├── web.go       # Búsqueda web
+│   ├── message.go   # Envío de mensajes
+│   ├── subagent.go  # Subagentes
+│   ├── spawn.go     # Spawning de tareas
+│   └── cron.go      # Tool de cron
+├── utils/           # Utilidades
+│   ├── string.go    # Utilidades de strings
+│   └── media.go     # Procesamiento de media
+└── voice/           # Transcripción de voz
+    └── transcriber.go # Transcripción Groq
+```
+
+### Estructura del Workspace
+
+```
+~/.picoclaw/
+├── config.json          # Configuración principal
+├── workspace/
+│   ├── sessions/        # Historial de conversaciones
+│   ├── memory/          # Memoria a largo plazo
+│   │   └── MEMORY.md
+│   ├── cron/            # Base de datos de tareas
+│   ├── skills/          # Skills personalizados
+│   ├── AGENTS.md        # Instrucciones del agente
+│   ├── IDENTITY.md      # Identidad del agente
+│   ├── SOUL.md          # Alma/personalidad
+│   ├── TOOLS.md         # Descripción de tools
+│   └── USER.md          # Preferencias del usuario
+└── auth.json            # Credenciales OAuth
+```
+
+---
+
+## Herramientas Disponibles
+
+### 1. Operaciones de Archivos
+
+#### `read_file`
+Lee contenido de archivos con soporte para offsets y límites.
+
+**Parámetros:**
+- `file_path`: Ruta del archivo
+- `offset`: Línea inicial (opcional)
+- `limit`: Número de líneas (opcional)
+
+**Seguridad:** Puede restringirse al workspace.
+
+#### `write_file`
+Escribe contenido en archivos.
+
+**Parámetros:**
+- `file_path`: Ruta del archivo
+- `content`: Contenido a escribir
+
+#### `append_file`
+Agrega contenido al final de archivos.
+
+#### `list_dir`
+Lista directorios con información detallada.
+
+**Parámetros:**
+- `path`: Ruta del directorio
+- `recursive`: Listado recursivo
+
+#### `edit_file`
+Edición precisa de archivos con búsqueda/reemplazo.
+
+**Características:**
+- Búsqueda por string exacto
+- Preserva indentación
+- Soporte para múltiples reemplazos
+- Verificación de cambios
+
+### 2. Ejecución Shell
+
+#### `exec`
+Ejecuta comandos shell.
+
+**Parámetros:**
+- `command`: Comando a ejecutar
+- `timeout`: Timeout en segundos (opcional)
+
+**Seguridad:** Puede restringirse al workspace.
+
+### 3. Web y Búsqueda
+
+#### `web_search`
+Búsqueda web usando Brave Search API.
+
+**Parámetros:**
+- `query`: Término de búsqueda
+
+**Nota:** Requiere API key de Brave (2000 consultas/mes gratis).
+
+#### `web_fetch`
+Obtiene contenido de URLs.
+
+**Parámetros:**
+- `url`: URL a obtener
+- `format`: Formato de salida (markdown, text, html)
+- `max_length`: Longitud máxima del contenido
+
+### 4. Comunicación
+
+#### `message`
+Envía mensajes a través de canales.
+
+**Parámetros:**
+- `content`: Contenido del mensaje
+- `channel`: Canal destino (opcional)
+- `to`: Destinatario (opcional)
+
+### 5. Subagentes
+
+#### `spawn`
+Crea subagentes para tareas paralelas.
+
+**Casos de uso:**
+- Procesamiento concurrente
+- Tareas en segundo plano
+- Múltiples contextos
+
+### 6. Tareas Programadas
+
+#### `schedule`
+Programa tareas recurrentes.
+
+**Soporta:**
+- Intervalos ("every 10 minutes")
+- Expresiones cron ("0 9 * * *")
+- Recordatorios one-time
+
+---
+
+## Canales de Comunicación
+
+### 1. Telegram (Recomendado)
+- **Setup**: Fácil (solo token)
+- **Features**: Mensajes de texto, voz (con Groq), imágenes
+- **Costo**: Gratis
+
+### 2. Discord
+- **Setup**: Fácil (bot token + intents)
+- **Features**: Mensajes en canales, DMs, threads
+- **Costo**: Gratis
+
+### 3. Slack
+- **Setup**: Medio (bot token + app token)
+- **Features**: Mensajes, threads, reacciones
+- **Costo**: Gratis (con limitaciones)
+
+### 4. QQ
+- **Setup**: Fácil (AppID + AppSecret)
+- **Features**: Mensajes grupales y privados
+- **Costo**: Gratis
+
+### 5. DingTalk
+- **Setup**: Medio (credenciales de app)
+- **Features**: Mensajes organizacionales
+- **Costo**: Gratis
+
+### 6. WhatsApp
+- **Setup**: Complejo (requiere bridge)
+- **Features**: Mensajes de texto
+- **Costo**: Gratis (con bridge local)
+
+### 7. Feishu/Lark
+- **Setup**: Medio (app credentials)
+- **Features**: Mensajes empresariales
+- **Costo**: Gratis
+
+### 8. MaixCAM
+- **Setup**: Integración con hardware
+- **Features**: Comunicación con dispositivos MaixCAM
+- **Costo**: Hardware requerido
+
+---
+
+## Proveedores de LLM
+
+### Soportados Actualmente
+
+| Proveedor | Tipo | Transcripción Voz | Obtener API Key |
+|-----------|------|-------------------|-----------------|
+| **OpenRouter** | Múltiples modelos | ❌ | [openrouter.ai](https://openrouter.ai/keys) |
+| **Zhipu** | GLM-4, etc. | ❌ | [bigmodel.cn](https://bigmodel.cn) |
+| **Anthropic** | Claude | ❌ | [console.anthropic.com](https://console.anthropic.com) |
+| **OpenAI** | GPT-4, etc. | ❌ | [platform.openai.com](https://platform.openai.com) |
+| **Gemini** | Google | ❌ | [aistudio.google.com](https://aistudio.google.com) |
+| **DeepSeek** | DeepSeek | ❌ | [platform.deepseek.com](https://platform.deepseek.com) |
+| **Groq** | Llama, Mixtral | ✅ Whisper | [console.groq.com](https://console.groq.com) |
+| **vLLM** | Local | ❌ | Auto-hospedado |
+| **Nvidia** | NVIDIA models | ❌ | [build.nvidia.com](https://build.nvidia.com) |
+| **Moonshot** | Kimi | ❌ | [platform.moonshot.cn](https://platform.moonshot.cn) |
+
+### Características de Configuración
+
+```json
+{
+  "providers": {
+    "openrouter": {
+      "api_key": "sk-or-v1-xxx",
+      "api_base": "https://openrouter.ai/api/v1"
+    },
+    "groq": {
+      "api_key": "gsk_xxx",
+      "api_base": ""
+    }
+  }
+}
+```
+
+### Autenticación
+
+- **API Key**: Directa en configuración
+- **OAuth**: Flujo de navegador para OpenAI
+- **Device Code**: Para entornos headless
+- **Token Manual**: Para Anthropic
+
+---
+
+## Sistema de Skills
+
+### ¿Qué son los Skills?
+
+Los skills son extensiones de conocimiento que guían al agente para tareas específicas. Son archivos markdown con metadatos YAML.
+
+### Estructura de un Skill
+
+```markdown
+---
+name: weather
+description: Get current weather and forecasts
+homepage: https://wttr.in/:help
+metadata: {"requires":{"bins":["curl"]}}
+---
+
+# Weather Skill
+
+Instrucciones detalladas aquí...
+```
+
+### Skills Built-in Disponibles
+
+| Skill | Descripción | Requisitos |
+|-------|-------------|------------|
+| **weather** | Clima y pronósticos | curl |
+| **github** | Interacción con GitHub | gh CLI |
+| **tmux** | Gestión de sesiones tmux | tmux |
+| **summarize** | Resumen de contenido | - |
+| **skill-creator** | Crear nuevos skills | - |
+
+### Instalación de Skills
+
+**Desde GitHub:**
+```bash
+picoclaw skills install usuario/repo/skill-name
+```
+
+**Instalación local:**
+- Copiar a `~/.picoclaw/workspace/skills/`
+
+**Estructura:**
+```
+skills/
+└── skill-name/
+    └── SKILL.md
+```
+
+### Uso en el Agente
+
+El agente automáticamente:
+1. Carga todos los skills disponibles
+2. Los incluye en el contexto del sistema
+3. Sigue las instrucciones según la solicitud del usuario
+
+---
+
+## Posibles Mejoras
+
+### 1. Performance
+
+#### A. Compresión de Contexto
+- **Problema**: Ventanas de contexto grandes consumen tokens
+- **Solución**: Implementar compresión inteligente de historial
+- **Implementación**: 
+  ```go
+  // Agregar compresión en context.go
+  func (cb *ContextBuilder) CompressHistory(messages []Message) []Message
+  ```
+
+#### B. Caché de Respuestas
+- **Problema**: Consultas repetidas consumen API calls
+- **Solución**: Caché local con hash de consulta
+- **Beneficio**: Reducción de costos y latencia
+
+#### C. Lazy Loading de Skills
+- **Problema**: Todos los skills se cargan al inicio
+- **Solución**: Cargar solo cuando se detecte intención relacionada
+- **Implementación**: Sistema de intenciones/keywords
+
+### 2. Seguridad
+
+#### A. Sandboxing de Shell
+- **Problema**: Comandos shell tienen acceso completo
+- **Solución**: 
+  - Whitelist de comandos permitidos
+  - Ejecución en contenedores (docker/podman)
+  - Chroot para operaciones de filesystem
+
+#### B. Rate Limiting
+- **Problema**: Sin límites en consumo de API
+- **Solución**:
+  ```go
+  type RateLimiter struct {
+      requests map[string][]time.Time
+      limits   map[string]int // por minuto
+  }
+  ```
+
+#### C. Sanitización de Inputs
+- **Mejorar validación de todos los inputs del usuario
+- Prevenir prompt injection attacks
+- Validar paths de archivo para directory traversal
+
+### 3. UX/UI
+
+#### A. Web Dashboard
+- **Feature**: Panel web para configuración y monitoreo
+- **Tecnología**: Go templates + HTMX o React
+- **Funciones**:
+  - Ver y editar configuración
+  - Monitorear sesiones en tiempo real
+  - Visualizar logs
+  - Gestionar skills
+
+#### B. Mejor CLI Experience
+- **Spinner**: Mostrar progreso durante operaciones largas
+- **Colores**: Mejorar output con colores y formatting
+- **Autocompletion**: Completions para bash/zsh/fish
+- **Sugerencias**: "Did you mean?" para comandos incorrectos
+
+#### C. Notificaciones Nativas
+- Soporte para notificaciones del sistema operativo
+- Integración con `notify-send` (Linux), `osascript` (macOS), `toast` (Windows)
+
+### 4. Testing
+
+#### A. Test Coverage
+- **Actual**: Mínimos tests existentes
+- **Meta**: >80% coverage
+- **Prioridad**:
+  1. `pkg/tools/` - Herramientas críticas
+  2. `pkg/providers/` - LLM providers
+  3. `pkg/agent/` - Core del agente
+  4. `pkg/channels/` - Integraciones
+
+#### B. Tests de Integración
+- Tests end-to-end para cada canal
+- Mock servers para providers de LLM
+- Tests de migración
+
+#### C. Benchmarks
+- Benchmarks de performance para:
+  - Inicio del agente
+  - Procesamiento de mensajes
+  - Ejecución de tools
+  - Uso de memoria
+
+### 5. Documentación
+
+#### A. Documentación de API
+- Documentar todas las interfaces internas
+- Generar docs con `godoc`
+- Ejemplos de uso para cada paquete
+
+#### B. Guías de Desarrollo
+- Cómo crear un nuevo provider
+- Cómo crear un nuevo canal
+- Cómo crear un nuevo tool
+- Cómo crear un skill
+
+#### C. Documentación de Arquitectura
+- Diagramas de flujo detallados
+- Decisiones de diseño documentadas (ADRs)
+- Guía de contribución
+
+### 6. DevOps
+
+#### A. CI/CD Pipeline
+```yaml
+# .github/workflows/ci.yml
+name: CI
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+      - run: make test
+      - run: make lint
+      - run: make build-all
+```
+
+#### B. Releases Automatizados
+- Versionado semántico automático
+- Changelog generado automáticamente
+- Binarios pre-compilados para todas las plataformas
+- Docker images multi-arch
+
+#### C. Monitoreo
+- Métricas de uso (Prometheus)
+- Health checks
+- Alertas para errores críticos
+
+### 7. Extensiones Core
+
+#### A. Multi-Agent Sistema
+- **Feature**: Múltiples agentes especializados
+- **Ejemplo**: 
+  - Agent de código
+  - Agent de investigación  
+  - Agent de comunicación
+- **Implementación**: Orquestador que delega según intención
+
+#### B. Memoria Vectorial
+- **Problema**: Búsqueda en memoria es lineal
+- **Solución**: Embeddings + vector DB (sqlite-vec, qdrant)
+- **Beneficio**: Recuperación semántica de información
+
+#### C. Plugin System
+- **Feature**: Plugins compilados o WASM
+- **Ventaja**: Extensiones sin modificar core
+- **Seguridad**: WASM sandboxed
+
+---
+
+## Nuevas Features Sugeridas
+
+### 1. Integraciones de Terceros
+
+#### A. Control de Versiones
+- **Git Tool**: Operaciones git avanzadas
+  ```go
+  type GitTool struct {
+      workspace string
+  }
+  // git_log, git_diff, git_blame, git_branch, etc.
+  ```
+
+#### B. Gestión de Proyectos
+- **Integración con**:
+  - GitHub Issues/Projects
+  - Jira
+  - Trello
+  - Linear
+  - Notion
+
+#### C. Cloud Providers
+- **AWS**: CLI integrado, logs CloudWatch
+- **GCP**: Operaciones gcloud
+- **Azure**: Comandos az
+
+#### D. Bases de Datos
+- **SQL Tool**: Ejecutar queries SQL
+  ```go
+  type SQLTool struct {
+      connections map[string]*sql.DB
+  }
+  ```
+- Soporta: PostgreSQL, MySQL, SQLite
+
+### 2. Capacidades de IA Avanzadas
+
+#### A. Image Understanding
+- **Feature**: Análisis de imágenes
+- **Implementación**: Integración con GPT-4V, Gemini Pro Vision
+- **Uso**: 
+  ```
+  Usuario: [imagen]
+  Agente: Analiza la imagen y describe el contenido
+  ```
+
+#### B. Generación de Imágenes
+- **Feature**: Crear imágenes desde descripción
+- **Integración**: DALL-E, Midjourney API, Stable Diffusion
+- **Comando**: `/imagen un paisaje montañoso al atardecer`
+
+#### C. Text-to-Speech
+- **Feature**: Respuestas habladas
+- **Implementación**: Integración con ElevenLabs, Coqui TTS
+- **Configuración**: 
+  ```json
+  "voice": {
+    "enabled": true,
+    "provider": "elevenlabs",
+    "voice_id": "xxx"
+  }
+  ```
+
+#### D. Code Execution Seguro
+- **Feature**: Ejecutar código en sandbox
+- **Implementación**: Firecracker microVMs o gVisor
+- **Soporta**: Python, JavaScript, Go, Rust
+
+### 3. Automatización Avanzada
+
+#### A. Workflow Engine
+- **Feature**: Flujos de trabajo definidos por el usuario
+- **Formato**: YAML o JSON
+- **Ejemplo**:
+  ```yaml
+  workflows:
+    daily_report:
+      trigger: cron("0 9 * * *")
+      steps:
+        - web_search: "noticias tech"
+        - summarize: "Crear resumen"
+        - send_email: "destinatario@email.com"
+  ```
+
+#### B. Conditional Logic
+- **Feature**: Respuestas condicionales basadas en contexto
+- **Ejemplo**:
+  ```go
+  if session.TimeSinceLastMessage() > 24*time.Hour {
+      response += "¡Hola de nuevo! Han pasado 24h desde la última vez."
+  }
+  ```
+
+#### C. Event Triggers
+- **Triggers**:
+  - Cambios en archivos (fsnotify)
+  - Webhooks HTTP
+  - Eventos de calendario
+  - Notificaciones del sistema
+
+### 4. Mejoras en Conversación
+
+#### A. Contexto Multi-Sesión
+- **Feature**: Compartir contexto entre sesiones
+- **Implementación**: Memoria global del usuario
+- **Uso**: Recordar preferencias entre diferentes chats
+
+#### B. Personalidad Configurable
+- **Archivo**: `PERSONALITY.md` en workspace
+- **Configuración**:
+  ```markdown
+  ## Personalidad
+  - Estilo: Formal/Casual/Profesional
+  - Tono: Amigable/Directo/Sarcástico
+  - Largo de respuesta: Conciso/Detallado
+  ```
+
+#### C. Proactive Suggestions
+- **Feature**: Sugerencias proactivas basadas en contexto
+- **Ejemplo**: Detectar que usuario está trabajando en proyecto X y sugerir comandos útiles
+
+### 5. Herramientas de Productividad
+
+#### A. Note Taking
+- **Feature**: Tomar notas rápidas
+- **Comandos**:
+  ```
+  /note Reunión con Juan sobre proyecto X
+  /notes list
+  /notes search "proyecto X"
+  ```
+
+#### B. Task Management
+- **Integración**: Con todo.txt o tasks.json
+- **Features**:
+  - Crear tareas
+  - Establecer prioridades
+  - Fechas límite
+  - Proyectos/contextos
+
+#### C. Time Tracking
+- **Feature**: Seguimiento de tiempo
+- **Comandos**:
+  ```
+  /timer start "Trabajando en feature Y"
+  /timer stop
+  /timer report --week
+  ```
+
+### 6. Capacidades Colaborativas
+
+#### A. Shared Workspaces
+- **Feature**: Espacios de trabajo compartidos entre usuarios
+- **Uso**: Equipos que comparten contexto y memoria
+
+#### B. Threaded Conversations
+- **Mejora**: Soporte completo para threads en Discord/Slack
+- **Beneficio**: Mejor organización de conversaciones largas
+
+#### C. Mention System
+- **Feature**: Mencionar al agente en canales grupales
+- **Implementación**: @picoclaw comando aquí
+
+### 7. Capacidades Offline
+
+#### A. Local LLM Support
+- **Feature**: Soporte mejorado para LLMs locales
+- **Opciones**:
+  - Ollama integration
+  - llama.cpp
+  - LocalAI
+  - text-generation-webui
+
+#### B. Offline Mode
+- **Feature**: Funcionar sin conexión para tareas básicas
+- **Capacidades**:
+  - Historial local
+  - Búsqueda en archivos locales
+  - Ejecución de comandos
+  - Skills que no requieren internet
+
+#### C. Sync When Online
+- **Feature**: Sincronizar cuando hay conexión
+- **Implementación**: Cola de operaciones pendientes
+
+### 8. Mejoras en Búsqueda
+
+#### A. Multi-Search Provider
+- **Soportar**:
+  - Brave (actual)
+  - SearXNG (self-hosted)
+  - DuckDuckGo
+  - Google Custom Search
+  - Bing Search API
+
+#### B. Search Aggregation
+- **Feature**: Agregar resultados de múltiples fuentes
+- **Ranking**: Score combinado de múltiples motores
+
+#### C. Search History
+- **Feature**: Historial de búsquedas con respuestas cacheadas
+- **Beneficio**: Respuestas instantáneas para consultas repetidas
+
+### 9. Internacionalización
+
+#### A. Multi-language Support
+- **Feature**: Soporte para múltiples idiomas
+- **Implementación**:
+  - i18n para mensajes del sistema
+  - Detección automática de idioma
+  - Skills traducidos
+
+#### B. RTL Support
+- **Feature**: Soporte para idiomas RTL (árabe, hebreo)
+- **Implementación**: CSS/logica de rendering RTL
+
+### 10. Mobile Experience
+
+#### A. Mobile App
+- **Feature**: App móvil nativa o PWA
+- **Plataformas**: iOS, Android
+- **Features**:
+  - Push notifications
+  - Widgets
+  - Quick actions
+
+#### B. SMS Integration
+- **Feature**: Interactuar vía SMS
+- **Implementación**: Twilio o similar
+
+---
+
+## Optimizaciones de Código
+
+### 1. Refactoring Sugerido
+
+#### A. Separar Responsabilidades
+**Problema actual**: `pkg/agent/loop.go` es muy grande (636 líneas)
+
+**Solución**:
+```
+pkg/agent/
+├── loop.go              # Solo orquestación
+├── iteration.go         # Lógica de iteración LLM
+├── summarization.go     # Lógica de resumen
+├── context_builder.go   # Construcción de contexto
+└── state.go            # Gestión de estado
+```
+
+#### B. Interfaces Más Pequeñas
+**Principio**: Interface Segregation
+
+**Ejemplo**:
+```go
+// En lugar de una interfaz grande
+type Tool interface {
+    Name() string
+    Description() string
+    Parameters() map[string]interface{}
+    Execute(ctx context.Context, args map[string]interface{}) (string, error)
+    Validate(args map[string]interface{}) error
+    Cleanup() error
+    // ... más métodos
+}
+
+// Separar en interfaces especializadas
+type Tool interface {
+    Name() string
+    Description() string
+    Execute(ctx context.Context, args map[string]interface{}) (string, error)
+}
+
+type ValidatableTool interface {
+    Tool
+    Validate(args map[string]interface{}) error
+}
+
+type CleanableTool interface {
+    Tool
+    Cleanup() error
+}
+```
+
+### 2. Mejoras de Performance
+
+#### A. Pool de Conexiones HTTP
+**Actual**: Nueva conexión por cada request
+
+**Mejora**:
+```go
+var httpClient = &http.Client{
+    Transport: &http.Transport{
+        MaxIdleConns:        100,
+        MaxIdleConnsPerHost: 100,
+        IdleConnTimeout:     90 * time.Second,
+    },
+    Timeout: 30 * time.Second,
+}
+```
+
+#### B. Concurrent Tool Execution
+**Actual**: Tools se ejecutan secuencialmente
+
+**Mejora**:
+```go
+func (r *ToolRegistry) ExecuteParallel(ctx context.Context, calls []ToolCall) []Result {
+    var wg sync.WaitGroup
+    results := make([]Result, len(calls))
+    
+    for i, call := range calls {
+        wg.Add(1)
+        go func(idx int, tc ToolCall) {
+            defer wg.Done()
+            result, err := r.Execute(ctx, tc.Name, tc.Arguments)
+            results[idx] = Result{Result: result, Error: err}
+        }(i, call)
+    }
+    
+    wg.Wait()
+    return results
+}
+```
+
+#### C. Context Cancellation
+**Mejora**: Mejor manejo de cancelación
+
+```go
+func (al *AgentLoop) runAgentLoop(ctx context.Context, opts processOptions) (string, error) {
+    ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+    defer cancel()
+    
+    // Ahora todas las operaciones respetan el timeout
+}
+```
+
+### 3. Manejo de Errores
+
+#### A. Errores Tipados
+**Implementación**:
+```go
+var (
+    ErrToolNotFound = errors.New("tool not found")
+    ErrInvalidArgs  = errors.New("invalid arguments")
+    ErrTimeout      = errors.New("operation timed out")
+    ErrProviderDown = errors.New("LLM provider unavailable")
+)
+
+type ToolError struct {
+    Tool    string
+    Wrapped error
+}
+
+func (e *ToolError) Error() string {
+    return fmt.Sprintf("tool %s failed: %v", e.Tool, e.Wrapped)
+}
+
+func (e *ToolError) Unwrap() error {
+    return e.Wrapped
+}
+```
+
+#### B. Retry Logic
+**Implementación**:
+```go
+func withRetry(ctx context.Context, maxRetries int, fn func() error) error {
+    var err error
+    for i := 0; i < maxRetries; i++ {
+        if err = fn(); err == nil {
+            return nil
+        }
+        
+        if !isRetryable(err) {
+            return err
+        }
+        
+        backoff := time.Duration(i*i) * time.Second
+        select {
+        case <-ctx.Done():
+            return ctx.Err()
+        case <-time.After(backoff):
+            continue
+        }
+    }
+    return fmt.Errorf("failed after %d retries: %w", maxRetries, err)
+}
+```
+
+### 4. Logging Mejorado
+
+#### A. Structured Logging Consistente
+**Actual**: Mezcla de log styles
+
+**Mejora**:
+```go
+type Logger interface {
+    Debug(msg string, fields ...Field)
+    Info(msg string, fields ...Field)
+    Warn(msg string, fields ...Field)
+    Error(msg string, fields ...Field)
+    Fatal(msg string, fields ...Field)
+}
+
+type Field struct {
+    Key   string
+    Value interface{}
+}
+
+// Uso
+logger.Info("message processed",
+    Field{"channel", msg.Channel},
+    Field{"duration_ms", duration.Milliseconds()},
+    Field{"session_id", sessionID},
+)
+```
+
+#### B. Log Levels Configurables por Componente
+```json
+{
+  "logging": {
+    "default": "info",
+    "components": {
+      "agent": "debug",
+      "tools": "warn",
+      "channels": "info"
+    }
+  }
+}
+```
+
+### 5. Configuración
+
+#### A. Validación de Config
+**Implementación**:
+```go
+func (c *Config) Validate() error {
+    var errs []error
+    
+    if c.Agents.Defaults.Model == "" {
+        errs = append(errs, errors.New("model is required"))
+    }
+    
+    if c.Providers.GetAPIKey() == "" {
+        errs = append(errs, errors.New("at least one provider API key is required"))
+    }
+    
+    if len(errs) > 0 {
+        return &ValidationError{Errors: errs}
+    }
+    return nil
+}
+```
+
+#### B. Hot Reload
+**Feature**: Recargar config sin reiniciar
+
+```go
+func (c *Config) Watch(path string) {
+    watcher, _ := fsnotify.NewWatcher()
+    watcher.Add(path)
+    
+    go func() {
+        for event := range watcher.Events {
+            if event.Op&fsnotify.Write == fsnotify.Write {
+                c.Reload(path)
+            }
+        }
+    }()
+}
+```
+
+### 6. Testing
+
+#### A. Table-Driven Tests
+**Ejemplo**:
+```go
+func TestToolRegistry_Execute(t *testing.T) {
+    tests := []struct {
+        name        string
+        toolName    string
+        args        map[string]interface{}
+        wantResult  string
+        wantErr     bool
+        errContains string
+    }{
+        {
+            name:       "read existing file",
+            toolName:   "read_file",
+            args:       map[string]interface{}{"file_path": "/tmp/test.txt"},
+            wantResult: "content",
+            wantErr:    false,
+        },
+        {
+            name:        "tool not found",
+            toolName:    "nonexistent",
+            args:        map[string]interface{}{},
+            wantErr:     true,
+            errContains: "not found",
+        },
+    }
+    
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            // ... test implementation
+        })
+    }
+}
+```
+
+#### B. Mocks Automatizados
+**Uso de mockgen**:
+```go
+//go:generate mockgen -source=pkg/providers/types.go -destination=pkg/providers/mock/provider_mock.go
+
+type MockLLMProvider struct {
+    ctrl     *gomock.Controller
+    recorder *MockLLMProviderMockRecorder
+}
+```
+
+#### C. Tests de Integración con Containers
+```go
+func TestPostgreSQLTool(t *testing.T) {
+    ctx := context.Background()
+    
+    req := testcontainers.ContainerRequest{
+        Image:        "postgres:15-alpine",
+        ExposedPorts: []string{"5432/tcp"},
+        Env: map[string]string{
+            "POSTGRES_PASSWORD": "test",
+        },
+    }
+    
+    postgres, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+        ContainerRequest: req,
+        Started:          true,
+    })
+    // ... run tests
+}
+```
+
+### 7. Documentación de Código
+
+#### A. GoDoc Completo
+**Estándar**:
+```go
+// Package tools provides a registry and execution framework for AI agent tools.
+//
+// Tools are the primary way the agent interacts with external systems like
+// file systems, web services, and command execution.
+//
+// Basic usage:
+//
+//     registry := tools.NewToolRegistry()
+//     registry.Register(tools.NewReadFileTool(workspace))
+//     result, err := registry.Execute(ctx, "read_file", args)
+//
+package tools
+
+// Tool represents an executable capability of the agent.
+// Each tool has a name, description, parameters, and execution logic.
+type Tool interface {
+    // Name returns the unique identifier for this tool.
+    // Must be unique within a registry.
+    Name() string
+    
+    // Description returns a human-readable description of what the tool does.
+    // This is used by the LLM to understand when to use the tool.
+    Description() string
+    
+    // Execute runs the tool with the provided arguments.
+    // ctx can be used for cancellation and timeouts.
+    Execute(ctx context.Context, args map[string]interface{}) (string, error)
+}
+```
+
+#### B. Ejemplos Ejecutables
+```go
+// ExampleToolRegistry_Execute muestra cómo ejecutar una herramienta.
+func ExampleToolRegistry_Execute() {
+    registry := NewToolRegistry()
+    registry.Register(NewReadFileTool("/tmp", true))
+    
+    result, err := registry.Execute(context.Background(), "read_file", map[string]interface{}{
+        "file_path": "/tmp/example.txt",
+    })
+    
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    fmt.Println(result)
+    // Output: contenido del archivo
+}
+```
+
+### 8. Seguridad
+
+#### A. Content Security Policy
+**Para web dashboard**:
+```go
+func securityHeaders(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Content-Security-Policy", "default-src 'self'")
+        w.Header().Set("X-Content-Type-Options", "nosniff")
+        w.Header().Set("X-Frame-Options", "DENY")
+        w.Header().Set("X-XSS-Protection", "1; mode=block")
+        next.ServeHTTP(w, r)
+    })
+}
+```
+
+#### B. Secrets Management
+**Mejora**: No almacenar secrets en texto plano
+```go
+type SecureConfig struct {
+    APIKey secret.String `json:"-"` // No serializar
+}
+
+type secretString struct {
+    value string
+}
+
+func (s *secretString) UnmarshalJSON(data []byte) error {
+    // Desencriptar si está encriptado
+    // O usar keyring del OS
+}
+```
+
+---
+
+## Conclusión
+
+PicoClaw es una implementación impresionante de un asistente de IA ultraligero que demuestra que es posible tener funcionalidades avanzadas con un footprint mínimo. El código está bien estructurado y sigue buenas prácticas de Go.
+
+Las principales fortalezas son:
+1. **Eficiencia**: <10MB RAM, <1s arranque
+2. **Arquitectura limpia**: Paquetes bien separados
+3. **Extensibilidad**: Sistema de skills flexible
+4. **Multi-plataforma**: Soporte para RISC-V, ARM, x86
+
+Las áreas de mejora identificadas incluyen:
+1. Mayor cobertura de tests
+2. Mejoras de seguridad (sandboxing)
+3. Dashboard web para administración
+4. Sistema de plugins más robusto
+5. Mejor manejo de errores y retries
+
+El proyecto tiene un potencial enorme para crecer mientras mantiene su filosofía de simplicidad y eficiencia.
+
+---
+
+**Reporte generado el**: 12 de Febrero de 2026  
+**Versión analizada**: PicoClaw v0.1.0  
+**Líneas de código**: ~13,600  
+**Archivos Go**: 56
