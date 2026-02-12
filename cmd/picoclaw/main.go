@@ -763,7 +763,12 @@ func statusCmd() {
 	}
 
 	if _, err := os.Stat(configPath); err == nil {
-		fmt.Printf("Model: %s\n", cfg.Agents.Defaults.Model)
+		model := cfg.Agents.Defaults.Model
+		fmt.Printf("Model: %s\n", model)
+		
+		// Issue #43: Show provider mapping
+		providerName, actualModel := providers.GetProviderForModel(model)
+		fmt.Printf("Provider: %s (model: %s)\n", providerName, actualModel)
 
 		hasOpenRouter := cfg.Providers.OpenRouter.APIKey != ""
 		hasAnthropic := cfg.Providers.Anthropic.APIKey != ""

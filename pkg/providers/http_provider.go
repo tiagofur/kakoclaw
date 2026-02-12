@@ -226,6 +226,20 @@ func CreateProvider(cfg *config.Config) (LLMProvider, error) {
 
 	lowerModel := strings.ToLower(model)
 
+	// Issue #43: Support explicit provider/model syntax
+	// e.g., "openai/gpt-4" explicitly selects openai provider with gpt-4 model
+	if idx := strings.Index(model, "/"); idx > 0 {
+		explicitProvider := strings.ToLower(model[:idx])
+		actualModel := model[idx+1:]
+		
+		switch explicitProvider {
+		case "openai", "anthropic", "openrouter", "groq", "zhipu", "gemini", "moonshot", "nvidia":
+			providerName = explicitProvider
+			model = actualModel
+			lowerModel = strings.ToLower(model)
+		}
+	}
+
 	// First, try to use explicitly configured provider
 	if providerName != "" {
 		switch providerName {
@@ -395,4 +409,40 @@ func CreateProvider(cfg *config.Config) (LLMProvider, error) {
 	}
 
 	return NewHTTPProvider(apiKey, apiBase, proxy), nil
+}
+
+// GetProviderForModel returns the provider name for a given model (issue #43)
+// Supports explicit provider/model syntax (e.g., "openai/gpt-4")
+func GetProviderForModel(model string) (provider string, actualModel string) {
+	// Check for explicit provider prefix
+	if idx := strings.Index(model, "/"); idx > 0 {
+		explicitProvider := strings.ToLower(model[:idx])
+		switch explicitProvider {
+		case "openai", "anthropic", "openrouter", "groq", "zhipu", "gemini", "moonshot", "nvidia":
+			return explicitProvider, model[idx+1:]
+		}
+	}
+
+	// Auto-detect from model name
+	lowerModel := strings.ToLower(model)
+	switch {
+	case strings.HasPrefix(lowerModel, "gpt-"), strings.HasPrefix(lowerModel, "text-"), strings.HasPrefix(lowerModel, "o1"):
+		return "openai", model
+	case strings.Contains(lowerModel, "claude"):
+		return "anthropic", model
+	case strings.Contains(lowerModel, "kimi") || strings.Contains(lowerModel, "moonshot"):
+		return "moonshot", model
+	case strings.Contains(lowerModel, "gemini") || strings.Contains(lowerModel, "gemma"):
+		return "gemini", model
+	case strings.Contains(lowerModel, "glm") || strings.Contains(lowerModel, "zai"):
+		return "zhipu", model
+	case strings.Contains(lowerModel, "llama") && !strings.Contains(lowerModel, "nvidia"):
+		// Llama models could be from various providers
+		return "openrouter", model
+	case strings.Contains(lowerModel, "mixtral"), strings.Contains(lowerModel, "mistral"):
+		return "openrouter", model
+	default:
+		// Default to openrouter for unknown models
+		return "openrouter", model
+	}
 }
