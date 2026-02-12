@@ -59,7 +59,19 @@ func (c *BaseChannel) IsAllowed(senderID string) bool {
 	for _, allowed := range c.allowList {
 		// Strip leading "@" from allowed value for username matching
 		trimmed := strings.TrimPrefix(allowed, "@")
-		if senderID == allowed || idPart == allowed || senderID == trimmed || idPart == trimmed || (userPart != "" && (userPart == allowed || userPart == trimmed)) {
+		
+		// Check exact matches
+		if senderID == allowed || idPart == allowed {
+			return true
+		}
+		
+		// Check username matches (with or without @)
+		if userPart != "" && (userPart == allowed || userPart == trimmed) {
+			return true
+		}
+		
+		// Check if allowed is a username and matches the userPart
+		if trimmed != allowed && userPart == trimmed {
 			return true
 		}
 	}
