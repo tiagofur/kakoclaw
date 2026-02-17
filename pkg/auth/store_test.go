@@ -3,6 +3,7 @@ package auth
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -108,6 +109,9 @@ func TestStoreFilePermissions(t *testing.T) {
 		t.Fatalf("Stat() error: %v", err)
 	}
 	perm := info.Mode().Perm()
+	if runtime.GOOS == "windows" {
+		return
+	}
 	if perm != 0600 {
 		t.Errorf("file permissions = %o, want 0600", perm)
 	}

@@ -79,7 +79,7 @@ func checkConfigFile(configPath string) CheckResult {
 		}
 	}
 
-	data, err := os.ReadFile(configPath)
+	_, err := os.ReadFile(configPath)
 	if err != nil {
 		return CheckResult{
 			Name:    "Configuration File",
