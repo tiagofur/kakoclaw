@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PicoClaw Web</title>
+  <style>
+    body { font-family: sans-serif; margin: 24px; background: #0b1020; color: #e2e8f0; }
+    input, button, textarea { padding: 8px; margin: 4px 0; width: 100%; box-sizing: border-box; }
+    button { cursor: pointer; background: #334155; color: #e2e8f0; border: 1px solid #475569; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .card { border: 1px solid #334155; border-radius: 8px; padding: 12px; background: #111827; }
+    #chat { min-height: 280px; max-height: 420px; overflow: auto; white-space: pre-wrap; }
+    .kanban { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-top: 16px; }
+    .col { border: 1px solid #334155; border-radius: 8px; padding: 8px; background: #0f172a; min-height: 220px; }
+    .col h4 { margin: 4px 0 8px 0; font-size: 14px; }
+    .task { border: 1px solid #334155; border-radius: 8px; padding: 8px; margin-bottom: 8px; background: #111827; }
+    .task.selected { border-color: #38bdf8; box-shadow: 0 0 0 1px #38bdf8 inset; }
+    .task small { color: #94a3b8; display: block; margin-top: 4px; }
+    .task-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .status-badge { font-size: 11px; padding: 2px 6px; border-radius: 999px; border: 1px solid #334155; color: #e2e8f0; }
+    .status-backlog { background: #1f2937; }
+    .status-todo { background: #1d4ed8; }
+    .status-in_progress { background: #b45309; }
+    .status-review { background: #7e22ce; }
+    .status-done { background: #166534; }
+    .task-actions { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 6px; }
+    .task-actions button { padding: 6px; font-size: 12px; }
+    .col.drop-target { outline: 2px dashed #38bdf8; }
+    .quick-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 8px; }
+    #sessionExpiry { display: block; color: #93c5fd; margin-top: 4px; }
+    #taskDetail { margin-top: 16px; }
+    #taskDetailLogs, #taskDetailResult { white-space: pre-wrap; max-height: 220px; overflow: auto; background: #0f172a; border: 1px solid #334155; border-radius: 6px; padding: 8px; }
+  </style>
+</head>
+<body>
+  <h1>PicoClaw Web</h1>
+  <p>Haz login con tu usuario único para obtener sesión JWT.</p>
+
+  <div class="card">
+    <label>Usuario</label>
+    <input id="username" type="text" placeholder="admin" />
+    <label>Contraseña</label>
+    <input id="password" type="password" placeholder="Tu contraseña" />
+    <button id="login">Login</button>
+    <small id="authStatus">Sin sesión</small>
+    <small id="sessionExpiry">Expiración de sesión: -</small>
+    <button id="logout">Logout</button>
+  </div>
+
+  <div class="card">
+    <h3>Cambiar contraseña</h3>
+    <input id="oldPassword" type="password" placeholder="Contraseña actual" />
+    <input id="newPassword" type="password" placeholder="Nueva contraseña (mínimo 10)" />
+    <button id="changePassword">Actualizar contraseña</button>
+  </div>
+
+  <div class="row">
+    <div class="card">
+      <h3>Chat</h3>
+      <div id="chat"></div>
+      <textarea id="message" rows="3" placeholder="Escribe un mensaje..."></textarea>
+      <button id="send">Enviar</button>
+      <div class="quick-actions">
+        <button id="chatTaskList">/task list</button>
+        <button id="chatTaskRun">Run seleccionada</button>
+        <button id="chatTaskMoveReview">Mover seleccionada a review</button>
+      </div>
+      <div class="quick-actions">
+        <button id="chatTaskMoveDone">Mover seleccionada a done</button>
+        <button id="chatTaskOpen">Abrir detalle seleccionada</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Crear tarea</h3>
+      <input id="title" placeholder="Título de tarea" />
+      <textarea id="description" rows="2" placeholder="Descripción (opcional)"></textarea>
+      <input id="taskFilter" placeholder="Filtrar tareas..." />
+      <select id="taskStatusFilter">
+        <option value="all">estado: todos</option>
+        <option value="backlog">backlog</option>
+        <option value="todo">todo</option>
+        <option value="in_progress">in_progress</option>
+        <option value="review">review</option>
+        <option value="done">done</option>
+      </select>
+      <input id="taskDateFilter" type="date" />
+      <select id="taskSort">
+        <option value="created_desc">orden: recientes primero</option>
+        <option value="created_asc">orden: antiguos primero</option>
+        <option value="title_asc">orden: titulo A-Z</option>
+        <option value="title_desc">orden: titulo Z-A</option>
+      </select>
+      <select id="status">
+        <option value="backlog">backlog</option>
+        <option value="todo">todo</option>
+        <option value="in_progress">in_progress</option>
+        <option value="review">review</option>
+        <option value="done">done</option>
+      </select>
+      <button id="createTask">Crear tarea</button>
+    </div>
+  </div>
+  <div class="kanban" id="kanban"></div>
+  <div class="card" id="taskDetail">
+    <h3>Detalle de tarea</h3>
+    <div id="taskDetailMeta">Selecciona una tarea para ver resultado y logs.</div>
+    <h4>Resultado</h4>
+    <div id="taskDetailResult">-</div>
+    <h4>Logs</h4>
+    <div id="taskDetailLogs">-</div>
+  </div>
+
+  <script>
+    const chatBox = document.getElementById("chat");
+    const msgInput = document.getElementById("message");
+    const kanban = document.getElementById("kanban");
+    const taskFilterInput = document.getElementById("taskFilter");
+    const taskStatusFilter = document.getElementById("taskStatusFilter");
+    const taskDateFilter = document.getElementById("taskDateFilter");
+    const taskSort = document.getElementById("taskSort");
+    const taskDetailMeta = document.getElementById("taskDetailMeta");
+    const taskDetailResult = document.getElementById("taskDetailResult");
+    const taskDetailLogs = document.getElementById("taskDetailLogs");
+    const sessionExpiry = document.getElementById("sessionExpiry");
+    const statuses = ["backlog", "todo", "in_progress", "review", "done"];
+    let tasksState = [];
+    let dragTaskId = "";
+    let selectedTaskId = "";
+    const authStatus = document.getElementById("authStatus");
+    let sessionTimer = 0;
+    let sessionWarned = false;
+
+    document.getElementById("username").value = localStorage.getItem("picoclaw_web_user") || "admin";
+
+    function setAuthState(isLogged, username) {
+      authStatus.textContent = isLogged ? `Sesión activa: ${username}` : "Sin sesión";
+      if (!isLogged) {
+        sessionExpiry.textContent = "Expiración de sesión: -";
+      }
+    }
+
+    function parseJWTExp(token) {
+      try {
+        const parts = String(token || "").split(".");
+        if (parts.length !== 3) return 0;
+        let payloadPart = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+        while (payloadPart.length % 4 !== 0) payloadPart += "=";
+        const json = atob(payloadPart);
+        const payload = JSON.parse(json);
+        return Number(payload.exp || 0);
+      } catch {
+        return 0;
+      }
+    }
+
+    function formatRemaining(seconds) {
+      if (seconds <= 0) return "expirada";
+      const m = Math.floor(seconds / 60);
+      const s = seconds % 60;
+      return `${m}m ${s}s`;
+    }
+
+    function stopSessionTimer() {
+      if (sessionTimer) {
+        clearInterval(sessionTimer);
+        sessionTimer = 0;
+      }
+      sessionWarned = false;
+    }
+
+    function startSessionTimer() {
+      stopSessionTimer();
+      const token = localStorage.getItem("picoclaw_web_token") || "";
+      const exp = parseJWTExp(token);
+      if (!exp) {
+        sessionExpiry.textContent = "Expiración de sesión: desconocida";
+        return;
+      }
+      const tick = () => {
+        const remaining = exp - Math.floor(Date.now() / 1000);
+        sessionExpiry.textContent = `Expiración de sesión: ${formatRemaining(remaining)}`;
+        if (remaining <= 120 && remaining > 0 && !sessionWarned) {
+          sessionWarned = true;
+          appendChat(`system: tu sesión expirará pronto (${formatRemaining(remaining)}).`);
+        }
+        if (remaining <= 0) {
+          localStorage.removeItem("picoclaw_web_token");
+          if (ws) ws.close();
+          if (tasksWS) tasksWS.close();
+          stopSessionTimer();
+          setAuthState(false, "");
+        }
+      };
+      tick();
+      sessionTimer = setInterval(tick, 1000);
+    }
+
+    async function apiFetch(url, options = {}) {
+      const token = localStorage.getItem("picoclaw_web_token") || "";
+      const headers = Object.assign({}, options.headers || {});
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const res = await fetch(url, Object.assign({}, options, { headers }));
+      if (res.status === 401) {
+        localStorage.removeItem("picoclaw_web_token");
+        stopSessionTimer();
+        setAuthState(false, "");
+      }
+      return res;
+    }
+
+    async function refreshMe() {
+      const token = localStorage.getItem("picoclaw_web_token") || "";
+      if (!token) {
+        stopSessionTimer();
+        setAuthState(false, "");
+        return false;
+      }
+      const res = await apiFetch("/api/v1/auth/me");
+      if (!res.ok) {
+        stopSessionTimer();
+        setAuthState(false, "");
+        return false;
+      }
+      const me = await res.json();
+      setAuthState(true, me.username || "admin");
+      startSessionTimer();
+      return true;
+    }
+
+    document.getElementById("login").onclick = async () => {
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value;
+      localStorage.setItem("picoclaw_web_user", username);
+      const res = await fetch("/api/v1/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
+      });
+      if (!res.ok) {
+        alert("Login fallido");
+        return;
+      }
+      const data = await res.json();
+      localStorage.setItem("picoclaw_web_token", data.token || "");
+      await refreshMe();
+      loadTasks();
+      connectWS();
+      connectTasksWS();
+    };
+
+    document.getElementById("logout").onclick = () => {
+      localStorage.removeItem("picoclaw_web_token");
+      if (ws) ws.close();
+      if (tasksWS) tasksWS.close();
+      stopSessionTimer();
+      setAuthState(false, "");
+    };
+
+    document.getElementById("changePassword").onclick = async () => {
+      const oldPassword = document.getElementById("oldPassword").value;
+      const newPassword = document.getElementById("newPassword").value;
+      if (!oldPassword || !newPassword) return;
+      const res = await apiFetch("/api/v1/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ old_password: oldPassword, new_password: newPassword })
+      });
+      if (!res.ok) {
+        alert("No se pudo cambiar la contraseña");
+        return;
+      }
+      document.getElementById("oldPassword").value = "";
+      document.getElementById("newPassword").value = "";
+      alert("Contraseña actualizada");
+    };
+
+    function appendChat(line) {
+      chatBox.textContent += line + "\n\n";
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function sendChatMessage(msg) {
+      const text = (msg || "").trim();
+      if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
+      appendChat(`you: ${text}`);
+      ws.send(text);
+      msgInput.value = "";
+    }
+
+    function wsURL() {
+      const proto = location.protocol === "https:" ? "wss" : "ws";
+      const token = encodeURIComponent(localStorage.getItem("picoclaw_web_token") || "");
+      return `${proto}://${location.host}/ws/chat?token=${token}`;
+    }
+
+    let ws;
+    let tasksWS;
+    function connectWS() {
+      const saved = localStorage.getItem("picoclaw_web_token") || "";
+      if (!saved) return;
+      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+      ws = new WebSocket(wsURL());
+      ws.onmessage = (ev) => {
+        try {
+          const payload = JSON.parse(ev.data);
+          appendChat(`bot: ${payload.content || ev.data}`);
+        } catch {
+          appendChat(`bot: ${ev.data}`);
+        }
+      };
+      ws.onclose = () => {
+        if (localStorage.getItem("picoclaw_web_token")) setTimeout(connectWS, 1500);
+      };
+    }
+    connectWS();
+
+    function tasksWsURL() {
+      const proto = location.protocol === "https:" ? "wss" : "ws";
+      const token = encodeURIComponent(localStorage.getItem("picoclaw_web_token") || "");
+      return `${proto}://${location.host}/ws/tasks?token=${token}`;
+    }
+
+    function connectTasksWS() {
+      const saved = localStorage.getItem("picoclaw_web_token") || "";
+      if (!saved) return;
+      if (tasksWS && (tasksWS.readyState === WebSocket.OPEN || tasksWS.readyState === WebSocket.CONNECTING)) return;
+      tasksWS = new WebSocket(tasksWsURL());
+      tasksWS.onmessage = () => loadTasks();
+      tasksWS.onclose = () => {
+        if (localStorage.getItem("picoclaw_web_token")) setTimeout(connectTasksWS, 1500);
+      };
+    }
+    connectTasksWS();
+
+    document.getElementById("send").onclick = () => sendChatMessage(msgInput.value);
+    document.getElementById("chatTaskList").onclick = () => sendChatMessage("/task list");
+    document.getElementById("chatTaskRun").onclick = () => {
+      if (!selectedTaskId) return;
+      sendChatMessage(`/task run ${selectedTaskId}`);
+    };
+    document.getElementById("chatTaskMoveReview").onclick = () => {
+      if (!selectedTaskId) return;
+      sendChatMessage(`/task move ${selectedTaskId} review`);
+    };
+    document.getElementById("chatTaskMoveDone").onclick = () => {
+      if (!selectedTaskId) return;
+      sendChatMessage(`/task move ${selectedTaskId} done`);
+    };
+    document.getElementById("chatTaskOpen").onclick = () => {
+      if (!selectedTaskId) return;
+      showTaskDetail(selectedTaskId);
+    };
+
+    async function loadTasks() {
+      const res = await apiFetch("/api/v1/tasks");
+      if (!res.ok) return;
+      const data = await res.json();
+      tasksState = Array.isArray(data.tasks) ? data.tasks : [];
+      renderKanban();
+      if (selectedTaskId) {
+        const selected = tasksState.find(t => t.id === selectedTaskId);
+        if (selected) {
+          showTaskDetail(selectedTaskId);
+        } else {
+          selectedTaskId = "";
+          taskDetailMeta.textContent = "Selecciona una tarea para ver resultado y logs.";
+          taskDetailResult.textContent = "-";
+          taskDetailLogs.textContent = "-";
+        }
+      }
+    }
+
+    document.getElementById("createTask").onclick = async () => {
+      const title = document.getElementById("title").value.trim();
+      const description = document.getElementById("description").value.trim();
+      const status = document.getElementById("status").value;
+      if (!title) return;
+      await apiFetch("/api/v1/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, description, status }),
+      });
+      document.getElementById("title").value = "";
+      document.getElementById("description").value = "";
+      loadTasks();
+    };
+
+    function nextStatus(status) {
+      const idx = statuses.indexOf(status);
+      if (idx < 0 || idx === statuses.length - 1) return status;
+      return statuses[idx + 1];
+    }
+
+    function prevStatus(status) {
+      const idx = statuses.indexOf(status);
+      if (idx <= 0) return status;
+      return statuses[idx - 1];
+    }
+
+    async function updateStatus(id, status) {
+      await apiFetch(`/api/v1/tasks/${id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      loadTasks();
+    }
+
+    async function editTask(task) {
+      const title = prompt("Nuevo título", task.title || "");
+      if (!title) return;
+      const description = prompt("Nueva descripción", task.description || "") || "";
+      await apiFetch(`/api/v1/tasks/${task.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          description,
+          status: task.status,
+          result: task.result || "",
+        }),
+      });
+      loadTasks();
+    }
+
+    async function deleteTask(id) {
+      await apiFetch(`/api/v1/tasks/${id}`, { method: "DELETE" });
+      loadTasks();
+    }
+
+    async function fetchTaskLogs(id) {
+      const res = await apiFetch(`/api/v1/tasks/${id}/logs`);
+      if (!res.ok) {
+        return [];
+      }
+      const data = await res.json();
+      return Array.isArray(data.logs) ? data.logs : [];
+    }
+
+    async function showTaskDetail(id) {
+      selectedTaskId = id;
+      const task = tasksState.find(t => t.id === id);
+      if (!task) return;
+      taskDetailMeta.textContent = `${task.title || ""} (${task.id}) - estado: ${task.status}`;
+      taskDetailResult.textContent = task.result || "(sin resultado)";
+      const logs = await fetchTaskLogs(id);
+      taskDetailLogs.textContent = logs.length ? logs.slice(0, 100).map(l => `${l.created_at} [${l.action}] ${l.details || ""}`).join("\n") : "(sin logs)";
+    }
+
+    function parseTaskDate(value) {
+      const t = new Date(value || "").getTime();
+      return Number.isNaN(t) ? 0 : t;
+    }
+
+    function sortTasks(list) {
+      const mode = taskSort.value || "created_desc";
+      const sorted = list.slice();
+      if (mode === "created_asc") {
+        sorted.sort((a, b) => parseTaskDate(a.created_at) - parseTaskDate(b.created_at));
+      } else if (mode === "title_asc") {
+        sorted.sort((a, b) => String(a.title || "").localeCompare(String(b.title || "")));
+      } else if (mode === "title_desc") {
+        sorted.sort((a, b) => String(b.title || "").localeCompare(String(a.title || "")));
+      } else {
+        sorted.sort((a, b) => parseTaskDate(b.created_at) - parseTaskDate(a.created_at));
+      }
+      return sorted;
+    }
+
+    function applyTaskFilters(list) {
+      const term = (taskFilterInput.value || "").toLowerCase().trim();
+      const statusSelected = (taskStatusFilter.value || "all").trim();
+      const dateSelected = (taskDateFilter.value || "").trim();
+      const dateMin = dateSelected ? new Date(`${dateSelected}T00:00:00`).getTime() : 0;
+      return list.filter((t) => {
+        if (statusSelected !== "all" && t.status !== statusSelected) return false;
+        if (term && !(String(t.title || "").toLowerCase().includes(term) || String(t.description || "").toLowerCase().includes(term))) return false;
+        if (dateMin && parseTaskDate(t.created_at) < dateMin) return false;
+        return true;
+      });
+    }
+
+    function esc(v) {
+      return String(v || "").replace(/</g, "&lt;");
+    }
+
+    function renderKanban() {
+      kanban.innerHTML = "";
+      const statusSelected = (taskStatusFilter.value || "all").trim();
+      const filtered = sortTasks(applyTaskFilters(tasksState));
+      for (const status of statuses) {
+        if (statusSelected !== "all" && status !== statusSelected) continue;
+        const col = document.createElement("div");
+        col.className = "col";
+        col.dataset.status = status;
+        const items = filtered.filter(t => t.status === status);
+        col.innerHTML = `<h4>${status} (${items.length})</h4>`;
+        col.ondragover = (e) => { e.preventDefault(); col.classList.add("drop-target"); };
+        col.ondragleave = () => col.classList.remove("drop-target");
+        col.ondrop = async (e) => {
+          e.preventDefault();
+          col.classList.remove("drop-target");
+          if (!dragTaskId) return;
+          await updateStatus(dragTaskId, status);
+          dragTaskId = "";
+        };
+        for (const task of items) {
+          const card = document.createElement("div");
+          card.className = "task" + (selectedTaskId === task.id ? " selected" : "");
+          card.draggable = true;
+          card.ondragstart = () => { dragTaskId = task.id; };
+          card.ondragend = () => { dragTaskId = ""; };
+          card.onclick = (e) => {
+            if (e.target && e.target.tagName === "BUTTON") return;
+            showTaskDetail(task.id);
+          };
+          card.innerHTML = `
+            <div class="task-top">
+              <strong>${esc(task.title)}</strong>
+              <span class="status-badge status-${task.status}">${esc(task.status)}</span>
+            </div>
+            <small>${esc(task.id)}</small>
+            ${task.description ? `<div>${esc(task.description)}</div>` : ""}
+            ${task.result ? `<small>result: ${esc(task.result)}</small>` : ""}
+          `;
+          const actions = document.createElement("div");
+          actions.className = "task-actions";
+          const bPrev = document.createElement("button");
+          bPrev.textContent = "←";
+          bPrev.onclick = () => updateStatus(task.id, prevStatus(task.status));
+          const bNext = document.createElement("button");
+          bNext.textContent = "→";
+          bNext.onclick = () => updateStatus(task.id, nextStatus(task.status));
+          const bEdit = document.createElement("button");
+          bEdit.textContent = "edit";
+          bEdit.onclick = () => editTask(task);
+          const bDel = document.createElement("button");
+          bDel.textContent = "del";
+          bDel.onclick = () => deleteTask(task.id);
+          const bLogs = document.createElement("button");
+          bLogs.textContent = "ver";
+          bLogs.onclick = () => showTaskDetail(task.id);
+          actions.appendChild(bPrev);
+          actions.appendChild(bNext);
+          actions.appendChild(bEdit);
+          actions.appendChild(bDel);
+          actions.appendChild(bLogs);
+          card.appendChild(actions);
+          col.appendChild(card);
+        }
+        kanban.appendChild(col);
+      }
+    }
+
+    taskFilterInput.oninput = () => renderKanban();
+    taskStatusFilter.onchange = () => renderKanban();
+    taskDateFilter.onchange = () => renderKanban();
+    taskSort.onchange = () => renderKanban();
+
+    refreshMe().then((ok) => {
+      if (ok) {
+        loadTasks();
+      }
+    });
+  </script>
+</body>
+</html>
+

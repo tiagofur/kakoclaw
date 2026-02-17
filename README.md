@@ -492,9 +492,38 @@ picoclaw agent -m "Hello"
 | `picoclaw agent -m "..."` | Chat with the agent |
 | `picoclaw agent` | Interactive chat mode |
 | `picoclaw gateway` | Start the gateway |
+| `picoclaw web` | Start the web panel only (experimental) |
 | `picoclaw status` | Show status |
 | `picoclaw cron list` | List all scheduled jobs |
 | `picoclaw cron add ...` | Add a scheduled job |
+
+### Experimental Web Panel
+
+Enable the embedded web panel in `~/.picoclaw/config.json`:
+
+```json
+{
+  "web": {
+    "enabled": true,
+    "host": "127.0.0.1",
+    "port": 18880,
+    "username": "admin",
+    "password": "CHANGE_ME",
+    "jwt_expiry": "24h"
+  }
+}
+```
+
+Then start it with `picoclaw web` or run it together with channels via `picoclaw gateway`.
+For production, run it behind HTTPS reverse proxy (Caddy/Nginx) and use strong credentials.
+Login from the web page to obtain a JWT token; all `/api/*` and `/ws/*` routes require auth.
+
+Current web panel capabilities:
+- Task board (backlog/todo/in_progress/review/done) with drag & drop and inline actions.
+- Task detail panel with full agent result and task logs.
+- Chat quick actions for tasks: `/task list`, `/task run <id>`, `/task move <id> <status>`.
+- Session UX improvements: change password, visible JWT expiry countdown, and expiry warning.
+- Task filtering/sorting: text, status, date, and order by creation/title.
 
 ### Scheduled Tasks / Reminders
 

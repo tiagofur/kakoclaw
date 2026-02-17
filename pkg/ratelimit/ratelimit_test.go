@@ -135,7 +135,8 @@ func TestRateLimiter_Cleanup(t *testing.T) {
 }
 
 func TestWithRateLimit(t *testing.T) {
-	rl := NewRateLimiter()
+	rl := GetGlobalLimiter()
+	rl.Reset("test")
 	rl.SetLimit("test", 1, time.Hour)
 
 	// First call should succeed
@@ -166,7 +167,8 @@ func TestWithRateLimit(t *testing.T) {
 }
 
 func TestWithRateLimitContext(t *testing.T) {
-	rl := NewRateLimiter()
+	rl := GetGlobalLimiter()
+	rl.Reset("test")
 	rl.SetLimit("test", 1, time.Hour)
 
 	// First call
