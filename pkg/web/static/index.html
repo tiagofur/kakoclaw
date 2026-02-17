@@ -304,9 +304,9 @@
       ws.onmessage = (ev) => {
         try {
           const payload = JSON.parse(ev.data);
-          appendChat(`bot: ${payload.content || ev.data}`);
+          appendChat(`bot: ${esc(payload.content || ev.data)}`);
         } catch {
-          appendChat(`bot: ${ev.data}`);
+          appendChat(`bot: ${esc(ev.data)}`);
         }
       };
       ws.onclose = () => {
@@ -482,7 +482,12 @@
     }
 
     function esc(v) {
-      return String(v || "").replace(/</g, "&lt;");
+      return String(v || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
     }
 
     function renderKanban() {

@@ -34,6 +34,7 @@ type Server struct {
 	loginLimit   *ratelimit.RateLimiter
 	tasksMu      sync.RWMutex
 	tasksClients map[*websocket.Conn]struct{}
+	connMu       map[*websocket.Conn]*sync.Mutex
 }
 
 type taskItem struct {
@@ -57,6 +58,7 @@ func NewServer(cfg config.WebConfig, agentLoop *agent.AgentLoop) *Server {
 		agentLoop:    agentLoop,
 		loginLimit:   ratelimit.NewRateLimiter(),
 		tasksClients: make(map[*websocket.Conn]struct{}),
+		connMu:       make(map[*websocket.Conn]*sync.Mutex),
 	}
 }
 
@@ -137,6 +139,7 @@ func (s *Server) Stop(ctx context.Context) error {
 	for conn := range s.tasksClients {
 		_ = conn.Close()
 		delete(s.tasksClients, conn)
+		delete(s.connMu, conn)
 	}
 	s.tasksMu.Unlock()
 
@@ -402,6 +405,9 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleTaskChatCommand(input string) (bool, string) {
+	if s.tasks == nil {
+		return false, ""
+	}
 	lower := strings.ToLower(strings.TrimSpace(input))
 	if strings.HasPrefix(lower, "/task create ") {
 		title := strings.TrimSpace(input[len("/task create "):])
@@ -469,13 +475,16 @@ func (s *Server) handleTasksWS(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+	mu := &sync.Mutex{}
 	s.tasksMu.Lock()
 	s.tasksClients[conn] = struct{}{}
+	s.connMu[conn] = mu
 	s.tasksMu.Unlock()
 
 	defer func() {
 		s.tasksMu.Lock()
 		delete(s.tasksClients, conn)
+		delete(s.connMu, conn)
 		s.tasksMu.Unlock()
 		_ = conn.Close()
 	}()
@@ -594,18 +603,28 @@ func (s *Server) broadcastTaskEvent(event string, task taskItem) {
 	}
 
 	s.tasksMu.RLock()
-	conns := make([]*websocket.Conn, 0, len(s.tasksClients))
+	type connWithMu struct {
+		conn *websocket.Conn
+		mu   *sync.Mutex
+	}
+	conns := make([]connWithMu, 0, len(s.tasksClients))
 	for c := range s.tasksClients {
-		conns = append(conns, c)
+		if mu, ok := s.connMu[c]; ok {
+			conns = append(conns, connWithMu{conn: c, mu: mu})
+		}
 	}
 	s.tasksMu.RUnlock()
 
-	for _, conn := range conns {
-		if err := conn.WriteMessage(websocket.TextMessage, payload); err != nil {
+	for _, cm := range conns {
+		cm.mu.Lock()
+		err := cm.conn.WriteMessage(websocket.TextMessage, payload)
+		cm.mu.Unlock()
+		if err != nil {
 			s.tasksMu.Lock()
-			delete(s.tasksClients, conn)
+			delete(s.tasksClients, cm.conn)
+			delete(s.connMu, cm.conn)
 			s.tasksMu.Unlock()
-			_ = conn.Close()
+			_ = cm.conn.Close()
 		}
 	}
 }
@@ -626,6 +645,7 @@ func (s *Server) runTaskWorker(ctx context.Context) {
 func (s *Server) processNextTodoTask(ctx context.Context) {
 	tasks, err := s.tasks.list()
 	if err != nil {
+		logger.WarnCF("web", "task worker: failed to list tasks", map[string]interface{}{"error": err.Error()})
 		return
 	}
 	for _, t := range tasks {
@@ -634,24 +654,33 @@ func (s *Server) processNextTodoTask(ctx context.Context) {
 		}
 		inProgress, err := s.tasks.updateStatus(t.ID, "in_progress")
 		if err != nil {
-			return
+			logger.WarnCF("web", "task worker: failed to update status", map[string]interface{}{"task_id": t.ID, "error": err.Error()})
+			continue
 		}
 		s.broadcastTaskEvent("status_changed", inProgress)
 
 		prompt := "Ejecuta esta tarea y devuelve un resumen breve.\nTitulo: " + t.Title + "\nDescripcion: " + t.Description
 		result, err := s.agentLoop.ProcessDirect(ctx, prompt, "web:task:"+t.ID)
 		if err != nil {
-			updated, _ := s.tasks.update(t.ID, t.Title, t.Description, "review", "error: "+err.Error())
-			_ = s.tasks.addLog(t.ID, "worker_error", err.Error())
+			updated, updateErr := s.tasks.update(t.ID, t.Title, t.Description, "review", "error: "+err.Error())
+			if updateErr != nil {
+				logger.WarnCF("web", "task worker: failed to save error result", map[string]interface{}{"task_id": t.ID, "error": updateErr.Error()})
+			}
+			if logErr := s.tasks.addLog(t.ID, "worker_error", err.Error()); logErr != nil {
+				logger.WarnCF("web", "task worker: failed to add error log", map[string]interface{}{"task_id": t.ID, "error": logErr.Error()})
+			}
 			s.broadcastTaskEvent("updated", updated)
 			s.broadcastTaskEvent("status_changed", updated)
-			return
+			continue
 		}
 		updated, err := s.tasks.update(t.ID, t.Title, t.Description, "review", result)
 		if err != nil {
-			return
+			logger.WarnCF("web", "task worker: failed to save result", map[string]interface{}{"task_id": t.ID, "error": err.Error()})
+			continue
 		}
-		_ = s.tasks.addLog(t.ID, "worker_completed", "moved to review")
+		if logErr := s.tasks.addLog(t.ID, "worker_completed", "moved to review"); logErr != nil {
+			logger.WarnCF("web", "task worker: failed to add log", map[string]interface{}{"task_id": t.ID, "error": logErr.Error()})
+		}
 		s.broadcastTaskEvent("updated", updated)
 		s.broadcastTaskEvent("status_changed", updated)
 		return

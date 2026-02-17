@@ -2,7 +2,9 @@ package tools
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -93,14 +95,14 @@ func (t *TaskTool) Execute(ctx context.Context, args map[string]interface{}) (st
 		if status == "" {
 			status = "todo"
 		}
-		id := time.Now().UTC().Format("20060102150405.000000000")
+		id := toolGenerateID()
 		_, err := t.db.ExecContext(ctx, `INSERT INTO tasks(id, title, description, status, result, created_at) VALUES (?, ?, ?, ?, '', ?)`,
 			id, strings.TrimSpace(title), strings.TrimSpace(description), status, time.Now().UTC())
 		if err != nil {
 			return "", err
 		}
 		_, _ = t.db.ExecContext(ctx, `INSERT INTO task_logs(id, task_id, action, details, created_at) VALUES (?, ?, ?, ?, ?)`,
-			time.Now().UTC().Format("20060102150405.000000001"), id, "created_via_tool", "created from tool", time.Now().UTC())
+			toolGenerateID(), id, "created_via_tool", "created from tool", time.Now().UTC())
 		return fmt.Sprintf("Task created: %s (%s)", title, id), nil
 	case "list":
 		limit := 10
@@ -152,10 +154,18 @@ func (t *TaskTool) Execute(ctx context.Context, args map[string]interface{}) (st
 			return "Task not found", nil
 		}
 		_, _ = t.db.ExecContext(ctx, `INSERT INTO task_logs(id, task_id, action, details, created_at) VALUES (?, ?, ?, ?, ?)`,
-			time.Now().UTC().Format("20060102150405.000000002"), id, "status_changed_via_tool", "status => "+status, time.Now().UTC())
+			toolGenerateID(), id, "status_changed_via_tool", "status => "+status, time.Now().UTC())
 		return "Task status updated", nil
 	default:
 		return "Error: unsupported action", nil
 	}
+}
+
+func toolGenerateID() string {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return time.Now().UTC().Format("20060102150405.000000000")
+	}
+	return hex.EncodeToString(b)
 }
 

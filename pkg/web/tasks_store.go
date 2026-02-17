@@ -1,7 +1,9 @@
 package web
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"os"
 	"path/filepath"
@@ -218,5 +220,9 @@ func (s *taskStore) listLogs(taskID string) ([]taskLogItem, error) {
 }
 
 func generateID() string {
-	return time.Now().UTC().Format("20060102150405.000000000")
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return time.Now().UTC().Format("20060102150405.000000000")
+	}
+	return hex.EncodeToString(b)
 }
