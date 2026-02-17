@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/caarlos0/env/v11"
 )
@@ -314,7 +315,29 @@ func LoadConfig(path string) (*Config, error) {
 	// caarlos0/env doesn't support {{.Name}} placeholders
 	parseProviderEnvVars(cfg)
 
+	if err := validateWebConfig(&cfg.Web); err != nil {
+		return nil, fmt.Errorf("web config: %w", err)
+	}
+
 	return cfg, nil
+}
+
+func validateWebConfig(w *WebConfig) error {
+	if w.Port < 1 || w.Port > 65535 {
+		w.Port = 18880
+	}
+	if strings.TrimSpace(w.Host) == "" {
+		w.Host = "127.0.0.1"
+	}
+	if strings.TrimSpace(w.Username) == "" {
+		w.Username = "admin"
+	}
+	if w.JWTExpiry != "" {
+		if _, err := time.ParseDuration(w.JWTExpiry); err != nil {
+			return fmt.Errorf("invalid jwt_expiry %q: %w", w.JWTExpiry, err)
+		}
+	}
+	return nil
 }
 
 // parseProviderEnvVars manually parses environment variables for providers

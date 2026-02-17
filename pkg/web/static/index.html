@@ -130,6 +130,8 @@
     const authStatus = document.getElementById("authStatus");
     let sessionTimer = 0;
     let sessionWarned = false;
+    let wsRetryDelay = 1500;
+    let tasksWsRetryDelay = 1500;
 
     document.getElementById("username").value = localStorage.getItem("picoclaw_web_user") || "admin";
 
@@ -261,6 +263,10 @@
       const oldPassword = document.getElementById("oldPassword").value;
       const newPassword = document.getElementById("newPassword").value;
       if (!oldPassword || !newPassword) return;
+      if (newPassword.length < 10) {
+        alert("La nueva contraseña debe tener al menos 10 caracteres");
+        return;
+      }
       const res = await apiFetch("/api/v1/auth/change-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -301,6 +307,7 @@
       if (!saved) return;
       if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
       ws = new WebSocket(wsURL());
+      ws.onopen = () => { wsRetryDelay = 1500; };
       ws.onmessage = (ev) => {
         try {
           const payload = JSON.parse(ev.data);
@@ -310,7 +317,10 @@
         }
       };
       ws.onclose = () => {
-        if (localStorage.getItem("picoclaw_web_token")) setTimeout(connectWS, 1500);
+        if (localStorage.getItem("picoclaw_web_token")) {
+          setTimeout(connectWS, wsRetryDelay);
+          wsRetryDelay = Math.min(wsRetryDelay * 2, 30000);
+        }
       };
     }
     connectWS();
@@ -326,9 +336,13 @@
       if (!saved) return;
       if (tasksWS && (tasksWS.readyState === WebSocket.OPEN || tasksWS.readyState === WebSocket.CONNECTING)) return;
       tasksWS = new WebSocket(tasksWsURL());
+      tasksWS.onopen = () => { tasksWsRetryDelay = 1500; };
       tasksWS.onmessage = () => loadTasks();
       tasksWS.onclose = () => {
-        if (localStorage.getItem("picoclaw_web_token")) setTimeout(connectTasksWS, 1500);
+        if (localStorage.getItem("picoclaw_web_token")) {
+          setTimeout(connectTasksWS, tasksWsRetryDelay);
+          tasksWsRetryDelay = Math.min(tasksWsRetryDelay * 2, 30000);
+        }
       };
     }
     connectTasksWS();
@@ -353,10 +367,14 @@
     };
 
     async function loadTasks() {
-      const res = await apiFetch("/api/v1/tasks");
-      if (!res.ok) return;
-      const data = await res.json();
-      tasksState = Array.isArray(data.tasks) ? data.tasks : [];
+      try {
+        const res = await apiFetch("/api/v1/tasks");
+        if (!res.ok) return;
+        const data = await res.json();
+        tasksState = Array.isArray(data.tasks) ? data.tasks : [];
+      } catch {
+        return;
+      }
       renderKanban();
       if (selectedTaskId) {
         const selected = tasksState.find(t => t.id === selectedTaskId);
@@ -376,11 +394,14 @@
       const description = document.getElementById("description").value.trim();
       const status = document.getElementById("status").value;
       if (!title) return;
-      await apiFetch("/api/v1/tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, description, status }),
-      });
+      try {
+        const res = await apiFetch("/api/v1/tasks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title, description, status }),
+        });
+        if (!res.ok) { appendChat("system: error al crear tarea"); return; }
+      } catch { appendChat("system: error de red al crear tarea"); return; }
       document.getElementById("title").value = "";
       document.getElementById("description").value = "";
       loadTasks();
@@ -399,43 +420,54 @@
     }
 
     async function updateStatus(id, status) {
-      await apiFetch(`/api/v1/tasks/${id}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
+      try {
+        const res = await apiFetch(`/api/v1/tasks/${id}/status`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status }),
+        });
+        if (!res.ok) appendChat("system: error al actualizar estado");
+      } catch { appendChat("system: error de red"); }
       loadTasks();
     }
 
     async function editTask(task) {
       const title = prompt("Nuevo título", task.title || "");
-      if (!title) return;
+      if (title === null || !title.trim()) return;
       const description = prompt("Nueva descripción", task.description || "") || "";
-      await apiFetch(`/api/v1/tasks/${task.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title,
-          description,
-          status: task.status,
-          result: task.result || "",
-        }),
-      });
+      try {
+        const res = await apiFetch(`/api/v1/tasks/${task.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: title.trim(),
+            description,
+            status: task.status,
+            result: task.result || "",
+          }),
+        });
+        if (!res.ok) appendChat("system: error al editar tarea");
+      } catch { appendChat("system: error de red"); }
       loadTasks();
     }
 
     async function deleteTask(id) {
-      await apiFetch(`/api/v1/tasks/${id}`, { method: "DELETE" });
+      try {
+        const res = await apiFetch(`/api/v1/tasks/${id}`, { method: "DELETE" });
+        if (!res.ok) appendChat("system: error al eliminar tarea");
+      } catch { appendChat("system: error de red"); }
       loadTasks();
     }
 
     async function fetchTaskLogs(id) {
-      const res = await apiFetch(`/api/v1/tasks/${id}/logs`);
-      if (!res.ok) {
+      try {
+        const res = await apiFetch(`/api/v1/tasks/${id}/logs`);
+        if (!res.ok) return [];
+        const data = await res.json();
+        return Array.isArray(data.logs) ? data.logs : [];
+      } catch {
         return [];
       }
-      const data = await res.json();
-      return Array.isArray(data.logs) ? data.logs : [];
     }
 
     async function showTaskDetail(id) {

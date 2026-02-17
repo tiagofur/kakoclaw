@@ -160,8 +160,15 @@ func (s *Server) staticHandler() http.Handler {
 	return http.FileServer(http.FS(sub))
 }
 
+const maxWebSocketClients = 100
+
 func (s *Server) authMiddleware(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("X-XSS-Protection", "1; mode=block")
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+
 		if strings.HasPrefix(r.URL.Path, "/api/v1/auth/login") {
 			next.ServeHTTP(w, r)
 			return
@@ -471,6 +478,14 @@ func (s *Server) handleTaskChatCommand(input string) (bool, string) {
 }
 
 func (s *Server) handleTasksWS(w http.ResponseWriter, r *http.Request) {
+	s.tasksMu.RLock()
+	clientCount := len(s.tasksClients)
+	s.tasksMu.RUnlock()
+	if clientCount >= maxWebSocketClients {
+		http.Error(w, "too many connections", http.StatusServiceUnavailable)
+		return
+	}
+
 	conn, err := wsUpgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return
@@ -536,6 +551,13 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 	if s.authManager == nil {
 		http.Error(w, "auth unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	ip := clientIP(r)
+	cpKey := "change-password:" + ip
+	s.loginLimit.SetLimit(cpKey, 5, time.Minute)
+	if !s.loginLimit.Allow(cpKey) {
+		http.Error(w, "too many attempts", http.StatusTooManyRequests)
 		return
 	}
 	var in struct {
