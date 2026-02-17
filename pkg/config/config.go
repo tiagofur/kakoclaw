@@ -49,6 +49,7 @@ type Config struct {
 	Channels  ChannelsConfig  `json:"channels"`
 	Providers ProvidersConfig `json:"providers"`
 	Gateway   GatewayConfig   `json:"gateway"`
+	Web       WebConfig       `json:"web"`
 	Tools     ToolsConfig     `json:"tools"`
 	mu        sync.RWMutex
 }
@@ -58,13 +59,13 @@ type AgentsConfig struct {
 }
 
 type AgentDefaults struct {
-	Workspace         string  `json:"workspace" env:"PICOCLAW_AGENTS_DEFAULTS_WORKSPACE"`
-	RestrictToWorkspace bool  `json:"restrict_to_workspace" env:"PICOCLAW_AGENTS_DEFAULTS_RESTRICT_TO_WORKSPACE"`
-	Provider          string  `json:"provider" env:"PICOCLAW_AGENTS_DEFAULTS_PROVIDER"`
-	Model             string  `json:"model" env:"PICOCLAW_AGENTS_DEFAULTS_MODEL"`
-	MaxTokens         int     `json:"max_tokens" env:"PICOCLAW_AGENTS_DEFAULTS_MAX_TOKENS"`
-	Temperature       float64 `json:"temperature" env:"PICOCLAW_AGENTS_DEFAULTS_TEMPERATURE"`
-	MaxToolIterations int     `json:"max_tool_iterations" env:"PICOCLAW_AGENTS_DEFAULTS_MAX_TOOL_ITERATIONS"`
+	Workspace           string  `json:"workspace" env:"PICOCLAW_AGENTS_DEFAULTS_WORKSPACE"`
+	RestrictToWorkspace bool    `json:"restrict_to_workspace" env:"PICOCLAW_AGENTS_DEFAULTS_RESTRICT_TO_WORKSPACE"`
+	Provider            string  `json:"provider" env:"PICOCLAW_AGENTS_DEFAULTS_PROVIDER"`
+	Model               string  `json:"model" env:"PICOCLAW_AGENTS_DEFAULTS_MODEL"`
+	MaxTokens           int     `json:"max_tokens" env:"PICOCLAW_AGENTS_DEFAULTS_MAX_TOKENS"`
+	Temperature         float64 `json:"temperature" env:"PICOCLAW_AGENTS_DEFAULTS_TEMPERATURE"`
+	MaxToolIterations   int     `json:"max_tool_iterations" env:"PICOCLAW_AGENTS_DEFAULTS_MAX_TOOL_ITERATIONS"`
 }
 
 type ChannelsConfig struct {
@@ -166,6 +167,15 @@ type GatewayConfig struct {
 	Port int    `json:"port" env:"PICOCLAW_GATEWAY_PORT"`
 }
 
+type WebConfig struct {
+	Enabled   bool   `json:"enabled" env:"PICOCLAW_WEB_ENABLED"`
+	Host      string `json:"host" env:"PICOCLAW_WEB_HOST"`
+	Port      int    `json:"port" env:"PICOCLAW_WEB_PORT"`
+	Username  string `json:"username" env:"PICOCLAW_WEB_USERNAME"`
+	Password  string `json:"password" env:"PICOCLAW_WEB_PASSWORD"`
+	JWTExpiry string `json:"jwt_expiry" env:"PICOCLAW_WEB_JWT_EXPIRY"`
+}
+
 type WebSearchConfig struct {
 	APIKey     string `json:"api_key" env:"PICOCLAW_TOOLS_WEB_SEARCH_API_KEY"`
 	MaxResults int    `json:"max_results" env:"PICOCLAW_TOOLS_WEB_SEARCH_MAX_RESULTS"`
@@ -183,13 +193,13 @@ func DefaultConfig() *Config {
 	return &Config{
 		Agents: AgentsConfig{
 			Defaults: AgentDefaults{
-				Workspace:         "~/.picoclaw/workspace",
+				Workspace:           "~/.picoclaw/workspace",
 				RestrictToWorkspace: true,
-				Provider:          "",
-				Model:             "glm-4.7",
-				MaxTokens:         8192,
-				Temperature:       0.7,
-				MaxToolIterations: 20,
+				Provider:            "",
+				Model:               "glm-4.7",
+				MaxTokens:           8192,
+				Temperature:         0.7,
+				MaxToolIterations:   20,
 			},
 		},
 		Channels: ChannelsConfig{
@@ -234,18 +244,18 @@ func DefaultConfig() *Config {
 				ClientSecret: "",
 				AllowFrom:    FlexibleStringSlice{},
 			},
-		Slack: SlackConfig{
-			Enabled:   false,
-			BotToken:  "",
-			AppToken:  "",
-			AllowFrom: []string{},
+			Slack: SlackConfig{
+				Enabled:   false,
+				BotToken:  "",
+				AppToken:  "",
+				AllowFrom: []string{},
+			},
+			Signal: SignalConfig{
+				Enabled:     false,
+				PhoneNumber: "",
+				AllowFrom:   FlexibleStringSlice{},
+			},
 		},
-		Signal: SignalConfig{
-			Enabled:     false,
-			PhoneNumber: "",
-			AllowFrom:   FlexibleStringSlice{},
-		},
-	},
 		Providers: ProvidersConfig{
 			Anthropic:  ProviderConfig{},
 			OpenAI:     ProviderConfig{},
@@ -261,6 +271,14 @@ func DefaultConfig() *Config {
 		Gateway: GatewayConfig{
 			Host: "0.0.0.0",
 			Port: 18790,
+		},
+		Web: WebConfig{
+			Enabled:   false,
+			Host:      "127.0.0.1",
+			Port:      18880,
+			Username:  "admin",
+			Password:  "",
+			JWTExpiry: "24h",
 		},
 		Tools: ToolsConfig{
 			Web: WebToolsConfig{
