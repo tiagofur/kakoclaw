@@ -168,6 +168,7 @@ func (s *Server) authMiddleware(next http.Handler) http.HandlerFunc {
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self' ws: wss:")
 
 		if strings.HasPrefix(r.URL.Path, "/api/v1/auth/login") {
 			next.ServeHTTP(w, r)

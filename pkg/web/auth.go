@@ -188,7 +188,13 @@ func (m *authManager) changePassword(oldPassword, newPassword string) error {
 	if err != nil {
 		return err
 	}
+	// Rotate JWT secret to invalidate all existing tokens
+	newSecret := make([]byte, 32)
+	if _, err := rand.Read(newSecret); err != nil {
+		return err
+	}
 	m.state.PasswordHash = string(hash)
+	m.state.JWTSecretB64 = base64.RawURLEncoding.EncodeToString(newSecret)
 	return m.save()
 }
 

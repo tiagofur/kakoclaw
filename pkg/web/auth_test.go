@@ -27,6 +27,10 @@ func TestAuthManagerLoginVerifyAndChangePassword(t *testing.T) {
 	if err := mgr.changePassword("InitialPass123!", "NewPass12345!"); err != nil {
 		t.Fatalf("changePassword failed: %v", err)
 	}
+	// Old token should be invalid after password change (JWT secret rotated)
+	if _, err := mgr.verifyToken(token); err == nil {
+		t.Fatal("old token should be invalid after password change")
+	}
 	if _, err := mgr.login("admin", "InitialPass123!"); err == nil {
 		t.Fatal("old password should fail after change")
 	}
