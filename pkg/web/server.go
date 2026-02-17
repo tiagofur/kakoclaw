@@ -34,6 +34,7 @@ type Server struct {
 	loginLimit   *ratelimit.RateLimiter
 	tasksMu      sync.RWMutex
 	tasksClients map[*websocket.Conn]struct{}
+	connMu       map[*websocket.Conn]*sync.Mutex
 }
 
 type taskItem struct {
@@ -57,6 +58,7 @@ func NewServer(cfg config.WebConfig, agentLoop *agent.AgentLoop) *Server {
 		agentLoop:    agentLoop,
 		loginLimit:   ratelimit.NewRateLimiter(),
 		tasksClients: make(map[*websocket.Conn]struct{}),
+		connMu:       make(map[*websocket.Conn]*sync.Mutex),
 	}
 }
 
@@ -137,6 +139,7 @@ func (s *Server) Stop(ctx context.Context) error {
 	for conn := range s.tasksClients {
 		_ = conn.Close()
 		delete(s.tasksClients, conn)
+		delete(s.connMu, conn)
 	}
 	s.tasksMu.Unlock()
 
@@ -157,8 +160,16 @@ func (s *Server) staticHandler() http.Handler {
 	return http.FileServer(http.FS(sub))
 }
 
+const maxWebSocketClients = 100
+
 func (s *Server) authMiddleware(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("X-XSS-Protection", "1; mode=block")
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self' ws: wss:")
+
 		if strings.HasPrefix(r.URL.Path, "/api/v1/auth/login") {
 			next.ServeHTTP(w, r)
 			return
@@ -402,6 +413,9 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleTaskChatCommand(input string) (bool, string) {
+	if s.tasks == nil {
+		return false, ""
+	}
 	lower := strings.ToLower(strings.TrimSpace(input))
 	if strings.HasPrefix(lower, "/task create ") {
 		title := strings.TrimSpace(input[len("/task create "):])
@@ -465,17 +479,28 @@ func (s *Server) handleTaskChatCommand(input string) (bool, string) {
 }
 
 func (s *Server) handleTasksWS(w http.ResponseWriter, r *http.Request) {
+	s.tasksMu.RLock()
+	clientCount := len(s.tasksClients)
+	s.tasksMu.RUnlock()
+	if clientCount >= maxWebSocketClients {
+		http.Error(w, "too many connections", http.StatusServiceUnavailable)
+		return
+	}
+
 	conn, err := wsUpgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return
 	}
+	mu := &sync.Mutex{}
 	s.tasksMu.Lock()
 	s.tasksClients[conn] = struct{}{}
+	s.connMu[conn] = mu
 	s.tasksMu.Unlock()
 
 	defer func() {
 		s.tasksMu.Lock()
 		delete(s.tasksClients, conn)
+		delete(s.connMu, conn)
 		s.tasksMu.Unlock()
 		_ = conn.Close()
 	}()
@@ -527,6 +552,13 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 	if s.authManager == nil {
 		http.Error(w, "auth unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	ip := clientIP(r)
+	cpKey := "change-password:" + ip
+	s.loginLimit.SetLimit(cpKey, 5, time.Minute)
+	if !s.loginLimit.Allow(cpKey) {
+		http.Error(w, "too many attempts", http.StatusTooManyRequests)
 		return
 	}
 	var in struct {
@@ -594,18 +626,28 @@ func (s *Server) broadcastTaskEvent(event string, task taskItem) {
 	}
 
 	s.tasksMu.RLock()
-	conns := make([]*websocket.Conn, 0, len(s.tasksClients))
+	type connWithMu struct {
+		conn *websocket.Conn
+		mu   *sync.Mutex
+	}
+	conns := make([]connWithMu, 0, len(s.tasksClients))
 	for c := range s.tasksClients {
-		conns = append(conns, c)
+		if mu, ok := s.connMu[c]; ok {
+			conns = append(conns, connWithMu{conn: c, mu: mu})
+		}
 	}
 	s.tasksMu.RUnlock()
 
-	for _, conn := range conns {
-		if err := conn.WriteMessage(websocket.TextMessage, payload); err != nil {
+	for _, cm := range conns {
+		cm.mu.Lock()
+		err := cm.conn.WriteMessage(websocket.TextMessage, payload)
+		cm.mu.Unlock()
+		if err != nil {
 			s.tasksMu.Lock()
-			delete(s.tasksClients, conn)
+			delete(s.tasksClients, cm.conn)
+			delete(s.connMu, cm.conn)
 			s.tasksMu.Unlock()
-			_ = conn.Close()
+			_ = cm.conn.Close()
 		}
 	}
 }
@@ -626,6 +668,7 @@ func (s *Server) runTaskWorker(ctx context.Context) {
 func (s *Server) processNextTodoTask(ctx context.Context) {
 	tasks, err := s.tasks.list()
 	if err != nil {
+		logger.WarnCF("web", "task worker: failed to list tasks", map[string]interface{}{"error": err.Error()})
 		return
 	}
 	for _, t := range tasks {
@@ -634,24 +677,33 @@ func (s *Server) processNextTodoTask(ctx context.Context) {
 		}
 		inProgress, err := s.tasks.updateStatus(t.ID, "in_progress")
 		if err != nil {
-			return
+			logger.WarnCF("web", "task worker: failed to update status", map[string]interface{}{"task_id": t.ID, "error": err.Error()})
+			continue
 		}
 		s.broadcastTaskEvent("status_changed", inProgress)
 
 		prompt := "Ejecuta esta tarea y devuelve un resumen breve.\nTitulo: " + t.Title + "\nDescripcion: " + t.Description
 		result, err := s.agentLoop.ProcessDirect(ctx, prompt, "web:task:"+t.ID)
 		if err != nil {
-			updated, _ := s.tasks.update(t.ID, t.Title, t.Description, "review", "error: "+err.Error())
-			_ = s.tasks.addLog(t.ID, "worker_error", err.Error())
+			updated, updateErr := s.tasks.update(t.ID, t.Title, t.Description, "review", "error: "+err.Error())
+			if updateErr != nil {
+				logger.WarnCF("web", "task worker: failed to save error result", map[string]interface{}{"task_id": t.ID, "error": updateErr.Error()})
+			}
+			if logErr := s.tasks.addLog(t.ID, "worker_error", err.Error()); logErr != nil {
+				logger.WarnCF("web", "task worker: failed to add error log", map[string]interface{}{"task_id": t.ID, "error": logErr.Error()})
+			}
 			s.broadcastTaskEvent("updated", updated)
 			s.broadcastTaskEvent("status_changed", updated)
-			return
+			continue
 		}
 		updated, err := s.tasks.update(t.ID, t.Title, t.Description, "review", result)
 		if err != nil {
-			return
+			logger.WarnCF("web", "task worker: failed to save result", map[string]interface{}{"task_id": t.ID, "error": err.Error()})
+			continue
 		}
-		_ = s.tasks.addLog(t.ID, "worker_completed", "moved to review")
+		if logErr := s.tasks.addLog(t.ID, "worker_completed", "moved to review"); logErr != nil {
+			logger.WarnCF("web", "task worker: failed to add log", map[string]interface{}{"task_id": t.ID, "error": logErr.Error()})
+		}
 		s.broadcastTaskEvent("updated", updated)
 		s.broadcastTaskEvent("status_changed", updated)
 		return

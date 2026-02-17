@@ -33,6 +33,7 @@ import (
 	"github.com/sipeed/picoclaw/pkg/skills"
 	"github.com/sipeed/picoclaw/pkg/tools"
 	"github.com/sipeed/picoclaw/pkg/voice"
+	"github.com/sipeed/picoclaw/pkg/web"
 )
 
 var (
@@ -106,6 +107,8 @@ func main() {
 		agentCmd()
 	case "gateway":
 		gatewayCmd()
+	case "web":
+		webCmd()
 	case "status":
 		statusCmd()
 	case "migrate":
@@ -184,6 +187,7 @@ func printHelp() {
 	fmt.Println("  auth        Manage authentication (login, logout, status)")
 	fmt.Println("  doctor      Run health checks and diagnostics")
 	fmt.Println("  gateway     Start picoclaw gateway")
+	fmt.Println("  web         Start web panel only")
 	fmt.Println("  status      Show picoclaw status")
 	fmt.Println("  cron        Manage scheduled tasks")
 	fmt.Println("  migrate     Migrate from OpenClaw to PicoClaw")
@@ -725,6 +729,16 @@ func gatewayCmd() {
 
 	go agentLoop.Run(ctx)
 
+	var webServer *web.Server
+	if cfg.Web.Enabled {
+		webServer = web.NewServerWithWorkspace(cfg.Web, agentLoop, cfg.WorkspacePath())
+		if err := webServer.Start(ctx); err != nil {
+			fmt.Printf("Error starting web server: %v\n", err)
+		} else {
+			fmt.Printf("✓ Web panel started on %s:%d\n", cfg.Web.Host, cfg.Web.Port)
+		}
+	}
+
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
 	<-sigChan
@@ -733,9 +747,57 @@ func gatewayCmd() {
 	cancel()
 	heartbeatService.Stop()
 	cronService.Stop()
+	if webServer != nil {
+		_ = webServer.Stop(context.Background())
+	}
 	agentLoop.Stop()
 	channelManager.StopAll(ctx)
 	fmt.Println("✓ Gateway stopped")
+}
+
+func webCmd() {
+	cfg, err := loadConfig()
+	if err != nil {
+		fmt.Printf("Error loading config: %v\n", err)
+		os.Exit(1)
+	}
+
+	if !cfg.Web.Enabled {
+		fmt.Println("Web is disabled. Set web.enabled=true in config.")
+		os.Exit(1)
+	}
+
+	provider, err := providers.CreateProvider(cfg)
+	if err != nil {
+		fmt.Printf("Error creating provider: %v\n", err)
+		os.Exit(1)
+	}
+
+	msgBus := bus.NewMessageBus()
+	agentLoop := agent.NewAgentLoop(cfg, msgBus, provider)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go agentLoop.Run(ctx)
+
+	webServer := web.NewServerWithWorkspace(cfg.Web, agentLoop, cfg.WorkspacePath())
+	if err := webServer.Start(ctx); err != nil {
+		fmt.Printf("Error starting web server: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("✓ Web panel started on %s:%d\n", cfg.Web.Host, cfg.Web.Port)
+	fmt.Println("Press Ctrl+C to stop")
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt)
+	<-sigChan
+
+	fmt.Println("\nShutting down...")
+	cancel()
+	_ = webServer.Stop(context.Background())
+	agentLoop.Stop()
+	fmt.Println("✓ Web stopped")
 }
 
 func statusCmd() {
@@ -765,7 +827,7 @@ func statusCmd() {
 	if _, err := os.Stat(configPath); err == nil {
 		model := cfg.Agents.Defaults.Model
 		fmt.Printf("Model: %s\n", model)
-		
+
 		// Issue #43: Show provider mapping
 		providerName, actualModel := providers.GetProviderForModel(model)
 		fmt.Printf("Provider: %s (model: %s)\n", providerName, actualModel)

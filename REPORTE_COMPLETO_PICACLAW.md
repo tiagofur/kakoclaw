@@ -14,6 +14,12 @@
 11. [Posibles Mejoras](#posibles-mejoras)
 12. [Nuevas Features Sugeridas](#nuevas-features-sugeridas)
 13. [Optimizaciones de Código](#optimizaciones-de-código)
+14. [Panel Web: Funciones y Estado](#panel-web-funciones-y-estado)
+15. [Auditoría de Seguridad](#auditoría-de-seguridad)
+16. [Auditoría de Lógica y Fiabilidad](#auditoría-de-lógica-y-fiabilidad)
+17. [Auditoría del Frontend](#auditoría-del-frontend)
+18. [Auditoría de Configuración y Despliegue](#auditoría-de-configuración-y-despliegue)
+19. [Plan de Correcciones Prioritarias](#plan-de-correcciones-prioritarias)
 
 ---
 
@@ -1408,3 +1414,354 @@ El proyecto tiene un potencial enorme para crecer mientras mantiene su filosofí
 **Versión analizada**: PicoClaw v0.1.0  
 **Líneas de código**: ~13,600  
 **Archivos Go**: 56
+
+---
+
+## Panel Web: Funciones y Estado
+
+### Funciones Implementadas
+
+El panel web (`pkg/web/`) es una SPA embebida que permite operar PicoClaw desde el navegador.
+
+| Función | Descripción | Estado |
+|---------|-------------|--------|
+| **Login JWT** | Autenticación con usuario/contraseña, token HMAC-SHA256 | ✅ Funcional |
+| **Logout** | Limpieza de sesión y token | ✅ Funcional |
+| **Cambio de contraseña** | Desde la UI con validación mínima (10 chars) | ✅ Funcional |
+| **Chat en tiempo real** | WebSocket bidireccional con el agente IA | ✅ Funcional |
+| **Tablero Kanban** | Visualización de tareas por columnas (backlog→done) | ✅ Funcional |
+| **CRUD de tareas** | Crear, editar título, cambiar estado, eliminar | ✅ Funcional |
+| **Vista de detalle** | Panel lateral con meta, resultado del bot y logs | ✅ Funcional |
+| **Logs de tarea** | Historial de eventos por tarea | ✅ Funcional |
+| **Acciones rápidas chat** | `/task list`, `/task run`, `/task move` | ✅ Funcional |
+| **Temporizador de sesión** | Cuenta regresiva visible + warning <2min | ✅ Funcional |
+| **Auto-logout** | Expiración de JWT con redirección a login | ✅ Funcional |
+| **Filtros avanzados** | Por texto, estado, fecha | ✅ Funcional |
+| **Ordenamiento** | Por fecha o título (asc/desc) | ✅ Funcional |
+| **Badges de estado** | Colores diferenciados por estado de tarea | ✅ Funcional |
+| **Selección de tarea** | Click para ver detalle con highlight visual | ✅ Funcional |
+| **Protección XSS** | Función `esc()` para sanitizar renders | ⚠️ Parcial |
+| **Task Worker** | Procesamiento automático de tareas todo→review | ✅ Funcional |
+| **WebSocket Tasks** | Actualización en tiempo real del tablero | ✅ Funcional |
+| **Password auto-gen** | Si no hay password configurado, genera uno aleatorio | ✅ Funcional |
+
+### Flujo de Uso Típico
+
+1. Arrancar con `picoclaw web` o `picoclaw gateway` (con web habilitado en config)
+2. Abrir `http://127.0.0.1:18880` en navegador
+3. Login con usuario/contraseña configurados (o el password auto-generado)
+4. Crear tareas desde el formulario o chat (`/task create mi tarea`)
+5. Las tareas en "todo" se procesan automáticamente por el agent loop
+6. Ver resultado en el panel de detalle, mover estados manualmente si se desea
+
+---
+
+## Auditoría de Seguridad
+
+> Auditoría realizada sobre `pkg/web/auth.go`, `pkg/web/server.go`, `pkg/web/tasks_store.go`
+
+### ✅ Buenas Prácticas Detectadas
+
+| Práctica | Ubicación | Detalle |
+|----------|-----------|---------|
+| bcrypt con DefaultCost | `auth.go:63,187` | Hashing seguro de contraseñas |
+| Comparación constant-time | `auth.go:114` | Protección contra timing attacks |
+| JWT secret aleatorio 32 bytes | `auth.go:67-74` | Entropía adecuada |
+| HS256 hardcodeado | `auth.go:124` | Sin confusión de algoritmos |
+| Queries parametrizadas | `tasks_store.go` (todas) | Sin inyección SQL |
+| Rate limiting en login | `server.go:500-505` | 5 intentos/min |
+| Web bind a 127.0.0.1 por defecto | `config.go:277` | Solo acceso local |
+
+### 🔴 Problemas Críticos
+
+#### 1. Token JWT en URL del WebSocket
+- **Archivo**: `server.go:197`
+- **Riesgo**: El token se pasa como query parameter (`?token=...`)
+- **Impacto**: Se filtra en historial del navegador, logs del servidor, headers Referer
+- **Fix**: Usar subprotocolo WebSocket o cookie httpOnly
+
+#### 2. Sin Protección CSRF
+- **Archivo**: `server.go` (global)
+- **Riesgo**: Endpoints POST/PATCH/DELETE sin token CSRF
+- **Impacto**: Ataques cross-site pueden ejecutar acciones autenticadas
+- **Fix**: Añadir token CSRF en formularios o header `X-CSRF-Token`
+
+#### 3. Sin Revocación de Tokens
+- **Archivo**: `auth.go` (global)
+- **Riesgo**: No hay blacklist de tokens; cambiar contraseña no invalida tokens existentes
+- **Impacto**: Tokens comprometidos permanecen válidos hasta expiración
+- **Fix**: Implementar token blacklist o rotar JWT secret al cambiar password
+
+### 🟡 Problemas Moderados
+
+#### 4. Headers de Seguridad HTTP Ausentes
+- **Archivo**: `server.go:160-181`
+- **Faltan**: `X-Content-Type-Options`, `X-Frame-Options`, `Strict-Transport-Security`, `Content-Security-Policy`
+- **Fix**: Añadir middleware de security headers
+
+#### 5. Rate Limiting Incompleto
+- **Archivo**: `server.go`
+- **Problema**: Solo `/api/v1/auth/login` tiene rate limit; falta en `/api/v1/auth/change-password`, `/api/v1/tasks`, `/ws/chat`
+- **Fix**: Aplicar rate limiting global por IP
+
+#### 6. IP Spoofing vía X-Forwarded-For
+- **Archivo**: `server.go:561-572`
+- **Problema**: Se confía en `X-Forwarded-For` sin validar si hay reverse proxy
+- **Fix**: Solo usar header si se configura explícitamente un trusted proxy
+
+#### 7. Validación de Origen Incompleta (WebSocket)
+- **Archivo**: `server.go:206-216`
+- **Problema**: Solo compara hostname, no esquema (`http` vs `https`)
+- **Fix**: Validar origen completo incluyendo esquema
+
+#### 8. Password Mínimo No Aplicado en Login Inicial
+- **Archivo**: `auth.go:113-121`
+- **Problema**: El password configurado en JSON no tiene validación de longitud mínima
+- **Fix**: Validar longitud mínima en `LoadConfig()`
+
+### 🟢 Sin Problemas
+
+- **Inyección SQL**: Todas las queries usan placeholders `?` → Seguro
+- **Secretos hardcodeados**: Solo placeholders en archivos de ejemplo → OK
+- **Test credentials**: Solo en archivos `*_test.go` → Esperado
+
+---
+
+## Auditoría de Lógica y Fiabilidad
+
+> Auditoría de lógica de negocio, concurrencia, manejo de errores y recursos
+
+### 🔴 Problemas Críticos
+
+#### 1. Colisión de IDs en Tareas
+- **Archivos**: `tasks_store.go:220-221`, `tasks.go:96`
+- **Problema**: `generateID()` usa `time.Now().UTC().Format(...)` — no es único bajo concurrencia
+- **Comparación**: `pkg/cron/service.go:450-457` usa `crypto/rand` (correcto)
+- **Impacto**: Tareas duplicadas, violación de PRIMARY KEY
+- **Fix recomendado**:
+```go
+func generateID() string {
+    b := make([]byte, 16)
+    crypto_rand.Read(b)
+    return hex.EncodeToString(b)
+}
+```
+
+#### 2. Task Worker Se Bloquea en Errores
+- **Archivo**: `server.go:626-659` (`processNextTodoTask`)
+- **Problema**: Usa `return` en lugar de `continue` al fallar; una tarea con error bloquea todas las demás
+- **Impacto**: Tareas quedan permanentemente en "in_progress" sin reintento
+- **Fix**: Cambiar `return` a `continue` y añadir logging del error
+
+#### 3. Race Condition en WebSocket Broadcast
+- **Archivo**: `server.go:587-611` (`broadcastTaskEvent`)
+- **Problema**: `conn.WriteMessage()` se ejecuta fuera del lock; gorilla/websocket requiere escrituras serializadas
+- **Impacto**: Corrupción de protocolo WebSocket, mensajes perdidos, desconexiones
+- **Fix**: Añadir mutex por conexión o usar canal de escritura
+
+### 🟡 Problemas Moderados
+
+#### 4. Errores Silenciados en Task Worker
+- **Archivo**: `server.go:644-645`
+- **Código**: `_ = s.tasks.update(...)` y `_ = s.tasks.addLog(...)`
+- **Impacto**: Fallos de escritura no registrados; debugging imposible
+- **Fix**: Loguear errores con `logger.WarnC`
+
+#### 5. Nil Dereference en Chat Commands
+- **Archivo**: `server.go:411` (`handleTaskChatCommand`)
+- **Problema**: No verifica `s.tasks == nil` (sí se hace en `handleTasks` línea 226)
+- **Fix**: Añadir guard `if s.tasks == nil { return ... }`
+
+#### 6. Defer Antes de Error Check (WebSocket)
+- **Archivo**: `server.go:377-378`
+- **Problema**: `defer conn.Close()` puede ejecutarse con `conn` nil si `Upgrade` falla
+- **Fix**: Mover `defer` después de la verificación de error
+
+#### 7. Sin Límite de Conexiones WebSocket
+- **Archivo**: `server.go:36, 587-611`
+- **Problema**: Mapa `tasksClients` crece sin límite; un atacante puede abrir miles de conexiones
+- **Fix**: Limitar conexiones máximas (ej: 100) con cleanup
+
+#### 8. Sin Validación de Transiciones de Estado
+- **Archivo**: `tasks_store.go:140-160`
+- **Problema**: Permite transiciones inválidas (ej: "done" → "backlog")
+- **Fix**: Implementar máquina de estados con transiciones permitidas
+
+#### 9. Sin Pool de Conexiones SQLite Configurado
+- **Archivo**: `tasks_store.go:31-34`
+- **Problema**: No se configura `SetMaxOpenConns`/`SetMaxIdleConns`
+- **Fix**: Añadir `db.SetMaxOpenConns(25)` y `db.SetMaxIdleConns(5)`
+
+---
+
+## Auditoría del Frontend
+
+> Auditoría de `pkg/web/static/index.html` (SPA completa)
+
+### 🔴 Problemas Críticos
+
+#### 1. Función `esc()` Incompleta (XSS)
+- **Línea**: 485
+- **Código actual**: `return String(v || "").replace(/</g, "&lt;")`
+- **Problema**: Solo escapa `<`; no escapa `&`, `>`, `"`, `'`
+- **Impacto**: Vulnerable a XSS en atributos HTML
+- **Fix**:
+```javascript
+function esc(v) {
+    return String(v || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+```
+
+#### 2. Chat Sin Escapar (XSS vía WebSocket)
+- **Líneas**: 307-310
+- **Problema**: `appendChat(\`bot: ${payload.content}\`)` — contenido del bot insertado sin sanitizar
+- **Impacto**: Si el bot devuelve HTML/JS malicioso, se ejecuta en el navegador
+- **Fix**: Usar `esc()` corregido o `textContent`
+
+#### 3. Token en localStorage
+- **Líneas**: 174, 200, 245, 253, 293, 320
+- **Problema**: JWT almacenado en localStorage es accesible por cualquier script XSS
+- **Impacto**: Combinado con las vulnerabilidades XSS anteriores, permite robo de sesión
+- **Fix ideal**: Usar cookie httpOnly; alternativa: sanitizar 100% de renders
+
+### 🟡 Problemas Moderados
+
+#### 4. Sin Manejo de Errores en Muchas Llamadas API
+- **Líneas afectadas**: 356, 379, 401, 414, 428, 437
+- **Problema**: `loadTasks()`, crear/editar/eliminar/obtener logs no manejan errores
+- **Fix**: Añadir `catch` con notificación al usuario
+
+#### 5. Sin Exponential Backoff en Reconexión WebSocket
+- **Líneas**: 313, 331
+- **Problema**: Reintentos fijos a 1500ms pueden saturar el servidor
+- **Fix**: Implementar backoff exponencial con jitter
+
+#### 6. Validación de Input Débil
+- **Línea 262**: Cambio de password no valida longitud mínima en frontend
+- **Línea 378**: Título de tarea solo comprueba no-vacío
+- **Línea 411**: `prompt()` devuelve `null` al cancelar, no se maneja correctamente
+
+### 🟢 Buenas Prácticas
+
+- `apiFetch()` centralizado con manejo de 401 → auto-logout
+- `textContent` usado para chat del usuario (seguro)
+- Reconexión WebSocket solo si hay token activo
+- Timer de sesión con cleanup al logout
+
+---
+
+## Auditoría de Configuración y Despliegue
+
+### 🔴 Problemas Críticos
+
+#### 1. Sin Validación de WebConfig
+- **Archivo**: `config.go:170-177`
+- **Problema**: Port puede ser negativo o >65535; password puede estar vacío; JWTExpiry sin validar formato
+- **Fix**: Añadir validación en `LoadConfig()`:
+```go
+if cfg.Web.Port < 1 || cfg.Web.Port > 65535 { return error }
+if cfg.Web.Enabled && cfg.Web.Password == "" { log warning }
+```
+
+#### 2. Sin Validación de Variables de Entorno
+- **Archivo**: `config.go:309-351`
+- **Problema**: Valores de env vars no se validan (puertos, hosts, API keys)
+- **Fix**: Validar tras parseo
+
+### 🟡 Problemas Moderados
+
+#### 3. Gateway Binds a 0.0.0.0 por Defecto
+- **Archivo**: `config.go:272`
+- **Problema**: Expone el gateway a toda la red local
+- **Recomendación**: Documentar claramente o cambiar default a 127.0.0.1
+
+#### 4. Makefile Sin Targets de Seguridad
+- **Problema**: No hay `make audit`, `make security`, ni `make gosec`
+- **Recomendación**: Añadir `go vet ./...` y `govulncheck` al CI
+
+### 🟢 Buenas Prácticas
+
+| Práctica | Estado |
+|----------|--------|
+| Graceful shutdown con context | ✅ Excelente |
+| Signal handling (SIGINT) | ✅ Correcto |
+| Multi-service shutdown ordenado | ✅ Correcto |
+| Dependencias Go actualizadas | ✅ Sin CVEs conocidos |
+| Web bind a 127.0.0.1 por defecto | ✅ Seguro |
+| config.example.json sin secretos reales | ✅ Solo placeholders |
+
+---
+
+## Plan de Correcciones Prioritarias
+
+### Prioridad 0 — Críticas (hacer antes de pruebas internas)
+
+| # | Problema | Archivo | Esfuerzo | Impacto |
+|---|----------|---------|----------|---------|
+| 1 | `generateID()` con colisiones | `tasks_store.go`, `tasks.go` | 10 min | Pérdida de datos |
+| 2 | Task worker se bloquea | `server.go:626-659` | 10 min | Tareas atascadas |
+| 3 | Race condition WebSocket | `server.go:587-611` | 20 min | Desconexiones |
+| 4 | Función `esc()` incompleta | `index.html:485` | 5 min | XSS |
+| 5 | Chat XSS vía WebSocket | `index.html:307-310` | 10 min | XSS |
+
+### Prioridad 1 — Importantes (hacer para uso seguro)
+
+| # | Problema | Archivo | Esfuerzo |
+|---|----------|---------|----------|
+| 6 | Nil check en chat commands | `server.go:411` | 5 min |
+| 7 | Defer antes de error check | `server.go:377-378` | 5 min |
+| 8 | Security headers HTTP | `server.go` middleware | 15 min |
+| 9 | Validación de WebConfig | `config.go` | 20 min |
+| 10 | Error handling en frontend | `index.html` múltiples | 20 min |
+
+### Prioridad 2 — Mejoras de Robustez
+
+| # | Problema | Archivo | Esfuerzo |
+|---|----------|---------|----------|
+| 11 | Rate limiting global | `server.go` | 30 min |
+| 12 | Límite de conexiones WS | `server.go` | 15 min |
+| 13 | Exponential backoff WS | `index.html` | 15 min |
+| 14 | Token revocation | `auth.go` | 1 hora |
+| 15 | CSRF protection | `server.go` | 30 min |
+
+### Prioridad 3 — Mejoras Futuras
+
+| # | Problema | Archivo | Esfuerzo |
+|---|----------|---------|----------|
+| 16 | httpOnly cookies | `auth.go` + `index.html` | 2 horas |
+| 17 | Validación transiciones estado | `tasks_store.go` | 30 min |
+| 18 | DB connection pool config | `tasks_store.go` | 5 min |
+| 19 | Targets de seguridad en Makefile | `Makefile` | 15 min |
+| 20 | Accesibilidad (ARIA, labels) | `index.html` | 1 hora |
+
+---
+
+### Resumen Ejecutivo
+
+**Estado general**: La app es **funcional y utilizable para pruebas internas**, pero tiene **5 bugs críticos** que deben corregirse antes de uso con datos reales.
+
+**Fortalezas**:
+- Arquitectura limpia y modular
+- Autenticación JWT con bcrypt bien implementada
+- Queries SQL parametrizadas (sin inyección)
+- Graceful shutdown correcto
+- SPA funcional con todas las features planeadas
+
+**Debilidades principales**:
+- `generateID()` no es collision-safe (usar crypto/rand)
+- Task worker se bloquea ante errores (cambiar return→continue)
+- Sanitización XSS incompleta en frontend
+- Sin CSRF ni security headers
+- Sin revocación de tokens
+
+**Recomendación**: Corregir los 5 items P0 (~55 min de trabajo) antes de cualquier prueba interna. Los items P1 (~65 min) son necesarios para uso seguro con datos sensibles.
+
+---
+
+**Auditoría de seguridad actualizada el**: Julio 2025  
+**Alcance**: `pkg/web/`, `pkg/tools/tasks.go`, `pkg/config/config.go`, `cmd/picoclaw/main.go`

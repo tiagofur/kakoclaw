@@ -1,4 +1,4 @@
-.PHONY: all build install uninstall clean help test
+.PHONY: all build install uninstall clean help test vet security
 
 # Build variables
 BINARY_NAME=picoclaw
@@ -150,6 +150,25 @@ deps:
 ## run: Build and run picoclaw
 run: build
 	@$(BUILD_DIR)/$(BINARY_NAME) $(ARGS)
+
+## test: Run all tests
+test:
+	@$(GO) test ./...
+
+## vet: Run Go vet static analysis
+vet:
+	@$(GO) vet ./...
+
+## security: Run security checks (vet + vuln)
+security: vet
+	@echo "Running go vet..."
+	@$(GO) vet ./...
+	@echo "Checking for known vulnerabilities..."
+	@if command -v govulncheck >/dev/null 2>&1; then \
+		govulncheck ./...; \
+	else \
+		echo "govulncheck not installed. Install with: go install golang.org/x/vuln/cmd/govulncheck@latest"; \
+	fi
 
 ## help: Show this help message
 help:

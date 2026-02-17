@@ -90,6 +90,13 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 	toolsRegistry.Register(editFileTool)
 	toolsRegistry.Register(tools.NewAppendFileTool(workspace, restrict))
 
+	// Register task manager tool (shared web tasks DB)
+	if taskTool, err := tools.NewTaskTool(workspace); err == nil {
+		toolsRegistry.Register(taskTool)
+	} else {
+		logger.WarnCF("agent", "Task manager tool unavailable", map[string]interface{}{"error": err.Error()})
+	}
+
 	sessionsManager := session.NewSessionManager(filepath.Join(workspace, "sessions"))
 
 	// Create context builder and set tools registry

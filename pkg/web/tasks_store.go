@@ -1,8 +1,11 @@
 package web
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,6 +35,9 @@ func newTaskStore(dataDir string) (*taskStore, error) {
 	if err != nil {
 		return nil, err
 	}
+	db.SetMaxOpenConns(5)
+	db.SetMaxIdleConns(2)
+	db.SetConnMaxLifetime(time.Hour)
 	if _, err := db.Exec(`PRAGMA journal_mode=WAL;`); err != nil {
 		_ = db.Close()
 		return nil, err
@@ -137,20 +143,41 @@ func (s *taskStore) update(id, title, description, status, result string) (taskI
 	return item, err
 }
 
+var validTransitions = map[string][]string{
+	"backlog":     {"todo", "done"},
+	"todo":        {"backlog", "in_progress", "done"},
+	"in_progress": {"todo", "review", "done"},
+	"review":      {"in_progress", "done", "todo"},
+	"done":        {"review", "todo", "backlog"},
+}
+
+func isValidTransition(from, to string) bool {
+	allowed, ok := validTransitions[from]
+	if !ok {
+		return false
+	}
+	for _, s := range allowed {
+		if s == to {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *taskStore) updateStatus(id, status string) (taskItem, error) {
 	if status == "" {
 		return taskItem{}, errors.New("status is required")
 	}
-	res, err := s.db.Exec(`UPDATE tasks SET status = ? WHERE id = ?`, status, id)
+	current, err := s.get(id)
 	if err != nil {
 		return taskItem{}, err
 	}
-	affected, err := res.RowsAffected()
+	if current.Status != status && !isValidTransition(current.Status, status) {
+		return taskItem{}, fmt.Errorf("invalid transition: %s → %s", current.Status, status)
+	}
+	_, err = s.db.Exec(`UPDATE tasks SET status = ? WHERE id = ?`, status, id)
 	if err != nil {
 		return taskItem{}, err
-	}
-	if affected == 0 {
-		return taskItem{}, sql.ErrNoRows
 	}
 	item, err := s.get(id)
 	if err == nil {
@@ -218,5 +245,9 @@ func (s *taskStore) listLogs(taskID string) ([]taskLogItem, error) {
 }
 
 func generateID() string {
-	return time.Now().UTC().Format("20060102150405.000000000")
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return time.Now().UTC().Format("20060102150405.000000000")
+	}
+	return hex.EncodeToString(b)
 }

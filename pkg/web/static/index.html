@@ -1,13 +1,14 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PicoClaw Web</title>
   <style>
     body { font-family: sans-serif; margin: 24px; background: #0b1020; color: #e2e8f0; }
-    input, button, textarea { padding: 8px; margin: 4px 0; width: 100%; box-sizing: border-box; }
+    input, button, textarea, select { padding: 8px; margin: 4px 0; width: 100%; box-sizing: border-box; }
     button { cursor: pointer; background: #334155; color: #e2e8f0; border: 1px solid #475569; }
+    button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     .card { border: 1px solid #334155; border-radius: 8px; padding: 12px; background: #111827; }
     #chat { min-height: 280px; max-height: 420px; overflow: auto; white-space: pre-wrap; }
@@ -31,36 +32,40 @@
     #sessionExpiry { display: block; color: #93c5fd; margin-top: 4px; }
     #taskDetail { margin-top: 16px; }
     #taskDetailLogs, #taskDetailResult { white-space: pre-wrap; max-height: 220px; overflow: auto; background: #0f172a; border: 1px solid #334155; border-radius: 6px; padding: 8px; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
   </style>
 </head>
 <body>
   <h1>PicoClaw Web</h1>
   <p>Haz login con tu usuario único para obtener sesión JWT.</p>
 
-  <div class="card">
-    <label>Usuario</label>
-    <input id="username" type="text" placeholder="admin" />
-    <label>Contraseña</label>
-    <input id="password" type="password" placeholder="Tu contraseña" />
-    <button id="login">Login</button>
-    <small id="authStatus">Sin sesión</small>
-    <small id="sessionExpiry">Expiración de sesión: -</small>
-    <button id="logout">Logout</button>
+  <div class="card" role="region" aria-label="Autenticación">
+    <label for="username">Usuario</label>
+    <input id="username" type="text" placeholder="admin" autocomplete="username" />
+    <label for="password">Contraseña</label>
+    <input id="password" type="password" placeholder="Tu contraseña" autocomplete="current-password" />
+    <button id="login" aria-label="Iniciar sesión">Login</button>
+    <small id="authStatus" role="status" aria-live="polite">Sin sesión</small>
+    <small id="sessionExpiry" aria-live="polite">Expiración de sesión: -</small>
+    <button id="logout" aria-label="Cerrar sesión">Logout</button>
   </div>
 
-  <div class="card">
+  <div class="card" role="region" aria-label="Cambiar contraseña">
     <h3>Cambiar contraseña</h3>
-    <input id="oldPassword" type="password" placeholder="Contraseña actual" />
-    <input id="newPassword" type="password" placeholder="Nueva contraseña (mínimo 10)" />
-    <button id="changePassword">Actualizar contraseña</button>
+    <label for="oldPassword">Contraseña actual</label>
+    <input id="oldPassword" type="password" placeholder="Contraseña actual" autocomplete="current-password" />
+    <label for="newPassword">Nueva contraseña</label>
+    <input id="newPassword" type="password" placeholder="Nueva contraseña (mínimo 10)" autocomplete="new-password" />
+    <button id="changePassword" aria-label="Actualizar contraseña">Actualizar contraseña</button>
   </div>
 
   <div class="row">
-    <div class="card">
+    <div class="card" role="region" aria-label="Chat con el agente">
       <h3>Chat</h3>
-      <div id="chat"></div>
-      <textarea id="message" rows="3" placeholder="Escribe un mensaje..."></textarea>
-      <button id="send">Enviar</button>
+      <div id="chat" role="log" aria-live="polite" aria-label="Historial de chat"></div>
+      <label for="message" class="sr-only">Mensaje</label>
+      <textarea id="message" rows="3" placeholder="Escribe un mensaje..." aria-label="Escribe un mensaje"></textarea>
+      <button id="send" aria-label="Enviar mensaje">Enviar</button>
       <div class="quick-actions">
         <button id="chatTaskList">/task list</button>
         <button id="chatTaskRun">Run seleccionada</button>
@@ -71,12 +76,16 @@
         <button id="chatTaskOpen">Abrir detalle seleccionada</button>
       </div>
     </div>
-    <div class="card">
+    <div class="card" role="region" aria-label="Gestión de tareas">
       <h3>Crear tarea</h3>
+      <label for="title">Título</label>
       <input id="title" placeholder="Título de tarea" />
+      <label for="description">Descripción</label>
       <textarea id="description" rows="2" placeholder="Descripción (opcional)"></textarea>
+      <label for="taskFilter">Filtrar</label>
       <input id="taskFilter" placeholder="Filtrar tareas..." />
-      <select id="taskStatusFilter">
+      <label for="taskStatusFilter">Estado</label>
+      <select id="taskStatusFilter" aria-label="Filtrar por estado">
         <option value="all">estado: todos</option>
         <option value="backlog">backlog</option>
         <option value="todo">todo</option>
@@ -84,14 +93,17 @@
         <option value="review">review</option>
         <option value="done">done</option>
       </select>
-      <input id="taskDateFilter" type="date" />
-      <select id="taskSort">
+      <label for="taskDateFilter">Fecha desde</label>
+      <input id="taskDateFilter" type="date" aria-label="Filtrar por fecha" />
+      <label for="taskSort">Ordenar</label>
+      <select id="taskSort" aria-label="Ordenar tareas">
         <option value="created_desc">orden: recientes primero</option>
         <option value="created_asc">orden: antiguos primero</option>
         <option value="title_asc">orden: titulo A-Z</option>
         <option value="title_desc">orden: titulo Z-A</option>
       </select>
-      <select id="status">
+      <label for="status">Estado inicial</label>
+      <select id="status" aria-label="Estado inicial de la tarea">
         <option value="backlog">backlog</option>
         <option value="todo">todo</option>
         <option value="in_progress">in_progress</option>
@@ -101,8 +113,8 @@
       <button id="createTask">Crear tarea</button>
     </div>
   </div>
-  <div class="kanban" id="kanban"></div>
-  <div class="card" id="taskDetail">
+  <div class="kanban" id="kanban" role="region" aria-label="Tablero Kanban"></div>
+  <div class="card" id="taskDetail" role="region" aria-label="Detalle de tarea">
     <h3>Detalle de tarea</h3>
     <div id="taskDetailMeta">Selecciona una tarea para ver resultado y logs.</div>
     <h4>Resultado</h4>
@@ -130,6 +142,8 @@
     const authStatus = document.getElementById("authStatus");
     let sessionTimer = 0;
     let sessionWarned = false;
+    let wsRetryDelay = 1500;
+    let tasksWsRetryDelay = 1500;
 
     document.getElementById("username").value = localStorage.getItem("picoclaw_web_user") || "admin";
 
@@ -261,6 +275,10 @@
       const oldPassword = document.getElementById("oldPassword").value;
       const newPassword = document.getElementById("newPassword").value;
       if (!oldPassword || !newPassword) return;
+      if (newPassword.length < 10) {
+        alert("La nueva contraseña debe tener al menos 10 caracteres");
+        return;
+      }
       const res = await apiFetch("/api/v1/auth/change-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -301,16 +319,20 @@
       if (!saved) return;
       if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
       ws = new WebSocket(wsURL());
+      ws.onopen = () => { wsRetryDelay = 1500; };
       ws.onmessage = (ev) => {
         try {
           const payload = JSON.parse(ev.data);
-          appendChat(`bot: ${payload.content || ev.data}`);
+          appendChat(`bot: ${esc(payload.content || ev.data)}`);
         } catch {
-          appendChat(`bot: ${ev.data}`);
+          appendChat(`bot: ${esc(ev.data)}`);
         }
       };
       ws.onclose = () => {
-        if (localStorage.getItem("picoclaw_web_token")) setTimeout(connectWS, 1500);
+        if (localStorage.getItem("picoclaw_web_token")) {
+          setTimeout(connectWS, wsRetryDelay);
+          wsRetryDelay = Math.min(wsRetryDelay * 2, 30000);
+        }
       };
     }
     connectWS();
@@ -326,9 +348,13 @@
       if (!saved) return;
       if (tasksWS && (tasksWS.readyState === WebSocket.OPEN || tasksWS.readyState === WebSocket.CONNECTING)) return;
       tasksWS = new WebSocket(tasksWsURL());
+      tasksWS.onopen = () => { tasksWsRetryDelay = 1500; };
       tasksWS.onmessage = () => loadTasks();
       tasksWS.onclose = () => {
-        if (localStorage.getItem("picoclaw_web_token")) setTimeout(connectTasksWS, 1500);
+        if (localStorage.getItem("picoclaw_web_token")) {
+          setTimeout(connectTasksWS, tasksWsRetryDelay);
+          tasksWsRetryDelay = Math.min(tasksWsRetryDelay * 2, 30000);
+        }
       };
     }
     connectTasksWS();
@@ -353,10 +379,14 @@
     };
 
     async function loadTasks() {
-      const res = await apiFetch("/api/v1/tasks");
-      if (!res.ok) return;
-      const data = await res.json();
-      tasksState = Array.isArray(data.tasks) ? data.tasks : [];
+      try {
+        const res = await apiFetch("/api/v1/tasks");
+        if (!res.ok) return;
+        const data = await res.json();
+        tasksState = Array.isArray(data.tasks) ? data.tasks : [];
+      } catch {
+        return;
+      }
       renderKanban();
       if (selectedTaskId) {
         const selected = tasksState.find(t => t.id === selectedTaskId);
@@ -376,11 +406,14 @@
       const description = document.getElementById("description").value.trim();
       const status = document.getElementById("status").value;
       if (!title) return;
-      await apiFetch("/api/v1/tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, description, status }),
-      });
+      try {
+        const res = await apiFetch("/api/v1/tasks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title, description, status }),
+        });
+        if (!res.ok) { appendChat("system: error al crear tarea"); return; }
+      } catch { appendChat("system: error de red al crear tarea"); return; }
       document.getElementById("title").value = "";
       document.getElementById("description").value = "";
       loadTasks();
@@ -399,43 +432,61 @@
     }
 
     async function updateStatus(id, status) {
-      await apiFetch(`/api/v1/tasks/${id}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
+      try {
+        const res = await apiFetch(`/api/v1/tasks/${id}/status`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status }),
+        });
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          if (text.includes("invalid transition")) {
+            appendChat(`system: transición no permitida hacia ${status}`);
+          } else {
+            appendChat("system: error al actualizar estado");
+          }
+        }
+      } catch { appendChat("system: error de red"); }
       loadTasks();
     }
 
     async function editTask(task) {
       const title = prompt("Nuevo título", task.title || "");
-      if (!title) return;
+      if (title === null || !title.trim()) return;
       const description = prompt("Nueva descripción", task.description || "") || "";
-      await apiFetch(`/api/v1/tasks/${task.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title,
-          description,
-          status: task.status,
-          result: task.result || "",
-        }),
-      });
+      try {
+        const res = await apiFetch(`/api/v1/tasks/${task.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: title.trim(),
+            description,
+            status: task.status,
+            result: task.result || "",
+          }),
+        });
+        if (!res.ok) appendChat("system: error al editar tarea");
+      } catch { appendChat("system: error de red"); }
       loadTasks();
     }
 
     async function deleteTask(id) {
-      await apiFetch(`/api/v1/tasks/${id}`, { method: "DELETE" });
+      try {
+        const res = await apiFetch(`/api/v1/tasks/${id}`, { method: "DELETE" });
+        if (!res.ok) appendChat("system: error al eliminar tarea");
+      } catch { appendChat("system: error de red"); }
       loadTasks();
     }
 
     async function fetchTaskLogs(id) {
-      const res = await apiFetch(`/api/v1/tasks/${id}/logs`);
-      if (!res.ok) {
+      try {
+        const res = await apiFetch(`/api/v1/tasks/${id}/logs`);
+        if (!res.ok) return [];
+        const data = await res.json();
+        return Array.isArray(data.logs) ? data.logs : [];
+      } catch {
         return [];
       }
-      const data = await res.json();
-      return Array.isArray(data.logs) ? data.logs : [];
     }
 
     async function showTaskDetail(id) {
@@ -482,7 +533,12 @@
     }
 
     function esc(v) {
-      return String(v || "").replace(/</g, "&lt;");
+      return String(v || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
     }
 
     function renderKanban() {
