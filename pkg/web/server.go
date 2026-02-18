@@ -5,6 +5,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/fs"
 	"net/http"
 	"net/url"
@@ -21,7 +22,7 @@ import (
 	"github.com/sipeed/picoclaw/pkg/ratelimit"
 )
 
-//go:embed static/*
+//go:embed dist/*
 var staticFS embed.FS
 
 type Server struct {
@@ -153,11 +154,69 @@ func (s *Server) Stop(ctx context.Context) error {
 }
 
 func (s *Server) staticHandler() http.Handler {
-	sub, err := fs.Sub(staticFS, "static")
-	if err != nil {
-		return http.NotFoundHandler()
-	}
-	return http.FileServer(http.FS(sub))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Try to serve the requested file
+		sub, err := fs.Sub(staticFS, "dist")
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+
+		path := strings.TrimPrefix(r.URL.Path, "/")
+		if path == "" || path == "/" {
+			path = "index.html"
+		}
+
+		f, err := sub.Open(path)
+		if err == nil {
+			defer f.Close()
+			stat, _ := f.Stat()
+
+			// Get content type
+			contentType := "application/octet-stream"
+			if strings.HasSuffix(path, ".html") {
+				contentType = "text/html; charset=utf-8"
+			} else if strings.HasSuffix(path, ".css") {
+				contentType = "text/css; charset=utf-8"
+			} else if strings.HasSuffix(path, ".js") {
+				contentType = "application/javascript; charset=utf-8"
+			} else if strings.HasSuffix(path, ".json") {
+				contentType = "application/json"
+			} else if strings.HasSuffix(path, ".png") {
+				contentType = "image/png"
+			} else if strings.HasSuffix(path, ".jpg") || strings.HasSuffix(path, ".jpeg") {
+				contentType = "image/jpeg"
+			} else if strings.HasSuffix(path, ".svg") {
+				contentType = "image/svg+xml"
+			} else if strings.HasSuffix(path, ".woff2") {
+				contentType = "font/woff2"
+			}
+
+			w.Header().Set("Content-Type", contentType)
+			w.Header().Set("Content-Length", fmt.Sprintf("%d", stat.Size()))
+			w.Header().Set("Cache-Control", "public, max-age=3600")
+			w.WriteHeader(http.StatusOK)
+			io.Copy(w, f)
+			return
+		}
+
+		// If not found and it's not an API route, serve index.html for SPA routing
+		if !strings.HasPrefix(r.URL.Path, "/api/") && !strings.HasPrefix(r.URL.Path, "/ws/") {
+			f, err := sub.Open("index.html")
+			if err == nil {
+				defer f.Close()
+				stat, _ := f.Stat()
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				w.Header().Set("Cache-Control", "public, max-age=3600")
+				w.Header().Set("Content-Length", fmt.Sprintf("%d", stat.Size()))
+				w.WriteHeader(http.StatusOK)
+				io.Copy(w, f)
+				return
+			}
+		}
+
+		http.NotFound(w, r)
+	})
 }
 
 const maxWebSocketClients = 100

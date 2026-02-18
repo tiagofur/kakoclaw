@@ -1,0 +1,18 @@
+services:
+  picoclaw:
+    build: .
+    ports:
+      - "127.0.0.1:18880:18880"
+    environment:
+      PICOCLAW_AGENTS_DEFAULTS_PROVIDER: zhipu
+      PICOCLAW_AGENTS_DEFAULTS_MODEL: glm-4.7
+      PICOCLAW_AGENTS_DEFAULTS_RESTRICT_TO_WORKSPACE: "true"
+      PICOCLAW_WEB_ENABLED: "true"
+      PICOCLAW_WEB_HOST: 0.0.0.0
+      PICOCLAW_WEB_PORT: "18880"
+      PICOCLAW_WEB_USERNAME: admin
+      PICOCLAW_WEB_PASSWORD: "${PICOCLAW_WEB_PASSWORD}"
+      PICOCLAW_PROVIDERS_ZHIPU_API_KEY: "${PICOCLAW_PROVIDERS_ZHIPU_API_KEY}"
+      PICOCLAW_PROVIDERS_ZHIPU_API_BASE: "https://api.z.ai/api/coding/paas/v4"
+    volumes:
+      - ./picoclaw-data:/home/picoclaw/.picoclaw

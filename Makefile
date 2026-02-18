@@ -59,19 +59,25 @@ endif
 
 BINARY_PATH=$(BUILD_DIR)/$(BINARY_NAME)-$(PLATFORM)-$(ARCH)
 
-# Default target
-all: build
+# Frontend build
+FRONTEND_DIR=pkg/web/frontend
 
 ## build: Build the picoclaw binary for current platform
-build:
+build: build-frontend
 	@echo "Building $(BINARY_NAME) for $(PLATFORM)/$(ARCH)..."
 	@mkdir -p $(BUILD_DIR)
 	$(GO) build $(GOFLAGS) $(LDFLAGS) -o $(BINARY_PATH) ./$(CMD_DIR)
 	@echo "Build complete: $(BINARY_PATH)"
 	@ln -sf $(BINARY_NAME)-$(PLATFORM)-$(ARCH) $(BUILD_DIR)/$(BINARY_NAME)
 
+## build-frontend: Build Vue frontend
+build-frontend:
+	@echo "Building Vue frontend..."
+	@cd $(FRONTEND_DIR) && npm install && npm run build
+	@echo "Frontend build complete at pkg/web/dist/"
+
 ## build-all: Build picoclaw for all platforms
-build-all:
+build-all: build-frontend
 	@echo "Building for multiple platforms..."
 	@mkdir -p $(BUILD_DIR)
 	GOOS=linux GOARCH=amd64 $(GO) build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 ./$(CMD_DIR)
@@ -136,6 +142,7 @@ uninstall-all:
 clean:
 	@echo "Cleaning build artifacts..."
 	@rm -rf $(BUILD_DIR)
+	@rm -rf $(FRONTEND_DIR)/dist
 	@echo "Clean complete"
 
 ## fmt: Format Go code
