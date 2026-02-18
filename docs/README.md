@@ -22,6 +22,7 @@ Guías paso a paso para usuarios finales.
 - [Uso del Agente CLI](./guides/agent-cli.md)
 - [Tareas Programadas](./guides/cron-jobs.md)
 - [Sistema de Skills](./guides/skills.md)
+- [Configuracion de Email](./guides/email-setup.md)
 
 ### 💻 [Desarrollo](./development/)
 Documentación para contribuidores y desarrolladores.

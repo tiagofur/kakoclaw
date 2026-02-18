@@ -11,6 +11,7 @@ Guías paso a paso para usuarios finales de PicoClaw.
 - **[agent-cli.md](./agent-cli.md)** - Uso del agente en modo CLI (pendiente)
 - **[cron-jobs.md](./cron-jobs.md)** - Gestión de tareas programadas (pendiente)
 - **[skills.md](./skills.md)** - Uso del sistema de skills (pendiente)
+- **[email-setup.md](./email-setup.md)** - Configuracion del envio de emails
 
 ## Para Empezar
 
@@ -27,6 +28,7 @@ Una vez que tengas lo básico:
 - **[Canales](./channels.md)** - Conecta Telegram, Discord, etc.
 - **[Tareas Programadas](./cron-jobs.md)** - Automatiza tareas recurrentes
 - **[Skills](./skills.md)** - Extiende las capacidades del agente
+- **[Configuracion de Email](./email-setup.md)** - Envia reportes y notificaciones por correo
 
 ## Ejemplos
 

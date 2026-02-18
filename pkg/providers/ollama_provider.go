@@ -1,6 +1,7 @@
 package providers
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -40,14 +41,14 @@ type OllamaOptions struct {
 
 // OllamaResponse represents the response from Ollama API
 type OllamaResponse struct {
-	Model     string `json:"model"`
-	Message   struct {
+	Model   string `json:"model"`
+	Message struct {
 		Role    string `json:"role"`
 		Content string `json:"content"`
 	} `json:"message"`
-	Done      bool `json:"done"`
-	EvalCount int  `json:"eval_count"`
-	PromptEvalCount int `json:"prompt_eval_count"`
+	Done            bool `json:"done"`
+	EvalCount       int  `json:"eval_count"`
+	PromptEvalCount int  `json:"prompt_eval_count"`
 }
 
 // NewOllamaProvider creates a new Ollama provider
@@ -175,4 +176,107 @@ func (p *OllamaProvider) ListModels(ctx context.Context) ([]string, error) {
 	}
 
 	return models, nil
+}
+
+// ChatStream implements StreamingLLMProvider for Ollama streaming responses.
+func (p *OllamaProvider) ChatStream(ctx context.Context, messages []Message, tools []ToolDefinition, model string, options map[string]interface{}) (<-chan StreamChunk, error) {
+	logger.InfoCF("ollama", "Sending streaming chat request", map[string]interface{}{
+		"model":    model,
+		"messages": len(messages),
+	})
+
+	// Convert messages to Ollama format
+	ollamaMessages := make([]OllamaMessage, len(messages))
+	for i, msg := range messages {
+		ollamaMessages[i] = OllamaMessage{
+			Role:    msg.Role,
+			Content: msg.Content,
+		}
+	}
+
+	reqBody := OllamaRequest{
+		Model:    model,
+		Messages: ollamaMessages,
+		Stream:   true, // Enable streaming
+	}
+
+	if temp, ok := options["temperature"].(float64); ok {
+		reqBody.Options.Temperature = temp
+	}
+	if maxTokens, ok := options["max_tokens"].(int); ok {
+		reqBody.Options.NumPredict = maxTokens
+	}
+
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", p.baseURL+"/api/chat", bytes.NewReader(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request to Ollama: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		return nil, fmt.Errorf("Ollama API error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	ch := make(chan StreamChunk, 64)
+
+	go func() {
+		defer close(ch)
+		defer resp.Body.Close()
+
+		scanner := bufio.NewScanner(resp.Body)
+		scanner.Buffer(make([]byte, 0, 64*1024), 256*1024)
+
+		for scanner.Scan() {
+			line := scanner.Text()
+			if line == "" {
+				continue
+			}
+
+			var ollamaResp OllamaResponse
+			if err := json.Unmarshal([]byte(line), &ollamaResp); err != nil {
+				continue
+			}
+
+			chunk := StreamChunk{
+				Content: ollamaResp.Message.Content,
+			}
+
+			if ollamaResp.Done {
+				chunk.Done = true
+				chunk.FinishReason = "stop"
+				chunk.Usage = &UsageInfo{
+					PromptTokens:     ollamaResp.PromptEvalCount,
+					CompletionTokens: ollamaResp.EvalCount,
+					TotalTokens:      ollamaResp.PromptEvalCount + ollamaResp.EvalCount,
+				}
+			}
+
+			select {
+			case ch <- chunk:
+			case <-ctx.Done():
+				return
+			}
+
+			if chunk.Done {
+				return
+			}
+		}
+
+		// If scanner exits without done, send final chunk
+		ch <- StreamChunk{Done: true, FinishReason: "stop"}
+	}()
+
+	return ch, nil
 }

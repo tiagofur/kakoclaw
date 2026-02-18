@@ -1,6 +1,6 @@
 <template>
   <div class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-    <div class="bg-picoclaw-surface border border-picoclaw-border rounded-lg max-w-2xl w-full shadow-lg my-4">
+    <div class="bg-picoclaw-surface border border-picoclaw-border rounded-lg max-w-4xl w-full shadow-lg my-4">
       <!-- Header -->
       <div class="flex items-center justify-between p-4 border-b border-picoclaw-border">
         <div>
@@ -18,7 +18,7 @@
       </div>
 
       <!-- Content -->
-      <div class="p-4 space-y-4 max-h-96 overflow-y-auto">
+      <div class="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
         <!-- Title -->
         <div>
           <label class="block text-sm font-medium mb-2">Title</label>
@@ -35,8 +35,8 @@
           <label class="block text-sm font-medium mb-2">Description</label>
           <textarea
             v-model="editForm.description"
-            class="w-full px-3 py-2 bg-picoclaw-bg border border-picoclaw-border rounded focus-ring text-sm resize-none"
-            rows="3"
+            class="w-full px-3 py-2 bg-picoclaw-bg border border-picoclaw-border rounded focus-ring text-sm resize-y"
+            rows="5"
             :disabled="isLoading"
           ></textarea>
         </div>
@@ -59,14 +59,28 @@
 
         <!-- Result -->
         <div>
-          <label class="block text-sm font-medium mb-2">Result</label>
-          <textarea
-            v-model="editForm.result"
-            class="w-full px-3 py-2 bg-picoclaw-bg border border-picoclaw-border rounded focus-ring text-sm resize-none"
-            rows="2"
-            placeholder="Task result/output"
-            :disabled="isLoading"
-          ></textarea>
+          <div class="flex items-center justify-between mb-2">
+            <label class="block text-sm font-medium">Result / Output</label>
+            <button 
+              v-if="editForm.result"
+              @click="copyResult" 
+              class="text-xs text-picoclaw-accent hover:underline flex items-center gap-1"
+            >
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+              </svg>
+              {{ copied ? 'Copied!' : 'Copy' }}
+            </button>
+          </div>
+          <div class="relative group">
+            <textarea
+              v-model="editForm.result"
+              class="w-full px-4 py-3 bg-picoclaw-bg border border-picoclaw-border rounded-xl focus:ring-2 focus:ring-picoclaw-accent/50 focus:border-picoclaw-accent text-base font-mono resize-y leading-relaxed"
+              rows="12"
+              placeholder="Task result/output"
+              :disabled="isLoading"
+            ></textarea>
+          </div>
         </div>
 
         <!-- Logs -->
@@ -79,8 +93,8 @@
                   <td class="py-2 px-2 text-picoclaw-text-secondary whitespace-nowrap">
                     {{ formatTime(log.created_at) }}
                   </td>
-                  <td class="py-2 px-2">{{ log.action }}</td>
-                  <td class="py-2 px-2 text-picoclaw-text-secondary truncate">{{ log.details }}</td>
+                  <td class="py-2 px-2">{{ log.event }}</td>
+                  <td class="py-2 px-2 text-picoclaw-text-secondary truncate">{{ log.message }}</td>
                 </tr>
               </tbody>
             </table>
@@ -94,7 +108,24 @@
       </div>
 
       <!-- Actions -->
+      <!-- Actions -->
       <div class="border-t border-picoclaw-border p-4 flex gap-2 justify-end">
+        <button
+          v-if="!task.archived"
+          @click="handleArchive"
+          class="px-4 py-2 bg-yellow-500/20 text-yellow-500 hover:bg-yellow-500/30 border border-yellow-500/50 rounded transition-smooth text-sm font-medium disabled:opacity-50"
+          :disabled="isLoading"
+        >
+          Archive
+        </button>
+        <button
+          v-if="task.archived"
+          @click="handleUnarchive"
+          class="px-4 py-2 bg-blue-500/20 text-blue-500 hover:bg-blue-500/30 border border-blue-500/50 rounded transition-smooth text-sm font-medium disabled:opacity-50"
+          :disabled="isLoading"
+        >
+          Unarchive
+        </button>
         <button
           @click="handleDelete"
           class="px-4 py-2 bg-picoclaw-error hover:bg-picoclaw-error/80 text-white rounded transition-smooth text-sm font-medium disabled:opacity-50"
@@ -129,7 +160,7 @@ const props = defineProps({
   task: { type: Object, required: true }
 })
 
-const emit = defineEmits(['close', 'updated', 'deleted'])
+const emit = defineEmits(['close', 'updated', 'deleted', 'archived', 'unarchived'])
 
 const editForm = ref({
   title: props.task.title,
@@ -141,10 +172,21 @@ const editForm = ref({
 const logs = ref([])
 const isLoading = ref(false)
 const errorMessage = ref('')
+const copied = ref(false)
+
+const copyResult = () => {
+  if (!editForm.value.result) return
+  navigator.clipboard.writeText(editForm.value.result)
+  copied.value = true
+  setTimeout(() => { copied.value = false }, 2000)
+}
 
 onMounted(async () => {
   try {
-    logs.value = await taskService.getTaskLogs(props.task.id)
+    // Check if task is archived, logs might not exist or be relevant
+    if (!props.task.archived) {
+         logs.value = await taskService.getTaskLogs(props.task.id)
+    }
   } catch (error) {
     console.error('Failed to load task logs:', error)
   }
@@ -178,6 +220,29 @@ const handleDelete = async () => {
     await emit('deleted', props.task.id)
   } catch (error) {
     errorMessage.value = 'Failed to delete task'
+    isLoading.value = false
+  }
+}
+
+const handleArchive = async () => {
+  if (!confirm('Are you sure you want to archive this task?')) return
+  isLoading.value = true
+  try {
+    await emit('archived', props.task.id)
+    emit('close')
+  } catch (error) {
+    errorMessage.value = 'Failed to archive task'
+    isLoading.value = false
+  }
+}
+
+const handleUnarchive = async () => {
+  isLoading.value = true
+  try {
+    await emit('unarchived', props.task.id)
+    emit('close')
+  } catch (error) {
+    errorMessage.value = 'Failed to unarchive task'
     isLoading.value = false
   }
 }

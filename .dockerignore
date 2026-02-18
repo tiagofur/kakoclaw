@@ -1,0 +1,11 @@
+.git
+.github
+.vscode
+.idea
+*.exe
+*.log
+picoclaw-data
+pkg/web/frontend/node_modules
+pkg/web/frontend/dist
+bin
+build-cache

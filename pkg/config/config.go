@@ -52,7 +52,12 @@ type Config struct {
 	Gateway   GatewayConfig   `json:"gateway"`
 	Web       WebConfig       `json:"web"`
 	Tools     ToolsConfig     `json:"tools"`
+	Storage   StorageConfig   `json:"storage"`
 	mu        sync.RWMutex
+}
+
+type StorageConfig struct {
+	Path string `json:"path" env:"PICOCLAW_STORAGE_PATH"`
 }
 
 type AgentsConfig struct {
@@ -187,7 +192,30 @@ type WebToolsConfig struct {
 }
 
 type ToolsConfig struct {
-	Web WebToolsConfig `json:"web"`
+	Web   WebToolsConfig   `json:"web"`
+	Email EmailToolsConfig `json:"email"`
+	MCP   MCPConfig        `json:"mcp"`
+}
+
+type MCPConfig struct {
+	Servers map[string]MCPServerConfig `json:"servers"`
+}
+
+type MCPServerConfig struct {
+	Enabled bool              `json:"enabled"`
+	Command string            `json:"command"`
+	Args    []string          `json:"args"`
+	Env     map[string]string `json:"env"`
+}
+
+type EmailToolsConfig struct {
+	Enabled  bool   `json:"enabled" env:"PICOCLAW_TOOLS_EMAIL_ENABLED"`
+	Host     string `json:"host" env:"PICOCLAW_TOOLS_EMAIL_HOST"`
+	Port     int    `json:"port" env:"PICOCLAW_TOOLS_EMAIL_PORT"`
+	Username string `json:"username" env:"PICOCLAW_TOOLS_EMAIL_USERNAME"`
+	Password string `json:"password" env:"PICOCLAW_TOOLS_EMAIL_PASSWORD"`
+	From     string `json:"from" env:"PICOCLAW_TOOLS_EMAIL_FROM"`
+	To       string `json:"to" env:"PICOCLAW_TOOLS_EMAIL_TO"`
 }
 
 func DefaultConfig() *Config {
@@ -288,6 +316,21 @@ func DefaultConfig() *Config {
 					MaxResults: 5,
 				},
 			},
+			Email: EmailToolsConfig{
+				Enabled:  false,
+				Host:     "smtp.gmail.com",
+				Port:     587,
+				Username: "",
+				Password: "",
+				From:     "",
+				To:       "",
+			},
+			MCP: MCPConfig{
+				Servers: map[string]MCPServerConfig{},
+			},
+		},
+		Storage: StorageConfig{
+			Path: "~/.picoclaw/picoclaw.db",
 		},
 	}
 }

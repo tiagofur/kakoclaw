@@ -20,9 +20,12 @@ import (
 	"github.com/sipeed/picoclaw/pkg/bus"
 	"github.com/sipeed/picoclaw/pkg/config"
 	"github.com/sipeed/picoclaw/pkg/logger"
+	"github.com/sipeed/picoclaw/pkg/mcp"
+	"github.com/sipeed/picoclaw/pkg/observability"
 	"github.com/sipeed/picoclaw/pkg/providers"
 	"github.com/sipeed/picoclaw/pkg/ratelimit"
 	"github.com/sipeed/picoclaw/pkg/session"
+	"github.com/sipeed/picoclaw/pkg/storage"
 	"github.com/sipeed/picoclaw/pkg/tools"
 	"github.com/sipeed/picoclaw/pkg/utils"
 )
@@ -32,24 +35,33 @@ type AgentLoop struct {
 	provider       providers.LLMProvider
 	workspace      string
 	model          string
-	contextWindow  int           // Maximum context window size in tokens
+	contextWindow  int // Maximum context window size in tokens
 	maxIterations  int
 	sessions       *session.SessionManager
 	contextBuilder *ContextBuilder
 	tools          *tools.ToolRegistry
 	running        atomic.Bool
-	summarizing    sync.Map      // Tracks which sessions are currently being summarized
+	summarizing    sync.Map // Tracks which sessions are currently being summarized
+	storage        *storage.Storage
+}
+
+// ToolRegistry returns the agent loop's tool registry so external
+// components (e.g. the workflow engine) can invoke tools directly.
+func (al *AgentLoop) ToolRegistry() *tools.ToolRegistry {
+	return al.tools
 }
 
 // processOptions configures how a message is processed
 type processOptions struct {
-	SessionKey      string // Session identifier for history/context
-	Channel         string // Target channel for tool execution
-	ChatID          string // Target chat ID for tool execution
-	UserMessage     string // User message content (may include prefix)
-	DefaultResponse string // Response when LLM returns empty
-	EnableSummary   bool   // Whether to trigger summarization
-	SendResponse    bool   // Whether to send response via bus
+	SessionKey      string   // Session identifier for history/context
+	Channel         string   // Target channel for tool execution
+	ChatID          string   // Target chat ID for tool execution
+	UserMessage     string   // User message content (may include prefix)
+	DefaultResponse string   // Response when LLM returns empty
+	EnableSummary   bool     // Whether to trigger summarization
+	SendResponse    bool     // Whether to send response via bus
+	ModelOverride   string   // If set, use this model instead of the default for LLM calls
+	ExcludeTools    []string // Tool names to exclude from this request (e.g., "web_search")
 }
 
 func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers.LLMProvider) *AgentLoop {
@@ -57,6 +69,16 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 	os.MkdirAll(workspace, 0755)
 
 	restrict := cfg.Agents.Defaults.RestrictToWorkspace
+
+	// Initialize Storage
+	var store *storage.Storage
+	var err error
+	if cfg.Storage.Path != "" {
+		store, err = storage.New(cfg.Storage)
+		if err != nil {
+			logger.ErrorCF("agent", "Failed to initialize storage", map[string]interface{}{"error": err.Error()})
+		}
+	}
 
 	toolsRegistry := tools.NewToolRegistry()
 	toolsRegistry.Register(tools.NewReadFileTool(workspace, restrict))
@@ -67,6 +89,19 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 	braveAPIKey := cfg.Tools.Web.Search.APIKey
 	toolsRegistry.Register(tools.NewWebSearchTool(braveAPIKey, cfg.Tools.Web.Search.MaxResults))
 	toolsRegistry.Register(tools.NewWebFetchTool(50000))
+
+	if cfg.Tools.Email.Enabled {
+		if strings.TrimSpace(cfg.Tools.Email.Host) == "" || cfg.Tools.Email.Port <= 0 {
+			logger.WarnC("agent", "Email tool enabled but SMTP host/port are not configured")
+		}
+		if strings.TrimSpace(cfg.Tools.Email.Username) == "" || strings.TrimSpace(cfg.Tools.Email.Password) == "" {
+			logger.WarnC("agent", "Email tool enabled but SMTP username/password are missing")
+		}
+		if strings.Contains(strings.TrimSpace(cfg.Tools.Email.Password), " ") && strings.EqualFold(strings.TrimSpace(cfg.Tools.Email.Host), "smtp.gmail.com") {
+			logger.WarnC("agent", "Email password contains spaces; use raw Gmail app password value")
+		}
+		toolsRegistry.Register(tools.NewEmailTool(cfg.Tools.Email))
+	}
 
 	// Register message tool
 	messageTool := tools.NewMessageTool()
@@ -91,10 +126,24 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 	toolsRegistry.Register(tools.NewAppendFileTool(workspace, restrict))
 
 	// Register task manager tool (shared web tasks DB)
-	if taskTool, err := tools.NewTaskTool(workspace); err == nil {
-		toolsRegistry.Register(taskTool)
-	} else {
-		logger.WarnCF("agent", "Task manager tool unavailable", map[string]interface{}{"error": err.Error()})
+	if store != nil {
+		if taskTool, err := tools.NewTaskTool(store); err == nil {
+			toolsRegistry.Register(taskTool)
+		} else {
+			logger.WarnCF("agent", "Task manager tool unavailable", map[string]interface{}{"error": err.Error()})
+		}
+		// Register knowledge base search tool (RAG)
+		toolsRegistry.Register(tools.NewKnowledgeTool(store))
+	}
+
+	// Register MCP tools from configured servers
+	if len(cfg.Tools.MCP.Servers) > 0 {
+		mcpMgr := mcp.NewManager(cfg.Tools.MCP)
+		mcpMgr.Start(context.Background())
+		for _, mcpTool := range mcpMgr.GetTools() {
+			toolsRegistry.Register(mcpTool)
+			logger.InfoCF("agent", "Registered MCP tool", map[string]interface{}{"name": mcpTool.Name()})
+		}
 	}
 
 	sessionsManager := session.NewSessionManager(filepath.Join(workspace, "sessions"))
@@ -114,6 +163,7 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 		contextBuilder: contextBuilder,
 		tools:          toolsRegistry,
 		summarizing:    sync.Map{},
+		storage:        store,
 	}
 }
 
@@ -172,7 +222,51 @@ func (al *AgentLoop) ProcessDirectWithChannel(ctx context.Context, content, sess
 	return al.processMessage(ctx, msg)
 }
 
+// ProcessDirectWithModel processes a message using a specific model override.
+// If modelOverride is empty, uses the default configured model.
+// excludeTools optionally specifies tool names to exclude from this request.
+func (al *AgentLoop) ProcessDirectWithModel(ctx context.Context, content, sessionKey, modelOverride string, excludeTools ...string) (string, error) {
+	msg := bus.InboundMessage{
+		Channel:    "cli",
+		SenderID:   "cron",
+		ChatID:     "direct",
+		Content:    content,
+		SessionKey: sessionKey,
+	}
+
+	return al.processMessageWithModel(ctx, msg, modelOverride, excludeTools...)
+}
+
+// StreamCallback is called for each streamed token. Return an error to abort streaming.
+type StreamCallback func(token string) error
+
+// ProcessDirectWithModelStream processes a message and streams the final response token-by-token.
+// If the provider doesn't support streaming, falls back to sending the full response at once.
+// The onToken callback is called for each token; the full accumulated response is still returned.
+// excludeTools optionally specifies tool names to exclude from this request.
+func (al *AgentLoop) ProcessDirectWithModelStream(ctx context.Context, content, sessionKey, modelOverride string, onToken StreamCallback, excludeTools ...string) (string, error) {
+	msg := bus.InboundMessage{
+		Channel:    "cli",
+		SenderID:   "cron",
+		ChatID:     "direct",
+		Content:    content,
+		SessionKey: sessionKey,
+	}
+
+	return al.processMessageWithModelStream(ctx, msg, modelOverride, onToken, excludeTools...)
+}
+
+// SupportsStreaming returns true if the current provider supports streaming.
+func (al *AgentLoop) SupportsStreaming() bool {
+	_, ok := al.provider.(providers.StreamingLLMProvider)
+	return ok
+}
+
 func (al *AgentLoop) processMessage(ctx context.Context, msg bus.InboundMessage) (string, error) {
+	return al.processMessageWithModel(ctx, msg, "")
+}
+
+func (al *AgentLoop) processMessageWithModel(ctx context.Context, msg bus.InboundMessage, modelOverride string, excludeTools ...string) (string, error) {
 	// Issue #9: Rate limiting
 	// Check user rate limit
 	userKey := fmt.Sprintf("user:%s", msg.SenderID)
@@ -207,7 +301,41 @@ func (al *AgentLoop) processMessage(ctx context.Context, msg bus.InboundMessage)
 		DefaultResponse: "I've completed processing but have no response to give.",
 		EnableSummary:   true,
 		SendResponse:    false,
+		ModelOverride:   modelOverride,
+		ExcludeTools:    excludeTools,
 	})
+}
+
+func (al *AgentLoop) processMessageWithModelStream(ctx context.Context, msg bus.InboundMessage, modelOverride string, onToken StreamCallback, excludeTools ...string) (string, error) {
+	// Rate limiting
+	userKey := fmt.Sprintf("user:%s", msg.SenderID)
+	if !ratelimit.GetGlobalLimiter().Allow(userKey) {
+		return "Rate limit exceeded. Please wait a moment before sending more messages.", nil
+	}
+
+	preview := utils.Truncate(msg.Content, 80)
+	logger.InfoCF("agent", fmt.Sprintf("Processing streaming message from %s:%s: %s", msg.Channel, msg.SenderID, preview),
+		map[string]interface{}{
+			"channel":     msg.Channel,
+			"sender_id":   msg.SenderID,
+			"session_key": msg.SessionKey,
+		})
+
+	if msg.Channel == "system" {
+		return al.processSystemMessage(ctx, msg)
+	}
+
+	return al.runAgentLoopStream(ctx, processOptions{
+		SessionKey:      msg.SessionKey,
+		Channel:         msg.Channel,
+		ChatID:          msg.ChatID,
+		UserMessage:     msg.Content,
+		DefaultResponse: "I've completed processing but have no response to give.",
+		EnableSummary:   true,
+		SendResponse:    false,
+		ModelOverride:   modelOverride,
+		ExcludeTools:    excludeTools,
+	}, onToken)
 }
 
 func (al *AgentLoop) processSystemMessage(ctx context.Context, msg bus.InboundMessage) (string, error) {
@@ -251,6 +379,8 @@ func (al *AgentLoop) processSystemMessage(ctx context.Context, msg bus.InboundMe
 // runAgentLoop is the core message processing logic.
 // It handles context building, LLM calls, tool execution, and response handling.
 func (al *AgentLoop) runAgentLoop(ctx context.Context, opts processOptions) (string, error) {
+	agentStart := time.Now()
+
 	// 1. Update tool contexts
 	al.updateToolContexts(opts.Channel, opts.ChatID)
 
@@ -268,9 +398,15 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, opts processOptions) (str
 
 	// 3. Save user message to session
 	al.sessions.AddMessage(opts.SessionKey, "user", opts.UserMessage)
+	if al.storage != nil {
+		if err := al.storage.SaveMessage(opts.SessionKey, "user", opts.UserMessage); err != nil {
+			logger.ErrorCF("agent", "Failed to save user message to storage", map[string]interface{}{"error": err.Error()})
+		}
+	}
 
 	// 4. Run LLM iteration loop
 	finalContent, iteration, err := al.runLLMIteration(ctx, messages, opts)
+	observability.Global().RecordAgentRun(time.Since(agentStart), iteration, err)
 	if err != nil {
 		return "", err
 	}
@@ -283,6 +419,11 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, opts processOptions) (str
 	// 6. Save final assistant message to session
 	al.sessions.AddMessage(opts.SessionKey, "assistant", finalContent)
 	al.sessions.Save(al.sessions.GetOrCreate(opts.SessionKey))
+	if al.storage != nil {
+		if err := al.storage.SaveMessage(opts.SessionKey, "assistant", finalContent); err != nil {
+			logger.ErrorCF("agent", "Failed to save assistant message to storage", map[string]interface{}{"error": err.Error()})
+		}
+	}
 
 	// 7. Optional: summarization
 	if opts.EnableSummary {
@@ -310,11 +451,92 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, opts processOptions) (str
 	return finalContent, nil
 }
 
+// runAgentLoopStream is like runAgentLoop but streams the final text response token-by-token.
+// Tool call iterations are handled non-streaming. Only the final text answer is streamed.
+func (al *AgentLoop) runAgentLoopStream(ctx context.Context, opts processOptions, onToken StreamCallback) (string, error) {
+	agentStart := time.Now()
+
+	// 1. Update tool contexts
+	al.updateToolContexts(opts.Channel, opts.ChatID)
+
+	// 2. Build messages
+	history := al.sessions.GetHistory(opts.SessionKey)
+	summary := al.sessions.GetSummary(opts.SessionKey)
+	messages := al.contextBuilder.BuildMessages(
+		history,
+		summary,
+		opts.UserMessage,
+		nil,
+		opts.Channel,
+		opts.ChatID,
+	)
+
+	// 3. Save user message to session
+	al.sessions.AddMessage(opts.SessionKey, "user", opts.UserMessage)
+	if al.storage != nil {
+		if err := al.storage.SaveMessage(opts.SessionKey, "user", opts.UserMessage); err != nil {
+			logger.ErrorCF("agent", "Failed to save user message to storage", map[string]interface{}{"error": err.Error()})
+		}
+	}
+
+	// 4. Run LLM iteration loop with streaming on the final response
+	finalContent, iteration, err := al.runLLMIterationStream(ctx, messages, opts, onToken)
+	observability.Global().RecordAgentRun(time.Since(agentStart), iteration, err)
+	if err != nil {
+		return "", err
+	}
+
+	// 5. Handle empty response
+	if finalContent == "" {
+		finalContent = opts.DefaultResponse
+	}
+
+	// 6. Save final assistant message to session
+	al.sessions.AddMessage(opts.SessionKey, "assistant", finalContent)
+	al.sessions.Save(al.sessions.GetOrCreate(opts.SessionKey))
+	if al.storage != nil {
+		if err := al.storage.SaveMessage(opts.SessionKey, "assistant", finalContent); err != nil {
+			logger.ErrorCF("agent", "Failed to save assistant message to storage", map[string]interface{}{"error": err.Error()})
+		}
+	}
+
+	// 7. Optional: summarization
+	if opts.EnableSummary {
+		al.maybeSummarize(opts.SessionKey)
+	}
+
+	// 8. Optional: send response via bus
+	if opts.SendResponse {
+		al.bus.PublishOutbound(bus.OutboundMessage{
+			Channel: opts.Channel,
+			ChatID:  opts.ChatID,
+			Content: finalContent,
+		})
+	}
+
+	// 9. Log response
+	responsePreview := utils.Truncate(finalContent, 120)
+	logger.InfoCF("agent", fmt.Sprintf("Streaming response: %s", responsePreview),
+		map[string]interface{}{
+			"session_key":  opts.SessionKey,
+			"iterations":   iteration,
+			"final_length": len(finalContent),
+		})
+
+	return finalContent, nil
+}
+
 // runLLMIteration executes the LLM call loop with tool handling.
 // Returns the final content, iteration count, and any error.
 func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.Message, opts processOptions) (string, int, error) {
 	iteration := 0
 	var finalContent string
+
+	// Determine which model to use (override or default)
+	model := al.model
+	if opts.ModelOverride != "" {
+		model = opts.ModelOverride
+	}
 
 	for iteration < al.maxIterations {
 		iteration++
@@ -329,10 +551,24 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 		toolDefs := al.tools.GetDefinitions()
 		providerToolDefs := make([]providers.ToolDefinition, 0, len(toolDefs))
 		for _, td := range toolDefs {
+			toolName := td["function"].(map[string]interface{})["name"].(string)
+			// Skip excluded tools (e.g., web_search when user toggles it off)
+			if len(opts.ExcludeTools) > 0 {
+				excluded := false
+				for _, ex := range opts.ExcludeTools {
+					if ex == toolName {
+						excluded = true
+						break
+					}
+				}
+				if excluded {
+					continue
+				}
+			}
 			providerToolDefs = append(providerToolDefs, providers.ToolDefinition{
 				Type: td["type"].(string),
 				Function: providers.ToolFunctionDefinition{
-					Name:        td["function"].(map[string]interface{})["name"].(string),
+					Name:        toolName,
 					Description: td["function"].(map[string]interface{})["description"].(string),
 					Parameters:  td["function"].(map[string]interface{})["parameters"].(map[string]interface{}),
 				},
@@ -343,7 +579,7 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 		logger.DebugCF("agent", "LLM request",
 			map[string]interface{}{
 				"iteration":         iteration,
-				"model":             al.model,
+				"model":             model,
 				"messages_count":    len(messages),
 				"tools_count":       len(providerToolDefs),
 				"max_tokens":        8192,
@@ -360,10 +596,18 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 			})
 
 		// Call LLM
-		response, err := al.provider.Chat(ctx, messages, providerToolDefs, al.model, map[string]interface{}{
+		llmStart := time.Now()
+		response, err := al.provider.Chat(ctx, messages, providerToolDefs, model, map[string]interface{}{
 			"max_tokens":  8192,
 			"temperature": 0.7,
 		})
+		llmDur := time.Since(llmStart)
+		tokensIn := al.estimateTokens(messages)
+		tokensOut := 0
+		if err == nil {
+			tokensOut = len(response.Content) / 4 // rough estimate
+		}
+		observability.Global().RecordLLMCall(model, llmDur, tokensIn, tokensOut, err)
 
 		if err != nil {
 			logger.ErrorCF("agent", "LLM call failed",
@@ -429,7 +673,10 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 					"iteration": iteration,
 				})
 
+			toolStart := time.Now()
 			result, err := al.tools.ExecuteWithContext(ctx, tc.Name, tc.Arguments, opts.Channel, opts.ChatID)
+			toolDur := time.Since(toolStart)
+			observability.Global().RecordToolCall(tc.Name, toolDur, err)
 			if err != nil {
 				result = fmt.Sprintf("Error: %v", err)
 			}
@@ -442,6 +689,272 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 			messages = append(messages, toolResultMsg)
 
 			// Save tool result message to session
+			al.sessions.AddFullMessage(opts.SessionKey, toolResultMsg)
+		}
+	}
+
+	return finalContent, iteration, nil
+}
+
+// runLLMIterationStream is like runLLMIteration but streams the final text response.
+// Tool call iterations use non-streaming Chat(). Only the last iteration (no tool calls)
+// uses ChatStream() if the provider supports it.
+func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []providers.Message, opts processOptions, onToken StreamCallback) (string, int, error) {
+	iteration := 0
+	var finalContent string
+
+	model := al.model
+	if opts.ModelOverride != "" {
+		model = opts.ModelOverride
+	}
+
+	streamingProvider, canStream := al.provider.(providers.StreamingLLMProvider)
+
+	for iteration < al.maxIterations {
+		iteration++
+
+		logger.DebugCF("agent", "LLM streaming iteration",
+			map[string]interface{}{
+				"iteration":  iteration,
+				"max":        al.maxIterations,
+				"can_stream": canStream,
+			})
+
+		// Build tool definitions
+		toolDefs := al.tools.GetDefinitions()
+		providerToolDefs := make([]providers.ToolDefinition, 0, len(toolDefs))
+		for _, td := range toolDefs {
+			toolName := td["function"].(map[string]interface{})["name"].(string)
+			// Skip excluded tools (e.g., web_search when user toggles it off)
+			if len(opts.ExcludeTools) > 0 {
+				excluded := false
+				for _, ex := range opts.ExcludeTools {
+					if ex == toolName {
+						excluded = true
+						break
+					}
+				}
+				if excluded {
+					continue
+				}
+			}
+			providerToolDefs = append(providerToolDefs, providers.ToolDefinition{
+				Type: td["type"].(string),
+				Function: providers.ToolFunctionDefinition{
+					Name:        toolName,
+					Description: td["function"].(map[string]interface{})["description"].(string),
+					Parameters:  td["function"].(map[string]interface{})["parameters"].(map[string]interface{}),
+				},
+			})
+		}
+
+		llmOpts := map[string]interface{}{
+			"max_tokens":  8192,
+			"temperature": 0.7,
+		}
+
+		// Try streaming for this iteration
+		if canStream {
+			llmStart := time.Now()
+			ch, err := streamingProvider.ChatStream(ctx, messages, providerToolDefs, model, llmOpts)
+			if err != nil {
+				observability.Global().RecordLLMCall(model, time.Since(llmStart), al.estimateTokens(messages), 0, err)
+				logger.ErrorCF("agent", "Streaming LLM call failed",
+					map[string]interface{}{
+						"iteration": iteration,
+						"error":     err.Error(),
+					})
+				return "", iteration, fmt.Errorf("streaming LLM call failed: %w", err)
+			}
+
+			// Accumulate the response from the stream
+			var contentBuilder strings.Builder
+			var toolCalls []providers.ToolCall
+			var finishReason string
+			// Map to accumulate fragmented tool call arguments
+			toolCallArgs := make(map[int]strings.Builder)
+			toolCallMeta := make(map[int]providers.ToolCall)
+
+			for chunk := range ch {
+				// Stream text tokens to client
+				if chunk.Content != "" {
+					contentBuilder.WriteString(chunk.Content)
+					if onToken != nil {
+						if err := onToken(chunk.Content); err != nil {
+							// Client disconnected or error — stop processing
+							return contentBuilder.String(), iteration, err
+						}
+					}
+				}
+
+				// Accumulate tool call fragments
+				for _, tc := range chunk.ToolCalls {
+					idx := 0 // Default index for tool calls
+					if tc.ID != "" {
+						// New tool call — store metadata
+						toolCallMeta[idx] = tc
+					}
+					if tc.Function != nil && tc.Function.Arguments != "" {
+						b := toolCallArgs[idx]
+						b.WriteString(tc.Function.Arguments)
+						toolCallArgs[idx] = b
+					}
+				}
+
+				if chunk.FinishReason != "" {
+					finishReason = chunk.FinishReason
+				}
+			}
+
+			// Assemble completed tool calls
+			for idx, meta := range toolCallMeta {
+				args := make(map[string]interface{})
+				if argsBuilder, ok := toolCallArgs[idx]; ok {
+					if err := json.Unmarshal([]byte(argsBuilder.String()), &args); err != nil {
+						args["raw"] = argsBuilder.String()
+					}
+				}
+				toolCalls = append(toolCalls, providers.ToolCall{
+					ID:        meta.ID,
+					Name:      meta.Name,
+					Type:      meta.Type,
+					Arguments: args,
+				})
+			}
+
+			// Record streaming LLM call metrics
+			streamContent := contentBuilder.String()
+			streamTokensOut := len(streamContent) / 4
+			observability.Global().RecordLLMCall(model, time.Since(llmStart), al.estimateTokens(messages), streamTokensOut, nil)
+
+			// If no tool calls — we're done
+			if len(toolCalls) == 0 {
+				finalContent = streamContent
+				break
+			}
+
+			// Tool calls — handle them (non-streaming for tool execution)
+			_ = finishReason
+			logger.InfoCF("agent", "Streaming iteration got tool calls",
+				map[string]interface{}{
+					"iteration": iteration,
+					"count":     len(toolCalls),
+				})
+
+			// Build assistant message with tool calls
+			assistantMsg := providers.Message{
+				Role:    "assistant",
+				Content: contentBuilder.String(),
+			}
+			for _, tc := range toolCalls {
+				argumentsJSON, _ := json.Marshal(tc.Arguments)
+				assistantMsg.ToolCalls = append(assistantMsg.ToolCalls, providers.ToolCall{
+					ID:   tc.ID,
+					Type: "function",
+					Function: &providers.FunctionCall{
+						Name:      tc.Name,
+						Arguments: string(argumentsJSON),
+					},
+				})
+			}
+			messages = append(messages, assistantMsg)
+			al.sessions.AddFullMessage(opts.SessionKey, assistantMsg)
+
+			// Execute tool calls
+			for _, tc := range toolCalls {
+				argsJSON, _ := json.Marshal(tc.Arguments)
+				argsPreview := utils.Truncate(string(argsJSON), 200)
+				logger.InfoCF("agent", fmt.Sprintf("Tool call: %s(%s)", tc.Name, argsPreview),
+					map[string]interface{}{
+						"tool":      tc.Name,
+						"iteration": iteration,
+					})
+
+				toolStart := time.Now()
+				result, err := al.tools.ExecuteWithContext(ctx, tc.Name, tc.Arguments, opts.Channel, opts.ChatID)
+				toolDur := time.Since(toolStart)
+				observability.Global().RecordToolCall(tc.Name, toolDur, err)
+				if err != nil {
+					result = fmt.Sprintf("Error: %v", err)
+				}
+
+				toolResultMsg := providers.Message{
+					Role:       "tool",
+					Content:    result,
+					ToolCallID: tc.ID,
+				}
+				messages = append(messages, toolResultMsg)
+				al.sessions.AddFullMessage(opts.SessionKey, toolResultMsg)
+			}
+
+			continue // Next iteration
+		}
+
+		// Fallback: non-streaming Chat()
+		fallbackStart := time.Now()
+		response, err := al.provider.Chat(ctx, messages, providerToolDefs, model, llmOpts)
+		fallbackDur := time.Since(fallbackStart)
+		fallbackTokensIn := al.estimateTokens(messages)
+		fallbackTokensOut := 0
+		if err == nil {
+			fallbackTokensOut = len(response.Content) / 4
+		}
+		observability.Global().RecordLLMCall(model, fallbackDur, fallbackTokensIn, fallbackTokensOut, err)
+		if err != nil {
+			return "", iteration, fmt.Errorf("LLM call failed: %w", err)
+		}
+
+		if len(response.ToolCalls) == 0 {
+			finalContent = response.Content
+			// Send the full content as a single token for non-streaming providers
+			if onToken != nil && finalContent != "" {
+				_ = onToken(finalContent)
+			}
+			break
+		}
+
+		// Tool calls — same handling as runLLMIteration
+		assistantMsg := providers.Message{
+			Role:    "assistant",
+			Content: response.Content,
+		}
+		for _, tc := range response.ToolCalls {
+			argumentsJSON, _ := json.Marshal(tc.Arguments)
+			assistantMsg.ToolCalls = append(assistantMsg.ToolCalls, providers.ToolCall{
+				ID:   tc.ID,
+				Type: "function",
+				Function: &providers.FunctionCall{
+					Name:      tc.Name,
+					Arguments: string(argumentsJSON),
+				},
+			})
+		}
+		messages = append(messages, assistantMsg)
+		al.sessions.AddFullMessage(opts.SessionKey, assistantMsg)
+
+		for _, tc := range response.ToolCalls {
+			argsJSON, _ := json.Marshal(tc.Arguments)
+			argsPreview := utils.Truncate(string(argsJSON), 200)
+			logger.InfoCF("agent", fmt.Sprintf("Tool call: %s(%s)", tc.Name, argsPreview),
+				map[string]interface{}{
+					"tool":      tc.Name,
+					"iteration": iteration,
+				})
+
+			toolStart := time.Now()
+			result, err := al.tools.ExecuteWithContext(ctx, tc.Name, tc.Arguments, opts.Channel, opts.ChatID)
+			toolDur := time.Since(toolStart)
+			observability.Global().RecordToolCall(tc.Name, toolDur, err)
+			if err != nil {
+				result = fmt.Sprintf("Error: %v", err)
+			}
+
+			toolResultMsg := providers.Message{
+				Role:       "tool",
+				Content:    result,
+				ToolCallID: tc.ID,
+			}
+			messages = append(messages, toolResultMsg)
 			al.sessions.AddFullMessage(opts.SessionKey, toolResultMsg)
 		}
 	}

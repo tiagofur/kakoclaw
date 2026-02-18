@@ -7,6 +7,8 @@ services:
       PICOCLAW_AGENTS_DEFAULTS_PROVIDER: zhipu
       PICOCLAW_AGENTS_DEFAULTS_MODEL: glm-4.7
       PICOCLAW_AGENTS_DEFAULTS_RESTRICT_TO_WORKSPACE: "true"
+      PICOCLAW_AGENTS_DEFAULTS_WORKSPACE: "/home/picoclaw/.picoclaw/workspace"
+      PICOCLAW_STORAGE_PATH: "/home/picoclaw/.picoclaw/picoclaw.db"
       PICOCLAW_WEB_ENABLED: "true"
       PICOCLAW_WEB_HOST: 0.0.0.0
       PICOCLAW_WEB_PORT: "18880"
@@ -14,5 +16,14 @@ services:
       PICOCLAW_WEB_PASSWORD: "${PICOCLAW_WEB_PASSWORD}"
       PICOCLAW_PROVIDERS_ZHIPU_API_KEY: "${PICOCLAW_PROVIDERS_ZHIPU_API_KEY}"
       PICOCLAW_PROVIDERS_ZHIPU_API_BASE: "https://api.z.ai/api/coding/paas/v4"
+      # Email Tools Configuration
+      PICOCLAW_TOOLS_EMAIL_ENABLED: "true"
+      PICOCLAW_TOOLS_EMAIL_HOST: "smtp.gmail.com"
+      PICOCLAW_TOOLS_EMAIL_PORT: "587"
+      PICOCLAW_TOOLS_EMAIL_USERNAME: "${PICOCLAW_TOOLS_EMAIL_USERNAME}"
+      PICOCLAW_TOOLS_EMAIL_PASSWORD: "${PICOCLAW_TOOLS_EMAIL_PASSWORD}"
+      PICOCLAW_TOOLS_EMAIL_FROM: "${PICOCLAW_TOOLS_EMAIL_FROM}"
+      PICOCLAW_TOOLS_EMAIL_TO: "${PICOCLAW_TOOLS_EMAIL_TO}"
     volumes:
       - ./picoclaw-data:/home/picoclaw/.picoclaw
+    restart: unless-stopped

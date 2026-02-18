@@ -1,0 +1,707 @@
+{
+  "version": "1.0.0",
+  "generated": "2026-02-18T15:22:38.049Z",
+  "stack": {
+    "primaryLanguage": "typescript",
+    "languages": [
+      "go",
+      "javascript",
+      "typescript"
+    ],
+    "frameworks": [],
+    "buildTools": [
+      "docker",
+      "docker-compose"
+    ],
+    "testFrameworks": [],
+    "packageManager": null,
+    "isMonorepo": false,
+    "hasDocker": true,
+    "hasCI": true
+  },
+  "structure": {
+    "totalFiles": 3554,
+    "rootPath": ".",
+    "topDirectories": [
+      {
+        "name": "assets",
+        "fileCount": 11,
+        "description": "Static assets (images, fonts)"
+      },
+      {
+        "name": "cmd",
+        "fileCount": 1,
+        "description": "Module directory"
+      },
+      {
+        "name": "docs",
+        "fileCount": 31,
+        "description": "Documentation files"
+      },
+      {
+        "name": "picoclaw-data",
+        "fileCount": 6,
+        "description": "Module directory"
+      },
+      {
+        "name": "pkg",
+        "fileCount": 3478,
+        "description": "Module directory"
+      },
+      {
+        "name": "scripts",
+        "fileCount": 1,
+        "description": "Build and utility scripts"
+      },
+      {
+        "name": "skills",
+        "fileCount": 7,
+        "description": "Skill definitions"
+      }
+    ],
+    "languageDistribution": [
+      {
+        "extension": ".js",
+        "count": 2127
+      },
+      {
+        "extension": ".ts",
+        "count": 390
+      },
+      {
+        "extension": ".md",
+        "count": 236
+      },
+      {
+        "extension": ".json",
+        "count": 202
+      },
+      {
+        "extension": ".map",
+        "count": 194
+      },
+      {
+        "extension": ".go",
+        "count": 74
+      },
+      {
+        "extension": ".mts",
+        "count": 34
+      },
+      {
+        "extension": ".mjs",
+        "count": 32
+      },
+      {
+        "extension": ".cjs",
+        "count": 29
+      },
+      {
+        "extension": ".cts",
+        "count": 24
+      }
+    ]
+  },
+  "architecture": {
+    "layers": [
+      {
+        "name": "Services",
+        "description": "Business logic and orchestration",
+        "directories": [
+          "pkg\\web\\frontend\\src\\services"
+        ],
+        "symbolCount": 2,
+        "dependsOn": []
+      }
+    ],
+    "patterns": [],
+    "entryPoints": [
+      "pkg\\web\\frontend\\src\\main.js",
+      "pkg\\web\\frontend\\src\\router\\index.js"
+    ],
+    "mainEntryPoints": [
+      "pkg\\web\\frontend\\src\\main.js",
+      "pkg\\web\\frontend\\src\\router\\index.js"
+    ],
+    "moduleExports": []
+  },
+  "symbols": {
+    "classes": [
+      {
+        "name": "ChatWebSocket",
+        "kind": "class",
+        "file": "pkg\\web\\frontend\\src\\services\\websocketService.js",
+        "line": 3,
+        "exported": false
+      },
+      {
+        "name": "TaskWebSocket",
+        "kind": "class",
+        "file": "pkg\\web\\frontend\\src\\services\\websocketService.js",
+        "line": 107,
+        "exported": false
+      }
+    ],
+    "interfaces": [],
+    "functions": [
+      {
+        "name": "addMessage",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
+        "line": 10,
+        "exported": true
+      },
+      {
+        "name": "addTask",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
+        "line": 87,
+        "exported": true
+      },
+      {
+        "name": "clearFilter",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
+        "line": 110,
+        "exported": true
+      },
+      {
+        "name": "clearMessages",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
+        "line": 18,
+        "exported": true
+      },
+      {
+        "name": "logout",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\authStore.js",
+        "line": 41,
+        "exported": true
+      },
+      {
+        "name": "removeTask",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
+        "line": 98,
+        "exported": true
+      },
+      {
+        "name": "restoreSession",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\authStore.js",
+        "line": 29,
+        "exported": true
+      },
+      {
+        "name": "restoreUIPreferences",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\uiStore.js",
+        "line": 32,
+        "exported": true
+      },
+      {
+        "name": "setActiveTab",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\uiStore.js",
+        "line": 28,
+        "exported": true
+      },
+      {
+        "name": "setConnected",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
+        "line": 22,
+        "exported": true
+      },
+      {
+        "name": "setCredentials",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\authStore.js",
+        "line": 16,
+        "exported": true
+      },
+      {
+        "name": "setFilter",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
+        "line": 106,
+        "exported": true
+      },
+      {
+        "name": "setLoading",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
+        "line": 123,
+        "exported": true
+      },
+      {
+        "name": "setLoading",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
+        "line": 26,
+        "exported": true
+      },
+      {
+        "name": "setSelectedTask",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
+        "line": 102,
+        "exported": true
+      },
+      {
+        "name": "setSortBy",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
+        "line": 119,
+        "exported": true
+      },
+      {
+        "name": "setTasks",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
+        "line": 83,
+        "exported": true
+      },
+      {
+        "name": "setTheme",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\uiStore.js",
+        "line": 9,
+        "exported": true
+      },
+      {
+        "name": "setWebSocket",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
+        "line": 127,
+        "exported": true
+      },
+      {
+        "name": "setWebSocket",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
+        "line": 30,
+        "exported": true
+      },
+      {
+        "name": "sortTasks",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
+        "line": 66,
+        "exported": true
+      },
+      {
+        "name": "toggleSidebar",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\uiStore.js",
+        "line": 23,
+        "exported": true
+      },
+      {
+        "name": "toggleTheme",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\uiStore.js",
+        "line": 19,
+        "exported": true
+      },
+      {
+        "name": "updateTask",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
+        "line": 91,
+        "exported": true
+      }
+    ],
+    "types": [],
+    "enums": []
+  },
+  "publicAPI": [
+    {
+      "name": "addMessage",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
+      "line": 10,
+      "exported": true
+    },
+    {
+      "name": "addTask",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
+      "line": 87,
+      "exported": true
+    },
+    {
+      "name": "clearFilter",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
+      "line": 110,
+      "exported": true
+    },
+    {
+      "name": "clearMessages",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
+      "line": 18,
+      "exported": true
+    },
+    {
+      "name": "logout",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\authStore.js",
+      "line": 41,
+      "exported": true
+    },
+    {
+      "name": "removeTask",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
+      "line": 98,
+      "exported": true
+    },
+    {
+      "name": "restoreSession",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\authStore.js",
+      "line": 29,
+      "exported": true
+    },
+    {
+      "name": "restoreUIPreferences",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\uiStore.js",
+      "line": 32,
+      "exported": true
+    },
+    {
+      "name": "setActiveTab",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\uiStore.js",
+      "line": 28,
+      "exported": true
+    },
+    {
+      "name": "setConnected",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
+      "line": 22,
+      "exported": true
+    },
+    {
+      "name": "setCredentials",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\authStore.js",
+      "line": 16,
+      "exported": true
+    },
+    {
+      "name": "setFilter",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
+      "line": 106,
+      "exported": true
+    },
+    {
+      "name": "setLoading",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
+      "line": 123,
+      "exported": true
+    },
+    {
+      "name": "setLoading",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
+      "line": 26,
+      "exported": true
+    },
+    {
+      "name": "setSelectedTask",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
+      "line": 102,
+      "exported": true
+    },
+    {
+      "name": "setSortBy",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
+      "line": 119,
+      "exported": true
+    },
+    {
+      "name": "setTasks",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
+      "line": 83,
+      "exported": true
+    },
+    {
+      "name": "setTheme",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\uiStore.js",
+      "line": 9,
+      "exported": true
+    },
+    {
+      "name": "setWebSocket",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
+      "line": 127,
+      "exported": true
+    },
+    {
+      "name": "setWebSocket",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
+      "line": 30,
+      "exported": true
+    },
+    {
+      "name": "sortTasks",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
+      "line": 66,
+      "exported": true
+    },
+    {
+      "name": "toggleSidebar",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\uiStore.js",
+      "line": 23,
+      "exported": true
+    },
+    {
+      "name": "toggleTheme",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\uiStore.js",
+      "line": 19,
+      "exported": true
+    },
+    {
+      "name": "updateTask",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
+      "line": 91,
+      "exported": true
+    }
+  ],
+  "dependencies": {
+    "mostImported": [
+      {
+        "file": "pkg\\web\\frontend\\src\\stores\\authStore.js",
+        "importedBy": 4
+      },
+      {
+        "file": "pkg\\web\\frontend\\src\\services\\api.js",
+        "importedBy": 2,
+        "description": "Business logic and orchestration services"
+      },
+      {
+        "file": "pkg\\web\\frontend\\src\\App.vue",
+        "importedBy": 1,
+        "description": "Source code root"
+      },
+      {
+        "file": "pkg\\web\\frontend\\src\\router\\index.js",
+        "importedBy": 1,
+        "description": "Module exports"
+      },
+      {
+        "file": "pkg\\web\\frontend\\src\\styles\\globals.css",
+        "importedBy": 1,
+        "description": "CSS/SCSS stylesheets"
+      },
+      {
+        "file": "pkg\\web\\frontend\\src\\views\\LoginPage.vue",
+        "importedBy": 1,
+        "description": "View templates"
+      },
+      {
+        "file": "pkg\\web\\frontend\\src\\views\\DashboardPage.vue",
+        "importedBy": 1,
+        "description": "View templates"
+      },
+      {
+        "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
+        "importedBy": 1
+      }
+    ]
+  },
+  "stats": {
+    "totalSymbols": 26,
+    "exportedSymbols": 24,
+    "analysisTimeMs": 161
+  },
+  "keyFiles": [
+    {
+      "path": "pkg\\web\\frontend\\src\\main.js",
+      "description": "Source code root",
+      "category": "entrypoint"
+    },
+    {
+      "path": "pkg\\web\\frontend\\src\\router\\index.js",
+      "description": "Module exports",
+      "category": "entrypoint"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\call-bind-apply-helpers\\tsconfig.json",
+      "description": "TypeScript configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\dunder-proto\\tsconfig.json",
+      "description": "TypeScript configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\es-define-property\\tsconfig.json",
+      "description": "TypeScript configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\es-errors\\tsconfig.json",
+      "description": "TypeScript configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\es-object-atoms\\tsconfig.json",
+      "description": "TypeScript configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\es-set-tostringtag\\tsconfig.json",
+      "description": "TypeScript configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\fastq\\eslint.config.js",
+      "description": "Tool configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\fastq\\test\\tsconfig.json",
+      "description": "TypeScript configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\get-proto\\tsconfig.json",
+      "description": "TypeScript configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\gopd\\tsconfig.json",
+      "description": "TypeScript configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\has-symbols\\tsconfig.json",
+      "description": "TypeScript configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\has-tostringtag\\tsconfig.json",
+      "description": "TypeScript configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\hasown\\tsconfig.json",
+      "description": "TypeScript configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\math-intrinsics\\tsconfig.json",
+      "description": "TypeScript configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\reusify\\eslint.config.js",
+      "description": "Tool configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\reusify\\tsconfig.json",
+      "description": "TypeScript configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\tailwindcss\\prettier.config.js",
+      "description": "Tool configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\tailwindcss\\stubs\\postcss.config.cjs",
+      "description": "Tool configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\tailwindcss\\stubs\\postcss.config.js",
+      "description": "Tool configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\tailwindcss\\stubs\\tailwind.config.cjs",
+      "description": "Tool configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\tailwindcss\\stubs\\tailwind.config.js",
+      "description": "Tool configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\tailwindcss\\stubs\\tailwind.config.ts",
+      "description": "Tool configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\postcss.config.js",
+      "description": "Tool configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\tailwind.config.js",
+      "description": "Tool configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\vite.config.js",
+      "description": "Tool configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\@jridgewell\\gen-mapping\\dist\\types\\types.d.ts",
+      "description": "Type definitions",
+      "category": "types"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\@jridgewell\\gen-mapping\\src\\types.ts",
+      "description": "Type definitions",
+      "category": "types"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\@jridgewell\\trace-mapping\\src\\types.ts",
+      "description": "Type definitions",
+      "category": "types"
+    }
+  ],
+  "navigation": {
+    "tests": "**/*.test.{ts,js}",
+    "config": [],
+    "types": [
+      "pkg\\web\\frontend\\node_modules\\vue-router\\vue-router-auto.d.ts",
+      "pkg\\web\\frontend\\node_modules\\vue-router\\vue-router-auto-routes.d.ts",
+      "pkg\\web\\frontend\\node_modules\\vue\\jsx.d.ts",
+      "pkg\\web\\frontend\\node_modules\\update-browserslist-db\\index.d.ts",
+      "pkg\\web\\frontend\\node_modules\\vite\\client.d.ts",
+      "pkg\\web\\frontend\\node_modules\\tailwindcss\\resolveConfig.d.ts",
+      "pkg\\web\\frontend\\node_modules\\tailwindcss\\plugin.d.ts",
+      "pkg\\web\\frontend\\node_modules\\tailwindcss\\loadConfig.d.ts",
+      "pkg\\web\\frontend\\node_modules\\tailwindcss\\defaultTheme.d.ts",
+      "pkg\\web\\frontend\\node_modules\\tailwindcss\\defaultConfig.d.ts"
+    ],
+    "mainLogic": [
+      "src"
+    ]
+  }
+}

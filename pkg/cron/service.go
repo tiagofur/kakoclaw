@@ -243,13 +243,22 @@ func (cs *CronService) computeNextRun(schedule *CronSchedule, nowMS int64) *int6
 
 		// Use gronx to calculate next run time
 		now := time.UnixMilli(nowMS)
+
+		// Apply timezone if specified
+		if schedule.TZ != "" {
+			if loc, err := time.LoadLocation(schedule.TZ); err == nil {
+				now = now.In(loc)
+			}
+		}
+
 		nextTime, err := gronx.NextTickAfter(schedule.Expr, now, false)
 		if err != nil {
 			log.Printf("[cron] failed to compute next run for expr '%s': %v", schedule.Expr, err)
 			return nil
 		}
 
-		nextMS := nextTime.UnixMilli()
+		// Convert back to UTC milliseconds
+		nextMS := nextTime.UTC().UnixMilli()
 		return &nextMS
 	}
 
@@ -321,9 +330,39 @@ func (cs *CronService) saveStoreUnsafe() error {
 	return os.WriteFile(cs.storePath, data, 0644)
 }
 
+// ValidateSchedule checks that a CronSchedule is well-formed.
+// Returns an error describing the problem, or nil if valid.
+func (cs *CronService) ValidateSchedule(schedule *CronSchedule) error {
+	switch schedule.Kind {
+	case "at":
+		if schedule.AtMS == nil {
+			return fmt.Errorf("atMs is required for 'at' schedule")
+		}
+	case "every":
+		if schedule.EveryMS == nil || *schedule.EveryMS <= 0 {
+			return fmt.Errorf("everyMs must be a positive integer for 'every' schedule")
+		}
+	case "cron":
+		if schedule.Expr == "" {
+			return fmt.Errorf("expr is required for 'cron' schedule")
+		}
+		if !cs.gronx.IsValid(schedule.Expr) {
+			return fmt.Errorf("invalid cron expression: %s", schedule.Expr)
+		}
+	default:
+		return fmt.Errorf("unknown schedule kind: %s", schedule.Kind)
+	}
+	return nil
+}
+
 func (cs *CronService) AddJob(name string, schedule CronSchedule, message string, deliver bool, channel, to string) (*CronJob, error) {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
+
+	// Validate schedule
+	if err := cs.ValidateSchedule(&schedule); err != nil {
+		return nil, fmt.Errorf("invalid schedule: %w", err)
+	}
 
 	now := time.Now().UnixMilli()
 
@@ -356,6 +395,47 @@ func (cs *CronService) AddJob(name string, schedule CronSchedule, message string
 	}
 
 	return &job, nil
+}
+
+// UpdateJob updates an existing job's name, schedule, and payload fields.
+// Returns the updated job, or nil if not found.
+func (cs *CronService) UpdateJob(jobID string, name string, schedule CronSchedule, message string, deliver bool, channel, to string) (*CronJob, error) {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+
+	// Validate schedule
+	if err := cs.ValidateSchedule(&schedule); err != nil {
+		return nil, fmt.Errorf("invalid schedule: %w", err)
+	}
+
+	for i := range cs.store.Jobs {
+		if cs.store.Jobs[i].ID == jobID {
+			now := time.Now().UnixMilli()
+
+			cs.store.Jobs[i].Name = name
+			cs.store.Jobs[i].Schedule = schedule
+			cs.store.Jobs[i].Payload.Message = message
+			cs.store.Jobs[i].Payload.Deliver = deliver
+			cs.store.Jobs[i].Payload.Channel = channel
+			cs.store.Jobs[i].Payload.To = to
+			cs.store.Jobs[i].UpdatedAtMS = now
+			cs.store.Jobs[i].DeleteAfterRun = (schedule.Kind == "at")
+
+			// Recompute next run if enabled
+			if cs.store.Jobs[i].Enabled {
+				cs.store.Jobs[i].State.NextRunAtMS = cs.computeNextRun(&schedule, now)
+			}
+
+			if err := cs.saveStoreUnsafe(); err != nil {
+				return nil, err
+			}
+
+			job := cs.store.Jobs[i]
+			return &job, nil
+		}
+	}
+
+	return nil, nil
 }
 
 func (cs *CronService) RemoveJob(jobID string) bool {

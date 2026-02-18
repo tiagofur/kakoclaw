@@ -2,20 +2,61 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Theme CSS Variables (RGB triplets for Tailwind opacity support) */
+:root {
+  /* Light Theme (default when no .dark class) */
+  --pc-bg: 248 250 252;              /* Slate 50 (#f8fafc) */
+  --pc-surface: 255 255 255;          /* White (#ffffff) */
+  --pc-surface-hover: 241 245 249;    /* Slate 100 (#f1f5f9) */
+  --pc-border: 226 232 240;           /* Slate 200 (#e2e8f0) */
+  --pc-accent: 99 102 241;            /* Indigo 500 (#6366f1) */
+  --pc-accent-hover: 79 70 229;       /* Indigo 600 (#4f46e5) */
+  --pc-success: 16 185 129;           /* Emerald 500 (#10b981) */
+  --pc-warning: 245 158 11;           /* Amber 500 (#f59e0b) */
+  --pc-error: 239 68 68;              /* Red 500 (#ef4444) */
+  --pc-text: 15 23 42;                /* Slate 900 (#0f172a) */
+  --pc-text-secondary: 100 116 139;   /* Slate 500 (#64748b) */
+
+  --pc-scrollbar-track: #f1f5f9;
+  --pc-scrollbar-thumb: #cbd5e1;
+  --pc-scrollbar-hover: #6366f1;
+  color-scheme: light;
+}
+
+.dark {
+  /* Dark Theme */
+  --pc-bg: 15 23 42;                  /* Slate 900 (#0f172a) */
+  --pc-surface: 30 41 59;             /* Slate 800 (#1e293b) */
+  --pc-surface-hover: 51 65 85;       /* Slate 700 (#334155) */
+  --pc-border: 51 65 85;              /* Slate 700 (#334155) */
+  --pc-accent: 99 102 241;            /* Indigo 500 (#6366f1) */
+  --pc-accent-hover: 79 70 229;       /* Indigo 600 (#4f46e5) */
+  --pc-success: 16 185 129;           /* Emerald 500 (#10b981) */
+  --pc-warning: 245 158 11;           /* Amber 500 (#f59e0b) */
+  --pc-error: 239 68 68;              /* Red 500 (#ef4444) */
+  --pc-text: 248 250 252;             /* Slate 50 (#f8fafc) */
+  --pc-text-secondary: 148 163 184;   /* Slate 400 (#94a3b8) */
+
+  --pc-scrollbar-track: #161b22;
+  --pc-scrollbar-thumb: #30363d;
+  --pc-scrollbar-hover: #007acc;
+  color-scheme: dark;
+}
+
 * {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 html {
-  color-scheme: dark;
   font-feature-settings: "rlig" 1, "calt" 1;
 }
 
 body {
-  background-color: #0d1117;
-  color: #e0e0e0;
+  background-color: rgb(var(--pc-bg));
+  color: rgb(var(--pc-text));
   font-family: inherit;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 input, textarea, select, button {
@@ -30,25 +71,33 @@ input, textarea, select, button {
 }
 
 ::-webkit-scrollbar-track {
-  background-color: #161b22;
+  background-color: var(--pc-scrollbar-track);
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: #30363d;
+  background-color: var(--pc-scrollbar-thumb);
   border-radius: 6px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: #007acc;
+  background-color: var(--pc-scrollbar-hover);
 }
 
 /* Smooth transitions */
 @layer utilities {
   .transition-smooth {
-    @apply transition-all duration-200 ease-in-out;
+    @apply transition-all duration-300 ease-in-out;
   }
   
   .focus-ring {
     @apply focus:outline-none focus:ring-2 focus:ring-picoclaw-accent focus:ring-opacity-50;
+  }
+
+  .glass {
+    @apply bg-picoclaw-surface/80 backdrop-blur-md border border-picoclaw-border/50;
+  }
+  
+  .glass-panel {
+    @apply bg-picoclaw-surface/60 backdrop-blur-lg border border-picoclaw-border/30 shadow-xl;
   }
 }

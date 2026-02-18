@@ -80,23 +80,37 @@ export const useTaskStore = defineStore('tasks', () => {
     }
   }
 
+  const normalizeTaskId = (id) => String(id)
+
   function setTasks(newTasks) {
-    tasks.value = newTasks
+    const unique = new Map()
+    newTasks.forEach(task => {
+      unique.set(normalizeTaskId(task.id), task)
+    })
+    tasks.value = Array.from(unique.values())
   }
 
   function addTask(task) {
+    const normalizedId = normalizeTaskId(task.id)
+    const idx = tasks.value.findIndex(t => normalizeTaskId(t.id) === normalizedId)
+    if (idx !== -1) {
+      tasks.value[idx] = { ...tasks.value[idx], ...task }
+      return
+    }
     tasks.value.push(task)
   }
 
   function updateTask(id, updates) {
-    const idx = tasks.value.findIndex(t => t.id === id)
+    const normalizedId = normalizeTaskId(id)
+    const idx = tasks.value.findIndex(t => normalizeTaskId(t.id) === normalizedId)
     if (idx !== -1) {
       tasks.value[idx] = { ...tasks.value[idx], ...updates }
     }
   }
 
   function removeTask(id) {
-    tasks.value = tasks.value.filter(t => t.id !== id)
+    const normalizedId = normalizeTaskId(id)
+    tasks.value = tasks.value.filter(t => normalizeTaskId(t.id) !== normalizedId)
   }
 
   function setSelectedTask(task) {

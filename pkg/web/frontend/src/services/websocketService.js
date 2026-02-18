@@ -21,13 +21,12 @@ class ChatWebSocket {
         const authStore = useAuthStore()
         const token = authStore.token
 
-        this.ws = new WebSocket(this.url)
+        // Append token to URL for handshake authorization
+        const urlWithToken = token ? `${this.url}?token=${encodeURIComponent(token)}` : this.url
+        this.ws = new WebSocket(urlWithToken)
 
         // Send auth token after connection
         this.ws.onopen = () => {
-          if (token) {
-            this.send({ type: 'auth', token })
-          }
           this.reconnectAttempts = 0
           this.emit('connected')
           resolve()
@@ -126,12 +125,11 @@ class TaskWebSocket {
         const authStore = useAuthStore()
         const token = authStore.token
 
-        this.ws = new WebSocket(this.url)
+        // Append token to URL for handshake authorization
+        const urlWithToken = token ? `${this.url}?token=${encodeURIComponent(token)}` : this.url
+        this.ws = new WebSocket(urlWithToken)
 
         this.ws.onopen = () => {
-          if (token) {
-            this.send({ type: 'auth', token })
-          }
           this.reconnectAttempts = 0
           this.emit('connected')
           resolve()

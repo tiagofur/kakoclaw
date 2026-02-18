@@ -7,6 +7,7 @@
 package providers
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -194,6 +195,175 @@ func (p *HTTPProvider) parseResponse(body []byte) (*LLMResponse, error) {
 
 func (p *HTTPProvider) GetDefaultModel() string {
 	return ""
+}
+
+// ChatStream implements StreamingLLMProvider for OpenAI-compatible SSE streaming.
+func (p *HTTPProvider) ChatStream(ctx context.Context, messages []Message, tools []ToolDefinition, model string, options map[string]interface{}) (<-chan StreamChunk, error) {
+	if p.apiBase == "" {
+		return nil, fmt.Errorf("API base not configured")
+	}
+
+	// Strip provider prefix from model name (same as Chat)
+	if idx := strings.Index(model, "/"); idx != -1 {
+		prefix := model[:idx]
+		if prefix == "moonshot" || prefix == "nvidia" {
+			model = model[idx+1:]
+		}
+	}
+
+	requestBody := map[string]interface{}{
+		"model":    model,
+		"messages": messages,
+		"stream":   true,
+	}
+
+	if len(tools) > 0 {
+		requestBody["tools"] = tools
+		requestBody["tool_choice"] = "auto"
+	}
+
+	if maxTokens, ok := options["max_tokens"].(int); ok {
+		lowerModel := strings.ToLower(model)
+		if strings.Contains(lowerModel, "glm") || strings.Contains(lowerModel, "o1") {
+			requestBody["max_completion_tokens"] = maxTokens
+		} else {
+			requestBody["max_tokens"] = maxTokens
+		}
+	}
+
+	if temperature, ok := options["temperature"].(float64); ok {
+		lowerModel := strings.ToLower(model)
+		if strings.Contains(lowerModel, "kimi") && strings.Contains(lowerModel, "k2") {
+			requestBody["temperature"] = 1.0
+		} else {
+			requestBody["temperature"] = temperature
+		}
+	}
+
+	jsonData, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", p.apiBase+"/chat/completions", bytes.NewReader(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "text/event-stream")
+	if p.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+p.apiKey)
+	}
+
+	resp, err := p.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		return nil, fmt.Errorf("API error: %s", string(body))
+	}
+
+	ch := make(chan StreamChunk, 64)
+
+	go func() {
+		defer close(ch)
+		defer resp.Body.Close()
+
+		scanner := bufio.NewScanner(resp.Body)
+		// Allow lines up to 256KB for large tool call arguments
+		scanner.Buffer(make([]byte, 0, 64*1024), 256*1024)
+
+		for scanner.Scan() {
+			line := scanner.Text()
+
+			// SSE format: lines starting with "data: "
+			if !strings.HasPrefix(line, "data: ") {
+				continue
+			}
+
+			data := strings.TrimPrefix(line, "data: ")
+			if data == "[DONE]" {
+				ch <- StreamChunk{Done: true, FinishReason: "stop"}
+				return
+			}
+
+			var sseEvent struct {
+				Choices []struct {
+					Delta struct {
+						Content   string `json:"content"`
+						ToolCalls []struct {
+							Index    int    `json:"index"`
+							ID       string `json:"id"`
+							Type     string `json:"type"`
+							Function *struct {
+								Name      string `json:"name"`
+								Arguments string `json:"arguments"`
+							} `json:"function"`
+						} `json:"tool_calls"`
+					} `json:"delta"`
+					FinishReason *string `json:"finish_reason"`
+				} `json:"choices"`
+				Usage *UsageInfo `json:"usage"`
+			}
+
+			if err := json.Unmarshal([]byte(data), &sseEvent); err != nil {
+				continue
+			}
+
+			if len(sseEvent.Choices) == 0 {
+				continue
+			}
+
+			choice := sseEvent.Choices[0]
+			chunk := StreamChunk{
+				Content: choice.Delta.Content,
+				Usage:   sseEvent.Usage,
+			}
+
+			// Handle tool calls in delta
+			for _, tc := range choice.Delta.ToolCalls {
+				toolCall := ToolCall{
+					ID:   tc.ID,
+					Type: tc.Type,
+				}
+				if tc.Function != nil {
+					toolCall.Name = tc.Function.Name
+					// Tool call arguments come in fragments; pass as-is
+					if tc.Function.Arguments != "" {
+						toolCall.Function = &FunctionCall{
+							Name:      tc.Function.Name,
+							Arguments: tc.Function.Arguments,
+						}
+					}
+				}
+				chunk.ToolCalls = append(chunk.ToolCalls, toolCall)
+			}
+
+			if choice.FinishReason != nil {
+				chunk.FinishReason = *choice.FinishReason
+				chunk.Done = true
+			}
+
+			select {
+			case ch <- chunk:
+			case <-ctx.Done():
+				return
+			}
+
+			if chunk.Done {
+				return
+			}
+		}
+
+		// If scanner exits without [DONE], send a final done chunk
+		ch <- StreamChunk{Done: true, FinishReason: "stop"}
+	}()
+
+	return ch, nil
 }
 
 func createClaudeAuthProvider() (LLMProvider, error) {

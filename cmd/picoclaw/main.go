@@ -28,12 +28,15 @@ import (
 	"github.com/sipeed/picoclaw/pkg/doctor"
 	"github.com/sipeed/picoclaw/pkg/heartbeat"
 	"github.com/sipeed/picoclaw/pkg/logger"
+	"github.com/sipeed/picoclaw/pkg/mcp"
 	"github.com/sipeed/picoclaw/pkg/migrate"
 	"github.com/sipeed/picoclaw/pkg/providers"
 	"github.com/sipeed/picoclaw/pkg/skills"
+	"github.com/sipeed/picoclaw/pkg/storage"
 	"github.com/sipeed/picoclaw/pkg/tools"
 	"github.com/sipeed/picoclaw/pkg/voice"
 	"github.com/sipeed/picoclaw/pkg/web"
+	"github.com/sipeed/picoclaw/pkg/workflow"
 )
 
 var (
@@ -729,9 +732,56 @@ func gatewayCmd() {
 
 	go agentLoop.Run(ctx)
 
+	// Setup MCP manager for configured servers
+	var mcpManager *mcp.Manager
+	if len(cfg.Tools.MCP.Servers) > 0 {
+		mcpManager = mcp.NewManager(cfg.Tools.MCP)
+		mcpManager.Start(ctx)
+		mcpStatus := mcpManager.ServerStatus()
+		connCount := 0
+		for _, s := range mcpStatus {
+			if s.Connected {
+				connCount++
+			}
+		}
+		fmt.Printf("✓ MCP servers: %d/%d connected\n", connCount, len(mcpStatus))
+	}
+
 	var webServer *web.Server
 	if cfg.Web.Enabled {
 		webServer = web.NewServerWithWorkspace(cfg.Web, agentLoop, cfg.WorkspacePath())
+
+		// Initialize storage for tasks, chat history, etc.
+		store, err := storage.New(cfg.Storage)
+		if err == nil {
+			webServer.SetStorage(store)
+		} else {
+			fmt.Printf("Warning: Failed to initialize storage for web: %v\n", err)
+		}
+
+		// Wire additional services for advanced REST endpoints
+		webServer.SetCronService(cronService)
+		webServer.SetChannelManager(channelManager)
+		webServer.SetFullConfig(cfg)
+		if transcriber != nil {
+			webServer.SetTranscriber(transcriber)
+		}
+		if mcpManager != nil {
+			webServer.SetMCPManager(mcpManager)
+		}
+		home, _ := os.UserHomeDir()
+		skillsLoader := skills.NewSkillsLoader(
+			cfg.WorkspacePath(),
+			filepath.Join(home, ".picoclaw", "skills"),
+			"",
+		)
+		skillInstaller := skills.NewSkillInstaller(cfg.WorkspacePath())
+		webServer.SetSkills(skillsLoader, skillInstaller)
+		// Wire workflow engine
+		if store != nil {
+			wfEngine := workflow.NewEngine(agentLoop, agentLoop.ToolRegistry(), store)
+			webServer.SetWorkflowEngine(wfEngine)
+		}
 		if err := webServer.Start(ctx); err != nil {
 			fmt.Printf("Error starting web server: %v\n", err)
 		} else {
@@ -747,6 +797,9 @@ func gatewayCmd() {
 	cancel()
 	heartbeatService.Stop()
 	cronService.Stop()
+	if mcpManager != nil {
+		mcpManager.Stop()
+	}
 	if webServer != nil {
 		_ = webServer.Stop(context.Background())
 	}
@@ -782,6 +835,44 @@ func webCmd() {
 	go agentLoop.Run(ctx)
 
 	webServer := web.NewServerWithWorkspace(cfg.Web, agentLoop, cfg.WorkspacePath())
+
+	// Initialize storage for tasks
+	store, err := storage.New(cfg.Storage)
+	if err == nil {
+		webServer.SetStorage(store)
+		defer store.Close()
+	} else {
+		fmt.Printf("Warning: Failed to initialize storage: %v\n", err)
+	}
+
+	// Wire additional services for advanced REST endpoints
+	webServer.SetFullConfig(cfg)
+	// Wire voice transcriber if Groq API key is available
+	if cfg.Providers.Groq.APIKey != "" {
+		webTranscriber := voice.NewGroqTranscriber(cfg.Providers.Groq.APIKey)
+		webServer.SetTranscriber(webTranscriber)
+	}
+	// Wire MCP manager if configured
+	var mcpManagerWeb *mcp.Manager
+	if len(cfg.Tools.MCP.Servers) > 0 {
+		mcpManagerWeb = mcp.NewManager(cfg.Tools.MCP)
+		mcpManagerWeb.Start(ctx)
+		webServer.SetMCPManager(mcpManagerWeb)
+	}
+	homeWeb, _ := os.UserHomeDir()
+	skillsLoaderWeb := skills.NewSkillsLoader(
+		cfg.WorkspacePath(),
+		filepath.Join(homeWeb, ".picoclaw", "skills"),
+		"",
+	)
+	skillInstallerWeb := skills.NewSkillInstaller(cfg.WorkspacePath())
+	webServer.SetSkills(skillsLoaderWeb, skillInstallerWeb)
+	// Wire workflow engine
+	if store != nil {
+		wfEngine := workflow.NewEngine(agentLoop, agentLoop.ToolRegistry(), store)
+		webServer.SetWorkflowEngine(wfEngine)
+	}
+
 	if err := webServer.Start(ctx); err != nil {
 		fmt.Printf("Error starting web server: %v\n", err)
 		os.Exit(1)
@@ -795,6 +886,9 @@ func webCmd() {
 
 	fmt.Println("\nShutting down...")
 	cancel()
+	if mcpManagerWeb != nil {
+		mcpManagerWeb.Stop()
+	}
 	_ = webServer.Stop(context.Background())
 	agentLoop.Stop()
 	fmt.Println("✓ Web stopped")
@@ -1132,7 +1226,73 @@ func setupCronTool(agentLoop *agent.AgentLoop, msgBus *bus.MessageBus, workspace
 	return cronService
 }
 
+func loadDotEnvIfExists(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if strings.HasPrefix(line, "export ") {
+			line = strings.TrimSpace(strings.TrimPrefix(line, "export "))
+		}
+
+		key, value, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
+		if key == "" {
+			continue
+		}
+		if _, alreadySet := os.LookupEnv(key); alreadySet {
+			continue
+		}
+		if len(value) >= 2 {
+			if (value[0] == '"' && value[len(value)-1] == '"') || (value[0] == '\'' && value[len(value)-1] == '\'') {
+				value = value[1 : len(value)-1]
+			}
+		}
+		if err := os.Setenv(key, value); err != nil {
+			return err
+		}
+	}
+	return scanner.Err()
+}
+
+func loadLocalDotEnvDefaults() error {
+	configDir := filepath.Dir(getConfigPath())
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	paths := []string{
+		filepath.Join(configDir, ".env"),
+		filepath.Join(cwd, ".env"),
+	}
+	for _, path := range paths {
+		if err := loadDotEnvIfExists(path); err != nil {
+			return fmt.Errorf("loading %s: %w", path, err)
+		}
+	}
+	return nil
+}
+
 func loadConfig() (*config.Config, error) {
+	if err := loadLocalDotEnvDefaults(); err != nil {
+		logger.WarnCF("config", "Could not load local .env defaults", map[string]interface{}{"error": err.Error()})
+	}
 	return config.LoadConfig(getConfigPath())
 }
 
