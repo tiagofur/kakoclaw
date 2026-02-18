@@ -231,7 +231,7 @@ func CreateProvider(cfg *config.Config) (LLMProvider, error) {
 	if idx := strings.Index(model, "/"); idx > 0 {
 		explicitProvider := strings.ToLower(model[:idx])
 		actualModel := model[idx+1:]
-		
+
 		switch explicitProvider {
 		case "openai", "anthropic", "openrouter", "groq", "zhipu", "gemini", "moonshot", "nvidia", "ollama":
 			providerName = explicitProvider
@@ -243,6 +243,9 @@ func CreateProvider(cfg *config.Config) (LLMProvider, error) {
 	// First, try to use explicitly configured provider
 	if providerName != "" {
 		switch providerName {
+		case "mock":
+			// Mock provider for testing without external APIs
+			return NewMockProvider(), nil
 		case "groq":
 			if cfg.Providers.Groq.APIKey != "" {
 				apiKey = cfg.Providers.Groq.APIKey
