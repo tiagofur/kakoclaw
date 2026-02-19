@@ -414,3 +414,74 @@ func TestCloseCheckpointsWAL(t *testing.T) {
 		t.Fatalf("Close: %v", err)
 	}
 }
+
+func TestDataPersistsAcrossRestart(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "persist.db")
+	s1, err := New(config.StorageConfig{Path: dbPath})
+	if err != nil {
+		t.Fatalf("New first instance: %v", err)
+	}
+	if err := s1.SaveMessage("persist:s1", "user", "hello persisted"); err != nil {
+		t.Fatalf("SaveMessage: %v", err)
+	}
+	taskID, err := s1.CreateTask("persist task", "desc", "todo")
+	if err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+	if err := s1.Close(); err != nil {
+		t.Fatalf("Close first instance: %v", err)
+	}
+
+	s2, err := New(config.StorageConfig{Path: dbPath})
+	if err != nil {
+		t.Fatalf("New second instance: %v", err)
+	}
+	defer func() { _ = s2.Close() }()
+
+	msgs, err := s2.GetMessages("persist:s1")
+	if err != nil {
+		t.Fatalf("GetMessages after restart: %v", err)
+	}
+	if len(msgs) != 1 || msgs[0].Content != "hello persisted" {
+		t.Fatalf("unexpected messages after restart: %+v", msgs)
+	}
+
+	task, err := s2.GetTask(taskID)
+	if err != nil {
+		t.Fatalf("GetTask after restart: %v", err)
+	}
+	if task.Title != "persist task" {
+		t.Fatalf("unexpected task after restart: %+v", task)
+	}
+}
+
+func TestStoragePathIsolation(t *testing.T) {
+	dir := t.TempDir()
+	dbA := filepath.Join(dir, "a.db")
+	dbB := filepath.Join(dir, "b.db")
+
+	sA, err := New(config.StorageConfig{Path: dbA})
+	if err != nil {
+		t.Fatalf("New A: %v", err)
+	}
+	if err := sA.SaveMessage("session:a", "user", "only in a"); err != nil {
+		t.Fatalf("SaveMessage A: %v", err)
+	}
+	if err := sA.Close(); err != nil {
+		t.Fatalf("Close A: %v", err)
+	}
+
+	sB, err := New(config.StorageConfig{Path: dbB})
+	if err != nil {
+		t.Fatalf("New B: %v", err)
+	}
+	defer func() { _ = sB.Close() }()
+
+	msgs, err := sB.GetMessages("session:a")
+	if err != nil {
+		t.Fatalf("GetMessages B: %v", err)
+	}
+	if len(msgs) != 0 {
+		t.Fatalf("expected isolated empty DB B, got %d messages", len(msgs))
+	}
+}
