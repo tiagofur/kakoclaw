@@ -30,6 +30,30 @@ func New(cfg config.StorageConfig) (*Storage, error) {
 		return nil, fmt.Errorf("pinging database: %w", err)
 	}
 
+	// SQLite optimizations for single-user personal app:
+	// WAL mode gives ~10x faster writes and is crash-safe.
+	// synchronous=NORMAL is safe with WAL (only FULL adds extra fsync per commit).
+	// foreign_keys enables ON DELETE CASCADE for knowledge/workflow tables.
+	// busy_timeout avoids immediate SQLITE_BUSY errors from concurrent goroutines.
+	// cache_size=-8000 sets ~8MB page cache (negligible for a desktop app).
+	pragmas := []string{
+		"PRAGMA journal_mode=WAL",
+		"PRAGMA synchronous=NORMAL",
+		"PRAGMA foreign_keys=ON",
+		"PRAGMA busy_timeout=5000",
+		"PRAGMA cache_size=-8000",
+	}
+	for _, p := range pragmas {
+		if _, err := db.Exec(p); err != nil {
+			return nil, fmt.Errorf("setting %s: %w", p, err)
+		}
+	}
+
+	// SQLite performs best with a single writer connection.
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+	db.SetConnMaxLifetime(0)
+
 	s := &Storage{db: db}
 	if err := s.migrate(); err != nil {
 		return nil, fmt.Errorf("migrating database: %w", err)
@@ -39,6 +63,8 @@ func New(cfg config.StorageConfig) (*Storage, error) {
 }
 
 func (s *Storage) Close() error {
+	// Consolidate WAL into the main database file for a clean single-file state.
+	_, _ = s.db.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
 	return s.db.Close()
 }
 
@@ -91,22 +117,23 @@ func (s *Storage) migrate() error {
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		);`,
+		// Migration for existing sessions tables
+		`ALTER TABLE sessions ADD COLUMN title TEXT NOT NULL DEFAULT '';`,
+		`ALTER TABLE sessions ADD COLUMN archived BOOLEAN NOT NULL DEFAULT 0;`,
+		`ALTER TABLE sessions ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;`,
+		`ALTER TABLE sessions ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;`,
+		`UPDATE sessions SET title = '' WHERE title IS NULL;`,
+		`UPDATE sessions SET archived = 0 WHERE archived IS NULL;`,
+		`UPDATE sessions SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL;`,
+		`UPDATE sessions SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL;`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_session_id ON sessions(session_id);`,
 	}
 
 	for _, query := range queries {
 		if _, err := s.db.Exec(query); err != nil {
-			// Ignore "duplicate column" error for ALTER TABLE
-			if err.Error() == "duplicate column name: archived" {
-				continue
-			}
-			// For modernc.org/sqlite, error message might vary, but let's try to proceed
-			// or check specific error codes if available.
-			// A simple way is to check if it contains "duplicate column name"
+			// ALTER TABLE errors (duplicate column, etc.) are safe to ignore
+			// since we use idempotent CREATE IF NOT EXISTS + additive ALTERs.
 			if strings.HasPrefix(query, "ALTER TABLE") {
-				// We can try to check if column exists first, but ignoring error is simpler for now
-				// given the constraints.
-				fmt.Printf("Migration warning (safe to ignore if column exists): %v\n", err)
 				continue
 			}
 			return fmt.Errorf("executing migration query: %w", err)

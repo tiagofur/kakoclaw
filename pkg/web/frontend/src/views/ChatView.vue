@@ -599,7 +599,14 @@ onMounted(async () => {
   // Check for session ID in route
   const routeSessionId = normalizeSessionId(route.query.id)
   if (routeSessionId) {
-    await loadSession(routeSessionId, { updateRoute: false })
+    const routeSessionExists = sessions.value.some(s => s.session_id === routeSessionId)
+    if (routeSessionExists) {
+      await loadSession(routeSessionId, { updateRoute: false })
+    } else if (sessions.value.length > 0) {
+      await loadSession(sessions.value[0].session_id)
+    }
+  } else if (sessions.value.length > 0) {
+    await loadSession(sessions.value[0].session_id)
   }
 
   try {

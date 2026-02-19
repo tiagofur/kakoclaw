@@ -3,6 +3,7 @@ package storage
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -212,7 +213,34 @@ func (s *Storage) ListSessions(archived *bool, limit, offset int) ([]SessionSumm
 	`
 	rows, err := s.db.Query(query, archivedFilter, limit, offset)
 	if err != nil {
-		return nil, fmt.Errorf("listing sessions: %w", err)
+		if !isSessionSchemaCompatibilityError(err) {
+			return nil, fmt.Errorf("listing sessions: %w", err)
+		}
+		// Legacy fallback for databases without sessions table/columns.
+		if archivedFilter {
+			return []SessionSummary{}, nil
+		}
+		legacyQuery := `
+			SELECT
+				counts.session_id,
+				'' AS title,
+				0 AS archived,
+				COALESCE(c.content, ''),
+				COALESCE(c.created_at, counts.last_created_at),
+				COALESCE(counts.msg_count, 0)
+			FROM (
+				SELECT session_id, MAX(id) AS max_id, MAX(created_at) AS last_created_at, COUNT(*) AS msg_count
+				FROM chats
+				GROUP BY session_id
+			) counts
+			LEFT JOIN chats c ON c.session_id = counts.session_id AND c.id = counts.max_id
+			ORDER BY COALESCE(c.created_at, counts.last_created_at) DESC
+			LIMIT ? OFFSET ?
+		`
+		rows, err = s.db.Query(legacyQuery, limit, offset)
+		if err != nil {
+			return nil, fmt.Errorf("listing sessions (legacy fallback): %w", err)
+		}
 	}
 	defer rows.Close()
 
@@ -228,6 +256,14 @@ func (s *Storage) ListSessions(archived *bool, limit, offset int) ([]SessionSumm
 		return nil, fmt.Errorf("iterating sessions: %w", err)
 	}
 	return sessions, nil
+}
+
+func isSessionSchemaCompatibilityError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "no such table: sessions") || strings.Contains(msg, "no such column:")
 }
 
 // GetSession returns a single session by session_id.
