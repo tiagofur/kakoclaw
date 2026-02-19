@@ -27,5 +27,5 @@ El problema reportado en el issue #15 ya ha sido resuelto en versiones anteriore
 
 ## Referencias
 
-- Issue original: https://github.com/sipeed/picoclaw/issues/15
+- Issue original: https://github.com/sipeed/KakoClaw/issues/15
 - Build en 32-bit: Funcionando correctamente

@@ -75,7 +75,7 @@ El problema reportado en el issue #16 ya ha sido resueldo. Todos los providers a
 
 ## Referencias
 
-- Issue original: https://github.com/sipeed/picoclaw/issues/16
+- Issue original: https://github.com/sipeed/KakoClaw/issues/16
 - Archivos verificados:
   - `pkg/providers/http_provider.go`
   - `pkg/providers/codex_provider.go`

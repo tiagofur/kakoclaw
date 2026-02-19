@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/sipeed/picoclaw/pkg/storage"
+	"github.com/sipeed/kakoclaw/pkg/storage"
 )
 
 // KnowledgeTool allows the agent to search the knowledge base (RAG).

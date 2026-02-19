@@ -1,6 +1,6 @@
 # Guía de Inicio Rápido
 
-Bienvenido a PicoClaw. Esta guía te ayudará a configurar y ejecutar tu asistente de IA en menos de 5 minutos.
+Bienvenido a KakoClaw. Esta guía te ayudará a configurar y ejecutar tu asistente de IA en menos de 5 minutos.
 
 ## ✅ Requisitos Previos
 
@@ -16,27 +16,27 @@ Bienvenido a PicoClaw. Esta guía te ayudará a configurar y ejecutar tu asisten
 ```bash
 # Descargar el binario para tu plataforma
 # Linux x86_64
-wget https://github.com/sipeed/picoclaw/releases/latest/download/picoclaw-linux-amd64
+wget https://github.com/sipeed/KakoClaw/releases/latest/download/KakoClaw-linux-amd64
 
 # Linux ARM64 (Raspberry Pi, etc)
-wget https://github.com/sipeed/picoclaw/releases/latest/download/picoclaw-linux-arm64
+wget https://github.com/sipeed/KakoClaw/releases/latest/download/KakoClaw-linux-arm64
 
 # macOS
-wget https://github.com/sipeed/picoclaw/releases/latest/download/picoclaw-darwin-amd64
+wget https://github.com/sipeed/KakoClaw/releases/latest/download/KakoClaw-darwin-amd64
 
 # Hacer ejecutable
-chmod +x picoclaw-linux-amd64
+chmod +x KakoClaw-linux-amd64
 
 # Mover a tu PATH
-sudo mv picoclaw-linux-amd64 /usr/local/bin/picoclaw
+sudo mv KakoClaw-linux-amd64 /usr/local/bin/KakoClaw
 ```
 
 ### Opción 2: Compilar desde Fuente
 
 ```bash
 # Clonar el repositorio
-git clone https://github.com/sipeed/picoclaw.git
-cd picoclaw
+git clone https://github.com/sipeed/KakoClaw.git
+cd KakoClaw
 
 # Compilar
 make build
@@ -45,20 +45,20 @@ make build
 make install
 
 # Verificar instalación
-picoclaw version
+KakoClaw version
 ```
 
 ## ⚙️ Configuración Inicial
 
-### Paso 1: Inicializar PicoClaw
+### Paso 1: Inicializar KakoClaw
 
 ```bash
-picoclaw onboard
+KakoClaw onboard
 ```
 
 Esto creará:
-- `~/.picoclaw/config.json` - Archivo de configuración
-- `~/.picoclaw/workspace/` - Directorio de trabajo
+- `~/.KakoClaw/config.json` - Archivo de configuración
+- `~/.KakoClaw/workspace/` - Directorio de trabajo
 - Archivos base: `AGENTS.md`, `IDENTITY.md`, `SOUL.md`, `USER.md`
 
 ### Paso 2: Obtener API Key
@@ -87,11 +87,11 @@ Elige un proveedor de LLM y obtén tu API key:
 
 ### Paso 3: Configurar API Key
 
-Edita `~/.picoclaw/config.json`:
+Edita `~/.KakoClaw/config.json`:
 
 ```bash
 # Abrir con tu editor favorito
-nano ~/.picoclaw/config.json
+nano ~/.KakoClaw/config.json
 ```
 
 Configuración básica:
@@ -118,19 +118,19 @@ Configuración básica:
 ### Modo Directo (Una sola pregunta)
 
 ```bash
-picoclaw agent -m "Hola, ¿qué puedes hacer?"
+KakoClaw agent -m "Hola, ¿qué puedes hacer?"
 ```
 
 ### Modo Interactivo (Chat continuo)
 
 ```bash
-picoclaw agent
+KakoClaw agent
 
-🦞 Interactive mode (Ctrl+C to exit)
+🐸 Interactive mode (Ctrl+C to exit)
 
-🦞 You: Hola
+🐸 You: Hola
 
-🦞 Hola! Soy PicoClaw, tu asistente de IA ultraligero. Puedo ayudarte con:
+🐸 Hola! Soy KakoClaw, tu asistente de IA ultraligero. Puedo ayudarte con:
 - Buscar información en la web
 - Leer y escribir archivos
 - Ejecutar comandos en tu sistema
@@ -139,7 +139,7 @@ picoclaw agent
 
 ¿En qué puedo ayudarte hoy?
 
-🦞 You: 
+🐸 You: 
 ```
 
 ## 🔍 Funciones Básicas
@@ -150,40 +150,40 @@ picoclaw agent
 # Necesitas configurar Brave Search API (opcional pero recomendado)
 # Ve a https://brave.com/search/api - 2000 consultas/mes gratis
 
-picoclaw agent -m "Busca información sobre Go programming"
+KakoClaw agent -m "Busca información sobre Go programming"
 ```
 
 ### 2. Operaciones con Archivos
 
 ```bash
 # Crear un archivo
-picoclaw agent -m "Crea un archivo hello.txt con el contenido 'Hola Mundo'"
+KakoClaw agent -m "Crea un archivo hello.txt con el contenido 'Hola Mundo'"
 
 # Leer un archivo
-picoclaw agent -m "Lee el archivo hello.txt"
+KakoClaw agent -m "Lee el archivo hello.txt"
 
 # Listar directorio
-picoclaw agent -m "Lista los archivos en el directorio actual"
+KakoClaw agent -m "Lista los archivos en el directorio actual"
 ```
 
 ### 3. Ejecución de Comandos
 
 ```bash
 # Ejecutar comando shell
-picoclaw agent -m "Ejecuta el comando 'date'"
+KakoClaw agent -m "Ejecuta el comando 'date'"
 
 # Análisis de sistema
-picoclaw agent -m "Muestra el uso de disco con df -h"
+KakoClaw agent -m "Muestra el uso de disco con df -h"
 ```
 
 ### 4. Tareas Programadas
 
 ```bash
 # Crear recordatorio
-picoclaw cron add -n "reunion" -m "Tienes una reunión en 10 minutos" -e 600
+KakoClaw cron add -n "reunion" -m "Tienes una reunión en 10 minutos" -e 600
 
 # Ver tareas programadas
-picoclaw cron list
+KakoClaw cron list
 ```
 
 ## 🤖 Uso Avanzado
@@ -199,7 +199,7 @@ picoclaw cron list
    - Busca @userinfobot en Telegram
    - Copia tu ID numérico
 
-3. **Configurar en PicoClaw:**
+3. **Configurar en KakoClaw:**
 
 ```json
 {
@@ -216,7 +216,7 @@ picoclaw cron list
 4. **Iniciar Gateway:**
 
 ```bash
-picoclaw gateway
+KakoClaw gateway
 
 # Ahora puedes escribirle a tu bot en Telegram!
 ```
@@ -225,23 +225,23 @@ picoclaw gateway
 
 ```bash
 # Ver skills disponibles
-picoclaw skills list
+KakoClaw skills list
 
 # Instalar skill de clima
-picoclaw skills install sipeed/picoclaw-skills/weather
+KakoClaw skills install sipeed/KakoClaw-skills/weather
 
 # Usar el skill
-picoclaw agent -m "¿Cómo está el clima en Madrid?"
+KakoClaw agent -m "¿Cómo está el clima en Madrid?"
 ```
 
 ### Múltiples Sesiones
 
 ```bash
 # Sesión de trabajo
-picoclaw agent -s trabajo
+KakoClaw agent -s trabajo
 
 # Sesión personal
-picoclaw agent -s personal
+KakoClaw agent -s personal
 
 # Cada sesión tiene su propio historial y contexto
 ```
@@ -250,13 +250,13 @@ picoclaw agent -s personal
 
 ```bash
 # Ver configuración y estado
-picoclaw status
+KakoClaw status
 
 # Salida esperada:
-🦞 picoclaw Status
+🐸 KakoClaw Status
 
-Config: /home/user/.picoclaw/config.json ✓
-Workspace: /home/user/.picoclaw/workspace ✓
+Config: /home/user/.KakoClaw/config.json ✓
+Workspace: /home/user/.KakoClaw/workspace ✓
 Model: anthropic/claude-3.5-sonnet
 OpenRouter API: ✓
 ```
@@ -316,9 +316,9 @@ OpenRouter API: ✓
 ## 🆘 Ayuda
 
 - **Documentación**: [docs/](../README.md)
-- **Issues**: [GitHub Issues](https://github.com/sipeed/picoclaw/issues)
+- **Issues**: [GitHub Issues](https://github.com/sipeed/KakoClaw/issues)
 - **Comunidad**: [Discord](https://discord.gg/V4sAZ9XWpN)
 
 ---
 
-**¡Felicitaciones!** Ahora tienes PicoClaw funcionando. 🦞
+**¡Felicitaciones!** Ahora tienes KakoClaw funcionando. 🐸

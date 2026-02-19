@@ -1,6 +1,6 @@
-# Análisis de Issues de PicoClaw
+# Análisis de Issues de KakoClaw
 
-Este directorio contiene el análisis completo de las issues abiertas en el repositorio de PicoClaw.
+Este directorio contiene el análisis completo de las issues abiertas en el repositorio de KakoClaw.
 
 ## Archivos
 
@@ -42,7 +42,7 @@ Este directorio contiene el análisis completo de las issues abiertas en el repo
 - **#15** - Build falla en ARM 32-bit
 
 ### 🟡 Buenas Primeras Contribuciones
-- **#39** - Comando `picoclaw doctor`
+- **#39** - Comando `KakoClaw doctor`
 - **#46** - Mejoras en configuración
 - **#63** - Gestionar cronjobs desde chat
 
@@ -70,7 +70,7 @@ Este directorio contiene el análisis completo de las issues abiertas en el repo
 
 ## Enlaces
 
-- **Issues GitHub:** https://github.com/sipeed/picoclaw/issues
+- **Issues GitHub:** https://github.com/sipeed/KakoClaw/issues
 - **Contribuir:** [../development/contributing.md](../development/contributing.md)
 - **Setup Dev:** [../development/setup.md](../development/setup.md)
 

@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/sipeed/picoclaw/pkg/config"
+	"github.com/sipeed/kakoclaw/pkg/config"
 )
 
 func newTestStorage(t *testing.T) *Storage {
@@ -109,18 +109,18 @@ func TestGetMessagesEmptySession(t *testing.T) {
 
 func TestSearchMessages(t *testing.T) {
 	s := newTestStorage(t)
-	_ = s.SaveMessage("s1", "user", "find the picoclaw docs")
+	_ = s.SaveMessage("s1", "user", "find the KakoClaw docs")
 	_ = s.SaveMessage("s1", "assistant", "here are the results")
 	_ = s.SaveMessage("s2", "user", "unrelated message")
 
-	results, err := s.SearchMessages("picoclaw")
+	results, err := s.SearchMessages("KakoClaw")
 	if err != nil {
 		t.Fatalf("SearchMessages: %v", err)
 	}
 	if len(results) != 1 {
 		t.Fatalf("expected 1 result, got %d", len(results))
 	}
-	if results[0].Content != "find the picoclaw docs" {
+	if results[0].Content != "find the KakoClaw docs" {
 		t.Fatalf("unexpected result: %s", results[0].Content)
 	}
 }

@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'prompt',
       includeAssets: ['favicon.svg'],
       manifest: {
-        name: 'PicoClaw',
-        short_name: 'PicoClaw',
+        name: 'KakoClaw',
+        short_name: 'KakoClaw',
         description: 'AI Agent Dashboard — Chat, Tasks, Knowledge Base, MCP & more',
         theme_color: '#6366f1',
         background_color: '#0f172a',

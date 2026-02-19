@@ -52,7 +52,7 @@ const toastClasses = (type) => {
     case 'warning':
       return 'bg-amber-500/15 border-amber-500/30 text-amber-300'
     default:
-      return 'bg-picoclaw-accent/15 border-picoclaw-accent/30 text-picoclaw-accent'
+      return 'bg-kakoclaw-accent/15 border-kakoclaw-accent/30 text-kakoclaw-accent'
   }
 }
 </script>

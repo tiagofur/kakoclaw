@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sipeed/picoclaw/pkg/providers"
+	"github.com/sipeed/kakoclaw/pkg/providers"
 )
 
 type Session struct {

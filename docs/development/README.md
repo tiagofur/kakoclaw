@@ -1,6 +1,6 @@
 # Desarrollo
 
-Documentación para desarrolladores y contribuidores de PicoClaw.
+Documentación para desarrolladores y contribuidores de KakoClaw.
 
 ## Archivos
 
@@ -37,9 +37,9 @@ Documentación para desarrolladores y contribuidores de PicoClaw.
 
 ## Comunidad
 
-- [GitHub Issues](https://github.com/sipeed/picoclaw/issues)
+- [GitHub Issues](https://github.com/sipeed/KakoClaw/issues)
 - [Discord](https://discord.gg/V4sAZ9XWpN)
 
 ---
 
-¡Gracias por contribuir! 🦞
+¡Gracias por contribuir! 🐸

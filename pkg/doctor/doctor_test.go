@@ -85,7 +85,7 @@ func TestHasErrors(t *testing.T) {
 }
 
 func TestCheckDirectories(t *testing.T) {
-	// This test might fail if .picoclaw doesn't exist
+	// This test might fail if .KakoClaw doesn't exist
 	// But it should still run without panic
 	result := checkDirectories()
 	

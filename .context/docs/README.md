@@ -29,8 +29,8 @@ Welcome to the repository knowledge base. Start with the project overview, then 
 - `IMPLEMENTATION_SUMMARY.md/`
 - `LICENSE/`
 - `Makefile/`
-- `picoclaw-data/`
-- `picoclaw.exe/`
+- `KakoClaw-data/`
+- `KakoClaw.exe/`
 - `pkg/`
 - `QUICK_START.md/`
 - `README.md/`

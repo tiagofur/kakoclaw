@@ -32,7 +32,7 @@ El agente tiene acceso a un tool `cron` que permite gestionar tareas programadas
 ### Desde el Gateway (Modo Recomendado)
 
 ```bash
-picoclaw gateway
+KakoClaw gateway
 ```
 
 Luego en la conversación:
@@ -80,13 +80,13 @@ Usuario → Canal → Agent Loop → Cron Tool
 
 Las tareas se guardan en:
 ```
-~/.picoclaw/workspace/cron/jobs.json
+~/.KakoClaw/workspace/cron/jobs.json
 ```
 
 ## Limitaciones
 
-- El tool `cron` **solo está disponible en modo gateway** (`picoclaw gateway`)
-- No está disponible en modo agente directo (`picoclaw agent -m "..."`)
+- El tool `cron` **solo está disponible en modo gateway** (`KakoClaw gateway`)
+- No está disponible en modo agente directo (`KakoClaw agent -m "..."`)
 - Esto es por diseño, ya que las tareas programadas necesitan el servicio cron en ejecución
 
 ## Verificación
@@ -94,8 +94,8 @@ Las tareas se guardan en:
 Para verificar que funciona:
 
 ```bash
-1. picoclaw gateway
-2. Enviar mensaje: "Recuérdame en 1 minuto que PicoClaw funciona"
+1. KakoClaw gateway
+2. Enviar mensaje: "Recuérdame en 1 minuto que KakoClaw funciona"
 3. Esperar 1 minuto
 4. El bot debería enviar el recordatorio
 ```
@@ -104,4 +104,4 @@ Para verificar que funciona:
 
 - Implementación: `pkg/tools/cron.go`
 - Servicio: `pkg/cron/service.go`
-- Issue original: https://github.com/sipeed/picoclaw/issues/63
+- Issue original: https://github.com/sipeed/KakoClaw/issues/63

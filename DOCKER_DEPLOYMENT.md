@@ -1,11 +1,11 @@
-# Docker Deployment - PicoClaw Vue 3 Frontend
+# Docker Deployment - KakoClaw Vue 3 Frontend
 
 **Fecha de Documentación**: 18 de Febrero de 2026  
 **Estado**: ✅ **FULLY OPERATIONAL**
 
 ## 🎯 Resumen Ejecutivo
 
-PicoClaw ha sido **modernizado exitosamente** con:
+KakoClaw ha sido **modernizado exitosamente** con:
 - Frontend Vue 3 + Tailwind CSS (dark theme profesional)
 - Interfaz responsiva con dos paneles: Chat (50%) | Tasks (50%)
 - Sidebar navegación estilo VS Code
@@ -20,20 +20,20 @@ PicoClaw ha sido **modernizado exitosamente** con:
 ### Construir Imagen
 ```bash
 cd /Users/tiagofur/Desktop/creapolis/kakoclaw
-docker build -t picoclaw:test .
+docker build -t KakoClaw:test .
 ```
 
 ### Ejecutar Contenedor
 ```bash
 docker run -d -p 18880:18880 \
-  -v "$(pwd)/picoclaw-data:/home/picoclaw/.picoclaw" \
-  --name picoclaw-test picoclaw:test
+  -v "$(pwd)/KakoClaw-data:/home/KakoClaw/.KakoClaw" \
+  --name KakoClaw-test KakoClaw:test
 ```
 
 ### Acceso
 - **URL**: http://localhost:18880
 - **Usuario**: `admin`
-- **Contraseña**: `PicoClaw2024!`
+- **Contraseña**: `KakoClaw2024!`
 - **Puerto interno**: 18880
 - **Puerto expuesto**: 18880
 
@@ -73,7 +73,7 @@ docker run -d -p 18880:18880 \
 
 ## ⚙️ Configuración Actual
 
-### `picoclaw-data/config.json`
+### `KakoClaw-data/config.json`
 ```json
 {
   "web": {
@@ -81,7 +81,7 @@ docker run -d -p 18880:18880 \
     "host": "0.0.0.0",
     "port": 18880,
     "username": "admin",
-    "password": "PicoClaw2024!",
+    "password": "KakoClaw2024!",
     "jwt_expiry": "24h"
   },
   "agents": {
@@ -96,7 +96,7 @@ docker run -d -p 18880:18880 \
 **Notas importantes:**
 - El provider está configurado como `"mock"` para testing sin API keys
 - Para producción, cambiar a provider real (openai, anthropic, etc.)
-- El archivo `web-auth.json` se genera automáticamente en `~/.picoclaw/workspace/web/`
+- El archivo `web-auth.json` se genera automáticamente en `~/.KakoClaw/workspace/web/`
 
 ---
 
@@ -110,13 +110,13 @@ Dockerfile (multi-stage)
 │   ├── Install Node.js 18
 │   ├── npm install && npm run build  → dist/
 │   ├── go build                      → binary
-│   └── Result: /out/picoclaw
+│   └── Result: /out/KakoClaw
 │
 └── Stage 2 (runtime)
     ├── FROM debian:bookworm-slim
     ├── Copy binary from builder
-    ├── USER picoclaw (non-root)
-    └── CMD ["picoclaw", "web"]
+    ├── USER KakoClaw (non-root)
+    └── CMD ["KakoClaw", "web"]
 ```
 
 ### Binario Incluido
@@ -126,7 +126,7 @@ Dockerfile (multi-stage)
 
 ### Datos Persistentes
 ```
-picoclaw-data/
+KakoClaw-data/
 ├── config.json              (config)
 └── workspace/
     ├── AGENTS.md, SOUL.md, USER.md, IDENTITY.md
@@ -170,10 +170,10 @@ Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; 
 
 **Por qué**: Los módulos Vue necesitan `'self'` para cargar desde mismo origen
 
-### 3. Web Config (`picoclaw-data/config.json`)
+### 3. Web Config (`KakoClaw-data/config.json`)
 - Enabled: `true` (antes estaba `false`)
 - Host: `0.0.0.0` (antes `127.0.0.1`)
-- Password: `PicoClaw2024!` (bcrypt hashed automáticamente)
+- Password: `KakoClaw2024!` (bcrypt hashed automáticamente)
 - Provider: `mock` (para testing)
 
 ### 4. Makefile
@@ -247,7 +247,7 @@ npm run build
 ### JWT Flow
 1. **Login**: POST `/api/v1/auth/login` con credentials
    ```json
-   {"username": "admin", "password": "PicoClaw2024!"}
+   {"username": "admin", "password": "KakoClaw2024!"}
    ```
 
 2. **Response**: JWT token
@@ -267,7 +267,7 @@ npm run build
 ### Password Hash
 - Algoritmo: bcrypt (cost: 10)
 - Generado en: `newAuthManager()` (`pkg/web/auth.go`)
-- Almacenado en: `~/.picoclaw/workspace/web/web-auth.json`
+- Almacenado en: `~/.KakoClaw/workspace/web/web-auth.json`
 - Comparación: `bcrypt.CompareHashAndPassword()`
 
 ---
@@ -326,7 +326,7 @@ curl http://localhost:18880/api/v1/health
 # Login
 curl -X POST http://localhost:18880/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"PicoClaw2024!"}'
+  -d '{"username":"admin","password":"KakoClaw2024!"}'
 # Response: {"token":"eyJ..."}
 
 # Authenticated endpoint
@@ -336,7 +336,7 @@ curl -H "Authorization: Bearer eyJ..." \
 
 # Frontend
 curl http://localhost:18880 | grep -o "<title>.*</title>"
-# Response: <title>PicoClaw</title>
+# Response: <title>KakoClaw</title>
 ```
 
 ### UI Testeada ✅
@@ -364,7 +364,7 @@ curl http://localhost:18880 | grep -o "<title>.*</title>"
    - Línea 226: CSP headers actualizados
    - Línea 85-90: Web server init
 
-4. **`picoclaw-data/config.json`**
+4. **`KakoClaw-data/config.json`**
    - web.enabled = true
    - web.host = "0.0.0.0"
    - agents.defaults.provider = "mock"
@@ -386,23 +386,23 @@ curl http://localhost:18880 | grep -o "<title>.*</title>"
 cd /Users/tiagofur/Desktop/creapolis/kakoclaw
 
 # 2. Construir imagen (si no existe)
-docker build -t picoclaw:test .
+docker build -t KakoClaw:test .
 
 # 3. Limpiar (opcional)
-docker rm -f picoclaw-test
+docker rm -f KakoClaw-test
 
 # 4. Iniciar contenedor
 docker run -d -p 18880:18880 \
-  -v "$(pwd)/picoclaw-data:/home/picoclaw/.picoclaw" \
-  --name picoclaw-test picoclaw:test
+  -v "$(pwd)/KakoClaw-data:/home/KakoClaw/.KakoClaw" \
+  --name KakoClaw-test KakoClaw:test
 
 # 5. Verificar
-docker logs picoclaw-test
+docker logs KakoClaw-test
 # Debe mostrar: "✓ Web panel started on 0.0.0.0:18880"
 
 # 6. Acceder
 open http://localhost:18880
-# Login: admin / PicoClaw2024!
+# Login: admin / KakoClaw2024!
 ```
 
 ---
@@ -411,25 +411,25 @@ open http://localhost:18880
 
 ```bash
 # Ver logs en vivo
-docker logs -f picoclaw-test
+docker logs -f KakoClaw-test
 
 # Entrar al contenedor
-docker exec -it picoclaw-test bash
+docker exec -it KakoClaw-test bash
 
 # Ver proceso
-docker ps | grep picoclaw
+docker ps | grep KakoClaw
 
 # Detener
-docker stop picoclaw-test
+docker stop KakoClaw-test
 
 # Remover
-docker rm picoclaw-test
+docker rm KakoClaw-test
 
 # Rebuildar sin cache
-docker build --no-cache -t picoclaw:test .
+docker build --no-cache -t KakoClaw:test .
 
 # Verificar imagen
-docker images | grep picoclaw
+docker images | grep KakoClaw
 
 # Verificar puertos
 lsof -i :18880

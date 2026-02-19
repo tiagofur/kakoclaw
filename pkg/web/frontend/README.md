@@ -1,6 +1,6 @@
-# PicoClaw Web UI - Vue 3 Frontend
+# KakoClaw Web UI - Vue 3 Frontend
 
-Modern, responsive web interface for PicoClaw built with Vue 3, Vite, and Tailwind CSS.
+Modern, responsive web interface for KakoClaw built with Vue 3, Vite, and Tailwind CSS.
 
 ## Features
 
@@ -17,7 +17,7 @@ Modern, responsive web interface for PicoClaw built with Vue 3, Vite, and Tailwi
 ### Prerequisites
 
 - Node.js 18+ and npm
-- Running PicoClaw backend on `http://localhost:8080`
+- Running KakoClaw backend on `http://localhost:8080`
 
 ### Local Development
 
@@ -100,7 +100,7 @@ Colors are defined in `tailwind.config.js`:
 
 ```js
 colors: {
-  'picoclaw': {
+  'KakoClaw': {
     'bg': '#0d1117',        // Main background
     'surface': '#161b22',   // Surface color
     'border': '#30363d',    // Border color
@@ -137,7 +137,7 @@ npm run build && npm run preview
 ## Troubleshooting
 
 ### Frontend not loading
-- Ensure backend is running: `picoclaw web` on port 8080
+- Ensure backend is running: `KakoClaw web` on port 8080
 - Check browser console (F12) for errors
 - Verify backend is accessible: `curl http://localhost:8080/api/v1/health`
 

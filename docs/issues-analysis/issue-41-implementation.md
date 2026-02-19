@@ -4,7 +4,7 @@
 
 ## Descripción
 
-Integración completa con Signal messenger para recibir y enviar mensajes a través de PicoClaw.
+Integración completa con Signal messenger para recibir y enviar mensajes a través de KakoClaw.
 
 ## Requisitos Previos
 
@@ -35,7 +35,7 @@ signal-cli -a +1234567890 verify 123456
 
 ## Configuración
 
-Editar `~/.picoclaw/config.json`:
+Editar `~/.KakoClaw/config.json`:
 
 ```json
 {
@@ -59,10 +59,10 @@ Editar `~/.picoclaw/config.json`:
 
 ```bash
 # Iniciar gateway
-picoclaw gateway
+KakoClaw gateway
 ```
 
-Envía un mensaje a tu número de Signal y PicoClaw responderá.
+Envía un mensaje a tu número de Signal y KakoClaw responderá.
 
 ## Características
 
@@ -96,7 +96,7 @@ signal-cli -a +1234567890 verify CODIGO
 ### Mensajes no llegan
 
 1. Verifica que el número esté en `allow_from`
-2. Revisa logs: `picoclaw gateway --debug`
+2. Revisa logs: `KakoClaw gateway --debug`
 3. Verifica signal-cli: `signal-cli -a +1234567890 receive`
 
 ## Privacidad
@@ -111,4 +111,4 @@ Signal es el canal más privado disponible:
 
 - signal-cli: https://github.com/AsamK/signal-cli
 - Signal Protocol: https://signal.org/docs/
-- Issue original: https://github.com/sipeed/picoclaw/issues/41
+- Issue original: https://github.com/sipeed/KakoClaw/issues/41

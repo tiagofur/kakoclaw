@@ -10,7 +10,6 @@ import MemoryView from '../views/MemoryView.vue'
 import ReportsView from '../views/ReportsView.vue'
 import SkillsView from '../views/SkillsView.vue'
 import CronView from '../views/CronView.vue'
-import ChannelsView from '../views/ChannelsView.vue'
 import SettingsView from '../views/SettingsView.vue'
 import FilesView from '../views/FilesView.vue'
 import KnowledgeView from '../views/KnowledgeView.vue'
@@ -73,11 +72,6 @@ const routes = [
         path: 'cron',
         name: 'cron',
         component: CronView
-      },
-      {
-        path: 'channels',
-        name: 'channels',
-        component: ChannelsView
       },
       {
         path: 'settings',

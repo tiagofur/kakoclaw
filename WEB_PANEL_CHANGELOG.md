@@ -1,6 +1,6 @@
 # KakoClaw Web Panel — Changelog Completo
 
-Documentacion de todas las mejoras realizadas al panel web de PicoClaw (frontend Vue 3 + backend Go).
+Documentacion de todas las mejoras realizadas al panel web de KakoClaw (frontend Vue 3 + backend Go).
 
 ---
 
@@ -101,7 +101,7 @@ type Server struct {
 - `SetSkills(loader *skills.SkillsLoader, installer *skills.SkillInstaller)`
 - `SetStorage(store *storage.Storage)`
 
-**`cmd/picoclaw/main.go`** — Wiring en ambos entry points:
+**`cmd/KakoClaw/main.go`** — Wiring en ambos entry points:
 - `gatewayCmd()`: Conecta storage, cron, channels, config, skills
 - `webCmd()`: Conecta storage, config, skills (sin cron/channels en modo web-only)
 
@@ -209,7 +209,7 @@ Despues de completar las 4 fases, se realizo una auditoria completa del codigo (
 
 | # | Severidad | Archivo | Problema | Fix |
 |---|-----------|---------|----------|-----|
-| C1 | **ALTA** | `cmd/picoclaw/main.go` | `SetStorage()` no se llamaba en `gatewayCmd()` — storage era nil, todos los endpoints de tasks/chat devolvian 503 | Agregada inicializacion de storage antes de `webServer.Start()` |
+| C1 | **ALTA** | `cmd/KakoClaw/main.go` | `SetStorage()` no se llamaba en `gatewayCmd()` — storage era nil, todos los endpoints de tasks/chat devolvian 503 | Agregada inicializacion de storage antes de `webServer.Start()` |
 | C2 | **ALTA** | `handlers_advanced.go` | Proteccion path traversal insuficiente (`strings.ReplaceAll("..", "")` es bypassable) | Reemplazado con `filepath.Abs()` + validacion `strings.HasPrefix()` |
 
 ### Bugs Medios Encontrados y Corregidos
@@ -223,7 +223,7 @@ Despues de completar las 4 fases, se realizo una auditoria completa del codigo (
 
 | # | Archivo | Fix |
 |---|---------|-----|
-| L1 | `cmd/picoclaw/main.go` | Agregado `defer store.Close()` en `webCmd()` para cerrar SQLite correctamente |
+| L1 | `cmd/KakoClaw/main.go` | Agregado `defer store.Close()` en `webCmd()` para cerrar SQLite correctamente |
 | L2 | `MainLayout.vue` | Eliminados imports muertos (`onUnmounted`, `useAuthStore`) |
 
 ---
@@ -371,7 +371,7 @@ Instaladas automaticamente con `npm install` en `pkg/web/frontend/`:
 cd pkg/web/frontend && npm install && npm run build
 
 # Go binary (incluye frontend embebido)
-go build -o picoclaw ./cmd/picoclaw
+go build -o KakoClaw ./cmd/KakoClaw
 
 # O con Make
 make build
@@ -381,14 +381,14 @@ make build
 
 **Gateway mode** (completo — channels + cron + web):
 ```bash
-./picoclaw gateway
+./KakoClaw gateway
 ```
 - Inicializa: storage, agent loop, cron, channels, heartbeat, web server
 - Todos los endpoints disponibles incluyendo cron y channels
 
 **Web-only mode**:
 ```bash
-./picoclaw web
+./KakoClaw web
 ```
 - Inicializa: storage, agent loop, web server
 - Sin cron ni channels (endpoints devuelven arrays vacios o 503)
@@ -425,7 +425,7 @@ make build
 | `pkg/storage/sqlite.go` | +tabla task_logs, +indice, fix migrate bounds check, +import strings |
 | `pkg/storage/chat.go` | +SessionSummary.MessageCount, rewrite ListSessions, +rows.Err() checks |
 | `pkg/storage/task.go` | +rows.Err() checks en ListTasks y SearchTasks |
-| `cmd/picoclaw/main.go` | +SetStorage en gatewayCmd, +defer store.Close en webCmd, +skills/config wiring |
+| `cmd/KakoClaw/main.go` | +SetStorage en gatewayCmd, +defer store.Close en webCmd, +skills/config wiring |
 | `router/index.js` | +11 rutas hijo (6 existentes + 5 nuevas) |
 | `Sidebar.vue` | +seccion Tools con 4 items, +Settings en secondary |
 | `MainLayout.vue` | +ToastContainer, cleanup dead imports |
@@ -445,7 +445,7 @@ make build
 > Basado en analisis competitivo contra: Open WebUI, Dify, LobeChat, Flowise, n8n, Langflow, BotPress, AutoGPT.
 
 ### 5.0 Fix Critico: Import Faltante
-- **`pkg/web/server.go`**: Faltaba import `"github.com/sipeed/picoclaw/pkg/providers"` — el handler `handleModels` (escrito en sesion anterior) referenciaba `providers.GetProviderForModel()` pero el import no existia. Bloqueaba compilacion.
+- **`pkg/web/server.go`**: Faltaba import `"github.com/sipeed/KakoClaw/pkg/providers"` — el handler `handleModels` (escrito en sesion anterior) referenciaba `providers.GetProviderForModel()` pero el import no existia. Bloqueaba compilacion.
 
 ### 5.1 API de Modelos Disponibles
 **Backend** (`pkg/web/server.go:1201-1363`):
@@ -629,7 +629,7 @@ El campo `model` es opcional — si esta vacio o ausente, se usa el default de `
 
 1. **`memoryService.js`** devuelve respuestas Axios crudas (con `.data` extra) a diferencia de los otros services que desenvuelven `response.data`. No es un bug pero es una inconsistencia.
 2. **`server_test.go`** tiene errores LSP pre-existentes (`s.tasks undefined`, `newTaskStore undefined`) — no causados por nuestros cambios.
-3. **Config es read-only** en el panel web. Para editar configuracion, modificar `~/.picoclaw/config.json` directamente.
+3. **Config es read-only** en el panel web. Para editar configuracion, modificar `~/.KakoClaw/config.json` directamente.
 4. **File browser** esta limitado al directorio workspace. Archivos >1MB no se pueden ver en el viewer (solo listar).
 
 ---

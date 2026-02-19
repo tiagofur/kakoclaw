@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/sipeed/picoclaw/pkg/logger"
+	"github.com/sipeed/kakoclaw/pkg/logger"
 )
 
 // JSON-RPC 2.0 types for MCP protocol
@@ -282,7 +282,7 @@ func (c *Client) initialize(ctx context.Context) (*MCPInitializeResult, error) {
 		ProtocolVersion: "2024-11-05",
 		Capabilities:    MCPCapabilities{},
 		ClientInfo: MCPImplementation{
-			Name:    "picoclaw",
+			Name:    "KakoClaw",
 			Version: "1.0.0",
 		},
 	})

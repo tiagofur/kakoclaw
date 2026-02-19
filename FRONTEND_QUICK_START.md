@@ -1,4 +1,4 @@
-# PicoClaw Frontend - Quick Start Guide
+# KakoClaw Frontend - Quick Start Guide
 
 ## Start Here
 
@@ -9,7 +9,7 @@
 make build
 
 # Run production server
-./build/picoclaw web
+./build/KakoClaw web
 
 # Open browser
 open http://localhost:8080
@@ -55,7 +55,7 @@ cd pkg/web/frontend && npm run build && cd ../..
 make build
 
 # Binary ready
-./build/picoclaw web
+./build/KakoClaw web
 ```
 
 ---
@@ -129,7 +129,7 @@ import Sidebar from '../components/Layout/Sidebar.vue'
 // src/components/Layout/Sidebar.vue - add to nav items
 <router-link
   to="/my-page"
-  class="flex items-center gap-3 px-3 py-2 rounded hover:bg-picoclaw-border"
+  class="flex items-center gap-3 px-3 py-2 rounded hover:bg-KakoClaw-border"
 >
   <svg class="w-5 h-5"><!-- icon --></svg>
   <span v-if="!sidebarCollapsed">My Page</span>
@@ -314,7 +314,7 @@ npm run build
 cd pkg/web/frontend && npm run dev
 
 # Terminal 2: Watch GO changes (optional)
-go run ./cmd/picoclaw web &
+go run ./cmd/KakoClaw web &
 ```
 
 ### Debug Network Requests
@@ -388,6 +388,6 @@ npm run type-check
 1. ✅ Frontend built and working
 2. Run `npm run dev` for live development
 3. Make changes to `.vue` files → see updates instantly
-4. For production: `make build` → `./build/picoclaw web`
+4. For production: `make build` → `./build/KakoClaw web`
 
 **Questions?** Check `pkg/web/frontend/README.md` for detailed docs.

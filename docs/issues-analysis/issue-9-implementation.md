@@ -52,7 +52,7 @@ Bot: "Rate limit exceeded. Please wait a moment before sending more messages."
 ### En Código
 
 ```go
-import "github.com/sipeed/picoclaw/pkg/ratelimit"
+import "github.com/sipeed/KakoClaw/pkg/ratelimit"
 
 // Verificar si permitido
 limiter := ratelimit.GetGlobalLimiter()
@@ -174,5 +174,5 @@ globalLimiter.SetLimit("user:global", 200, time.Hour) // Aumentar a 200/hora
 
 ## Referencias
 
-- Issue original: https://github.com/sipeed/picoclaw/issues/9
+- Issue original: https://github.com/sipeed/KakoClaw/issues/9
 - Token bucket algorithm: https://en.wikipedia.org/wiki/Token_bucket

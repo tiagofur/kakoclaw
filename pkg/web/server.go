@@ -17,19 +17,19 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/sipeed/picoclaw/pkg/agent"
-	"github.com/sipeed/picoclaw/pkg/channels"
-	"github.com/sipeed/picoclaw/pkg/config"
-	"github.com/sipeed/picoclaw/pkg/cron"
-	"github.com/sipeed/picoclaw/pkg/logger"
-	"github.com/sipeed/picoclaw/pkg/mcp"
-	"github.com/sipeed/picoclaw/pkg/observability"
-	"github.com/sipeed/picoclaw/pkg/providers"
-	"github.com/sipeed/picoclaw/pkg/ratelimit"
-	"github.com/sipeed/picoclaw/pkg/skills"
-	"github.com/sipeed/picoclaw/pkg/storage"
-	"github.com/sipeed/picoclaw/pkg/voice"
-	"github.com/sipeed/picoclaw/pkg/workflow"
+	"github.com/sipeed/kakoclaw/pkg/agent"
+	"github.com/sipeed/kakoclaw/pkg/channels"
+	"github.com/sipeed/kakoclaw/pkg/config"
+	"github.com/sipeed/kakoclaw/pkg/cron"
+	"github.com/sipeed/kakoclaw/pkg/logger"
+	"github.com/sipeed/kakoclaw/pkg/mcp"
+	"github.com/sipeed/kakoclaw/pkg/observability"
+	"github.com/sipeed/kakoclaw/pkg/providers"
+	"github.com/sipeed/kakoclaw/pkg/ratelimit"
+	"github.com/sipeed/kakoclaw/pkg/skills"
+	"github.com/sipeed/kakoclaw/pkg/storage"
+	"github.com/sipeed/kakoclaw/pkg/voice"
+	"github.com/sipeed/kakoclaw/pkg/workflow"
 )
 
 //go:embed dist/*
@@ -140,7 +140,7 @@ func defaultWorkspace() string {
 	if err != nil || home == "" {
 		return "."
 	}
-	return filepath.Join(home, ".picoclaw", "workspace")
+	return filepath.Join(home, ".KakoClaw", "workspace")
 }
 
 func (s *Server) Start(ctx context.Context) error {
@@ -196,6 +196,9 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/tools", s.handleToolsList)                    // Available tools list
 	mux.HandleFunc("/api/v1/workflows", s.handleWorkflows)                // Workflows: list + create
 	mux.HandleFunc("/api/v1/workflows/", s.handleWorkflowAction)          // Workflow actions: get/update/delete/run
+	mux.HandleFunc("/api/v1/backup/export", s.handleBackupExport)         // Export backup
+	mux.HandleFunc("/api/v1/backup/import", s.handleBackupImport)         // Import backup
+	mux.HandleFunc("/api/v1/backup/validate", s.handleBackupValidate)     // Validate backup
 	mux.HandleFunc("/ws/chat", s.handleChatWS)
 	mux.HandleFunc("/ws/tasks", s.handleTasksWS)
 	mux.Handle("/", s.staticHandler())
@@ -1088,18 +1091,8 @@ func (s *Server) handleChatSessions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Filter out task sessions (IDs starting with "task:" or containing ":task:")
-	filtered := make([]storage.SessionSummary, 0, len(sessions))
-	for _, sess := range sessions {
-		id := sess.SessionID
-		isTask := strings.HasPrefix(id, "task:") || strings.Contains(id, ":task:")
-		if !isTask {
-			filtered = append(filtered, sess)
-		}
-	}
-
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{"sessions": filtered})
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"sessions": sessions})
 }
 
 func (s *Server) handleChatSessionMessages(w http.ResponseWriter, r *http.Request) {
@@ -1677,7 +1670,7 @@ func (s *Server) handleVoiceTranscribe(w http.ResponseWriter, r *http.Request) {
 	if ext == "" {
 		ext = ".webm" // Default extension for browser MediaRecorder
 	}
-	tmpFile, err := os.CreateTemp("", "picoclaw-voice-*"+ext)
+	tmpFile, err := os.CreateTemp("", "KakoClaw-voice-*"+ext)
 	if err != nil {
 		logger.ErrorCF("web", "Failed to create temp file for voice", map[string]interface{}{"error": err.Error()})
 		http.Error(w, "internal error", http.StatusInternalServerError)

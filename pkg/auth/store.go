@@ -39,7 +39,7 @@ func authFilePath() string {
 	if home == "" {
 		home, _ = os.UserHomeDir()
 	}
-	return filepath.Join(home, ".picoclaw", "auth.json")
+	return filepath.Join(home, ".KakoClaw", "auth.json")
 }
 
 func LoadStore() (*AuthStore, error) {

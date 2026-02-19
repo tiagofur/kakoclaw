@@ -1,6 +1,6 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# PicoClaw Installation Script for Termux/Android
-# This script automates the installation of PicoClaw on Android devices
+# KakoClaw Installation Script for Termux/Android
+# This script automates the installation of KakoClaw on Android devices
 
 set -e
 
@@ -13,11 +13,11 @@ NC='\033[0m' # No Color
 
 # Variables
 INSTALL_DIR="$HOME/.local/bin"
-CONFIG_DIR="$HOME/.picoclaw"
-REPO_URL="https://github.com/sipeed/picoclaw.git"
+CONFIG_DIR="$HOME/.KakoClaw"
+REPO_URL="https://github.com/sipeed/KakoClaw.git"
 GO_VERSION_MIN="1.21"
 
-echo -e "${BLUE}🦞 PicoClaw Installer for Termux/Android${NC}"
+echo -e "${BLUE}🐸 KakoClaw Installer for Termux/Android${NC}"
 echo "=========================================="
 echo ""
 
@@ -98,33 +98,33 @@ fi
 print_success "Go version: $GO_VERSION"
 
 # Step 4: Clone repository
-print_status "Cloning PicoClaw repository..."
+print_status "Cloning KakoClaw repository..."
 
-if [ -d "$HOME/picoclaw" ]; then
-    print_warning "Directory $HOME/picoclaw already exists"
+if [ -d "$HOME/KakoClaw" ]; then
+    print_warning "Directory $HOME/KakoClaw already exists"
     read -p "Remove and reclone? (y/n) " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        rm -rf "$HOME/picoclaw"
+        rm -rf "$HOME/KakoClaw"
     else
         print_status "Using existing directory"
-        cd "$HOME/picoclaw"
+        cd "$HOME/KakoClaw"
         git pull || print_warning "Could not update repository"
     fi
 fi
 
-if [ ! -d "$HOME/picoclaw" ]; then
-    git clone "$REPO_URL" "$HOME/picoclaw" || {
+if [ ! -d "$HOME/KakoClaw" ]; then
+    git clone "$REPO_URL" "$HOME/KakoClaw" || {
         print_error "Failed to clone repository"
         exit 1
     }
 fi
 
-cd "$HOME/picoclaw"
+cd "$HOME/KakoClaw"
 print_success "Repository ready"
 
 # Step 5: Build
-print_status "Building PicoClaw..."
+print_status "Building KakoClaw..."
 
 export CGO_ENABLED=0
 export GOOS=android
@@ -133,7 +133,7 @@ export GOARCH=arm64
 make build || {
     print_error "Build failed"
     print_status "Trying alternative build..."
-    go build -o picoclaw ./cmd/picoclaw || {
+    go build -o KakoClaw ./cmd/KakoClaw || {
         print_error "Alternative build also failed"
         exit 1
     }
@@ -142,11 +142,11 @@ make build || {
 print_success "Build completed"
 
 # Step 6: Install
-print_status "Installing PicoClaw..."
+print_status "Installing KakoClaw..."
 
 mkdir -p "$INSTALL_DIR"
-cp picoclaw "$INSTALL_DIR/"
-chmod +x "$INSTALL_DIR/picoclaw"
+cp KakoClaw "$INSTALL_DIR/"
+chmod +x "$INSTALL_DIR/KakoClaw"
 
 # Add to PATH if not already there
 if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
@@ -155,20 +155,20 @@ if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
     export PATH="$INSTALL_DIR:$PATH"
 fi
 
-print_success "PicoClaw installed to $INSTALL_DIR"
+print_success "KakoClaw installed to $INSTALL_DIR"
 
 # Step 7: Initialize
-print_status "Initializing PicoClaw..."
+print_status "Initializing KakoClaw..."
 
 if [ ! -f "$CONFIG_DIR/config.json" ]; then
-    picoclaw onboard || {
+    KakoClaw onboard || {
         print_warning "onboard command failed, creating minimal config..."
         mkdir -p "$CONFIG_DIR/workspace"
         cat > "$CONFIG_DIR/config.json" << 'EOFCONFIG'
 {
   "agents": {
     "defaults": {
-      "workspace": "~/.picoclaw/workspace",
+      "workspace": "~/.KakoClaw/workspace",
       "model": "ollama/llama3.2",
       "max_tokens": 2048,
       "temperature": 0.7,
@@ -207,11 +207,11 @@ print_status "Creating aliases..."
 if ! grep -q "alias pc=" "$HOME/.bashrc" 2>/dev/null; then
     cat >> "$HOME/.bashrc" << 'EOFALIASES'
 
-# PicoClaw aliases
-alias pc='picoclaw agent'
-alias pc-gateway='picoclaw gateway'
-alias pc-status='picoclaw status'
-alias pc-doctor='picoclaw doctor'
+# KakoClaw aliases
+alias pc='KakoClaw agent'
+alias pc-gateway='KakoClaw gateway'
+alias pc-status='KakoClaw status'
+alias pc-doctor='KakoClaw doctor'
 EOFALIASES
     print_success "Aliases added to .bashrc"
 fi
@@ -219,13 +219,13 @@ fi
 # Step 10: Create startup script
 print_status "Creating startup script..."
 
-mkdir -p "$HOME/.config/picoclaw"
-cat > "$HOME/.config/picoclaw/start-gateway.sh" << 'EOFSTART'
+mkdir -p "$HOME/.config/KakoClaw"
+cat > "$HOME/.config/KakoClaw/start-gateway.sh" << 'EOFSTART'
 #!/data/data/com.termux/files/usr/bin/bash
-# Start PicoClaw Gateway
+# Start KakoClaw Gateway
 
-LOG_FILE="$HOME/picoclaw-gateway.log"
-PID_FILE="$HOME/.config/picoclaw/gateway.pid"
+LOG_FILE="$HOME/KakoClaw-gateway.log"
+PID_FILE="$HOME/.config/KakoClaw/gateway.pid"
 
 start() {
     if [ -f "$PID_FILE" ] && kill -0 $(cat "$PID_FILE") 2>/dev/null; then
@@ -233,8 +233,8 @@ start() {
         return 1
     fi
     
-    echo "Starting PicoClaw Gateway..."
-    nohup picoclaw gateway > "$LOG_FILE" 2>&1 &
+    echo "Starting KakoClaw Gateway..."
+    nohup KakoClaw gateway > "$LOG_FILE" 2>&1 &
     echo $! > "$PID_FILE"
     echo "Gateway started with PID: $!"
     echo "Log: $LOG_FILE"
@@ -289,13 +289,13 @@ case "$1" in
 esac
 EOFSTART
 
-chmod +x "$HOME/.config/picoclaw/start-gateway.sh"
+chmod +x "$HOME/.config/KakoClaw/start-gateway.sh"
 print_success "Startup script created"
 
 # Summary
 echo ""
 echo "=========================================="
-echo -e "${GREEN}✅ PicoClaw Installation Complete!${NC}"
+echo -e "${GREEN}✅ KakoClaw Installation Complete!${NC}"
 echo "=========================================="
 echo ""
 echo "Installation directory: $INSTALL_DIR"
@@ -303,29 +303,29 @@ echo "Configuration: $CONFIG_DIR/config.json"
 echo "Workspace: $CONFIG_DIR/workspace"
 echo ""
 echo "Quick Start:"
-echo "  picoclaw version      # Check version"
-echo "  picoclaw status       # Check status"
-echo "  picoclaw doctor       # Run health check"
-echo "  picoclaw agent        # Start interactive mode"
+echo "  KakoClaw version      # Check version"
+echo "  KakoClaw status       # Check status"
+echo "  KakoClaw doctor       # Run health check"
+echo "  KakoClaw agent        # Start interactive mode"
 echo ""
 echo "Aliases (after restarting Termux or running 'source ~/.bashrc'):"
-echo "  pc                    # Shortcut for picoclaw agent"
-echo "  pc-gateway            # Shortcut for picoclaw gateway"
-echo "  pc-doctor             # Shortcut for picoclaw doctor"
+echo "  pc                    # Shortcut for KakoClaw agent"
+echo "  pc-gateway            # Shortcut for KakoClaw gateway"
+echo "  pc-doctor             # Shortcut for KakoClaw doctor"
 echo ""
 echo "Gateway Management:"
-echo "  ~/.config/picoclaw/start-gateway.sh start   # Start gateway"
-echo "  ~/.config/picoclaw/start-gateway.sh stop    # Stop gateway"
-echo "  ~/.config/picoclaw/start-gateway.sh status  # Check status"
+echo "  ~/.config/KakoClaw/start-gateway.sh start   # Start gateway"
+echo "  ~/.config/KakoClaw/start-gateway.sh stop    # Stop gateway"
+echo "  ~/.config/KakoClaw/start-gateway.sh status  # Check status"
 echo ""
 echo "Next Steps:"
-echo "  1. Edit config: nano ~/.picoclaw/config.json"
+echo "  1. Edit config: nano ~/.KakoClaw/config.json"
 echo "  2. Add your API keys or setup Ollama"
-echo "  3. Run: picoclaw agent -m 'Hello!'"
+echo "  3. Run: KakoClaw agent -m 'Hello!'"
 echo ""
-echo -e "${YELLOW}Documentation:${NC} https://github.com/sipeed/picoclaw/tree/main/docs"
+echo -e "${YELLOW}Documentation:${NC} https://github.com/sipeed/KakoClaw/tree/main/docs"
 echo ""
-echo -e "${GREEN}Happy hacking! 🦞${NC}"
+echo -e "${GREEN}Happy hacking! 🐸${NC}"
 echo ""
 
 # Reload shell configuration

@@ -1,0 +1,5 @@
+{
+  "username": "admin",
+  "password_hash": "$2a$10$NXyhUkxZ/RYa4J47dZwcI.KbfQYfILwDrEMDy.FV3qj/ObQ4hPeJu",
+  "jwt_secret_b64": "4xR8gNyDHLeJUkc-94fw0POY7VTiyLjjhwPocPJkeB4"
+}

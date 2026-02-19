@@ -1,6 +1,6 @@
-# Documentación de PicoClaw
+# Documentación de KakoClaw
 
-Bienvenido a la documentación oficial de PicoClaw - Tu asistente de IA ultraligero.
+Bienvenido a la documentación oficial de KakoClaw - Tu asistente de IA ultraligero.
 
 ## 📚 Estructura de la Documentación
 
@@ -46,7 +46,7 @@ Documentación de referencia de interfaces y APIs.
 - [Agent API](./api-reference/agent.md)
 
 ### 🚀 [Despliegue](./deployment/)
-Guías para desplegar PicoClaw en diferentes entornos.
+Guías para desplegar KakoClaw en diferentes entornos.
 
 - [Despliegue Local](./deployment/local.md)
 - [Despliegue en Servidor](./deployment/server.md)
@@ -84,8 +84,8 @@ Análisis y clasificación de issues abiertas en GitHub.
 
 ```bash
 # Clonar el repositorio
-git clone https://github.com/sipeed/picoclaw.git
-cd picoclaw
+git clone https://github.com/sipeed/KakoClaw.git
+cd KakoClaw
 
 # Compilar
 make build
@@ -94,19 +94,19 @@ make build
 make install
 
 # Inicializar configuración
-picoclaw onboard
+KakoClaw onboard
 ```
 
 ### Primer Uso
 
 ```bash
-# Configurar tu API key en ~/.picoclaw/config.json
+# Configurar tu API key en ~/.KakoClaw/config.json
 
 # Iniciar una conversación
-picoclaw agent -m "Hola, ¿qué puedes hacer?"
+KakoClaw agent -m "Hola, ¿qué puedes hacer?"
 
 # O modo interactivo
-picoclaw agent
+KakoClaw agent
 ```
 
 ## 📊 Estadísticas del Proyecto
@@ -124,12 +124,12 @@ picoclaw agent
 
 ## 💬 Comunidad
 
-- GitHub Issues: [https://github.com/sipeed/picoclaw/issues](https://github.com/sipeed/picoclaw/issues)
+- GitHub Issues: [https://github.com/sipeed/KakoClaw/issues](https://github.com/sipeed/KakoClaw/issues)
 - Discord: [https://discord.gg/V4sAZ9XWpN](https://discord.gg/V4sAZ9XWpN)
 
 ## 📄 Licencia
 
-PicoClaw está licenciado bajo la Licencia MIT. Ver [LICENSE](../LICENSE) para más detalles.
+KakoClaw está licenciado bajo la Licencia MIT. Ver [LICENSE](../LICENSE) para más detalles.
 
 ---
 

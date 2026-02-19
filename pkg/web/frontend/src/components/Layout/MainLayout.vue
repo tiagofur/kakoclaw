@@ -1,5 +1,5 @@
 <template>
-  <div class="flex h-screen bg-picoclaw-bg text-picoclaw-text overflow-hidden">
+  <div class="flex h-screen bg-kakoclaw-bg text-kakoclaw-text overflow-hidden">
     <!-- Sidebar -->
     <Sidebar />
 
@@ -10,9 +10,9 @@
     <div class="flex-1 flex flex-col min-w-0 overflow-hidden relative">
       
       <!-- Mobile Header -->
-      <header class="md:hidden h-14 bg-picoclaw-surface border-b border-picoclaw-border flex items-center justify-between px-4 flex-shrink-0 z-20">
-         <div class="font-bold text-lg text-picoclaw-accent">PicoClaw</div>
-         <button @click="uiStore.toggleSidebar()" class="p-2 text-picoclaw-text hover:bg-picoclaw-border rounded">
+      <header class="md:hidden h-14 bg-kakoclaw-surface border-b border-kakoclaw-border flex items-center justify-between px-4 flex-shrink-0 z-20">
+         <div class="font-bold text-lg text-kakoclaw-accent">KakoClaw</div>
+         <button @click="uiStore.toggleSidebar()" class="p-2 text-kakoclaw-text hover:bg-kakoclaw-border rounded">
            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
            </svg>

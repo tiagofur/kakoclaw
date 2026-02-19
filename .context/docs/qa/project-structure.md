@@ -12,7 +12,7 @@ generatedAt: 2026-02-18T15:22:38.693Z
 assets/
 cmd/
 docs/
-picoclaw-data/
+KakoClaw-data/
 pkg/
 scripts/
 skills/

@@ -24,7 +24,7 @@ RUN npm install && npm run build
 
 # Build Go binary (which now embeds the frontend dist/)
 WORKDIR /src
-RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /out/picoclaw ./cmd/picoclaw
+RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /out/kakoclaw ./cmd/kakoclaw
 
 # Runtime stage
 FROM debian:bookworm-slim
@@ -32,13 +32,13 @@ FROM debian:bookworm-slim
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates \
   && rm -rf /var/lib/apt/lists/* \
-  && useradd -m -u 10001 -s /bin/bash picoclaw
+  && useradd -m -u 10001 -s /bin/bash kakoclaw
 
-COPY --from=builder /out/picoclaw /usr/local/bin/picoclaw
+COPY --from=builder /out/kakoclaw /usr/local/bin/kakoclaw
 
-USER picoclaw
-ENV HOME=/home/picoclaw
+USER kakoclaw
+ENV HOME=/home/kakoclaw
 
 EXPOSE 18880
 
-CMD ["picoclaw", "web"]
+CMD ["kakoclaw", "web"]

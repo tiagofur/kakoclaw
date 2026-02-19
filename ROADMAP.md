@@ -1,4 +1,4 @@
-# KakoClaw/PicoClaw — Roadmap de Mejoras
+# KakoClaw/KakoClaw — Roadmap de Mejoras
 
 > Documento generado a partir del análisis competitivo contra Open WebUI, Dify, LobeChat, Flowise, n8n, Langflow, BotPress, AutoGPT y otros.
 
@@ -76,7 +76,7 @@
 
 ### 6.2 MCP (Model Context Protocol) Client (COMPLETADO ✅)
 **Estado**: COMPLETADO
-**Archivos**: `pkg/mcp/client.go`, `pkg/mcp/manager.go`, `pkg/mcp/tool.go`, `pkg/config/config.go`, `pkg/agent/loop.go`, `pkg/web/server.go`, `pkg/web/handlers_advanced.go`, `cmd/picoclaw/main.go`, `pkg/web/frontend/src/views/MCPView.vue`, `pkg/web/frontend/src/services/advancedService.js`
+**Archivos**: `pkg/mcp/client.go`, `pkg/mcp/manager.go`, `pkg/mcp/tool.go`, `pkg/config/config.go`, `pkg/agent/loop.go`, `pkg/web/server.go`, `pkg/web/handlers_advanced.go`, `cmd/KakoClaw/main.go`, `pkg/web/frontend/src/views/MCPView.vue`, `pkg/web/frontend/src/services/advancedService.js`
 
 - MCP client implementado con JSON-RPC 2.0 sobre STDIO (protocolo version 2024-11-05)
 - `Client`: inicia proceso, handshake initialize/initialized, tools/list discovery, tools/call execution

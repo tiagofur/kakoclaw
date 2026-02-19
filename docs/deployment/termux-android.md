@@ -1,6 +1,6 @@
-# PicoClaw en Termux (Android)
+# KakoClaw en Termux (Android)
 
-Guía completa para instalar y ejecutar PicoClaw en Android usando Termux.
+Guía completa para instalar y ejecutar KakoClaw en Android usando Termux.
 
 ## ✅ Compatibilidad
 
@@ -35,16 +35,16 @@ pkg install -y git golang make
 pkg install -y nano vim curl wget
 ```
 
-## 🚀 Instalación de PicoClaw
+## 🚀 Instalación de KakoClaw
 
 ### Opción 1: Script Automático (Recomendado)
 
 ```bash
 # Descargar e instalar
-curl -fsSL https://raw.githubusercontent.com/sipeed/picoclaw/main/scripts/install-termux.sh | bash
+curl -fsSL https://raw.githubusercontent.com/sipeed/KakoClaw/main/scripts/install-termux.sh | bash
 
 # O usando wget
-wget -qO- https://raw.githubusercontent.com/sipeed/picoclaw/main/scripts/install-termux.sh | bash
+wget -qO- https://raw.githubusercontent.com/sipeed/KakoClaw/main/scripts/install-termux.sh | bash
 ```
 
 ### Opción 2: Instalación Manual
@@ -52,8 +52,8 @@ wget -qO- https://raw.githubusercontent.com/sipeed/picoclaw/main/scripts/install
 ```bash
 # 1. Clonar repositorio
 cd ~
-git clone https://github.com/sipeed/picoclaw.git
-cd picoclaw
+git clone https://github.com/sipeed/KakoClaw.git
+cd KakoClaw
 
 # 2. Compilar
 make build
@@ -62,15 +62,15 @@ make build
 make install
 
 # 4. Verificar
-picoclaw version
+KakoClaw version
 ```
 
 ## ⚙️ Configuración
 
-### 1. Inicializar PicoClaw
+### 1. Inicializar KakoClaw
 
 ```bash
-picoclaw onboard
+KakoClaw onboard
 ```
 
 ### 2. Configurar API Key
@@ -78,7 +78,7 @@ picoclaw onboard
 Editar configuración:
 
 ```bash
-nano ~/.picoclaw/config.json
+nano ~/.KakoClaw/config.json
 ```
 
 Configuración básica:
@@ -131,19 +131,19 @@ termux-setup-storage
 pkg install termux-services
 
 # Crear script de inicio
-mkdir -p ~/.config/picoclaw
-cat > ~/.config/picoclaw/start.sh << 'EOF'
+mkdir -p ~/.config/KakoClaw
+cat > ~/.config/KakoClaw/start.sh << 'EOF'
 #!/data/data/com.termux/files/usr/bin/bash
 export PATH="$HOME/.local/bin:$PATH"
 source ~/.bashrc
-picoclaw gateway > ~/picoclaw.log 2>&1 &
-echo "PicoClaw iniciado"
+KakoClaw gateway > ~/KakoClaw.log 2>&1 &
+echo "KakoClaw iniciado"
 EOF
 
-chmod +x ~/.config/picoclaw/start.sh
+chmod +x ~/.config/KakoClaw/start.sh
 
 # Ejecutar
-~/.config/picoclaw/start.sh
+~/.config/KakoClaw/start.sh
 ```
 
 ### 3. Widget de Inicio Rápido (Opcional)
@@ -152,12 +152,12 @@ chmod +x ~/.config/picoclaw/start.sh
 # Instalar Termux:Widget desde F-Droid
 # Crear atajo
 mkdir -p ~/.shortcuts
-cat > ~/.shortcuts/picoclaw << 'EOF'
+cat > ~/.shortcuts/KakoClaw << 'EOF'
 #!/data/data/com.termux/files/usr/bin/bash
-termux-notification --title "PicoClaw" --content "Iniciando..."
-picoclaw agent -m "$1" 2>&1 | termux-notification --title "PicoClaw Respuesta" --content "-"
+termux-notification --title "KakoClaw" --content "Iniciando..."
+KakoClaw agent -m "$1" 2>&1 | termux-notification --title "KakoClaw Respuesta" --content "-"
 EOF
-chmod +x ~/.shortcuts/picoclaw
+chmod +x ~/.shortcuts/KakoClaw
 ```
 
 ## 📲 Canales Recomendados para Android
@@ -165,7 +165,7 @@ chmod +x ~/.shortcuts/picoclaw
 ### Telegram Bot (Más fácil)
 
 1. Crear bot con @BotFather
-2. Configurar en `~/.picoclaw/config.json`:
+2. Configurar en `~/.KakoClaw/config.json`:
 
 ```json
 {
@@ -182,7 +182,7 @@ chmod +x ~/.shortcuts/picoclaw
 3. Ejecutar:
 
 ```bash
-picoclaw gateway
+KakoClaw gateway
 ```
 
 ### Ollama Local (Sin internet)
@@ -194,8 +194,8 @@ Ideal para usar completamente offline:
 ollama serve &
 ollama pull llama3.2
 
-# Configurar PicoClaw
-# En ~/.picoclaw/config.json:
+# Configurar KakoClaw
+# En ~/.KakoClaw/config.json:
 {
   "agents": {
     "defaults": {
@@ -215,7 +215,7 @@ ollama pull llama3.2
 ### Modo Interactivo
 
 ```bash
-picoclaw agent
+KakoClaw agent
 
 # Dentro del chat:
 # Hola, ¿qué puedes hacer?
@@ -227,16 +227,16 @@ picoclaw agent
 
 ```bash
 # Ver estado
-picoclaw status
+KakoClaw status
 
 # Verificar configuración
-picoclaw doctor
+KakoClaw doctor
 
 # Usar sesión específica
-picoclaw agent -s android-session
+KakoClaw agent -s android-session
 
 # Ejecutar comando directo
-picoclaw agent -m "Lista archivos en Downloads"
+KakoClaw agent -m "Lista archivos en Downloads"
 ```
 
 ### Scripts de Automatización
@@ -246,7 +246,7 @@ picoclaw agent -m "Lista archivos en Downloads"
 cat > ~/backup.sh << 'EOF'
 #!/bin/bash
 cd ~/storage/shared/Documents
-picoclaw agent -m "Genera un resumen de los archivos modificados hoy" > ~/backup-report.txt
+KakoClaw agent -m "Genera un resumen de los archivos modificados hoy" > ~/backup-report.txt
 EOF
 chmod +x ~/backup.sh
 
@@ -274,7 +274,7 @@ chmod +x ~/backup.sh
 
 ```bash
 # Limpiar sesiones antiguas regularmente
-rm -rf ~/.picoclaw/workspace/sessions/*.json
+rm -rf ~/.KakoClaw/workspace/sessions/*.json
 
 # O automáticamente con cron
 # (si está instalado en proot-distro)
@@ -285,10 +285,10 @@ rm -rf ~/.picoclaw/workspace/sessions/*.json
 ```bash
 # Ver espacio usado
 
-du -sh ~/.picoclaw/
+du -sh ~/.KakoClaw/
 
 # Limpiar logs antiguos
-rm -f ~/.picoclaw/workspace/*.log
+rm -f ~/.KakoClaw/workspace/*.log
 ```
 
 ## 🐛 Troubleshooting
@@ -297,10 +297,10 @@ rm -f ~/.picoclaw/workspace/*.log
 
 ```bash
 # Verificar permisos
-ls -la ~/.local/bin/picoclaw
+ls -la ~/.local/bin/KakoClaw
 
 # Corregir
-chmod +x ~/.local/bin/picoclaw
+chmod +x ~/.local/bin/KakoClaw
 ```
 
 ### "cannot find package"
@@ -331,12 +331,12 @@ make build
 
 ```bash
 # Ejecutar con nohup
-nohup picoclaw gateway > ~/picoclaw.log 2>&1 &
+nohup KakoClaw gateway > ~/KakoClaw.log 2>&1 &
 
 # O usar tmux
 pkg install tmux
-tmux new -s picoclaw
-picoclaw gateway
+tmux new -s KakoClaw
+KakoClaw gateway
 # Ctrl+B, D para desconectar
 ```
 
@@ -365,16 +365,16 @@ picoclaw gateway
 ## 📚 Recursos Adicionales
 
 - **Termux Wiki**: https://wiki.termux.com
-- **PicoClaw Docs**: https://github.com/sipeed/picoclaw/tree/main/docs
+- **KakoClaw Docs**: https://github.com/sipeed/KakoClaw/tree/main/docs
 - **Ollama en Termux**: https://github.com/ollama/ollama
 
 ## 🤝 Soporte
 
 Para problemas específicos de Termux:
-- GitHub Issues: https://github.com/sipeed/picoclaw/issues
+- GitHub Issues: https://github.com/sipeed/KakoClaw/issues
 - Discord: https://discord.gg/V4sAZ9XWpN
 - Termux Reddit: r/termux
 
 ---
 
-**¡Listo para usar PicoClaw en tu Android! 🦞📱**
+**¡Listo para usar KakoClaw en tu Android! 🐸📱**

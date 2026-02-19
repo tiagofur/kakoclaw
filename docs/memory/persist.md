@@ -1,15 +1,15 @@
-Basándome en la información que he recopilado explorando el sistema PicoClaw, te explicaré **cómo funciona el sistema de memoria y cómo cargar los datos** en tu frontend.
+Basándome en la información que he recopilado explorando el sistema KakoClaw, te explicaré **cómo funciona el sistema de memoria y cómo cargar los datos** en tu frontend.
 
 ---
 
-## 🧠 Sistema de Memoria de PicoClaw: Guía Completa
+## 🧠 Sistema de Memoria de KakoClaw: Guía Completa
 
 ### 📁 Estructura de Almacenamiento
 
-PicoClaw utiliza dos sistemas principales de persistencia:
+KakoClaw utiliza dos sistemas principales de persistencia:
 
 ```
-/home/picoclaw/.picoclaw/workspace/
+/home/KakoClaw/.KakoClaw/workspace/
 ├── sessions/                    # Sesiones de chat y tareas
 │   ├── web:chat.json            # Chat principal web
 │   └── web:task:*.json          # Tareas creadas
@@ -40,7 +40,7 @@ Las sesiones se almacenan como archivos JSON con este formato:
     },
     {
       "role": "assistant",
-      "content": "¡Hola! Soy picoclaw 🦞...",
+      "content": "¡Hola! Soy KakoClaw 🐸...",
       "tool_calls": [...]
     },
     {
@@ -73,7 +73,7 @@ const path = require("path");
 
 // Ruta al archivo de sesión
 const SESSION_FILE =
-  "/home/picoclaw/.picoclaw/workspace/sessions/web:chat.json";
+  "/home/KakoClaw/.KakoClaw/workspace/sessions/web:chat.json";
 
 // Endpoint para obtener el historial
 app.get("/api/chat/history", async (req, res) => {
@@ -245,7 +245,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('PicoClaw Chat')),
+      appBar: AppBar(title: Text('KakoClaw Chat')),
       body: isLoading
           ? Center(child: CircularProgressIndicator())
           : ListView.builder(
@@ -384,7 +384,7 @@ app.get("/api/chat/history/:userId", async (req, res) => {
 │   Backend   │
 │  (Node.js)  │
 └──────┬──────┘
-       │ 2. Lee /home/picoclaw/.picoclaw/
+       │ 2. Lee /home/KakoClaw/.KakoClaw/
        │    workspace/sessions/web:chat.json
        ↓
 ┌─────────────┐

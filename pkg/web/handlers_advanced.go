@@ -14,10 +14,10 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/sipeed/picoclaw/pkg/config"
-	"github.com/sipeed/picoclaw/pkg/cron"
-	"github.com/sipeed/picoclaw/pkg/logger"
-	"github.com/sipeed/picoclaw/pkg/storage"
+	"github.com/sipeed/kakoclaw/pkg/config"
+	"github.com/sipeed/kakoclaw/pkg/cron"
+	"github.com/sipeed/kakoclaw/pkg/logger"
+	"github.com/sipeed/kakoclaw/pkg/storage"
 )
 
 // ==================== SKILLS ====================
@@ -245,7 +245,7 @@ func sanitizeSkillName(name string) (string, bool) {
 }
 
 func buildSkillGenerationPrompt(name, goal, capabilities, constraints, tools, examples string) string {
-	return strings.TrimSpace(fmt.Sprintf(`Create a PicoClaw skill markdown file.
+	return strings.TrimSpace(fmt.Sprintf(`Create a KakoClaw skill markdown file.
 Return only the content for SKILL.md (no code fences, no extra commentary).
 
 Requirements:
@@ -517,33 +517,51 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Update channels config if present
+		// Update components if present
+		updatedAny := false
+
+		if agents, ok := newConfig["agents"].(map[string]interface{}); ok {
+			updateAgentsConfig(s.fullConfig, agents)
+			updatedAny = true
+		}
+
+		if providers, ok := newConfig["providers"].(map[string]interface{}); ok {
+			updateProvidersConfig(s.fullConfig, providers)
+			updatedAny = true
+		}
+
 		if channels, ok := newConfig["channels"].(map[string]interface{}); ok {
 			updateChannelConfig(s.fullConfig, channels)
-			
+			updatedAny = true
+		}
+
+		if tools, ok := newConfig["tools"].(map[string]interface{}); ok {
+			updateToolsConfig(s.fullConfig, tools)
+			updatedAny = true
+		}
+
+		if updatedAny {
 			// Persist config
-			configPath := filepath.Join(os.Getenv("HOME"), ".picoclaw", "config.json")
-			if path := os.Getenv("PICOCLAW_CONFIG_PATH"); path != "" {
+			configPath := filepath.Join(os.Getenv("HOME"), ".KakoClaw", "config.json")
+			if path := os.Getenv("KakoClaw_CONFIG_PATH"); path != "" {
 				configPath = path
 			}
-			// Special handling for Windows home dir if HOME not set or purely for robustness
+			// Special handling for home dir
 			if home, err := os.UserHomeDir(); err == nil && !strings.Contains(configPath, home) && strings.HasPrefix(configPath, "~") {
-                 configPath = strings.Replace(configPath, "~", home, 1)
-            }
-            
-            // Re-save using config package
-			if err := config.SaveConfig(configPath, s.fullConfig); err != nil {
-                // If it fails, maybe it's because we guessed the path wrong, try to rely on what Config might know or just log error
-                // Ideally main should pass the config path to server, but for now we try standard location
-				logger.ErrorCF("web", "Failed to save config", map[string]interface{}{"error": err.Error()})
-                http.Error(w, "failed to save config: "+err.Error(), http.StatusInternalServerError)
-                return
+				configPath = strings.Replace(configPath, "~", home, 1)
 			}
 
-			// Restart affected channels
-			if s.channelManager != nil {
+			// Re-save using config package
+			if err := config.SaveConfig(configPath, s.fullConfig); err != nil {
+				logger.ErrorCF("web", "Failed to save config", map[string]interface{}{"error": err.Error()})
+				http.Error(w, "failed to save config: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			// Restart affected channels if channels were updated
+			if _, ok := newConfig["channels"].(map[string]interface{}); ok && s.channelManager != nil {
 				ctx := context.Background()
-				for name := range channels {
+				for name := range newConfig["channels"].(map[string]interface{}) {
 					if err := s.channelManager.RestartChannel(ctx, name); err != nil {
 						logger.ErrorCF("web", "Failed to restart channel", map[string]interface{}{"channel": name, "error": err.Error()})
 					}
@@ -1305,7 +1323,7 @@ func (s *Server) handleImportChat(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 50<<20)
 
 	var payload struct {
-		Format string          `json:"format"` // "picoclaw", "chatgpt", "claude", "auto"
+		Format string          `json:"format"` // "KakoClaw", "chatgpt", "claude", "auto"
 		Data   json.RawMessage `json:"data"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
@@ -1361,8 +1379,8 @@ func parseImportData(format string, data json.RawMessage) ([]importSession, erro
 		return parseChatGPTExport(data)
 	case "claude":
 		return parseClaudeExport(data)
-	case "picoclaw":
-		return parsePicoClawExport(data)
+	case "KakoClaw":
+		return parseKakoClawExport(data)
 	default:
 		return nil, fmt.Errorf("unsupported import format: %s", format)
 	}
@@ -1389,17 +1407,17 @@ func detectImportFormat(data json.RawMessage) string {
 		if _, ok := obj["chat_messages"]; ok {
 			return "claude"
 		}
-		// PicoClaw: has "messages" and "session_id"
+		// KakoClaw: has "messages" and "session_id"
 		if _, ok := obj["messages"]; ok {
-			return "picoclaw"
+			return "KakoClaw"
 		}
-		// PicoClaw all-sessions export: has "sessions"
+		// KakoClaw all-sessions export: has "sessions"
 		if _, ok := obj["sessions"]; ok {
-			return "picoclaw"
+			return "KakoClaw"
 		}
 	}
 
-	return "picoclaw" // default fallback
+	return "KakoClaw" // default fallback
 }
 
 // parseChatGPTExport parses the ChatGPT conversations.json export format.
@@ -1683,10 +1701,10 @@ func parseClaudeExport(data json.RawMessage) ([]importSession, error) {
 	return sessions, nil
 }
 
-// parsePicoClawExport parses PicoClaw's own export format.
+// parseKakoClawExport parses KakoClaw's own export format.
 // Single session: { session_id, messages: [...] }
 // All sessions: { sessions: [ { session_id, ... } ] } — re-imports summary only (not useful), so we accept the single format.
-func parsePicoClawExport(data json.RawMessage) ([]importSession, error) {
+func parseKakoClawExport(data json.RawMessage) ([]importSession, error) {
 	// Single session
 	var single struct {
 		SessionID string `json:"session_id"`
@@ -1700,7 +1718,7 @@ func parsePicoClawExport(data json.RawMessage) ([]importSession, error) {
 	if err := json.Unmarshal(data, &single); err == nil && len(single.Messages) > 0 {
 		sessionID := single.SessionID
 		if sessionID == "" {
-			sessionID = fmt.Sprintf("import:picoclaw:%d", time.Now().UnixMilli())
+			sessionID = fmt.Sprintf("import:KakoClaw:%d", time.Now().UnixMilli())
 		}
 		var msgs []storage.ImportMessage
 		for _, m := range single.Messages {
@@ -1720,7 +1738,7 @@ func parsePicoClawExport(data json.RawMessage) ([]importSession, error) {
 		CreatedAt string `json:"created_at"`
 	}
 	if err := json.Unmarshal(data, &msgs); err == nil && len(msgs) > 0 {
-		sessionID := fmt.Sprintf("import:picoclaw:%d", time.Now().UnixMilli())
+		sessionID := fmt.Sprintf("import:KakoClaw:%d", time.Now().UnixMilli())
 		var importMsgs []storage.ImportMessage
 		for _, m := range msgs {
 			msg := storage.ImportMessage{Role: m.Role, Content: m.Content}
@@ -1732,7 +1750,7 @@ func parsePicoClawExport(data json.RawMessage) ([]importSession, error) {
 		return []importSession{{SessionID: sessionID, Messages: importMsgs}}, nil
 	}
 
-	return nil, fmt.Errorf("could not parse PicoClaw format")
+	return nil, fmt.Errorf("could not parse KakoClaw format")
 }
 
 func sanitizeSessionID(s string) string {
@@ -1964,4 +1982,69 @@ func (s *Server) handleWorkflowRun(w http.ResponseWriter, r *http.Request, workf
 		"ok":      true,
 		"results": results,
 	})
+}
+
+func updateProvidersConfig(cfg *config.Config, updates map[string]interface{}) {
+	for name, val := range updates {
+		data, ok := val.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		var p *config.ProviderConfig
+		switch name {
+		case "anthropic": p = &cfg.Providers.Anthropic
+		case "openai": p = &cfg.Providers.OpenAI
+		case "openrouter": p = &cfg.Providers.OpenRouter
+		case "groq": p = &cfg.Providers.Groq
+		case "zhipu": p = &cfg.Providers.Zhipu
+		case "vllm": p = &cfg.Providers.VLLM
+		case "gemini": p = &cfg.Providers.Gemini
+		case "nvidia": p = &cfg.Providers.Nvidia
+		case "moonshot": p = &cfg.Providers.Moonshot
+		case "ollama": p = &cfg.Providers.Ollama
+		}
+
+		if p != nil {
+			if apiKey, ok := data["api_key"].(string); ok && apiKey != "" && !strings.Contains(apiKey, "****") {
+				p.APIKey = apiKey
+			}
+			if apiBase, ok := data["api_base"].(string); ok {
+				p.APIBase = apiBase
+			}
+		}
+	}
+}
+
+func updateAgentsConfig(cfg *config.Config, updates map[string]interface{}) {
+	if defaults, ok := updates["defaults"].(map[string]interface{}); ok {
+		if provider, ok := defaults["provider"].(string); ok {
+			cfg.Agents.Defaults.Provider = provider
+		}
+		if model, ok := defaults["model"].(string); ok {
+			cfg.Agents.Defaults.Model = model
+		}
+		if temp, ok := defaults["temperature"].(float64); ok {
+			cfg.Agents.Defaults.Temperature = temp
+		}
+		if tokens, ok := defaults["max_tokens"].(float64); ok {
+			cfg.Agents.Defaults.MaxTokens = int(tokens)
+		}
+		if iterations, ok := defaults["max_tool_iterations"].(float64); ok {
+			cfg.Agents.Defaults.MaxToolIterations = int(iterations)
+		}
+	}
+}
+
+func updateToolsConfig(cfg *config.Config, updates map[string]interface{}) {
+	if web, ok := updates["web"].(map[string]interface{}); ok {
+		if search, ok := web["search"].(map[string]interface{}); ok {
+			if apiKey, ok := search["api_key"].(string); ok && apiKey != "" && !strings.Contains(apiKey, "****") {
+				cfg.Tools.Web.Search.APIKey = apiKey
+			}
+			if max, ok := search["max_results"].(float64); ok {
+				cfg.Tools.Web.Search.MaxResults = int(max)
+			}
+		}
+	}
 }

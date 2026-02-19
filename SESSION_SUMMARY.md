@@ -57,7 +57,7 @@ case "mock":
 
 **Por qué**: Los módulos Vue/JS necesitan cargar desde origen propio
 
-### `picoclaw-data/config.json`
+### `KakoClaw-data/config.json`
 ```diff
   "web": {
 -   "enabled": false,
@@ -65,7 +65,7 @@ case "mock":
 -   "password": "",
 +   "enabled": true,
 +   "host": "0.0.0.0",
-+   "password": "PicoClaw2024!",
++   "password": "KakoClaw2024!",
   },
   "agents": {
     "defaults": {
@@ -223,22 +223,22 @@ Port: 18880 (mapeado a host)
 ```bash
 # Simple: si la imagen ya existe
 docker run -d -p 18880:18880 \
-  -v "$(pwd)/picoclaw-data:/home/picoclaw/.picoclaw" \
-  --name picoclaw-test picoclaw:test
+  -v "$(pwd)/KakoClaw-data:/home/KakoClaw/.KakoClaw" \
+  --name KakoClaw-test KakoClaw:test
 
 # Con rebuild: si cambiaste código
-docker build -t picoclaw:test . && \
-docker rm -f picoclaw-test && \
+docker build -t KakoClaw:test . && \
+docker rm -f KakoClaw-test && \
 docker run -d -p 18880:18880 \
-  -v "$(pwd)/picoclaw-data:/home/picoclaw/.picoclaw" \
-  --name picoclaw-test picoclaw:test
+  -v "$(pwd)/KakoClaw-data:/home/KakoClaw/.KakoClaw" \
+  --name KakoClaw-test KakoClaw:test
 
 # Ver logs
-docker logs picoclaw-test
+docker logs KakoClaw-test
 
 # Acceder
 open http://localhost:18880
-# admin / PicoClaw2024!
+# admin / KakoClaw2024!
 ```
 
 ---
@@ -276,7 +276,7 @@ open http://localhost:18880
 ### Actuales (Testing)
 ```
 Usuario: admin
-Contraseña: PicoClaw2024!
+Contraseña: KakoClaw2024!
 JWT Secret: Generado automáticamente en web-auth.json
 ```
 

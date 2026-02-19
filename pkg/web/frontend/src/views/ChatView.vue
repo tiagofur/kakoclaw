@@ -1,24 +1,24 @@
 <template>
-  <div class="flex h-full bg-picoclaw-bg relative overflow-hidden">
+  <div class="flex h-full bg-kakoclaw-bg relative overflow-hidden">
     <!-- Background Gradient Mesh (Subtle) -->
-    <div class="absolute inset-0 pointer-events-none opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-picoclaw-accent/30 via-transparent to-transparent"></div>
+    <div class="absolute inset-0 pointer-events-none opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-kakoclaw-accent/30 via-transparent to-transparent"></div>
 
     <!-- Sidebar (History) -->
     <div 
       :class="[
-        'w-64 flex-shrink-0 border-r border-picoclaw-border bg-picoclaw-surface/50 backdrop-blur-sm transition-all duration-300 flex flex-col',
+        'w-64 flex-shrink-0 border-r border-kakoclaw-border bg-kakoclaw-surface/50 backdrop-blur-sm transition-all duration-300 flex flex-col',
         showSidebar ? 'translate-x-0' : '-translate-x-full absolute h-full z-20 md:relative md:translate-x-0'
       ]"
     >
-      <div class="p-4 border-b border-picoclaw-border flex justify-between items-center">
-        <h2 class="font-semibold text-sm text-picoclaw-text-secondary">History</h2>
-        <button @click="startNewChat" class="p-1.5 hover:bg-picoclaw-bg rounded-md text-picoclaw-accent transition-colors" title="New Chat">
+      <div class="p-4 border-b border-kakoclaw-border flex justify-between items-center">
+        <h2 class="font-semibold text-sm text-kakoclaw-text-secondary">History</h2>
+        <button @click="startNewChat" class="p-1.5 hover:bg-kakoclaw-bg rounded-md text-kakoclaw-accent transition-colors" title="Nuevo Chat">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
         </button>
       </div>
       
       <div class="flex-1 overflow-y-auto p-2 space-y-1">
-        <div v-if="sessions.length === 0" class="text-xs text-picoclaw-text-secondary text-center py-4">
+        <div v-if="sessions.length === 0" class="text-xs text-kakoclaw-text-secondary text-center py-4">
           No history yet
         </div>
         <div
@@ -33,7 +33,7 @@
               @keyup.enter="submitRename(session.session_id)"
               @keyup.escape="cancelRename"
               @blur="submitRename(session.session_id)"
-              class="flex-1 bg-picoclaw-bg border border-picoclaw-accent rounded px-2 py-1 text-xs text-picoclaw-text focus:outline-none"
+              class="flex-1 bg-kakoclaw-bg border border-kakoclaw-accent rounded px-2 py-1 text-xs text-kakoclaw-text focus:outline-none"
               autofocus
               placeholder="Session title..."
             />
@@ -44,7 +44,7 @@
             @click="loadSession(session.session_id)"
             :class="[
               'w-full text-left px-3 py-2 rounded-lg text-sm transition-colors',
-              currentSessionId === session.session_id ? 'bg-picoclaw-accent/10 text-picoclaw-accent' : 'hover:bg-picoclaw-bg text-picoclaw-text-secondary hover:text-picoclaw-text'
+              currentSessionId === session.session_id ? 'bg-kakoclaw-accent/10 text-kakoclaw-accent' : 'hover:bg-kakoclaw-bg text-kakoclaw-text-secondary hover:text-kakoclaw-text'
             ]"
           >
             <div class="flex items-center gap-2">
@@ -54,15 +54,15 @@
               <!-- Context menu trigger -->
               <button
                 @click.stop="openContextMenu($event, session.session_id)"
-                class="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-picoclaw-border rounded transition-opacity"
-                title="Session actions"
+                class="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-kakoclaw-border rounded transition-opacity"
+                title="Acciones de sesión"
               >
                 <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><circle cx="10" cy="4" r="1.5"/><circle cx="10" cy="10" r="1.5"/><circle cx="10" cy="16" r="1.5"/></svg>
               </button>
             </div>
             <div class="text-[10px] opacity-60 mt-0.5 pl-5 flex justify-between">
               <span>{{ formatTime(session.updated_at) }}</span>
-              <span v-if="session.message_count" class="text-picoclaw-text-secondary">{{ session.message_count }} msg{{ session.message_count !== 1 ? 's' : '' }}</span>
+              <span v-if="session.message_count" class="text-kakoclaw-text-secondary">{{ session.message_count }} msg{{ session.message_count !== 1 ? 's' : '' }}</span>
             </div>
           </button>
         </div>
@@ -72,20 +72,20 @@
       <Teleport to="body">
         <div v-if="contextMenu.show" class="fixed inset-0 z-50" @click="closeContextMenu">
           <div
-            class="absolute bg-picoclaw-surface border border-picoclaw-border rounded-lg shadow-xl py-1 min-w-[140px]"
+            class="absolute bg-kakoclaw-surface border border-kakoclaw-border rounded-lg shadow-xl py-1 min-w-[140px]"
             :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
             @click.stop
           >
-            <button @click="startRename(contextMenu.sessionId)" class="w-full text-left px-3 py-1.5 text-sm hover:bg-picoclaw-bg transition-colors flex items-center gap-2">
+            <button @click="startRename(contextMenu.sessionId)" class="w-full text-left px-3 py-1.5 text-sm hover:bg-kakoclaw-bg transition-colors flex items-center gap-2">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
               Rename
             </button>
-            <button @click="archiveSession(contextMenu.sessionId)" class="w-full text-left px-3 py-1.5 text-sm hover:bg-picoclaw-bg transition-colors flex items-center gap-2">
+            <button @click="archiveSession(contextMenu.sessionId)" class="w-full text-left px-3 py-1.5 text-sm hover:bg-kakoclaw-bg transition-colors flex items-center gap-2">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
               Archive
             </button>
-            <div class="border-t border-picoclaw-border my-1"></div>
-            <button @click="deleteSession(contextMenu.sessionId)" class="w-full text-left px-3 py-1.5 text-sm hover:bg-picoclaw-error/10 text-picoclaw-error transition-colors flex items-center gap-2">
+            <div class="border-t border-kakoclaw-border my-1"></div>
+            <button @click="deleteSession(contextMenu.sessionId)" class="w-full text-left px-3 py-1.5 text-sm hover:bg-kakoclaw-error/10 text-kakoclaw-error transition-colors flex items-center gap-2">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
               Delete
             </button>
@@ -95,13 +95,13 @@
     </div>
 
     <!-- Main Chat Area -->
-    <div class="flex-1 flex flex-col min-w-0 relative bg-picoclaw-bg/50">
+    <div class="flex-1 flex flex-col min-w-0 relative bg-kakoclaw-bg/50">
       <!-- Top Bar: Mobile toggle + Model selector -->
-      <div class="flex items-center justify-between px-4 py-2 border-b border-picoclaw-border/30 bg-picoclaw-surface/30 backdrop-blur-sm z-20">
+      <div class="flex items-center justify-between px-4 py-2 border-b border-kakoclaw-border/30 bg-kakoclaw-surface/30 backdrop-blur-sm z-20">
         <!-- Mobile Sidebar Toggle -->
         <button 
           @click="showSidebar = !showSidebar"
-          class="md:hidden p-2 bg-picoclaw-surface border border-picoclaw-border rounded-lg shadow-sm"
+          class="md:hidden p-2 bg-kakoclaw-surface border border-kakoclaw-border rounded-lg shadow-sm"
         >
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
         </button>
@@ -109,13 +109,13 @@
 
         <!-- Model Selector -->
         <div class="flex items-center gap-2">
-          <svg class="w-4 h-4 text-picoclaw-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-4 h-4 text-kakoclaw-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
           </svg>
           <select
             v-model="chatStore.selectedModel"
             :disabled="chatStore.allModels.length === 0"
-            class="bg-picoclaw-bg/50 border border-picoclaw-border rounded-lg px-3 py-1.5 text-xs text-picoclaw-text focus:ring-2 focus:ring-picoclaw-accent/50 focus:border-picoclaw-accent transition-all cursor-pointer max-w-[280px]"
+            class="bg-kakoclaw-bg/50 border border-kakoclaw-border rounded-lg px-3 py-1.5 text-xs text-kakoclaw-text focus:ring-2 focus:ring-kakoclaw-accent/50 focus:border-kakoclaw-accent transition-all cursor-pointer max-w-[280px]"
           >
             <option v-if="chatStore.allModels.length === 0" value="">
               No models available
@@ -132,9 +132,9 @@
         ref="messagesContainer"
         class="flex-1 overflow-y-auto p-4 space-y-6 z-10"
       >
-        <div v-if="messages.length === 0" class="flex flex-col items-center justify-center h-full text-picoclaw-text-secondary opacity-60">
-          <div class="bg-picoclaw-surface/50 p-6 rounded-full mb-4">
-            <svg class="w-12 h-12 text-picoclaw-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div v-if="messages.length === 0" class="flex flex-col items-center justify-center h-full text-kakoclaw-text-secondary opacity-60">
+          <div class="bg-kakoclaw-surface/50 p-6 rounded-full mb-4">
+            <svg class="w-12 h-12 text-kakoclaw-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
           </div>
@@ -154,8 +154,8 @@
               :class="[
                 'max-w-[85%] lg:max-w-2xl px-5 py-3 shadow-md',
                 msg.role === 'user'
-                  ? 'bg-gradient-to-br from-picoclaw-accent to-picoclaw-accent-hover text-white rounded-2xl rounded-br-sm'
-                  : 'bg-picoclaw-surface/90 border border-picoclaw-border text-picoclaw-text rounded-2xl rounded-bl-sm'
+                  ? 'bg-gradient-to-br from-kakoclaw-accent to-kakoclaw-accent-hover text-white rounded-2xl rounded-br-sm'
+                  : 'bg-kakoclaw-surface/90 border border-kakoclaw-border text-kakoclaw-text rounded-2xl rounded-bl-sm'
               ]"
             >
               <p v-if="msg.role === 'user'" class="text-sm md:text-base whitespace-pre-wrap break-words leading-relaxed">{{ msg.content }}</p>
@@ -174,8 +174,8 @@
                     v-if="currentSessionId && msg.id"
                     @click="forkAtMessage(msg)"
                     :disabled="isLoading"
-                    class="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-picoclaw-bg/80 text-picoclaw-text-secondary hover:text-picoclaw-accent disabled:opacity-30"
-                    title="Fork conversation from this point"
+                    class="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-kakoclaw-bg/80 text-kakoclaw-text-secondary hover:text-kakoclaw-accent disabled:opacity-30"
+                    title="Ramificar conversación (Continuar desde aquí)"
                   >
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
@@ -185,8 +185,8 @@
                   <button
                     v-if="msg.role === 'assistant' && !msg.streaming"
                     @click="copyMessageContent(msg.content)"
-                    class="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-picoclaw-bg/80 text-picoclaw-text-secondary hover:text-picoclaw-accent"
-                    title="Copy response"
+                    class="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-kakoclaw-bg/80 text-kakoclaw-text-secondary hover:text-kakoclaw-accent"
+                    title="Copiar respuesta"
                   >
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -197,8 +197,8 @@
                     v-if="msg.role === 'assistant' && isLastAssistantMessage(msg)"
                     @click="regenerateResponse"
                     :disabled="isLoading"
-                    class="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-picoclaw-bg/80 text-picoclaw-text-secondary hover:text-picoclaw-accent disabled:opacity-30"
-                    title="Regenerate response"
+                    class="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-kakoclaw-bg/80 text-kakoclaw-text-secondary hover:text-kakoclaw-accent disabled:opacity-30"
+                    title="Regenerar respuesta"
                   >
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -212,32 +212,32 @@
 
         <!-- Loading indicator (only when not streaming — streaming shows the message directly) -->
         <div v-if="isLoading && !chatStore.isStreaming" class="flex justify-start">
-          <div class="bg-picoclaw-surface/80 border border-picoclaw-border rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm">
+          <div class="bg-kakoclaw-surface/80 border border-kakoclaw-border rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm">
             <div class="flex gap-1.5">
-              <div class="w-2 h-2 bg-picoclaw-text-secondary/50 rounded-full animate-bounce" style="animation-delay: 0s"></div>
-              <div class="w-2 h-2 bg-picoclaw-text-secondary/50 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
-              <div class="w-2 h-2 bg-picoclaw-text-secondary/50 rounded-full animate-bounce" style="animation-delay: 0.4s"></div>
+              <div class="w-2 h-2 bg-kakoclaw-text-secondary/50 rounded-full animate-bounce" style="animation-delay: 0s"></div>
+              <div class="w-2 h-2 bg-kakoclaw-text-secondary/50 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+              <div class="w-2 h-2 bg-kakoclaw-text-secondary/50 rounded-full animate-bounce" style="animation-delay: 0.4s"></div>
             </div>
           </div>
         </div>
       </div>
 
       <!-- Input Area -->
-      <div class="border-t border-picoclaw-border/50 bg-picoclaw-surface/80 backdrop-blur-md p-4 z-20 relative">
+      <div class="border-t border-kakoclaw-border/50 bg-kakoclaw-surface/80 backdrop-blur-md p-4 z-20 relative">
         <!-- Slash Command Autocomplete -->
         <div v-if="showAutocomplete" class="absolute bottom-full left-4 right-4 max-w-4xl mx-auto mb-1">
-          <div class="bg-picoclaw-surface border border-picoclaw-border rounded-xl shadow-xl overflow-hidden max-h-64 overflow-y-auto">
+          <div class="bg-kakoclaw-surface border border-kakoclaw-border rounded-xl shadow-xl overflow-hidden max-h-64 overflow-y-auto">
             <button
               v-for="(cmd, idx) in filteredCommands"
               :key="cmd.command"
               @click="selectCommand(cmd)"
-              class="w-full text-left px-4 py-2.5 text-sm transition-colors flex items-start gap-3 border-b border-picoclaw-border/50 last:border-0"
-              :class="idx === selectedCommandIndex ? 'bg-picoclaw-accent/10 text-picoclaw-accent' : 'hover:bg-picoclaw-bg text-picoclaw-text'"
+              class="w-full text-left px-4 py-2.5 text-sm transition-colors flex items-start gap-3 border-b border-kakoclaw-border/50 last:border-0"
+              :class="idx === selectedCommandIndex ? 'bg-kakoclaw-accent/10 text-kakoclaw-accent' : 'hover:bg-kakoclaw-bg text-kakoclaw-text'"
             >
-              <span class="font-mono text-xs bg-picoclaw-bg px-1.5 py-0.5 rounded border border-picoclaw-border flex-shrink-0 mt-0.5">{{ cmd.command }}</span>
+              <span class="font-mono text-xs bg-kakoclaw-bg px-1.5 py-0.5 rounded border border-kakoclaw-border flex-shrink-0 mt-0.5">{{ cmd.command }}</span>
               <div>
                 <div class="font-medium text-xs">{{ cmd.label }}</div>
-                <div class="text-[10px] text-picoclaw-text-secondary mt-0.5">{{ cmd.description }}</div>
+                <div class="text-[10px] text-kakoclaw-text-secondary mt-0.5">{{ cmd.description }}</div>
               </div>
             </button>
           </div>
@@ -252,7 +252,7 @@
               @keydown="onInputKeydown"
               placeholder="Type a message or / for commands..."
               rows="1"
-              class="w-full px-4 py-3 bg-picoclaw-bg/50 border border-picoclaw-border rounded-xl focus:ring-2 focus:ring-picoclaw-accent/50 focus:border-picoclaw-accent transition-all text-sm shadow-inner resize-none overflow-hidden"
+              class="w-full px-4 py-3 bg-kakoclaw-bg/50 border border-kakoclaw-border rounded-xl focus:ring-2 focus:ring-kakoclaw-accent/50 focus:border-kakoclaw-accent transition-all text-sm shadow-inner resize-none overflow-hidden"
               :disabled="!isConnected || isLoading"
               style="max-height: 120px;"
             ></textarea>
@@ -264,10 +264,10 @@
             :class="[
               'px-3 py-3 rounded-xl transition-all font-medium flex items-center justify-center min-w-[3rem] border',
               chatStore.webSearchEnabled
-                ? 'bg-picoclaw-accent/15 border-picoclaw-accent/40 text-picoclaw-accent hover:bg-picoclaw-accent/25'
-                : 'bg-picoclaw-surface border-picoclaw-border text-picoclaw-text-secondary hover:text-picoclaw-text hover:bg-picoclaw-bg'
+                ? 'bg-kakoclaw-accent/15 border-kakoclaw-accent/40 text-kakoclaw-accent hover:bg-kakoclaw-accent/25'
+                : 'bg-kakoclaw-surface border-kakoclaw-border text-kakoclaw-text-secondary hover:text-kakoclaw-text hover:bg-kakoclaw-bg'
             ]"
-            :title="chatStore.webSearchEnabled ? 'Web search enabled (click to disable)' : 'Web search disabled (click to enable)'"
+            :title="chatStore.webSearchEnabled ? 'Búsqueda web activada (clic para desactivar)' : 'Búsqueda web desactivada (clic para activar)'"
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -287,10 +287,10 @@
               isRecording
                 ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/30 animate-pulse'
                 : isTranscribing
-                  ? 'bg-picoclaw-surface text-picoclaw-text-secondary cursor-wait'
-                  : 'bg-picoclaw-surface hover:bg-picoclaw-bg border border-picoclaw-border text-picoclaw-text-secondary hover:text-picoclaw-accent'
+                  ? 'bg-kakoclaw-surface text-kakoclaw-text-secondary cursor-wait'
+                  : 'bg-kakoclaw-surface hover:bg-kakoclaw-bg border border-kakoclaw-border text-kakoclaw-text-secondary hover:text-kakoclaw-accent'
             ]"
-            :title="isRecording ? 'Release to transcribe' : isTranscribing ? 'Transcribing...' : 'Hold to record'"
+            :title="isRecording ? 'Suelta para transcribir' : isTranscribing ? 'Transcribiendo...' : 'Mantén presionado para grabar'"
           >
             <svg v-if="isTranscribing" class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -303,7 +303,8 @@
           <button
             type="submit"
             :disabled="!isConnected || isLoading || !messageInput.trim()"
-            class="px-5 py-3 bg-picoclaw-accent hover:bg-picoclaw-accent-hover disabled:bg-picoclaw-surface disabled:text-picoclaw-text-secondary text-white rounded-xl transition-all shadow-lg shadow-picoclaw-accent/20 hover:shadow-picoclaw-accent/40 font-medium flex items-center justify-center min-w-[3rem]"
+            class="px-5 py-3 bg-kakoclaw-accent hover:bg-kakoclaw-accent-hover disabled:bg-kakoclaw-surface disabled:text-kakoclaw-text-secondary text-white rounded-xl transition-all shadow-lg shadow-kakoclaw-accent/20 hover:shadow-kakoclaw-accent/40 font-medium flex items-center justify-center min-w-[3rem]"
+            title="Enviar mensaje"
           >
             <svg class="w-5 h-5 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
@@ -313,8 +314,8 @@
 
         <!-- Connection Status -->
         <div class="absolute top-0 right-0 -mt-8 mr-4 px-2 py-0.5 rounded text-[10px] font-mono glass">
-           <span v-if="isConnected" class="text-picoclaw-success flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-picoclaw-success animate-pulse"></span> Connected</span>
-           <span v-else class="text-picoclaw-error flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-picoclaw-error"></span> Disconnected</span>
+           <span v-if="isConnected" class="text-kakoclaw-success flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-kakoclaw-success animate-pulse"></span> Connected</span>
+           <span v-else class="text-kakoclaw-error flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-kakoclaw-error"></span> Disconnected</span>
         </div>
       </div>
     </div>
@@ -501,10 +502,10 @@ const submitRename = async (sessionId) => {
     await taskService.updateSession(sessionId, { title: renameInput.value.trim() })
     const session = sessions.value.find(s => s.session_id === sessionId)
     if (session) session.title = renameInput.value.trim()
-    toast.success('Session renamed')
+    toast.success('Sesión renombrada')
   } catch (error) {
     console.error('Failed to rename session:', error)
-    toast.error('Failed to rename session')
+    toast.error('Error al renombrar la sesión')
   }
   renamingSession.value = null
   renameInput.value = ''
@@ -523,26 +524,26 @@ const archiveSession = async (sessionId) => {
     if (currentSessionId.value === sessionId) {
       startNewChat()
     }
-    toast.success('Session archived')
+    toast.success('Sesión archivada')
   } catch (error) {
     console.error('Failed to archive session:', error)
-    toast.error('Failed to archive session')
+    toast.error('Error al archivar la sesión')
   }
 }
 
 const deleteSession = async (sessionId) => {
   closeContextMenu()
-  if (!confirm('Delete this session and all its messages? This cannot be undone.')) return
+  if (!confirm('¿Eliminar esta sesión y todos sus mensajes? Esta acción no se puede deshacer.')) return
   try {
     await taskService.deleteSession(sessionId)
     sessions.value = sessions.value.filter(s => s.session_id !== sessionId)
     if (currentSessionId.value === sessionId) {
       startNewChat()
     }
-    toast.success('Session deleted')
+    toast.success('Sesión eliminada')
   } catch (error) {
     console.error('Failed to delete session:', error)
-    toast.error('Failed to delete session')
+    toast.error('Error al eliminar la sesión')
   }
 }
 
@@ -553,9 +554,9 @@ const generateSessionId = () => {
 const copyMessageContent = async (content) => {
   try {
     await navigator.clipboard.writeText(content)
-    toast.success('Copied to clipboard')
+    toast.success('Copiado al portapapeles')
   } catch {
-    toast.error('Failed to copy')
+    toast.error('Error al copiar')
   }
 }
 
@@ -743,18 +744,17 @@ const regenerateResponse = async () => {
 const forkAtMessage = async (msg) => {
   if (!currentSessionId.value || !msg.id) return
 
-  if (!confirm('Fork conversation from this message? A new session will be created.')) return
+  if (!confirm('¿Ramificar conversación desde este mensaje? Se creará una nueva sesión con todos los mensajes hasta este punto.')) return
 
   try {
     const result = await advancedService.forkChat(currentSessionId.value, msg.id)
+    toast.success(`¡Conversación ramificada! Nueva sesión creada con ${result.messages_copied} mensaje(s)`)
     // Navigate to the forked session
-    currentSessionId.value = result.new_session_id
-    await loadSession(result.new_session_id)
-    await fetchSessions()
-    toast.success('Conversation forked')
+    router.push({ query: { id: result.new_session_id } })
+    await fetchSessions() // Refresh sessions to show the new one
   } catch (error) {
     console.error('Fork failed:', error)
-    toast.error('Fork failed: ' + (error.response?.data || error.message || 'Unknown error'))
+    toast.error('Error al ramificar la conversación')
   }
 }
 

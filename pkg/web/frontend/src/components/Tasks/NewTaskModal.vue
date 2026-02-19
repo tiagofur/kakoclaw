@@ -1,12 +1,12 @@
 <template>
   <div class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-    <div class="bg-picoclaw-surface border border-picoclaw-border rounded-lg max-w-md w-full shadow-lg">
+    <div class="bg-kakoclaw-surface border border-kakoclaw-border rounded-lg max-w-md w-full shadow-lg">
       <!-- Header -->
-      <div class="flex items-center justify-between p-4 border-b border-picoclaw-border">
+      <div class="flex items-center justify-between p-4 border-b border-kakoclaw-border">
         <h3 class="text-lg font-semibold">Create New Task</h3>
         <button
           @click="$emit('close')"
-          class="p-1 hover:bg-picoclaw-border rounded transition-smooth"
+          class="p-1 hover:bg-kakoclaw-border rounded transition-smooth"
         >
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -26,7 +26,7 @@
             id="title"
             type="text"
             placeholder="Enter task title"
-            class="w-full px-3 py-2 bg-picoclaw-bg border border-picoclaw-border rounded focus-ring text-sm"
+            class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded focus-ring text-sm"
             required
             :disabled="isLoading"
           />
@@ -41,7 +41,7 @@
             v-model="form.description"
             id="description"
             placeholder="Enter task description"
-            class="w-full px-3 py-2 bg-picoclaw-bg border border-picoclaw-border rounded focus-ring text-sm resize-none"
+            class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded focus-ring text-sm resize-none"
             rows="3"
             :disabled="isLoading"
           ></textarea>
@@ -55,7 +55,7 @@
           <select
             v-model="form.status"
             id="status"
-            class="w-full px-3 py-2 bg-picoclaw-bg border border-picoclaw-border rounded focus-ring text-sm"
+            class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded focus-ring text-sm"
             :disabled="isLoading"
           >
             <option value="backlog">Backlog</option>
@@ -67,23 +67,23 @@
         </div>
 
         <!-- Error Message -->
-        <div v-if="errorMessage" class="p-3 bg-picoclaw-error/20 border border-picoclaw-error rounded text-picoclaw-error text-sm">
+        <div v-if="errorMessage" class="p-3 bg-kakoclaw-error/20 border border-kakoclaw-error rounded text-kakoclaw-error text-sm">
           {{ errorMessage }}
         </div>
 
         <!-- Actions -->
-        <div class="flex gap-3 pt-4 border-t border-picoclaw-border">
+        <div class="flex gap-3 pt-4 border-t border-kakoclaw-border">
           <button
             type="button"
             @click="$emit('close')"
-            class="flex-1 px-3 py-2 border border-picoclaw-border rounded hover:bg-picoclaw-border transition-smooth"
+            class="flex-1 px-3 py-2 border border-kakoclaw-border rounded hover:bg-kakoclaw-border transition-smooth"
             :disabled="isLoading"
           >
             Cancel
           </button>
           <button
             type="submit"
-            class="flex-1 px-3 py-2 bg-picoclaw-accent hover:bg-picoclaw-accent-hover text-white rounded transition-smooth disabled:opacity-50"
+            class="flex-1 px-3 py-2 bg-kakoclaw-accent hover:bg-kakoclaw-accent-hover text-white rounded transition-smooth disabled:opacity-50"
             :disabled="isLoading"
           >
             {{ isLoading ? 'Creating...' : 'Create Task' }}

@@ -57,7 +57,7 @@ type Config struct {
 }
 
 type StorageConfig struct {
-	Path string `json:"path" env:"PICOCLAW_STORAGE_PATH"`
+	Path string `json:"path" env:"KAKOCLAW_STORAGE_PATH"`
 }
 
 type AgentsConfig struct {
@@ -65,13 +65,13 @@ type AgentsConfig struct {
 }
 
 type AgentDefaults struct {
-	Workspace           string  `json:"workspace" env:"PICOCLAW_AGENTS_DEFAULTS_WORKSPACE"`
-	RestrictToWorkspace bool    `json:"restrict_to_workspace" env:"PICOCLAW_AGENTS_DEFAULTS_RESTRICT_TO_WORKSPACE"`
-	Provider            string  `json:"provider" env:"PICOCLAW_AGENTS_DEFAULTS_PROVIDER"`
-	Model               string  `json:"model" env:"PICOCLAW_AGENTS_DEFAULTS_MODEL"`
-	MaxTokens           int     `json:"max_tokens" env:"PICOCLAW_AGENTS_DEFAULTS_MAX_TOKENS"`
-	Temperature         float64 `json:"temperature" env:"PICOCLAW_AGENTS_DEFAULTS_TEMPERATURE"`
-	MaxToolIterations   int     `json:"max_tool_iterations" env:"PICOCLAW_AGENTS_DEFAULTS_MAX_TOOL_ITERATIONS"`
+	Workspace           string  `json:"workspace" env:"KAKOCLAW_AGENTS_DEFAULTS_WORKSPACE"`
+	RestrictToWorkspace bool    `json:"restrict_to_workspace" env:"KAKOCLAW_AGENTS_DEFAULTS_RESTRICT_TO_WORKSPACE"`
+	Provider            string  `json:"provider" env:"KAKOCLAW_AGENTS_DEFAULTS_PROVIDER"`
+	Model               string  `json:"model" env:"KAKOCLAW_AGENTS_DEFAULTS_MODEL"`
+	MaxTokens           int     `json:"max_tokens" env:"KAKOCLAW_AGENTS_DEFAULTS_MAX_TOKENS"`
+	Temperature         float64 `json:"temperature" env:"KAKOCLAW_AGENTS_DEFAULTS_TEMPERATURE"`
+	MaxToolIterations   int     `json:"max_tool_iterations" env:"KAKOCLAW_AGENTS_DEFAULTS_MAX_TOOL_ITERATIONS"`
 }
 
 type ChannelsConfig struct {
@@ -87,65 +87,65 @@ type ChannelsConfig struct {
 }
 
 type WhatsAppConfig struct {
-	Enabled   bool                `json:"enabled" env:"PICOCLAW_CHANNELS_WHATSAPP_ENABLED"`
-	BridgeURL string              `json:"bridge_url" env:"PICOCLAW_CHANNELS_WHATSAPP_BRIDGE_URL"`
-	AllowFrom FlexibleStringSlice `json:"allow_from" env:"PICOCLAW_CHANNELS_WHATSAPP_ALLOW_FROM"`
+	Enabled   bool                `json:"enabled" env:"KAKOCLAW_CHANNELS_WHATSAPP_ENABLED"`
+	BridgeURL string              `json:"bridge_url" env:"KAKOCLAW_CHANNELS_WHATSAPP_BRIDGE_URL"`
+	AllowFrom FlexibleStringSlice `json:"allow_from" env:"KAKOCLAW_CHANNELS_WHATSAPP_ALLOW_FROM"`
 }
 
 type TelegramConfig struct {
-	Enabled   bool                `json:"enabled" env:"PICOCLAW_CHANNELS_TELEGRAM_ENABLED"`
-	Token     string              `json:"token" env:"PICOCLAW_CHANNELS_TELEGRAM_TOKEN"`
-	Proxy     string              `json:"proxy" env:"PICOCLAW_CHANNELS_TELEGRAM_PROXY"`
-	AllowFrom FlexibleStringSlice `json:"allow_from" env:"PICOCLAW_CHANNELS_TELEGRAM_ALLOW_FROM"`
+	Enabled   bool                `json:"enabled" env:"KAKOCLAW_CHANNELS_TELEGRAM_ENABLED"`
+	Token     string              `json:"token" env:"KAKOCLAW_CHANNELS_TELEGRAM_TOKEN"`
+	Proxy     string              `json:"proxy" env:"KAKOCLAW_CHANNELS_TELEGRAM_PROXY"`
+	AllowFrom FlexibleStringSlice `json:"allow_from" env:"KAKOCLAW_CHANNELS_TELEGRAM_ALLOW_FROM"`
 }
 
 type FeishuConfig struct {
-	Enabled           bool                `json:"enabled" env:"PICOCLAW_CHANNELS_FEISHU_ENABLED"`
-	AppID             string              `json:"app_id" env:"PICOCLAW_CHANNELS_FEISHU_APP_ID"`
-	AppSecret         string              `json:"app_secret" env:"PICOCLAW_CHANNELS_FEISHU_APP_SECRET"`
-	EncryptKey        string              `json:"encrypt_key" env:"PICOCLAW_CHANNELS_FEISHU_ENCRYPT_KEY"`
-	VerificationToken string              `json:"verification_token" env:"PICOCLAW_CHANNELS_FEISHU_VERIFICATION_TOKEN"`
-	AllowFrom         FlexibleStringSlice `json:"allow_from" env:"PICOCLAW_CHANNELS_FEISHU_ALLOW_FROM"`
+	Enabled           bool                `json:"enabled" env:"KAKOCLAW_CHANNELS_FEISHU_ENABLED"`
+	AppID             string              `json:"app_id" env:"KAKOCLAW_CHANNELS_FEISHU_APP_ID"`
+	AppSecret         string              `json:"app_secret" env:"KAKOCLAW_CHANNELS_FEISHU_APP_SECRET"`
+	EncryptKey        string              `json:"encrypt_key" env:"KAKOCLAW_CHANNELS_FEISHU_ENCRYPT_KEY"`
+	VerificationToken string              `json:"verification_token" env:"KAKOCLAW_CHANNELS_FEISHU_VERIFICATION_TOKEN"`
+	AllowFrom         FlexibleStringSlice `json:"allow_from" env:"KAKOCLAW_CHANNELS_FEISHU_ALLOW_FROM"`
 }
 
 type DiscordConfig struct {
-	Enabled   bool                `json:"enabled" env:"PICOCLAW_CHANNELS_DISCORD_ENABLED"`
-	Token     string              `json:"token" env:"PICOCLAW_CHANNELS_DISCORD_TOKEN"`
-	AllowFrom FlexibleStringSlice `json:"allow_from" env:"PICOCLAW_CHANNELS_DISCORD_ALLOW_FROM"`
+	Enabled   bool                `json:"enabled" env:"KAKOCLAW_CHANNELS_DISCORD_ENABLED"`
+	Token     string              `json:"token" env:"KAKOCLAW_CHANNELS_DISCORD_TOKEN"`
+	AllowFrom FlexibleStringSlice `json:"allow_from" env:"KAKOCLAW_CHANNELS_DISCORD_ALLOW_FROM"`
 }
 
 type MaixCamConfig struct {
-	Enabled   bool                `json:"enabled" env:"PICOCLAW_CHANNELS_MAIXCAM_ENABLED"`
-	Host      string              `json:"host" env:"PICOCLAW_CHANNELS_MAIXCAM_HOST"`
-	Port      int                 `json:"port" env:"PICOCLAW_CHANNELS_MAIXCAM_PORT"`
-	AllowFrom FlexibleStringSlice `json:"allow_from" env:"PICOCLAW_CHANNELS_MAIXCAM_ALLOW_FROM"`
+	Enabled   bool                `json:"enabled" env:"KAKOCLAW_CHANNELS_MAIXCAM_ENABLED"`
+	Host      string              `json:"host" env:"KAKOCLAW_CHANNELS_MAIXCAM_HOST"`
+	Port      int                 `json:"port" env:"KAKOCLAW_CHANNELS_MAIXCAM_PORT"`
+	AllowFrom FlexibleStringSlice `json:"allow_from" env:"KAKOCLAW_CHANNELS_MAIXCAM_ALLOW_FROM"`
 }
 
 type QQConfig struct {
-	Enabled   bool                `json:"enabled" env:"PICOCLAW_CHANNELS_QQ_ENABLED"`
-	AppID     string              `json:"app_id" env:"PICOCLAW_CHANNELS_QQ_APP_ID"`
-	AppSecret string              `json:"app_secret" env:"PICOCLAW_CHANNELS_QQ_APP_SECRET"`
-	AllowFrom FlexibleStringSlice `json:"allow_from" env:"PICOCLAW_CHANNELS_QQ_ALLOW_FROM"`
+	Enabled   bool                `json:"enabled" env:"KAKOCLAW_CHANNELS_QQ_ENABLED"`
+	AppID     string              `json:"app_id" env:"KAKOCLAW_CHANNELS_QQ_APP_ID"`
+	AppSecret string              `json:"app_secret" env:"KAKOCLAW_CHANNELS_QQ_APP_SECRET"`
+	AllowFrom FlexibleStringSlice `json:"allow_from" env:"KAKOCLAW_CHANNELS_QQ_ALLOW_FROM"`
 }
 
 type DingTalkConfig struct {
-	Enabled      bool                `json:"enabled" env:"PICOCLAW_CHANNELS_DINGTALK_ENABLED"`
-	ClientID     string              `json:"client_id" env:"PICOCLAW_CHANNELS_DINGTALK_CLIENT_ID"`
-	ClientSecret string              `json:"client_secret" env:"PICOCLAW_CHANNELS_DINGTALK_CLIENT_SECRET"`
-	AllowFrom    FlexibleStringSlice `json:"allow_from" env:"PICOCLAW_CHANNELS_DINGTALK_ALLOW_FROM"`
+	Enabled      bool                `json:"enabled" env:"KAKOCLAW_CHANNELS_DINGTALK_ENABLED"`
+	ClientID     string              `json:"client_id" env:"KAKOCLAW_CHANNELS_DINGTALK_CLIENT_ID"`
+	ClientSecret string              `json:"client_secret" env:"KAKOCLAW_CHANNELS_DINGTALK_CLIENT_SECRET"`
+	AllowFrom    FlexibleStringSlice `json:"allow_from" env:"KAKOCLAW_CHANNELS_DINGTALK_ALLOW_FROM"`
 }
 
 type SlackConfig struct {
-	Enabled   bool     `json:"enabled" env:"PICOCLAW_CHANNELS_SLACK_ENABLED"`
-	BotToken  string   `json:"bot_token" env:"PICOCLAW_CHANNELS_SLACK_BOT_TOKEN"`
-	AppToken  string   `json:"app_token" env:"PICOCLAW_CHANNELS_SLACK_APP_TOKEN"`
-	AllowFrom []string `json:"allow_from" env:"PICOCLAW_CHANNELS_SLACK_ALLOW_FROM"`
+	Enabled   bool     `json:"enabled" env:"KAKOCLAW_CHANNELS_SLACK_ENABLED"`
+	BotToken  string   `json:"bot_token" env:"KAKOCLAW_CHANNELS_SLACK_BOT_TOKEN"`
+	AppToken  string   `json:"app_token" env:"KAKOCLAW_CHANNELS_SLACK_APP_TOKEN"`
+	AllowFrom []string `json:"allow_from" env:"KAKOCLAW_CHANNELS_SLACK_ALLOW_FROM"`
 }
 
 type SignalConfig struct {
-	Enabled     bool                `json:"enabled" env:"PICOCLAW_CHANNELS_SIGNAL_ENABLED"`
-	PhoneNumber string              `json:"phone_number" env:"PICOCLAW_CHANNELS_SIGNAL_PHONE_NUMBER"`
-	AllowFrom   FlexibleStringSlice `json:"allow_from" env:"PICOCLAW_CHANNELS_SIGNAL_ALLOW_FROM"`
+	Enabled     bool                `json:"enabled" env:"KAKOCLAW_CHANNELS_SIGNAL_ENABLED"`
+	PhoneNumber string              `json:"phone_number" env:"KAKOCLAW_CHANNELS_SIGNAL_PHONE_NUMBER"`
+	AllowFrom   FlexibleStringSlice `json:"allow_from" env:"KAKOCLAW_CHANNELS_SIGNAL_ALLOW_FROM"`
 }
 
 type ProvidersConfig struct {
@@ -169,22 +169,22 @@ type ProviderConfig struct {
 }
 
 type GatewayConfig struct {
-	Host string `json:"host" env:"PICOCLAW_GATEWAY_HOST"`
-	Port int    `json:"port" env:"PICOCLAW_GATEWAY_PORT"`
+	Host string `json:"host" env:"KAKOCLAW_GATEWAY_HOST"`
+	Port int    `json:"port" env:"KAKOCLAW_GATEWAY_PORT"`
 }
 
 type WebConfig struct {
-	Enabled   bool   `json:"enabled" env:"PICOCLAW_WEB_ENABLED"`
-	Host      string `json:"host" env:"PICOCLAW_WEB_HOST"`
-	Port      int    `json:"port" env:"PICOCLAW_WEB_PORT"`
-	Username  string `json:"username" env:"PICOCLAW_WEB_USERNAME"`
-	Password  string `json:"password" env:"PICOCLAW_WEB_PASSWORD"`
-	JWTExpiry string `json:"jwt_expiry" env:"PICOCLAW_WEB_JWT_EXPIRY"`
+	Enabled   bool   `json:"enabled" env:"KAKOCLAW_WEB_ENABLED"`
+	Host      string `json:"host" env:"KAKOCLAW_WEB_HOST"`
+	Port      int    `json:"port" env:"KAKOCLAW_WEB_PORT"`
+	Username  string `json:"username" env:"KAKOCLAW_WEB_USERNAME"`
+	Password  string `json:"password" env:"KAKOCLAW_WEB_PASSWORD"`
+	JWTExpiry string `json:"jwt_expiry" env:"KAKOCLAW_WEB_JWT_EXPIRY"`
 }
 
 type WebSearchConfig struct {
-	APIKey     string `json:"api_key" env:"PICOCLAW_TOOLS_WEB_SEARCH_API_KEY"`
-	MaxResults int    `json:"max_results" env:"PICOCLAW_TOOLS_WEB_SEARCH_MAX_RESULTS"`
+	APIKey     string `json:"api_key" env:"KAKOCLAW_TOOLS_WEB_SEARCH_API_KEY"`
+	MaxResults int    `json:"max_results" env:"KAKOCLAW_TOOLS_WEB_SEARCH_MAX_RESULTS"`
 }
 
 type WebToolsConfig struct {
@@ -209,20 +209,20 @@ type MCPServerConfig struct {
 }
 
 type EmailToolsConfig struct {
-	Enabled  bool   `json:"enabled" env:"PICOCLAW_TOOLS_EMAIL_ENABLED"`
-	Host     string `json:"host" env:"PICOCLAW_TOOLS_EMAIL_HOST"`
-	Port     int    `json:"port" env:"PICOCLAW_TOOLS_EMAIL_PORT"`
-	Username string `json:"username" env:"PICOCLAW_TOOLS_EMAIL_USERNAME"`
-	Password string `json:"password" env:"PICOCLAW_TOOLS_EMAIL_PASSWORD"`
-	From     string `json:"from" env:"PICOCLAW_TOOLS_EMAIL_FROM"`
-	To       string `json:"to" env:"PICOCLAW_TOOLS_EMAIL_TO"`
+	Enabled  bool   `json:"enabled" env:"KAKOCLAW_TOOLS_EMAIL_ENABLED"`
+	Host     string `json:"host" env:"KAKOCLAW_TOOLS_EMAIL_HOST"`
+	Port     int    `json:"port" env:"KAKOCLAW_TOOLS_EMAIL_PORT"`
+	Username string `json:"username" env:"KAKOCLAW_TOOLS_EMAIL_USERNAME"`
+	Password string `json:"password" env:"KAKOCLAW_TOOLS_EMAIL_PASSWORD"`
+	From     string `json:"from" env:"KAKOCLAW_TOOLS_EMAIL_FROM"`
+	To       string `json:"to" env:"KAKOCLAW_TOOLS_EMAIL_TO"`
 }
 
 func DefaultConfig() *Config {
 	return &Config{
 		Agents: AgentsConfig{
 			Defaults: AgentDefaults{
-				Workspace:           "~/.picoclaw/workspace",
+				Workspace:           "~/.kakoclaw/workspace",
 				RestrictToWorkspace: true,
 				Provider:            "",
 				Model:               "glm-4.7",
@@ -330,7 +330,7 @@ func DefaultConfig() *Config {
 			},
 		},
 		Storage: StorageConfig{
-			Path: "~/.picoclaw/picoclaw.db",
+			Path: "~/.kakoclaw/kakoclaw.db",
 		},
 	}
 }
@@ -400,7 +400,7 @@ func parseProviderEnvVars(cfg *Config) {
 	}
 
 	for name, provider := range providers {
-		prefix := fmt.Sprintf("PICOCLAW_PROVIDERS_%s_", strings.ToUpper(name))
+		prefix := fmt.Sprintf("KAKOCLAW_PROVIDERS_%s_", strings.ToUpper(name))
 
 		if apiKey := os.Getenv(prefix + "API_KEY"); apiKey != "" {
 			provider.APIKey = apiKey

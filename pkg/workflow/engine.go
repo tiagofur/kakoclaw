@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sipeed/picoclaw/pkg/agent"
-	"github.com/sipeed/picoclaw/pkg/logger"
-	"github.com/sipeed/picoclaw/pkg/storage"
-	"github.com/sipeed/picoclaw/pkg/tools"
+	"github.com/sipeed/kakoclaw/pkg/agent"
+	"github.com/sipeed/kakoclaw/pkg/logger"
+	"github.com/sipeed/kakoclaw/pkg/storage"
+	"github.com/sipeed/kakoclaw/pkg/tools"
 )
 
 // StepType identifies what kind of step to execute.

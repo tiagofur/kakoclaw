@@ -10,9 +10,9 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/sipeed/picoclaw/pkg/bus"
-	"github.com/sipeed/picoclaw/pkg/config"
-	"github.com/sipeed/picoclaw/pkg/utils"
+	"github.com/sipeed/kakoclaw/pkg/bus"
+	"github.com/sipeed/kakoclaw/pkg/config"
+	"github.com/sipeed/kakoclaw/pkg/utils"
 )
 
 type WhatsAppChannel struct {

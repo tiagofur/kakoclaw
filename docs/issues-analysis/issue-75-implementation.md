@@ -28,9 +28,9 @@ ollama pull mistral
 ollama pull codellama
 ```
 
-### 3. Configurar PicoClaw
+### 3. Configurar KakoClaw
 
-Editar `~/.picoclaw/config.json`:
+Editar `~/.KakoClaw/config.json`:
 
 ```json
 {
@@ -64,10 +64,10 @@ O simplemente:
 ## Uso
 
 ```bash
-picoclaw agent -m "Hola, ¿cómo estás?"
+KakoClaw agent -m "Hola, ¿cómo estás?"
 
 # O modo interactivo
-picoclaw agent
+KakoClaw agent
 ```
 
 ## Modelos Populares
@@ -113,11 +113,11 @@ picoclaw agent
 # Verificar que Ollama está corriendo
 curl http://localhost:11434/api/tags
 
-# Verificar PicoClaw puede conectar
-picoclaw status
+# Verificar KakoClaw puede conectar
+KakoClaw status
 
 # Probar conversación
-picoclaw agent -m "Hola desde Ollama"
+KakoClaw agent -m "Hola desde Ollama"
 ```
 
 ## Troubleshooting
@@ -146,4 +146,4 @@ ollama pull llama3.2
 
 - Ollama: https://ollama.com
 - Modelos disponibles: https://ollama.com/library
-- Issue original: https://github.com/sipeed/picoclaw/issues/75
+- Issue original: https://github.com/sipeed/KakoClaw/issues/75

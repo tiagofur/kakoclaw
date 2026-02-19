@@ -1,8 +1,8 @@
-// PicoClaw - Ultra-lightweight personal AI agent
+// KakoClaw - Ultra-lightweight personal AI agent
 // Inspired by and based on nanobot: https://github.com/HKUDS/nanobot
 // License: MIT
 //
-// Copyright (c) 2026 PicoClaw contributors
+// Copyright (c) 2026 KakoClaw contributors
 
 package agent
 
@@ -17,17 +17,17 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/sipeed/picoclaw/pkg/bus"
-	"github.com/sipeed/picoclaw/pkg/config"
-	"github.com/sipeed/picoclaw/pkg/logger"
-	"github.com/sipeed/picoclaw/pkg/mcp"
-	"github.com/sipeed/picoclaw/pkg/observability"
-	"github.com/sipeed/picoclaw/pkg/providers"
-	"github.com/sipeed/picoclaw/pkg/ratelimit"
-	"github.com/sipeed/picoclaw/pkg/session"
-	"github.com/sipeed/picoclaw/pkg/storage"
-	"github.com/sipeed/picoclaw/pkg/tools"
-	"github.com/sipeed/picoclaw/pkg/utils"
+	"github.com/sipeed/kakoclaw/pkg/bus"
+	"github.com/sipeed/kakoclaw/pkg/config"
+	"github.com/sipeed/kakoclaw/pkg/logger"
+	"github.com/sipeed/kakoclaw/pkg/mcp"
+	"github.com/sipeed/kakoclaw/pkg/observability"
+	"github.com/sipeed/kakoclaw/pkg/providers"
+	"github.com/sipeed/kakoclaw/pkg/ratelimit"
+	"github.com/sipeed/kakoclaw/pkg/session"
+	"github.com/sipeed/kakoclaw/pkg/storage"
+	"github.com/sipeed/kakoclaw/pkg/tools"
+	"github.com/sipeed/kakoclaw/pkg/utils"
 )
 
 type AgentLoop struct {

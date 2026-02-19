@@ -7,16 +7,16 @@ import (
 
 func TestParseProviderEnvVars(t *testing.T) {
 	// Set test environment variables
-	os.Setenv("PICOCLAW_PROVIDERS_ANTHROPIC_API_KEY", "test-antropic-key")
-	os.Setenv("PICOCLAW_PROVIDERS_OPENAI_API_KEY", "test-openai-key")
-	os.Setenv("PICOCLAW_PROVIDERS_OPENROUTER_API_BASE", "https://custom.openrouter.ai")
-	os.Setenv("PICOCLAW_PROVIDERS_GROQ_PROXY", "http://proxy:8080")
+	os.Setenv("KakoClaw_PROVIDERS_ANTHROPIC_API_KEY", "test-antropic-key")
+	os.Setenv("KakoClaw_PROVIDERS_OPENAI_API_KEY", "test-openai-key")
+	os.Setenv("KakoClaw_PROVIDERS_OPENROUTER_API_BASE", "https://custom.openrouter.ai")
+	os.Setenv("KakoClaw_PROVIDERS_GROQ_PROXY", "http://proxy:8080")
 	
 	defer func() {
-		os.Unsetenv("PICOCLAW_PROVIDERS_ANTHROPIC_API_KEY")
-		os.Unsetenv("PICOCLAW_PROVIDERS_OPENAI_API_KEY")
-		os.Unsetenv("PICOCLAW_PROVIDERS_OPENROUTER_API_BASE")
-		os.Unsetenv("PICOCLAW_PROVIDERS_GROQ_PROXY")
+		os.Unsetenv("KakoClaw_PROVIDERS_ANTHROPIC_API_KEY")
+		os.Unsetenv("KakoClaw_PROVIDERS_OPENAI_API_KEY")
+		os.Unsetenv("KakoClaw_PROVIDERS_OPENROUTER_API_BASE")
+		os.Unsetenv("KakoClaw_PROVIDERS_GROQ_PROXY")
 	}()
 	
 	cfg := DefaultConfig()
@@ -49,8 +49,8 @@ func TestProviderEnvVarsOverrideConfig(t *testing.T) {
 	cfg.Providers.Anthropic.APIKey = "config-key"
 	
 	// Set environment variable
-	os.Setenv("PICOCLAW_PROVIDERS_ANTHROPIC_API_KEY", "env-key")
-	defer os.Unsetenv("PICOCLAW_PROVIDERS_ANTHROPIC_API_KEY")
+	os.Setenv("KakoClaw_PROVIDERS_ANTHROPIC_API_KEY", "env-key")
+	defer os.Unsetenv("KakoClaw_PROVIDERS_ANTHROPIC_API_KEY")
 	
 	// Parse env vars
 	parseProviderEnvVars(cfg)

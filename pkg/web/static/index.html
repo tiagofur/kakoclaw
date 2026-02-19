@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>PicoClaw Web</title>
+  <title>KakoClaw Web</title>
   <style>
     body { font-family: sans-serif; margin: 24px; background: #0b1020; color: #e2e8f0; }
     input, button, textarea, select { padding: 8px; margin: 4px 0; width: 100%; box-sizing: border-box; }
@@ -36,7 +36,7 @@
   </style>
 </head>
 <body>
-  <h1>PicoClaw Web</h1>
+  <h1>KakoClaw Web</h1>
   <p>Haz login con tu usuario único para obtener sesión JWT.</p>
 
   <div class="card" role="region" aria-label="Autenticación">
@@ -145,7 +145,7 @@
     let wsRetryDelay = 1500;
     let tasksWsRetryDelay = 1500;
 
-    document.getElementById("username").value = localStorage.getItem("picoclaw_web_user") || "admin";
+    document.getElementById("username").value = localStorage.getItem("KakoClaw_web_user") || "admin";
 
     function setAuthState(isLogged, username) {
       authStatus.textContent = isLogged ? `Sesión activa: ${username}` : "Sin sesión";
@@ -185,7 +185,7 @@
 
     function startSessionTimer() {
       stopSessionTimer();
-      const token = localStorage.getItem("picoclaw_web_token") || "";
+      const token = localStorage.getItem("KakoClaw_web_token") || "";
       const exp = parseJWTExp(token);
       if (!exp) {
         sessionExpiry.textContent = "Expiración de sesión: desconocida";
@@ -199,7 +199,7 @@
           appendChat(`system: tu sesión expirará pronto (${formatRemaining(remaining)}).`);
         }
         if (remaining <= 0) {
-          localStorage.removeItem("picoclaw_web_token");
+          localStorage.removeItem("KakoClaw_web_token");
           if (ws) ws.close();
           if (tasksWS) tasksWS.close();
           stopSessionTimer();
@@ -211,12 +211,12 @@
     }
 
     async function apiFetch(url, options = {}) {
-      const token = localStorage.getItem("picoclaw_web_token") || "";
+      const token = localStorage.getItem("KakoClaw_web_token") || "";
       const headers = Object.assign({}, options.headers || {});
       if (token) headers.Authorization = `Bearer ${token}`;
       const res = await fetch(url, Object.assign({}, options, { headers }));
       if (res.status === 401) {
-        localStorage.removeItem("picoclaw_web_token");
+        localStorage.removeItem("KakoClaw_web_token");
         stopSessionTimer();
         setAuthState(false, "");
       }
@@ -224,7 +224,7 @@
     }
 
     async function refreshMe() {
-      const token = localStorage.getItem("picoclaw_web_token") || "";
+      const token = localStorage.getItem("KakoClaw_web_token") || "";
       if (!token) {
         stopSessionTimer();
         setAuthState(false, "");
@@ -245,7 +245,7 @@
     document.getElementById("login").onclick = async () => {
       const username = document.getElementById("username").value.trim();
       const password = document.getElementById("password").value;
-      localStorage.setItem("picoclaw_web_user", username);
+      localStorage.setItem("KakoClaw_web_user", username);
       const res = await fetch("/api/v1/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -256,7 +256,7 @@
         return;
       }
       const data = await res.json();
-      localStorage.setItem("picoclaw_web_token", data.token || "");
+      localStorage.setItem("KakoClaw_web_token", data.token || "");
       await refreshMe();
       loadTasks();
       connectWS();
@@ -264,7 +264,7 @@
     };
 
     document.getElementById("logout").onclick = () => {
-      localStorage.removeItem("picoclaw_web_token");
+      localStorage.removeItem("KakoClaw_web_token");
       if (ws) ws.close();
       if (tasksWS) tasksWS.close();
       stopSessionTimer();
@@ -308,14 +308,14 @@
 
     function wsURL() {
       const proto = location.protocol === "https:" ? "wss" : "ws";
-      const token = encodeURIComponent(localStorage.getItem("picoclaw_web_token") || "");
+      const token = encodeURIComponent(localStorage.getItem("KakoClaw_web_token") || "");
       return `${proto}://${location.host}/ws/chat?token=${token}`;
     }
 
     let ws;
     let tasksWS;
     function connectWS() {
-      const saved = localStorage.getItem("picoclaw_web_token") || "";
+      const saved = localStorage.getItem("KakoClaw_web_token") || "";
       if (!saved) return;
       if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
       ws = new WebSocket(wsURL());
@@ -329,7 +329,7 @@
         }
       };
       ws.onclose = () => {
-        if (localStorage.getItem("picoclaw_web_token")) {
+        if (localStorage.getItem("KakoClaw_web_token")) {
           setTimeout(connectWS, wsRetryDelay);
           wsRetryDelay = Math.min(wsRetryDelay * 2, 30000);
         }
@@ -339,19 +339,19 @@
 
     function tasksWsURL() {
       const proto = location.protocol === "https:" ? "wss" : "ws";
-      const token = encodeURIComponent(localStorage.getItem("picoclaw_web_token") || "");
+      const token = encodeURIComponent(localStorage.getItem("KakoClaw_web_token") || "");
       return `${proto}://${location.host}/ws/tasks?token=${token}`;
     }
 
     function connectTasksWS() {
-      const saved = localStorage.getItem("picoclaw_web_token") || "";
+      const saved = localStorage.getItem("KakoClaw_web_token") || "";
       if (!saved) return;
       if (tasksWS && (tasksWS.readyState === WebSocket.OPEN || tasksWS.readyState === WebSocket.CONNECTING)) return;
       tasksWS = new WebSocket(tasksWsURL());
       tasksWS.onopen = () => { tasksWsRetryDelay = 1500; };
       tasksWS.onmessage = () => loadTasks();
       tasksWS.onclose = () => {
-        if (localStorage.getItem("picoclaw_web_token")) {
+        if (localStorage.getItem("KakoClaw_web_token")) {
           setTimeout(connectTasksWS, tasksWsRetryDelay);
           tasksWsRetryDelay = Math.min(tasksWsRetryDelay * 2, 30000);
         }

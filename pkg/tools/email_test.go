@@ -3,14 +3,14 @@ package tools
 import "testing"
 
 func TestParseFromAddressSupportsDisplayName(t *testing.T) {
-	envelope, header, err := parseFromAddress("PicoClaw <bot@example.com>", "")
+	envelope, header, err := parseFromAddress("KakoClaw <bot@example.com>", "")
 	if err != nil {
 		t.Fatalf("parseFromAddress returned error: %v", err)
 	}
 	if envelope != "bot@example.com" {
 		t.Fatalf("expected envelope bot@example.com, got %q", envelope)
 	}
-	if header != "PicoClaw <bot@example.com>" && header != "\"PicoClaw\" <bot@example.com>" {
+	if header != "KakoClaw <bot@example.com>" && header != "\"KakoClaw\" <bot@example.com>" {
 		t.Fatalf("unexpected header: %q", header)
 	}
 }

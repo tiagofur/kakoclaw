@@ -3,8 +3,8 @@ package channels
 import (
 	"testing"
 
-	"github.com/sipeed/picoclaw/pkg/bus"
-	"github.com/sipeed/picoclaw/pkg/config"
+	"github.com/sipeed/kakoclaw/pkg/bus"
+	"github.com/sipeed/kakoclaw/pkg/config"
 )
 
 func TestParseSlackChatID(t *testing.T) {

@@ -1,15 +1,15 @@
 <template>
   <div class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-    <div class="bg-picoclaw-surface border border-picoclaw-border rounded-lg max-w-4xl w-full shadow-lg my-4">
+    <div class="bg-kakoclaw-surface border border-kakoclaw-border rounded-lg max-w-4xl w-full shadow-lg my-4">
       <!-- Header -->
-      <div class="flex items-center justify-between p-4 border-b border-picoclaw-border">
+      <div class="flex items-center justify-between p-4 border-b border-kakoclaw-border">
         <div>
           <h3 class="text-lg font-semibold">{{ task.title }}</h3>
-          <p class="text-xs text-picoclaw-text-secondary">ID: {{ task.id }}</p>
+          <p class="text-xs text-kakoclaw-text-secondary">ID: {{ task.id }}</p>
         </div>
         <button
           @click="$emit('close')"
-          class="p-1 hover:bg-picoclaw-border rounded transition-smooth"
+          class="p-1 hover:bg-kakoclaw-border rounded transition-smooth"
         >
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -25,7 +25,7 @@
           <input
             v-model="editForm.title"
             type="text"
-            class="w-full px-3 py-2 bg-picoclaw-bg border border-picoclaw-border rounded focus-ring text-sm"
+            class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded focus-ring text-sm"
             :disabled="isLoading"
           />
         </div>
@@ -35,7 +35,7 @@
           <label class="block text-sm font-medium mb-2">Description</label>
           <textarea
             v-model="editForm.description"
-            class="w-full px-3 py-2 bg-picoclaw-bg border border-picoclaw-border rounded focus-ring text-sm resize-y"
+            class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded focus-ring text-sm resize-y"
             rows="5"
             :disabled="isLoading"
           ></textarea>
@@ -46,7 +46,7 @@
           <label class="block text-sm font-medium mb-2">Status</label>
           <select
             v-model="editForm.status"
-            class="w-full px-3 py-2 bg-picoclaw-bg border border-picoclaw-border rounded focus-ring text-sm"
+            class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded focus-ring text-sm"
             :disabled="isLoading"
           >
             <option value="backlog">Backlog</option>
@@ -64,7 +64,7 @@
             <button 
               v-if="editForm.result"
               @click="copyResult" 
-              class="text-xs text-picoclaw-accent hover:underline flex items-center gap-1"
+              class="text-xs text-kakoclaw-accent hover:underline flex items-center gap-1"
             >
               <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
@@ -75,7 +75,7 @@
           <div class="relative group">
             <textarea
               v-model="editForm.result"
-              class="w-full px-4 py-3 bg-picoclaw-bg border border-picoclaw-border rounded-xl focus:ring-2 focus:ring-picoclaw-accent/50 focus:border-picoclaw-accent text-base font-mono resize-y leading-relaxed"
+              class="w-full px-4 py-3 bg-kakoclaw-bg border border-kakoclaw-border rounded-xl focus:ring-2 focus:ring-kakoclaw-accent/50 focus:border-kakoclaw-accent text-base font-mono resize-y leading-relaxed"
               rows="12"
               placeholder="Task result/output"
               :disabled="isLoading"
@@ -86,15 +86,15 @@
         <!-- Logs -->
         <div v-if="logs.length > 0">
           <label class="block text-sm font-medium mb-2">Execution Logs</label>
-          <div class="bg-picoclaw-bg border border-picoclaw-border rounded p-3 text-xs max-h-48 overflow-y-auto">
+          <div class="bg-kakoclaw-bg border border-kakoclaw-border rounded p-3 text-xs max-h-48 overflow-y-auto">
             <table class="w-full text-left">
-              <tbody class="divide-y divide-picoclaw-border">
-                <tr v-for="log in logs" :key="log.id" class="hover:bg-picoclaw-surface transition-smooth">
-                  <td class="py-2 px-2 text-picoclaw-text-secondary whitespace-nowrap">
+              <tbody class="divide-y divide-kakoclaw-border">
+                <tr v-for="log in logs" :key="log.id" class="hover:bg-kakoclaw-surface transition-smooth">
+                  <td class="py-2 px-2 text-kakoclaw-text-secondary whitespace-nowrap">
                     {{ formatTime(log.created_at) }}
                   </td>
                   <td class="py-2 px-2">{{ log.event }}</td>
-                  <td class="py-2 px-2 text-picoclaw-text-secondary truncate">{{ log.message }}</td>
+                  <td class="py-2 px-2 text-kakoclaw-text-secondary truncate">{{ log.message }}</td>
                 </tr>
               </tbody>
             </table>
@@ -102,14 +102,14 @@
         </div>
 
         <!-- Error Message -->
-        <div v-if="errorMessage" class="p-3 bg-picoclaw-error/20 border border-picoclaw-error rounded text-picoclaw-error text-sm">
+        <div v-if="errorMessage" class="p-3 bg-kakoclaw-error/20 border border-kakoclaw-error rounded text-kakoclaw-error text-sm">
           {{ errorMessage }}
         </div>
       </div>
 
       <!-- Actions -->
       <!-- Actions -->
-      <div class="border-t border-picoclaw-border p-4 flex gap-2 justify-end">
+      <div class="border-t border-kakoclaw-border p-4 flex gap-2 justify-end">
         <button
           v-if="!task.archived"
           @click="handleArchive"
@@ -128,21 +128,21 @@
         </button>
         <button
           @click="handleDelete"
-          class="px-4 py-2 bg-picoclaw-error hover:bg-picoclaw-error/80 text-white rounded transition-smooth text-sm font-medium disabled:opacity-50"
+          class="px-4 py-2 bg-kakoclaw-error hover:bg-kakoclaw-error/80 text-white rounded transition-smooth text-sm font-medium disabled:opacity-50"
           :disabled="isLoading"
         >
           Delete
         </button>
         <button
           @click="$emit('close')"
-          class="px-4 py-2 border border-picoclaw-border rounded hover:bg-picoclaw-border transition-smooth text-sm"
+          class="px-4 py-2 border border-kakoclaw-border rounded hover:bg-kakoclaw-border transition-smooth text-sm"
           :disabled="isLoading"
         >
           Cancel
         </button>
         <button
           @click="handleUpdate"
-          class="px-4 py-2 bg-picoclaw-accent hover:bg-picoclaw-accent-hover text-white rounded transition-smooth text-sm font-medium disabled:opacity-50"
+          class="px-4 py-2 bg-kakoclaw-accent hover:bg-kakoclaw-accent-hover text-white rounded transition-smooth text-sm font-medium disabled:opacity-50"
           :disabled="isLoading"
         >
           {{ isLoading ? 'Saving...' : 'Save Changes' }}

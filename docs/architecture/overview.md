@@ -1,6 +1,6 @@
 # Visión General de la Arquitectura
 
-PicoClaw está diseñado con una arquitectura modular y desacoplada que permite la extensibilidad manteniendo un footprint mínimo.
+KakoClaw está diseñado con una arquitectura modular y desacoplada que permite la extensibilidad manteniendo un footprint mínimo.
 
 ## 🎯 Principios de Diseño
 
@@ -28,7 +28,7 @@ PicoClaw está diseñado con una arquitectura modular y desacoplada que permite 
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      PicoClaw Application                    │
+│                      KakoClaw Application                    │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
 │  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐     │
@@ -67,7 +67,7 @@ PicoClaw está diseñado con una arquitectura modular y desacoplada que permite 
 
 ## 📦 Componentes Principales
 
-### 1. **CLI (cmd/picoclaw)**
+### 1. **CLI (cmd/KakoClaw)**
 Interfaz de línea de comandos que coordina todos los comandos disponibles.
 
 **Responsabilidades:**
@@ -339,7 +339,7 @@ func CreateProvider(cfg *config.Config) (LLMProvider, error)
 ## 📊 Diagrama de Dependencias
 
 ```
-cmd/picoclaw
+cmd/KakoClaw
 ├── pkg/agent
 │   ├── pkg/bus
 │   ├── pkg/providers

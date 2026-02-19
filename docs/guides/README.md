@@ -1,6 +1,6 @@
 # Guías de Usuario
 
-Guías paso a paso para usuarios finales de PicoClaw.
+Guías paso a paso para usuarios finales de KakoClaw.
 
 ## Archivos Disponibles
 
@@ -15,9 +15,9 @@ Guías paso a paso para usuarios finales de PicoClaw.
 
 ## Para Empezar
 
-Si eres nuevo en PicoClaw, te recomendamos seguir este orden:
+Si eres nuevo en KakoClaw, te recomendamos seguir este orden:
 
-1. **[Inicio Rápido](./quickstart.md)** - Configura y ejecuta PicoClaw en minutos
+1. **[Inicio Rápido](./quickstart.md)** - Configura y ejecuta KakoClaw en minutos
 2. **[Instalación](./installation.md)** - Instalación detallada para tu plataforma
 3. **[Proveedores LLM](./llm-providers.md)** - Configura tu proveedor de IA
 

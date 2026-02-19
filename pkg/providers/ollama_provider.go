@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/sipeed/picoclaw/pkg/logger"
+	"github.com/sipeed/kakoclaw/pkg/logger"
 )
 
 // OllamaProvider implements LLMProvider for local Ollama instance

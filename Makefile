@@ -1,7 +1,7 @@
 .PHONY: all build install uninstall clean help test vet security
 
 # Build variables
-BINARY_NAME=picoclaw
+BINARY_NAME=kakoclaw
 BUILD_DIR=build
 CMD_DIR=cmd/$(BINARY_NAME)
 MAIN_GO=$(CMD_DIR)/main.go
@@ -22,8 +22,8 @@ INSTALL_BIN_DIR=$(INSTALL_PREFIX)/bin
 INSTALL_MAN_DIR=$(INSTALL_PREFIX)/share/man/man1
 
 # Workspace and Skills
-PICOCLAW_HOME?=$(HOME)/.picoclaw
-WORKSPACE_DIR?=$(PICOCLAW_HOME)/workspace
+KAKOCLAW_HOME?=$(HOME)/.kakoclaw
+WORKSPACE_DIR?=$(KAKOCLAW_HOME)/workspace
 WORKSPACE_SKILLS_DIR=$(WORKSPACE_DIR)/skills
 BUILTIN_SKILLS_DIR=$(CURDIR)/skills
 
@@ -62,7 +62,7 @@ BINARY_PATH=$(BUILD_DIR)/$(BINARY_NAME)-$(PLATFORM)-$(ARCH)
 # Frontend build
 FRONTEND_DIR=pkg/web/frontend
 
-## build: Build the picoclaw binary for current platform
+## build: Build the kakoclaw binary for current platform
 build: build-frontend
 	@echo "Building $(BINARY_NAME) for $(PLATFORM)/$(ARCH)..."
 	@mkdir -p $(BUILD_DIR)
@@ -76,7 +76,7 @@ build-frontend:
 	@cd $(FRONTEND_DIR) && npm install && npm run build
 	@echo "Frontend build complete at pkg/web/dist/"
 
-## build-all: Build picoclaw for all platforms
+## build-all: Build kakoclaw for all platforms
 build-all: build-frontend
 	@echo "Building for multiple platforms..."
 	@mkdir -p $(BUILD_DIR)
@@ -87,7 +87,7 @@ build-all: build-frontend
 	GOOS=windows GOARCH=amd64 $(GO) build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe ./$(CMD_DIR)
 	@echo "All builds complete"
 
-## install: Install picoclaw to system and copy builtin skills
+## install: Install kakoclaw to system and copy builtin skills
 install: build
 	@echo "Installing $(BINARY_NAME)..."
 	@mkdir -p $(INSTALL_BIN_DIR)
@@ -123,7 +123,7 @@ install-skills:
 	done
 	@echo "Skills installation complete!"
 
-## uninstall: Remove picoclaw from system
+## uninstall: Remove kakoclaw from system
 uninstall:
 	@echo "Uninstalling $(BINARY_NAME)..."
 	@rm -f $(INSTALL_BIN_DIR)/$(BINARY_NAME)
@@ -131,11 +131,11 @@ uninstall:
 	@echo "Note: Only the executable file has been deleted."
 	@echo "If you need to delete all configurations (config.json, workspace, etc.), run 'make uninstall-all'"
 
-## uninstall-all: Remove picoclaw and all data
+## uninstall-all: Remove kakoclaw and all data
 uninstall-all:
 	@echo "Removing workspace and skills..."
-	@rm -rf $(PICOCLAW_HOME)
-	@echo "Removed workspace: $(PICOCLAW_HOME)"
+	@rm -rf $(kakoclaw_HOME)
+	@echo "Removed workspace: $(kakoclaw_HOME)"
 	@echo "Complete uninstallation done!"
 
 ## clean: Remove build artifacts
@@ -154,7 +154,7 @@ deps:
 	@$(GO) get -u ./...
 	@$(GO) mod tidy
 
-## run: Build and run picoclaw
+## run: Build and run kakoclaw
 run: build
 	@$(BUILD_DIR)/$(BINARY_NAME) $(ARGS)
 
@@ -179,7 +179,7 @@ security: vet
 
 ## help: Show this help message
 help:
-	@echo "picoclaw Makefile"
+	@echo "kakoclaw Makefile"
 	@echo ""
 	@echo "Usage:"
 	@echo "  make [target]"
@@ -195,7 +195,7 @@ help:
 	@echo ""
 	@echo "Environment Variables:"
 	@echo "  INSTALL_PREFIX          # Installation prefix (default: ~/.local)"
-	@echo "  WORKSPACE_DIR           # Workspace directory (default: ~/.picoclaw/workspace)"
+	@echo "  WORKSPACE_DIR           # Workspace directory (default: ~/.kakoclaw/workspace)"
 	@echo "  VERSION                 # Version string (default: git describe)"
 	@echo ""
 	@echo "Current Configuration:"

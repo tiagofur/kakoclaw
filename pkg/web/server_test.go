@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sipeed/picoclaw/pkg/config"
-	"github.com/sipeed/picoclaw/pkg/skills"
-	"github.com/sipeed/picoclaw/pkg/storage"
+	"github.com/sipeed/kakoclaw/pkg/config"
+	"github.com/sipeed/kakoclaw/pkg/skills"
+	"github.com/sipeed/kakoclaw/pkg/storage"
 )
 
 func newTestServer(t *testing.T) *Server {

@@ -1,15 +1,15 @@
 <template>
-  <div class="min-h-screen bg-picoclaw-bg flex items-center justify-center p-4">
+  <div class="min-h-screen bg-kakoclaw-bg flex items-center justify-center p-4">
     <div class="w-full max-w-md">
       <!-- Logo -->
       <div class="text-center mb-8">
-        <h1 class="text-4xl font-bold text-picoclaw-accent mb-2">PicoClaw</h1>
-        <p class="text-picoclaw-text-secondary">AI Agent Control Panel</p>
+        <h1 class="text-4xl font-bold text-kakoclaw-accent mb-2">KakoClaw</h1>
+        <p class="text-kakoclaw-text-secondary">AI Agent Control Panel</p>
       </div>
 
       <!-- Form Card -->
-      <div class="bg-picoclaw-surface border border-picoclaw-border rounded-lg p-8 shadow-lg">
-        <h2 class="text-2xl font-bold mb-6 text-picoclaw-text">Login</h2>
+      <div class="bg-kakoclaw-surface border border-kakoclaw-border rounded-lg p-8 shadow-lg">
+        <h2 class="text-2xl font-bold mb-6 text-kakoclaw-text">Login</h2>
 
         <form @submit.prevent="handleLogin" class="space-y-4">
           <!-- Username -->
@@ -22,7 +22,7 @@
               id="username"
               type="text"
               placeholder="Enter your username"
-              class="w-full px-4 py-2 bg-picoclaw-bg border border-picoclaw-border rounded focus-ring text-picoclaw-text placeholder-picoclaw-text-secondary"
+              class="w-full px-4 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded focus-ring text-kakoclaw-text placeholder-kakoclaw-text-secondary"
               required
               :disabled="isLoading"
             />
@@ -38,14 +38,14 @@
               id="password"
               type="password"
               placeholder="Enter your password"
-              class="w-full px-4 py-2 bg-picoclaw-bg border border-picoclaw-border rounded focus-ring text-picoclaw-text placeholder-picoclaw-text-secondary"
+              class="w-full px-4 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded focus-ring text-kakoclaw-text placeholder-kakoclaw-text-secondary"
               required
               :disabled="isLoading"
             />
           </div>
 
           <!-- Error Message -->
-          <div v-if="errorMessage" class="p-3 bg-picoclaw-error/20 border border-picoclaw-error rounded text-picoclaw-error text-sm">
+          <div v-if="errorMessage" class="p-3 bg-kakoclaw-error/20 border border-kakoclaw-error rounded text-kakoclaw-error text-sm">
             {{ errorMessage }}
           </div>
 
@@ -53,14 +53,14 @@
           <button
             type="submit"
             :disabled="isLoading"
-            class="w-full px-4 py-2 bg-picoclaw-accent hover:bg-picoclaw-accent-hover text-white font-medium rounded transition-smooth disabled:opacity-50 disabled:cursor-not-allowed"
+            class="w-full px-4 py-2 bg-kakoclaw-accent hover:bg-kakoclaw-accent-hover text-white font-medium rounded transition-smooth disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {{ isLoading ? 'Signing in...' : 'Sign In' }}
           </button>
         </form>
 
         <!-- Info -->
-        <p class="text-xs text-picoclaw-text-secondary text-center mt-4">
+        <p class="text-xs text-kakoclaw-text-secondary text-center mt-4">
           Default credentials: admin / (set during setup)
         </p>
       </div>

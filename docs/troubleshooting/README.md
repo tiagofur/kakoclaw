@@ -1,6 +1,6 @@
 # Solución de Problemas
 
-Ayuda para resolver problemas comunes con PicoClaw.
+Ayuda para resolver problemas comunes con KakoClaw.
 
 ## Archivos
 
@@ -37,22 +37,22 @@ Ayuda para resolver problemas comunes con PicoClaw.
 ### Logs
 ```bash
 # Modo debug
-picoclaw agent --debug
+KakoClaw agent --debug
 
 # Logs a archivo
-picoclaw gateway --debug 2>&1 | tee debug.log
+KakoClaw gateway --debug 2>&1 | tee debug.log
 ```
 
 ### Comandos Útiles
 ```bash
 # Ver estado
-picoclaw status
+KakoClaw status
 
 # Ver configuración
-cat ~/.picoclaw/config.json
+cat ~/.KakoClaw/config.json
 
 # Ver workspace
-tree ~/.picoclaw/workspace/
+tree ~/.KakoClaw/workspace/
 ```
 
 ## Soporte
@@ -60,7 +60,7 @@ tree ~/.picoclaw/workspace/
 Si no encuentras tu problema aquí:
 
 1. Busca en la [FAQ](./faq.md)
-2. Revisa [GitHub Issues](https://github.com/sipeed/picoclaw/issues)
+2. Revisa [GitHub Issues](https://github.com/sipeed/KakoClaw/issues)
 3. Únete a [Discord](https://discord.gg/V4sAZ9XWpN)
 4. Crea un nuevo issue
 

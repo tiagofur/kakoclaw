@@ -1,6 +1,6 @@
 # Guía de Instalación y Configuración
 
-Esta guía cubre la instalación detallada de PicoClaw en diferentes sistemas operativos y configuraciones.
+Esta guía cubre la instalación detallada de KakoClaw en diferentes sistemas operativos y configuraciones.
 
 ## 📋 Tabla de Contenidos
 
@@ -32,7 +32,7 @@ Esta guía cubre la instalación detallada de PicoClaw en diferentes sistemas op
 ### Método 1: Script de Instalación Automática
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sipeed/picoclaw/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/sipeed/KakoClaw/main/install.sh | bash
 ```
 
 ### Método 2: Instalación Manual
@@ -41,40 +41,40 @@ curl -fsSL https://raw.githubusercontent.com/sipeed/picoclaw/main/install.sh | b
 
 ```bash
 # Descargar
-wget https://github.com/sipeed/picoclaw/releases/latest/download/picoclaw-linux-amd64 -O picoclaw
+wget https://github.com/sipeed/KakoClaw/releases/latest/download/KakoClaw-linux-amd64 -O KakoClaw
 
 # Hacer ejecutable
-chmod +x picoclaw
+chmod +x KakoClaw
 
 # Mover a PATH
-sudo mv picoclaw /usr/local/bin/
+sudo mv KakoClaw /usr/local/bin/
 
 # Verificar
-picoclaw version
+KakoClaw version
 ```
 
 #### ARM64 (AArch64)
 
 ```bash
-wget https://github.com/sipeed/picoclaw/releases/latest/download/picoclaw-linux-arm64 -O picoclaw
-chmod +x picoclaw
-sudo mv picoclaw /usr/local/bin/
+wget https://github.com/sipeed/KakoClaw/releases/latest/download/KakoClaw-linux-arm64 -O KakoClaw
+chmod +x KakoClaw
+sudo mv KakoClaw /usr/local/bin/
 ```
 
 #### ARM (32-bit)
 
 ```bash
-wget https://github.com/sipeed/picoclaw/releases/latest/download/picoclaw-linux-armv7 -O picoclaw
-chmod +x picoclaw
-sudo mv picoclaw /usr/local/bin/
+wget https://github.com/sipeed/KakoClaw/releases/latest/download/KakoClaw-linux-armv7 -O KakoClaw
+chmod +x KakoClaw
+sudo mv KakoClaw /usr/local/bin/
 ```
 
 #### RISC-V
 
 ```bash
-wget https://github.com/sipeed/picoclaw/releases/latest/download/picoclaw-linux-riscv64 -O picoclaw
-chmod +x picoclaw
-sudo mv picoclaw /usr/local/bin/
+wget https://github.com/sipeed/KakoClaw/releases/latest/download/KakoClaw-linux-riscv64 -O KakoClaw
+chmod +x KakoClaw
+sudo mv KakoClaw /usr/local/bin/
 ```
 
 ### Método 3: Compilar desde Fuente
@@ -97,8 +97,8 @@ sudo pacman -S git go make
 
 ```bash
 # Clonar
-git clone https://github.com/sipeed/picoclaw.git
-cd picoclaw
+git clone https://github.com/sipeed/KakoClaw.git
+cd KakoClaw
 
 # Compilar
 make build
@@ -119,7 +119,7 @@ Agrega a tu `~/.bashrc` o `~/.zshrc`:
 export PATH="$HOME/.local/bin:$PATH"
 
 # Autocompletado (opcional)
-eval "$(picoclaw completion bash)"
+eval "$(KakoClaw completion bash)"
 ```
 
 ## Instalación en macOS
@@ -128,7 +128,7 @@ eval "$(picoclaw completion bash)"
 
 ```bash
 # No disponible aún
-# brew install picoclaw
+# brew install KakoClaw
 ```
 
 ### Método 2: Binario Directo
@@ -136,17 +136,17 @@ eval "$(picoclaw completion bash)"
 #### Intel (AMD64)
 
 ```bash
-curl -L https://github.com/sipeed/picoclaw/releases/latest/download/picoclaw-darwin-amd64 -o picoclaw
-chmod +x picoclaw
-sudo mv picoclaw /usr/local/bin/
+curl -L https://github.com/sipeed/KakoClaw/releases/latest/download/KakoClaw-darwin-amd64 -o KakoClaw
+chmod +x KakoClaw
+sudo mv KakoClaw /usr/local/bin/
 ```
 
 #### Apple Silicon (ARM64)
 
 ```bash
-curl -L https://github.com/sipeed/picoclaw/releases/latest/download/picoclaw-darwin-arm64 -o picoclaw
-chmod +x picoclaw
-sudo mv picoclaw /usr/local/bin/
+curl -L https://github.com/sipeed/KakoClaw/releases/latest/download/KakoClaw-darwin-arm64 -o KakoClaw
+chmod +x KakoClaw
+sudo mv KakoClaw /usr/local/bin/
 ```
 
 ### Método 3: Compilar desde Fuente
@@ -156,8 +156,8 @@ sudo mv picoclaw /usr/local/bin/
 brew install go git
 
 # Clonar y compilar
-git clone https://github.com/sipeed/picoclaw.git
-cd picoclaw
+git clone https://github.com/sipeed/KakoClaw.git
+cd KakoClaw
 make build
 make install
 ```
@@ -171,7 +171,7 @@ Agregar a `~/.zshrc`:
 export PATH="$HOME/.local/bin:$PATH"
 
 # Autocompletado
-eval "$(picoclaw completion zsh)"
+eval "$(KakoClaw completion zsh)"
 ```
 
 ## Instalación en Windows
@@ -183,20 +183,20 @@ eval "$(picoclaw completion zsh)"
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
 
-# Instalar PicoClaw
-scoop bucket add picoclaw https://github.com/sipeed/picoclaw-bucket
-scoop install picoclaw
+# Instalar KakoClaw
+scoop bucket add KakoClaw https://github.com/sipeed/KakoClaw-bucket
+scoop install KakoClaw
 ```
 
 ### Método 2: Descarga Directa
 
 ```powershell
 # Descargar
-Invoke-WebRequest -Uri "https://github.com/sipeed/picoclaw/releases/latest/download/picoclaw-windows-amd64.exe" -OutFile "picoclaw.exe"
+Invoke-WebRequest -Uri "https://github.com/sipeed/KakoClaw/releases/latest/download/KakoClaw-windows-amd64.exe" -OutFile "KakoClaw.exe"
 
 # Mover a un directorio en PATH
 # Ejemplo: C:\Tools
-Move-Item picoclaw.exe C:\Tools\
+Move-Item KakoClaw.exe C:\Tools\
 
 # Agregar C:\Tools al PATH del sistema si no está
 ```
@@ -207,13 +207,13 @@ Move-Item picoclaw.exe C:\Tools\
 # Instalar Go desde https://golang.org/dl/
 
 # Clonar
-git clone https://github.com/sipeed/picoclaw.git
-cd picoclaw
+git clone https://github.com/sipeed/KakoClaw.git
+cd KakoClaw
 
 # Compilar
 $env:GOOS = "windows"
 $env:GOARCH = "amd64"
-go build -o picoclaw.exe ./cmd/picoclaw
+go build -o KakoClaw.exe ./cmd/KakoClaw
 
 # El binario está listo para usar
 ```
@@ -224,7 +224,7 @@ Agregar a tu perfil de PowerShell (`$PROFILE`):
 
 ```powershell
 # Autocompletado
-Invoke-Expression (&picoclaw completion powershell)
+Invoke-Expression (&KakoClaw completion powershell)
 ```
 
 ## Instalación en ARM/RISC-V
@@ -233,43 +233,43 @@ Invoke-Expression (&picoclaw completion powershell)
 
 ```bash
 # Descargar versión ARM64
-wget https://github.com/sipeed/picoclaw/releases/latest/download/picoclaw-linux-arm64 -O picoclaw
-chmod +x picoclaw
-sudo mv picoclaw /usr/local/bin/
+wget https://github.com/sipeed/KakoClaw/releases/latest/download/KakoClaw-linux-arm64 -O KakoClaw
+chmod +x KakoClaw
+sudo mv KakoClaw /usr/local/bin/
 
 # Inicializar
-picoclaw onboard
+KakoClaw onboard
 ```
 
 ### LicheeRV Nano ($10)
 
 ```bash
 # Descargar versión RISC-V
-wget https://github.com/sipeed/picoclaw/releases/latest/download/picoclaw-linux-riscv64 -O picoclaw
-chmod +x picoclaw
+wget https://github.com/sipeed/KakoClaw/releases/latest/download/KakoClaw-linux-riscv64 -O KakoClaw
+chmod +x KakoClaw
 
 # Mover a PATH local
 mkdir -p ~/.local/bin
-mv picoclaw ~/.local/bin/
+mv KakoClaw ~/.local/bin/
 
 # Agregar a PATH
 export PATH="$HOME/.local/bin:$PATH"
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 
 # Inicializar
-picoclaw onboard
+KakoClaw onboard
 ```
 
 ### MaixCAM
 
 ```bash
 # En MaixCAM (ARM64)
-curl -L https://github.com/sipeed/picoclaw/releases/latest/download/picoclaw-linux-arm64 -o /usr/local/bin/picoclaw
-chmod +x /usr/local/bin/picoclaw
+curl -L https://github.com/sipeed/KakoClaw/releases/latest/download/KakoClaw-linux-arm64 -o /usr/local/bin/KakoClaw
+chmod +x /usr/local/bin/KakoClaw
 
 # Configurar canal MaixCAM en config.json
 # Luego iniciar
-picoclaw gateway
+KakoClaw gateway
 ```
 
 ## Configuración Post-Instalación
@@ -277,12 +277,12 @@ picoclaw gateway
 ### Paso 1: Inicialización
 
 ```bash
-picoclaw onboard
+KakoClaw onboard
 ```
 
 Crea la estructura:
 ```
-~/.picoclaw/
+~/.KakoClaw/
 ├── config.json
 ├── workspace/
 │   ├── sessions/
@@ -294,13 +294,13 @@ Crea la estructura:
 
 ### Paso 2: Configuración Básica
 
-Edita `~/.picoclaw/config.json`:
+Edita `~/.KakoClaw/config.json`:
 
 ```json
 {
   "agents": {
     "defaults": {
-      "workspace": "~/.picoclaw/workspace",
+      "workspace": "~/.KakoClaw/workspace",
       "model": "anthropic/claude-3.5-sonnet",
       "max_tokens": 8192,
       "temperature": 0.7,
@@ -323,13 +323,13 @@ Edita `~/.picoclaw/config.json`:
 
 ```bash
 # Ver versión
-picoclaw version
+KakoClaw version
 
 # Ver estado
-picoclaw status
+KakoClaw status
 
 # Prueba básica
-picoclaw agent -m "Hola, ¿funcionas?"
+KakoClaw agent -m "Hola, ¿funcionas?"
 ```
 
 ### Paso 4: Configurar Variables de Entorno (Opcional)
@@ -338,13 +338,13 @@ picoclaw agent -m "Hola, ¿funcionas?"
 # Agregar a ~/.bashrc o ~/.zshrc
 
 # Configuración por defecto
-export PICOCLAW_AGENTS_DEFAULTS_MODEL="anthropic/claude-3.5-sonnet"
+export KakoClaw_AGENTS_DEFAULTS_MODEL="anthropic/claude-3.5-sonnet"
 
 # API Keys (alternativa a config.json)
-export PICOCLAW_PROVIDERS_OPENROUTER_API_KEY="sk-or-v1-xxx"
+export KakoClaw_PROVIDERS_OPENROUTER_API_KEY="sk-or-v1-xxx"
 
 # Directorio workspace personalizado
-export PICOCLAW_AGENTS_DEFAULTS_WORKSPACE="~/proyectos/picoclaw"
+export KakoClaw_AGENTS_DEFAULTS_WORKSPACE="~/proyectos/KakoClaw"
 ```
 
 ## Configuración Avanzada
@@ -354,21 +354,21 @@ export PICOCLAW_AGENTS_DEFAULTS_WORKSPACE="~/proyectos/picoclaw"
 Todas las opciones de config.json pueden usarse como variables de entorno:
 
 ```bash
-# Sintaxis: PICOCLAW_<SECCION>_<OPCION>
-export PICOCLAW_AGENTS_DEFAULTS_MODEL="gpt-4"
-export PICOCLAW_AGENTS_DEFAULTS_MAX_TOKENS="8192"
-export PICOCLAW_CHANNELS_TELEGRAM_ENABLED="true"
-export PICOCLAW_CHANNELS_TELEGRAM_TOKEN="123456:ABC..."
+# Sintaxis: KakoClaw_<SECCION>_<OPCION>
+export KakoClaw_AGENTS_DEFAULTS_MODEL="gpt-4"
+export KakoClaw_AGENTS_DEFAULTS_MAX_TOKENS="8192"
+export KakoClaw_CHANNELS_TELEGRAM_ENABLED="true"
+export KakoClaw_CHANNELS_TELEGRAM_TOKEN="123456:ABC..."
 ```
 
 ### Configuración para Múltiples Entornos
 
 ```bash
 # Desarrollo
-picoclaw agent --config ~/.picoclaw/config.dev.json
+KakoClaw agent --config ~/.KakoClaw/config.dev.json
 
 # Producción
-picoclaw agent --config ~/.picoclaw/config.prod.json
+KakoClaw agent --config ~/.KakoClaw/config.prod.json
 ```
 
 ### Configuración de Proxy
@@ -390,34 +390,34 @@ picoclaw agent --config ~/.picoclaw/config.prod.json
 
 ```bash
 # Descargar última versión
-picoclaw update
+KakoClaw update
 
 # O manualmente
-curl -fsSL https://raw.githubusercontent.com/sipeed/picoclaw/main/install.sh | bash -s -- --update
+curl -fsSL https://raw.githubusercontent.com/sipeed/KakoClaw/main/install.sh | bash -s -- --update
 ```
 
 ### Método 2: Actualización Manual
 
 ```bash
 # Backup de configuración
-cp ~/.picoclaw/config.json ~/.picoclaw/config.json.backup
+cp ~/.KakoClaw/config.json ~/.KakoClaw/config.json.backup
 
 # Descargar nueva versión
-wget https://github.com/sipeed/picoclaw/releases/latest/download/picoclaw-linux-amd64 -O picoclaw
-chmod +x picoclaw
-sudo mv picoclaw /usr/local/bin/
+wget https://github.com/sipeed/KakoClaw/releases/latest/download/KakoClaw-linux-amd64 -O KakoClaw
+chmod +x KakoClaw
+sudo mv KakoClaw /usr/local/bin/
 
 # Verificar
-picoclaw version
+KakoClaw version
 
 # Restaurar config si es necesario
-# cp ~/.picoclaw/config.json.backup ~/.picoclaw/config.json
+# cp ~/.KakoClaw/config.json.backup ~/.KakoClaw/config.json
 ```
 
 ### Método 3: Desde Fuente
 
 ```bash
-cd picoclaw
+cd KakoClaw
 git pull origin main
 make build
 make install
@@ -429,19 +429,19 @@ make install
 
 ```bash
 # Eliminar binario
-sudo rm /usr/local/bin/picoclaw
+sudo rm /usr/local/bin/KakoClaw
 
 # Eliminar datos
-rm -rf ~/.picoclaw
+rm -rf ~/.KakoClaw
 
 # Eliminar autocompletado de shell
-# Editar ~/.bashrc o ~/.zshrc y quitar líneas de picoclaw
+# Editar ~/.bashrc o ~/.zshrc y quitar líneas de KakoClaw
 ```
 
 ### Desinstalación con Make
 
 ```bash
-cd picoclaw
+cd KakoClaw
 make uninstall
 make uninstall-all  # Incluye workspace y configuración
 ```
@@ -452,22 +452,22 @@ Ejecuta este checklist:
 
 ```bash
 # 1. Verificar binario
-which picoclaw
-picoclaw version
+which KakoClaw
+KakoClaw version
 
 # 2. Verificar configuración
-ls -la ~/.picoclaw/
-cat ~/.picoclaw/config.json
+ls -la ~/.KakoClaw/
+cat ~/.KakoClaw/config.json
 
 # 3. Verificar workspace
-ls -la ~/.picoclaw/workspace/
+ls -la ~/.KakoClaw/workspace/
 
 # 4. Prueba funcional
-picoclaw agent -m "Di 'PicoClaw está funcionando correctamente'"
+KakoClaw agent -m "Di 'KakoClaw está funcionando correctamente'"
 
 # 5. Verificar permisos
-touch ~/.picoclaw/workspace/test.txt
-rm ~/.picoclaw/workspace/test.txt
+touch ~/.KakoClaw/workspace/test.txt
+rm ~/.KakoClaw/workspace/test.txt
 ```
 
 ## Solución de Problemas de Instalación
@@ -487,10 +487,10 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 
 ```bash
 # Corregir permisos
-chmod +x /usr/local/bin/picoclaw
+chmod +x /usr/local/bin/KakoClaw
 
 # O si instalaste sin sudo
-sudo chown $(whoami) /usr/local/bin/picoclaw
+sudo chown $(whoami) /usr/local/bin/KakoClaw
 ```
 
 ### Error de GLIBC
@@ -499,7 +499,7 @@ En sistemas antiguos, compilar desde fuente:
 
 ```bash
 # Estático linking
-CGO_ENABLED=0 go build -ldflags="-s -w" -o picoclaw ./cmd/picoclaw
+CGO_ENABLED=0 go build -ldflags="-s -w" -o KakoClaw ./cmd/KakoClaw
 ```
 
 ### Problemas de Memoria en Dispositivos Embebidos

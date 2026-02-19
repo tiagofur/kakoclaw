@@ -1,7 +1,7 @@
 <div align="center">
-<img src="assets/logo.jpg" alt="PicoClaw" width="512">
+<img src="assets/logo.jpg" alt="KakoClaw" width="512">
 
-<h1>PicoClaw: Ultra-Efficient AI Assistant in Go</h1>
+<h1>KakoClaw: Ultra-Efficient AI Assistant in Go</h1>
 
 <h3>$10 Hardware · 10MB RAM · 1s Boot · 皮皮虾，我们走！</h3>
 <h3></h3>
@@ -16,7 +16,9 @@
 
 ---
 
-🦐 PicoClaw is an ultra-lightweight personal AI Assistant inspired by [nanobot](https://github.com/HKUDS/nanobot), refactored from the ground up in Go through a self-bootstrapping process, where the AI agent itself drove the entire architectural migration and code optimization.
+🐸 KakoClaw is an ultra-lightweight personal AI Assistant based on and inspired by [PicoClaw](https://github.com/sipeed/picoclaw). It was refactored from the ground up in Go through a self-bootstrapping process, where the AI agent itself drove the entire architectural migration and code optimization.
+
+> **Note**: KakoClaw uses PicoClaw as its fundamental base and continues its mission of bringing AI agents to low-cost hardware.
 
 ⚡️ Runs on $10 hardware with <10MB RAM: That's 99% less memory than OpenClaw and 98% cheaper than a Mac mini!
 
@@ -24,7 +26,7 @@
   <tr align="center">
     <td align="center" valign="top">
       <p align="center">
-        <img src="assets/picoclaw_mem.gif" width="360" height="240">
+        <img src="assets/kakoclaw_mem.gif" width="360" height="240">
       </p>
     </td>
     <td align="center" valign="top">
@@ -37,7 +39,7 @@
 
 ## 📢 News
 
-2026-02-09 🎉 PicoClaw Launched! Built in 1 day to bring AI Agents to $10 hardware with <10MB RAM. 🦐 皮皮虾，我们走！
+2026-02-09 🎉 KakoClaw Launched! Built in 1 day to bring AI Agents to $10 hardware with <10MB RAM. 🐸 皮皮虾，我们走！
 
 ## ✨ Features
 
@@ -51,14 +53,14 @@
 
 🤖 **AI-Bootstrapped**: Autonomous Go-native implementation — 95% Agent-generated core with human-in-the-loop refinement.
 
-|  | OpenClaw  | NanoBot | **PicoClaw** |
-| --- | --- | --- |--- |
-| **Language** | TypeScript | Python | **Go** |
-| **RAM** | >1GB |>100MB| **< 10MB** |
-| **Startup**</br>(0.8GHz core) | >500s | >30s |  **<1s** |
-| **Cost** | Mac Mini 599$ | Most Linux SBC </br>~50$ |**Any Linux Board**</br>**As low as 10$** |
+|                               | OpenClaw      | NanoBot                  | **KakoClaw**                              |
+| ----------------------------- | ------------- | ------------------------ | ----------------------------------------- |
+| **Language**                  | TypeScript    | Python                   | **Go**                                    |
+| **RAM**                       | >1GB          | >100MB                   | **< 10MB**                                |
+| **Startup**</br>(0.8GHz core) | >500s         | >30s                     | **<1s**                                   |
+| **Cost**                      | Mac Mini 599$ | Most Linux SBC </br>~50$ | **Any Linux Board**</br>**As low as 10$** |
 
-<img src="assets/compare.jpg" alt="PicoClaw" width="512">
+<img src="assets/compare.jpg" alt="KakoClaw" width="512">
 
 ## 🦾 Demonstration
 
@@ -71,9 +73,9 @@
     <th><p align="center">🔎 Web Search & Learning</p></th>
   </tr>
   <tr>
-    <td align="center"><p align="center"><img src="assets/picoclaw_code.gif" width="240" height="180"></p></td>
-    <td align="center"><p align="center"><img src="assets/picoclaw_memory.gif" width="240" height="180"></p></td>
-    <td align="center"><p align="center"><img src="assets/picoclaw_search.gif" width="240" height="180"></p></td>
+    <td align="center"><p align="center"><img src="assets/kakoclaw_code.gif" width="240" height="180"></p></td>
+    <td align="center"><p align="center"><img src="assets/kakoclaw_memory.gif" width="240" height="180"></p></td>
+    <td align="center"><p align="center"><img src="assets/kakoclaw_search.gif" width="240" height="180"></p></td>
   </tr>
   <tr>
     <td align="center">Develop • Deploy • Scale</td>
@@ -84,9 +86,9 @@
 
 ### 🐜 Innovative Low-Footprint Deploy
 
-PicoClaw can be deployed on almost any Linux device!
+KakoClaw can be deployed on almost any Linux device!
 
-- $9.9 [LicheeRV-Nano](https://www.aliexpress.com/item/1005006519668532.html)  E(Ethernet) or W(WiFi6) version, for Minimal Home Assistant
+- $9.9 [LicheeRV-Nano](https://www.aliexpress.com/item/1005006519668532.html) E(Ethernet) or W(WiFi6) version, for Minimal Home Assistant
 - $30~50 [NanoKVM](https://www.aliexpress.com/item/1005007369816019.html), or $100 [NanoKVM-Pro](https://www.aliexpress.com/item/1005010048471263.html) for Automated Server Maintenance
 - $50 [MaixCAM](https://www.aliexpress.com/item/1005008053333693.html) or $100 [MaixCAM2](https://www.kickstarter.com/projects/zepan/maixcam2-build-your-next-gen-4k-ai-camera) for Smart Monitoring
 
@@ -98,14 +100,14 @@ PicoClaw can be deployed on almost any Linux device!
 
 ### Install with precompiled binary
 
-Download the firmware for your platform from the [release](https://github.com/sipeed/picoclaw/releases) page.
+Download the firmware for your platform from the [release](https://github.com/sipeed/KakoClaw/releases) page.
 
 ### Install from source (latest features, recommended for development)
 
 ```bash
-git clone https://github.com/sipeed/picoclaw.git
+git clone https://github.com/sipeed/KakoClaw.git
 
-cd picoclaw
+cd KakoClaw
 make deps
 
 # Build, no need to install
@@ -120,15 +122,15 @@ make install
 
 ### 📱 Install on Android (Termux)
 
-Run PicoClaw on your Android device!
+Run KakoClaw on your Android device!
 
 ```bash
 # In Termux (from F-Droid)
-curl -fsSL https://raw.githubusercontent.com/sipeed/picoclaw/main/scripts/install-termux.sh | bash
+curl -fsSL https://raw.githubusercontent.com/sipeed/KakoClaw/main/scripts/install-termux.sh | bash
 
 # Or manually
-git clone https://github.com/sipeed/picoclaw.git
-cd picoclaw && make build && make install
+git clone https://github.com/sipeed/KakoClaw.git
+cd KakoClaw && make build && make install
 ```
 
 📖 [Complete Android Guide](ANDROID.md) | [Termux Documentation](docs/deployment/termux-android.md)
@@ -136,23 +138,23 @@ cd picoclaw && make build && make install
 ### 🚀 Quick Start
 
 > [!TIP]
-> Set your API key in `~/.picoclaw/config.json`.
+> Set your API key in `~/.KakoClaw/config.json`.
 > Get API keys: [OpenRouter](https://openrouter.ai/keys) (LLM) · [Zhipu](https://open.bigmodel.cn/usercenter/proj-mgmt/apikeys) (LLM)
 > Web search is **optional** - get free [Brave Search API](https://brave.com/search/api) (2000 free queries/month)
 
 **1. Initialize**
 
 ```bash
-picoclaw onboard
+KakoClaw onboard
 ```
 
-**2. Configure** (`~/.picoclaw/config.json`)
+**2. Configure** (`~/.KakoClaw/config.json`)
 
 ```json
 {
   "agents": {
     "defaults": {
-      "workspace": "~/.picoclaw/workspace",
+      "workspace": "~/.KakoClaw/workspace",
       "model": "glm-4.7",
       "max_tokens": 8192,
       "temperature": 0.7,
@@ -186,7 +188,7 @@ picoclaw onboard
 **4. Chat**
 
 ```bash
-picoclaw agent -m "What is 2+2?"
+KakoClaw agent -m "What is 2+2?"
 ```
 
 That's it! You have a working AI assistant in 2 minutes.
@@ -195,14 +197,14 @@ That's it! You have a working AI assistant in 2 minutes.
 
 ## 💬 Chat Apps
 
-Talk to your picoclaw through Telegram, Discord, or DingTalk
+Talk to your KakoClaw through Telegram, Discord, or DingTalk
 
-| Channel | Setup |
-|---------|-------|
-| **Telegram** | Easy (just a token) |
-| **Discord** | Easy (bot token + intents) |
-| **QQ** | Easy (AppID + AppSecret) |
-| **DingTalk** | Medium (app credentials) |
+| Channel      | Setup                      |
+| ------------ | -------------------------- |
+| **Telegram** | Easy (just a token)        |
+| **Discord**  | Easy (bot token + intents) |
+| **QQ**       | Easy (AppID + AppSecret)   |
+| **DingTalk** | Medium (app credentials)   |
 
 <details>
 <summary><b>Telegram</b> (Recommended)</summary>
@@ -232,7 +234,7 @@ Talk to your picoclaw through Telegram, Discord, or DingTalk
 **3. Run**
 
 ```bash
-picoclaw gateway
+KakoClaw gateway
 ```
 
 </details>
@@ -280,7 +282,7 @@ picoclaw gateway
 **6. Run**
 
 ```bash
-picoclaw gateway
+KakoClaw gateway
 ```
 
 </details>
@@ -313,7 +315,7 @@ picoclaw gateway
 **3. Run**
 
 ```bash
-picoclaw gateway
+KakoClaw gateway
 ```
 
 </details>
@@ -347,21 +349,21 @@ picoclaw gateway
 **3. Run**
 
 ```bash
-picoclaw gateway
+KakoClaw gateway
 ```
 
 </details>
 
 ## ⚙️ Configuration
 
-Config file: `~/.picoclaw/config.json`
+Config file: `~/.KakoClaw/config.json`
 
 ### Workspace Layout
 
-PicoClaw stores data in your configured workspace (default: `~/.picoclaw/workspace`):
+KakoClaw stores data in your configured workspace (default: `~/.KakoClaw/workspace`):
 
 ```
-~/.picoclaw/workspace/
+~/.KakoClaw/workspace/
 ├── sessions/          # Conversation sessions and history
 ├── memory/           # Long-term memory (MEMORY.md)
 ├── cron/             # Scheduled jobs database
@@ -378,15 +380,15 @@ PicoClaw stores data in your configured workspace (default: `~/.picoclaw/workspa
 > [!NOTE]
 > Groq provides free voice transcription via Whisper. If configured, Telegram voice messages will be automatically transcribed.
 
-| Provider | Purpose | Get API Key |
-|----------|---------|-------------|
-| `gemini` | LLM (Gemini direct) | [aistudio.google.com](https://aistudio.google.com) |
-| `zhipu` | LLM (Zhipu direct) | [bigmodel.cn](bigmodel.cn) |
-| `openrouter(To be tested)` | LLM (recommended, access to all models) | [openrouter.ai](https://openrouter.ai) |
-| `anthropic(To be tested)` | LLM (Claude direct) | [console.anthropic.com](https://console.anthropic.com) |
-| `openai(To be tested)` | LLM (GPT direct) | [platform.openai.com](https://platform.openai.com) |
-| `deepseek(To be tested)` | LLM (DeepSeek direct) | [platform.deepseek.com](https://platform.deepseek.com) |
-| `groq` | LLM + **Voice transcription** (Whisper) | [console.groq.com](https://console.groq.com) |
+| Provider                   | Purpose                                 | Get API Key                                            |
+| -------------------------- | --------------------------------------- | ------------------------------------------------------ |
+| `gemini`                   | LLM (Gemini direct)                     | [aistudio.google.com](https://aistudio.google.com)     |
+| `zhipu`                    | LLM (Zhipu direct)                      | [bigmodel.cn](bigmodel.cn)                             |
+| `openrouter(To be tested)` | LLM (recommended, access to all models) | [openrouter.ai](https://openrouter.ai)                 |
+| `anthropic(To be tested)`  | LLM (Claude direct)                     | [console.anthropic.com](https://console.anthropic.com) |
+| `openai(To be tested)`     | LLM (GPT direct)                        | [platform.openai.com](https://platform.openai.com)     |
+| `deepseek(To be tested)`   | LLM (DeepSeek direct)                   | [platform.deepseek.com](https://platform.deepseek.com) |
+| `groq`                     | LLM + **Voice transcription** (Whisper) | [console.groq.com](https://console.groq.com)           |
 
 <details>
 <summary><b>Zhipu</b></summary>
@@ -401,7 +403,7 @@ PicoClaw stores data in your configured workspace (default: `~/.picoclaw/workspa
 {
   "agents": {
     "defaults": {
-      "workspace": "~/.picoclaw/workspace",
+      "workspace": "~/.KakoClaw/workspace",
       "model": "glm-4.7",
       "max_tokens": 8192,
       "temperature": 0.7,
@@ -412,15 +414,15 @@ PicoClaw stores data in your configured workspace (default: `~/.picoclaw/workspa
     "zhipu": {
       "api_key": "Your API Key",
       "api_base": "https://open.bigmodel.cn/api/paas/v4"
-    },
-  },
+    }
+  }
 }
 ```
 
 **3. Run**
 
 ```bash
-picoclaw agent -m "Hello"
+KakoClaw agent -m "Hello"
 ```
 
 </details>
@@ -486,20 +488,20 @@ picoclaw agent -m "Hello"
 
 ## CLI Reference
 
-| Command | Description |
-|---------|-------------|
-| `picoclaw onboard` | Initialize config & workspace |
-| `picoclaw agent -m "..."` | Chat with the agent |
-| `picoclaw agent` | Interactive chat mode |
-| `picoclaw gateway` | Start the gateway |
-| `picoclaw web` | Start the web panel only (experimental) |
-| `picoclaw status` | Show status |
-| `picoclaw cron list` | List all scheduled jobs |
-| `picoclaw cron add ...` | Add a scheduled job |
+| Command                   | Description                             |
+| ------------------------- | --------------------------------------- |
+| `KakoClaw onboard`        | Initialize config & workspace           |
+| `KakoClaw agent -m "..."` | Chat with the agent                     |
+| `KakoClaw agent`          | Interactive chat mode                   |
+| `KakoClaw gateway`        | Start the gateway                       |
+| `KakoClaw web`            | Start the web panel only (experimental) |
+| `KakoClaw status`         | Show status                             |
+| `KakoClaw cron list`      | List all scheduled jobs                 |
+| `KakoClaw cron add ...`   | Add a scheduled job                     |
 
 ### Experimental Web Panel
 
-Enable the embedded web panel in `~/.picoclaw/config.json`:
+Enable the embedded web panel in `~/.KakoClaw/config.json`:
 
 ```json
 {
@@ -514,11 +516,12 @@ Enable the embedded web panel in `~/.picoclaw/config.json`:
 }
 ```
 
-Then start it with `picoclaw web` or run it together with channels via `picoclaw gateway`.
+Then start it with `KakoClaw web` or run it together with channels via `KakoClaw gateway`.
 For production, run it behind HTTPS reverse proxy (Caddy/Nginx) and use strong credentials.
 Login from the web page to obtain a JWT token; all `/api/*` and `/ws/*` routes require auth.
 
 Current web panel capabilities:
+
 - Task board (backlog/todo/in_progress/review/done) with drag & drop and inline actions.
 - Task detail panel with full agent result and task logs.
 - Chat quick actions for tasks: `/task list`, `/task run <id>`, `/task move <id> <status>`.
@@ -527,32 +530,32 @@ Current web panel capabilities:
 
 ### Scheduled Tasks / Reminders
 
-PicoClaw supports scheduled reminders and recurring tasks through the `cron` tool:
+KakoClaw supports scheduled reminders and recurring tasks through the `cron` tool:
 
 - **One-time reminders**: "Remind me in 10 minutes" → triggers once after 10min
 - **Recurring tasks**: "Remind me every 2 hours" → triggers every 2 hours
 - **Cron expressions**: "Remind me at 9am daily" → uses cron expression
 
-Jobs are stored in `~/.picoclaw/workspace/cron/` and processed automatically.
+Jobs are stored in `~/.KakoClaw/workspace/cron/` and processed automatically.
 
 ## 🤝 Contribute & Roadmap
 
 PRs welcome! The codebase is intentionally small and readable. 🤗
 
-discord:  <https://discord.gg/V4sAZ9XWpN>
+discord: <https://discord.gg/V4sAZ9XWpN>
 
-<img src="assets/wechat.png" alt="PicoClaw" width="512">
+<img src="assets/wechat.png" alt="KakoClaw" width="512">
 
 ## 🐛 Troubleshooting
 
 ### Web search says "API 配置问题"
 
-This is normal if you haven't configured a search API key yet. PicoClaw will provide helpful links for manual searching.
+This is normal if you haven't configured a search API key yet. KakoClaw will provide helpful links for manual searching.
 
 To enable web search:
 
 1. Get a free API key at [https://brave.com/search/api](https://brave.com/search/api) (2000 free queries/month)
-2. Add to `~/.picoclaw/config.json`:
+2. Add to `~/.KakoClaw/config.json`:
 
    ```json
    {
@@ -573,15 +576,15 @@ Some providers (like Zhipu) have content filtering. Try rephrasing your query or
 
 ### Telegram bot says "Conflict: terminated by other getUpdates"
 
-This happens when another instance of the bot is running. Make sure only one `picoclaw gateway` is running at a time.
+This happens when another instance of the bot is running. Make sure only one `KakoClaw gateway` is running at a time.
 
 ---
 
 ## 📝 API Key Comparison
 
-| Service | Free Tier | Use Case |
-|---------|-----------|-----------|
-| **OpenRouter** | 200K tokens/month | Multiple models (Claude, GPT-4, etc.) |
-| **Zhipu** | 200K tokens/month | Best for Chinese users |
-| **Brave Search** | 2000 queries/month | Web search functionality |
-| **Groq** | Free tier available | Fast inference (Llama, Mixtral) |
+| Service          | Free Tier           | Use Case                              |
+| ---------------- | ------------------- | ------------------------------------- |
+| **OpenRouter**   | 200K tokens/month   | Multiple models (Claude, GPT-4, etc.) |
+| **Zhipu**        | 200K tokens/month   | Best for Chinese users                |
+| **Brave Search** | 2000 queries/month  | Web search functionality              |
+| **Groq**         | Free tier available | Fast inference (Llama, Mixtral)       |

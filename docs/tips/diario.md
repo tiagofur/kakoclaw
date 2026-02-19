@@ -1,5 +1,5 @@
 [10:26 a.m., 18/2/2026] +55 11 97303-2908: posso dar uma dica Tiago?
-Faz uma conta de e-mail para ao seu picoclaw, openclaw, o que for.
+Faz uma conta de e-mail para ao seu KakoClaw, openclaw, o que for.
 Nessa conta de e-mail, pode ser qualquer provedor, você faz uma conta no NOTION, gratuita
 Dá à ele acesso a API do notion na sua própria conta
 E faz ele escrever tudo no notion as tarefas dele

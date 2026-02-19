@@ -1,90 +1,90 @@
 <template>
-  <div class="h-full flex flex-col bg-picoclaw-bg">
+  <div class="h-full flex flex-col bg-kakoclaw-bg">
     <!-- Header -->
-    <div class="flex-none p-4 border-b border-picoclaw-border bg-picoclaw-surface flex items-center justify-between">
+    <div class="flex-none p-4 border-b border-kakoclaw-border bg-kakoclaw-surface flex items-center justify-between">
       <div>
-        <h2 class="text-xl font-bold bg-gradient-to-r from-picoclaw-accent to-purple-500 bg-clip-text text-transparent">Knowledge Base</h2>
-        <p class="text-sm text-picoclaw-text-secondary mt-1">Upload documents to give the AI context for better answers</p>
+        <h2 class="text-xl font-bold bg-gradient-to-r from-kakoclaw-accent to-purple-500 bg-clip-text text-transparent">Knowledge Base</h2>
+        <p class="text-sm text-kakoclaw-text-secondary mt-1">Upload documents to give the AI context for better answers</p>
       </div>
       <div class="flex items-center gap-2">
-        <span class="text-sm text-picoclaw-text-secondary">{{ documents.length }} document{{ documents.length !== 1 ? 's' : '' }}</span>
+        <span class="text-sm text-kakoclaw-text-secondary">{{ documents.length }} document{{ documents.length !== 1 ? 's' : '' }}</span>
       </div>
     </div>
 
     <!-- Content -->
     <div class="flex-1 overflow-auto p-6 custom-scrollbar">
       <div v-if="loading" class="flex items-center justify-center py-12">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-picoclaw-accent"></div>
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-kakoclaw-accent"></div>
       </div>
 
       <template v-else>
         <!-- Upload Area -->
         <div
           class="border-2 border-dashed rounded-xl p-8 text-center transition-colors mb-6 cursor-pointer"
-          :class="dragOver ? 'border-picoclaw-accent bg-picoclaw-accent/5' : 'border-picoclaw-border hover:border-picoclaw-accent/50'"
+          :class="dragOver ? 'border-kakoclaw-accent bg-kakoclaw-accent/5' : 'border-kakoclaw-border hover:border-kakoclaw-accent/50'"
           @dragover.prevent="dragOver = true"
           @dragleave.prevent="dragOver = false"
           @drop.prevent="handleDrop"
           @click="$refs.fileInput.click()"
         >
           <input ref="fileInput" type="file" class="hidden" accept=".txt,.md,.pdf,.json,.csv,.html,.xml,.yaml,.yml,.log" multiple @change="handleFileSelect" />
-          <svg class="w-10 h-10 mx-auto text-picoclaw-text-secondary mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-10 h-10 mx-auto text-kakoclaw-text-secondary mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
           </svg>
-          <p class="text-picoclaw-text-secondary">
-            <span v-if="uploading" class="text-picoclaw-accent">Uploading...</span>
-            <span v-else>Drop files here or <span class="text-picoclaw-accent font-medium">click to browse</span></span>
+          <p class="text-kakoclaw-text-secondary">
+            <span v-if="uploading" class="text-kakoclaw-accent">Uploading...</span>
+            <span v-else>Drop files here or <span class="text-kakoclaw-accent font-medium">click to browse</span></span>
           </p>
-          <p class="text-xs text-picoclaw-text-secondary mt-1">Supports TXT, MD, PDF, JSON, CSV, HTML, XML, YAML, LOG</p>
+          <p class="text-xs text-kakoclaw-text-secondary mt-1">Supports TXT, MD, PDF, JSON, CSV, HTML, XML, YAML, LOG</p>
         </div>
 
         <!-- Search -->
         <div class="mb-6">
           <div class="flex gap-2">
             <div class="flex-1 relative">
-              <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-picoclaw-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-kakoclaw-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
               <input
                 v-model="searchQuery"
                 type="text"
                 placeholder="Search knowledge base..."
-                class="w-full pl-10 pr-4 py-2.5 bg-picoclaw-surface border border-picoclaw-border rounded-lg text-sm focus:outline-none focus:border-picoclaw-accent transition-colors"
+                class="w-full pl-10 pr-4 py-2.5 bg-kakoclaw-surface border border-kakoclaw-border rounded-lg text-sm focus:outline-none focus:border-kakoclaw-accent transition-colors"
                 @keyup.enter="runSearch"
               />
             </div>
             <button
               @click="runSearch"
               :disabled="!searchQuery.trim()"
-              class="px-4 py-2.5 bg-picoclaw-accent text-white rounded-lg text-sm font-medium hover:bg-picoclaw-accent/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              class="px-4 py-2.5 bg-kakoclaw-accent text-white rounded-lg text-sm font-medium hover:bg-kakoclaw-accent/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >Search</button>
           </div>
 
           <!-- Search Results -->
           <div v-if="searchResults.length > 0" class="mt-4 space-y-3">
-            <h3 class="text-sm font-semibold text-picoclaw-text-secondary">Search Results ({{ searchResults.length }})</h3>
+            <h3 class="text-sm font-semibold text-kakoclaw-text-secondary">Search Results ({{ searchResults.length }})</h3>
             <div
               v-for="(result, idx) in searchResults"
               :key="idx"
-              class="bg-picoclaw-surface border border-picoclaw-border rounded-lg p-4"
+              class="bg-kakoclaw-surface border border-kakoclaw-border rounded-lg p-4"
             >
               <div class="flex items-center gap-2 mb-2">
-                <span class="text-xs font-medium text-picoclaw-accent">{{ result.document_name }}</span>
-                <span class="text-xs text-picoclaw-text-secondary">chunk #{{ result.position }}</span>
-                <span class="text-xs text-picoclaw-text-secondary ml-auto">score: {{ result.rank?.toFixed(2) }}</span>
+                <span class="text-xs font-medium text-kakoclaw-accent">{{ result.document_name }}</span>
+                <span class="text-xs text-kakoclaw-text-secondary">chunk #{{ result.position }}</span>
+                <span class="text-xs text-kakoclaw-text-secondary ml-auto">score: {{ result.rank?.toFixed(2) }}</span>
               </div>
-              <p class="text-sm text-picoclaw-text whitespace-pre-wrap line-clamp-4">{{ result.content }}</p>
+              <p class="text-sm text-kakoclaw-text whitespace-pre-wrap line-clamp-4">{{ result.content }}</p>
             </div>
           </div>
-          <div v-else-if="searchPerformed && searchResults.length === 0" class="mt-4 text-center py-4 text-picoclaw-text-secondary text-sm">
+          <div v-else-if="searchPerformed && searchResults.length === 0" class="mt-4 text-center py-4 text-kakoclaw-text-secondary text-sm">
             No results found for "{{ lastSearchQuery }}"
           </div>
         </div>
 
         <!-- Documents List -->
         <div>
-          <h3 class="text-sm font-semibold text-picoclaw-text-secondary mb-3">Documents</h3>
-          <div v-if="documents.length === 0" class="text-center py-12 text-picoclaw-text-secondary">
+          <h3 class="text-sm font-semibold text-kakoclaw-text-secondary mb-3">Documents</h3>
+          <div v-if="documents.length === 0" class="text-center py-12 text-kakoclaw-text-secondary">
             <svg class="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
             </svg>
@@ -95,20 +95,20 @@
             <div
               v-for="doc in documents"
               :key="doc.id"
-              class="bg-picoclaw-surface border border-picoclaw-border rounded-xl p-5 hover:border-picoclaw-accent/50 transition-colors"
+              class="bg-kakoclaw-surface border border-kakoclaw-border rounded-xl p-5 hover:border-kakoclaw-accent/50 transition-colors"
             >
               <div class="flex items-start justify-between">
                 <div class="flex-1 min-w-0">
                   <h4 class="font-semibold truncate" :title="doc.name">{{ doc.name }}</h4>
-                  <div class="flex flex-wrap gap-2 mt-2 text-xs text-picoclaw-text-secondary">
-                    <span class="px-2 py-0.5 bg-picoclaw-bg rounded-full">{{ doc.mime_type || 'text/plain' }}</span>
-                    <span class="px-2 py-0.5 bg-picoclaw-bg rounded-full">{{ formatSize(doc.size) }}</span>
-                    <span class="px-2 py-0.5 bg-picoclaw-bg rounded-full">{{ doc.chunk_count }} chunk{{ doc.chunk_count !== 1 ? 's' : '' }}</span>
+                  <div class="flex flex-wrap gap-2 mt-2 text-xs text-kakoclaw-text-secondary">
+                    <span class="px-2 py-0.5 bg-kakoclaw-bg rounded-full">{{ doc.mime_type || 'text/plain' }}</span>
+                    <span class="px-2 py-0.5 bg-kakoclaw-bg rounded-full">{{ formatSize(doc.size) }}</span>
+                    <span class="px-2 py-0.5 bg-kakoclaw-bg rounded-full">{{ doc.chunk_count }} chunk{{ doc.chunk_count !== 1 ? 's' : '' }}</span>
                   </div>
                 </div>
               </div>
               <div class="flex items-center justify-between mt-4">
-                <span class="text-xs text-picoclaw-text-secondary">{{ formatDate(doc.created_at) }}</span>
+                <span class="text-xs text-kakoclaw-text-secondary">{{ formatDate(doc.created_at) }}</span>
                 <button
                   @click="deleteDoc(doc.id, doc.name)"
                   :disabled="deleting === doc.id"

@@ -23,7 +23,7 @@ Pop-Location
 # 2. Build Backend
 Write-Host "2. Building Backend (Go)..." -ForegroundColor Cyan
 try {
-    go build -o picoclaw.exe ./cmd/picoclaw
+    go build -o kakoclaw.exe ./cmd/kakoclaw
     if ($LASTEXITCODE -ne 0) { throw "go build failed" }
 }
 catch {
@@ -31,4 +31,4 @@ catch {
     exit 1
 }
 
-Write-Host "Build Complete! Binary is at .\picoclaw.exe" -ForegroundColor Green
+Write-Host "Build Complete! Binary is at .\kakoclaw.exe" -ForegroundColor Green

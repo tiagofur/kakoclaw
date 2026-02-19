@@ -7,9 +7,9 @@ import (
 	"net"
 	"sync"
 
-	"github.com/sipeed/picoclaw/pkg/bus"
-	"github.com/sipeed/picoclaw/pkg/config"
-	"github.com/sipeed/picoclaw/pkg/logger"
+	"github.com/sipeed/kakoclaw/pkg/bus"
+	"github.com/sipeed/kakoclaw/pkg/config"
+	"github.com/sipeed/kakoclaw/pkg/logger"
 )
 
 type MaixCamChannel struct {

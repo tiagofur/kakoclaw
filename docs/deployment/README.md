@@ -1,6 +1,6 @@
 # Despliegue
 
-Guías para desplegar PicoClaw en diferentes entornos.
+Guías para desplegar KakoClaw en diferentes entornos.
 
 ## Entornos
 

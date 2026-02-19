@@ -1,8 +1,8 @@
-// PicoClaw - Ultra-lightweight personal AI agent
+// KakoClaw - Ultra-lightweight personal AI agent
 // Inspired by and based on nanobot: https://github.com/HKUDS/nanobot
 // License: MIT
 //
-// Copyright (c) 2026 PicoClaw contributors
+// Copyright (c) 2026 KakoClaw contributors
 
 package main
 
@@ -19,24 +19,24 @@ import (
 	"time"
 
 	"github.com/chzyer/readline"
-	"github.com/sipeed/picoclaw/pkg/agent"
-	"github.com/sipeed/picoclaw/pkg/auth"
-	"github.com/sipeed/picoclaw/pkg/bus"
-	"github.com/sipeed/picoclaw/pkg/channels"
-	"github.com/sipeed/picoclaw/pkg/config"
-	"github.com/sipeed/picoclaw/pkg/cron"
-	"github.com/sipeed/picoclaw/pkg/doctor"
-	"github.com/sipeed/picoclaw/pkg/heartbeat"
-	"github.com/sipeed/picoclaw/pkg/logger"
-	"github.com/sipeed/picoclaw/pkg/mcp"
-	"github.com/sipeed/picoclaw/pkg/migrate"
-	"github.com/sipeed/picoclaw/pkg/providers"
-	"github.com/sipeed/picoclaw/pkg/skills"
-	"github.com/sipeed/picoclaw/pkg/storage"
-	"github.com/sipeed/picoclaw/pkg/tools"
-	"github.com/sipeed/picoclaw/pkg/voice"
-	"github.com/sipeed/picoclaw/pkg/web"
-	"github.com/sipeed/picoclaw/pkg/workflow"
+	"github.com/sipeed/kakoclaw/pkg/agent"
+	"github.com/sipeed/kakoclaw/pkg/auth"
+	"github.com/sipeed/kakoclaw/pkg/bus"
+	"github.com/sipeed/kakoclaw/pkg/channels"
+	"github.com/sipeed/kakoclaw/pkg/config"
+	"github.com/sipeed/kakoclaw/pkg/cron"
+	"github.com/sipeed/kakoclaw/pkg/doctor"
+	"github.com/sipeed/kakoclaw/pkg/heartbeat"
+	"github.com/sipeed/kakoclaw/pkg/logger"
+	"github.com/sipeed/kakoclaw/pkg/mcp"
+	"github.com/sipeed/kakoclaw/pkg/migrate"
+	"github.com/sipeed/kakoclaw/pkg/providers"
+	"github.com/sipeed/kakoclaw/pkg/skills"
+	"github.com/sipeed/kakoclaw/pkg/storage"
+	"github.com/sipeed/kakoclaw/pkg/tools"
+	"github.com/sipeed/kakoclaw/pkg/voice"
+	"github.com/sipeed/kakoclaw/pkg/web"
+	"github.com/sipeed/kakoclaw/pkg/workflow"
 )
 
 var (
@@ -45,10 +45,10 @@ var (
 	goVersion string
 )
 
-const logo = "🦞"
+const logo = "🐸"
 
 func printVersion() {
-	fmt.Printf("%s picoclaw v%s\n", logo, version)
+	fmt.Printf("%s KakoClaw v%s\n", logo, version)
 	if buildTime != "" {
 		fmt.Printf("  Build: %s\n", buildTime)
 	}
@@ -141,7 +141,7 @@ func main() {
 		// 获取全局配置目录和内置 skills 目录
 		globalDir := filepath.Dir(getConfigPath())
 		globalSkillsDir := filepath.Join(globalDir, "skills")
-		builtinSkillsDir := filepath.Join(globalDir, "picoclaw", "skills")
+		builtinSkillsDir := filepath.Join(globalDir, "KakoClaw", "skills")
 		skillsLoader := skills.NewSkillsLoader(workspace, globalSkillsDir, builtinSkillsDir)
 
 		switch subcommand {
@@ -151,7 +151,7 @@ func main() {
 			skillsInstallCmd(installer)
 		case "remove", "uninstall":
 			if len(os.Args) < 4 {
-				fmt.Println("Usage: picoclaw skills remove <skill-name>")
+				fmt.Println("Usage: KakoClaw skills remove <skill-name>")
 				return
 			}
 			skillsRemoveCmd(installer, os.Args[3])
@@ -163,7 +163,7 @@ func main() {
 			skillsSearchCmd(installer)
 		case "show":
 			if len(os.Args) < 4 {
-				fmt.Println("Usage: picoclaw skills show <skill-name>")
+				fmt.Println("Usage: KakoClaw skills show <skill-name>")
 				return
 			}
 			skillsShowCmd(skillsLoader, os.Args[3])
@@ -181,19 +181,19 @@ func main() {
 }
 
 func printHelp() {
-	fmt.Printf("%s picoclaw - Personal AI Assistant v%s\n\n", logo, version)
-	fmt.Println("Usage: picoclaw <command>")
+	fmt.Printf("%s KakoClaw - Personal AI Assistant v%s\n\n", logo, version)
+	fmt.Println("Usage: KakoClaw <command>")
 	fmt.Println()
 	fmt.Println("Commands:")
-	fmt.Println("  onboard     Initialize picoclaw configuration and workspace")
+	fmt.Println("  onboard     Initialize KakoClaw configuration and workspace")
 	fmt.Println("  agent       Interact with the agent directly")
 	fmt.Println("  auth        Manage authentication (login, logout, status)")
 	fmt.Println("  doctor      Run health checks and diagnostics")
-	fmt.Println("  gateway     Start picoclaw gateway")
+	fmt.Println("  gateway     Start KakoClaw gateway")
 	fmt.Println("  web         Start web panel only")
-	fmt.Println("  status      Show picoclaw status")
+	fmt.Println("  status      Show KakoClaw status")
 	fmt.Println("  cron        Manage scheduled tasks")
-	fmt.Println("  migrate     Migrate from OpenClaw to PicoClaw")
+	fmt.Println("  migrate     Migrate from OpenClaw to KakoClaw")
 	fmt.Println("  skills      Manage skills (install, list, remove)")
 	fmt.Println("  version     Show version information")
 }
@@ -225,11 +225,11 @@ func onboard() {
 
 	createWorkspaceTemplates(workspace)
 
-	fmt.Printf("%s picoclaw is ready!\n", logo)
+	fmt.Printf("%s KakoClaw is ready!\n", logo)
 	fmt.Println("\nNext steps:")
 	fmt.Println("  1. Add your API key to", configPath)
 	fmt.Println("     Get one at: https://openrouter.ai/keys")
-	fmt.Println("  2. Chat: picoclaw agent -m \"Hello!\"")
+	fmt.Println("  2. Chat: KakoClaw agent -m \"Hello!\"")
 }
 
 func createWorkspaceTemplates(workspace string) {
@@ -249,7 +249,7 @@ You are a helpful AI assistant. Be concise, accurate, and friendly.
 `,
 		"SOUL.md": `# Soul
 
-I am picoclaw, a lightweight AI assistant powered by AI.
+I am KakoClaw, a lightweight AI assistant powered by AI.
 
 ## Personality
 
@@ -290,10 +290,10 @@ Information about user goes here.
 		"IDENTITY.md": `# Identity
 
 ## Name
-PicoClaw 🦞
+KakoClaw 🐸
 
 ## Description
-Ultra-lightweight personal AI assistant written in Go, inspired by nanobot.
+Ultra-lightweight personal AI assistant written in Go, based on and inspired by [PicoClaw](https://github.com/sipeed/picoclaw).
 
 ## Version
 0.1.0
@@ -333,16 +333,16 @@ Ultra-lightweight personal AI assistant written in Go, inspired by nanobot.
 MIT License - Free and open source
 
 ## Repository
-https://github.com/sipeed/picoclaw
+https://github.com/sipeed/kakoclaw
 
 ## Contact
-Issues: https://github.com/sipeed/picoclaw/issues
-Discussions: https://github.com/sipeed/picoclaw/discussions
+Issues: https://github.com/sipeed/kakoclaw/issues
+Discussions: https://github.com/sipeed/kakoclaw/discussions
 
 ---
 
 "Every bit helps, every bit matters."
-- Picoclaw
+- KakoClaw (Inspired by PicoClaw)
 `,
 	}
 
@@ -425,9 +425,9 @@ func migrateCmd() {
 				opts.OpenClawHome = args[i+1]
 				i++
 			}
-		case "--picoclaw-home":
+		case "--KakoClaw-home":
 			if i+1 < len(args) {
-				opts.PicoClawHome = args[i+1]
+				opts.KakoclawHome = args[i+1]
 				i++
 			}
 		default:
@@ -449,9 +449,9 @@ func migrateCmd() {
 }
 
 func migrateHelp() {
-	fmt.Println("\nMigrate from OpenClaw to PicoClaw")
+	fmt.Println("\nMigrate from OpenClaw to KakoClaw")
 	fmt.Println()
-	fmt.Println("Usage: picoclaw migrate [options]")
+	fmt.Println("Usage: KakoClaw migrate [options]")
 	fmt.Println()
 	fmt.Println("Options:")
 	fmt.Println("  --dry-run          Show what would be migrated without making changes")
@@ -460,13 +460,13 @@ func migrateHelp() {
 	fmt.Println("  --workspace-only   Only migrate workspace files, skip config")
 	fmt.Println("  --force            Skip confirmation prompts")
 	fmt.Println("  --openclaw-home    Override OpenClaw home directory (default: ~/.openclaw)")
-	fmt.Println("  --picoclaw-home    Override PicoClaw home directory (default: ~/.picoclaw)")
+	fmt.Println("  --KakoClaw-home    Override KakoClaw home directory (default: ~/.KakoClaw)")
 	fmt.Println()
 	fmt.Println("Examples:")
-	fmt.Println("  picoclaw migrate              Detect and migrate from OpenClaw")
-	fmt.Println("  picoclaw migrate --dry-run    Show what would be migrated")
-	fmt.Println("  picoclaw migrate --refresh    Re-sync workspace files")
-	fmt.Println("  picoclaw migrate --force      Migrate without confirmation")
+	fmt.Println("  KakoClaw migrate              Detect and migrate from OpenClaw")
+	fmt.Println("  KakoClaw migrate --dry-run    Show what would be migrated")
+	fmt.Println("  KakoClaw migrate --refresh    Re-sync workspace files")
+	fmt.Println("  KakoClaw migrate --force      Migrate without confirmation")
 }
 
 func agentCmd() {
@@ -535,7 +535,7 @@ func interactiveMode(agentLoop *agent.AgentLoop, sessionKey string) {
 
 	rl, err := readline.NewEx(&readline.Config{
 		Prompt:          prompt,
-		HistoryFile:     filepath.Join(os.TempDir(), ".picoclaw_history"),
+		HistoryFile:     filepath.Join(os.TempDir(), ".KAKOCLAW_history"),
 		HistoryLimit:    100,
 		InterruptPrompt: "^C",
 		EOFPrompt:       "exit",
@@ -772,7 +772,7 @@ func gatewayCmd() {
 		home, _ := os.UserHomeDir()
 		skillsLoader := skills.NewSkillsLoader(
 			cfg.WorkspacePath(),
-			filepath.Join(home, ".picoclaw", "skills"),
+			filepath.Join(home, ".KakoClaw", "skills"),
 			"",
 		)
 		skillInstaller := skills.NewSkillInstaller(cfg.WorkspacePath())
@@ -869,7 +869,7 @@ func webCmd() {
 	homeWeb, _ := os.UserHomeDir()
 	skillsLoaderWeb := skills.NewSkillsLoader(
 		cfg.WorkspacePath(),
-		filepath.Join(homeWeb, ".picoclaw", "skills"),
+		filepath.Join(homeWeb, ".KakoClaw", "skills"),
 		"",
 	)
 	skillInstallerWeb := skills.NewSkillInstaller(cfg.WorkspacePath())
@@ -942,7 +942,7 @@ func statusCmd() {
 
 	configPath := getConfigPath()
 
-	fmt.Printf("%s picoclaw Status\n\n", logo)
+	fmt.Printf("%s KakoClaw Status\n\n", logo)
 
 	if _, err := os.Stat(configPath); err == nil {
 		fmt.Println("Config:", configPath, "✓")
@@ -1010,7 +1010,7 @@ func statusCmd() {
 func doctorCmd() {
 	configPath := getConfigPath()
 
-	fmt.Printf("%s PicoClaw Doctor\n", logo)
+	fmt.Printf("%s KakoClaw Doctor\n", logo)
 	fmt.Println("==================")
 	fmt.Println()
 
@@ -1052,11 +1052,11 @@ func authHelp() {
 	fmt.Println("  --device-code        Use device code flow (for headless environments)")
 	fmt.Println()
 	fmt.Println("Examples:")
-	fmt.Println("  picoclaw auth login --provider openai")
-	fmt.Println("  picoclaw auth login --provider openai --device-code")
-	fmt.Println("  picoclaw auth login --provider anthropic")
-	fmt.Println("  picoclaw auth logout --provider openai")
-	fmt.Println("  picoclaw auth status")
+	fmt.Println("  KakoClaw auth login --provider openai")
+	fmt.Println("  KakoClaw auth login --provider openai --device-code")
+	fmt.Println("  KakoClaw auth login --provider anthropic")
+	fmt.Println("  KakoClaw auth logout --provider openai")
+	fmt.Println("  KakoClaw auth status")
 }
 
 func authLoginCmd() {
@@ -1215,7 +1215,7 @@ func authStatusCmd() {
 
 	if len(store.Credentials) == 0 {
 		fmt.Println("No authenticated providers.")
-		fmt.Println("Run: picoclaw auth login --provider <name>")
+		fmt.Println("Run: KakoClaw auth login --provider <name>")
 		return
 	}
 
@@ -1243,7 +1243,7 @@ func authStatusCmd() {
 
 func getConfigPath() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".picoclaw", "config.json")
+	return filepath.Join(home, ".KakoClaw", "config.json")
 }
 
 func setupCronTool(agentLoop *agent.AgentLoop, msgBus *bus.MessageBus, workspace string) *cron.CronService {
@@ -1359,7 +1359,7 @@ func cronCmd() {
 		cronAddCmd(cronStorePath)
 	case "remove":
 		if len(os.Args) < 4 {
-			fmt.Println("Usage: picoclaw cron remove <job_id>")
+			fmt.Println("Usage: KakoClaw cron remove <job_id>")
 			return
 		}
 		cronRemoveCmd(cronStorePath, os.Args[3])
@@ -1529,7 +1529,7 @@ func cronRemoveCmd(storePath, jobID string) {
 
 func cronEnableCmd(storePath string, disable bool) {
 	if len(os.Args) < 4 {
-		fmt.Println("Usage: picoclaw cron enable/disable <job_id>")
+		fmt.Println("Usage: KakoClaw cron enable/disable <job_id>")
 		return
 	}
 
@@ -1568,7 +1568,7 @@ func skillsCmd() {
 	// 获取全局配置目录和内置 skills 目录
 	globalDir := filepath.Dir(getConfigPath())
 	globalSkillsDir := filepath.Join(globalDir, "skills")
-	builtinSkillsDir := filepath.Join(globalDir, "picoclaw", "skills")
+	builtinSkillsDir := filepath.Join(globalDir, "KakoClaw", "skills")
 	skillsLoader := skills.NewSkillsLoader(workspace, globalSkillsDir, builtinSkillsDir)
 
 	switch subcommand {
@@ -1578,7 +1578,7 @@ func skillsCmd() {
 		skillsInstallCmd(installer)
 	case "remove", "uninstall":
 		if len(os.Args) < 4 {
-			fmt.Println("Usage: picoclaw skills remove <skill-name>")
+			fmt.Println("Usage: KakoClaw skills remove <skill-name>")
 			return
 		}
 		skillsRemoveCmd(installer, os.Args[3])
@@ -1586,7 +1586,7 @@ func skillsCmd() {
 		skillsSearchCmd(installer)
 	case "show":
 		if len(os.Args) < 4 {
-			fmt.Println("Usage: picoclaw skills show <skill-name>")
+			fmt.Println("Usage: KakoClaw skills show <skill-name>")
 			return
 		}
 		skillsShowCmd(skillsLoader, os.Args[3])
@@ -1607,11 +1607,11 @@ func skillsHelp() {
 	fmt.Println("  show <name>             Show skill details")
 	fmt.Println()
 	fmt.Println("Examples:")
-	fmt.Println("  picoclaw skills list")
-	fmt.Println("  picoclaw skills install sipeed/picoclaw-skills/weather")
-	fmt.Println("  picoclaw skills install-builtin")
-	fmt.Println("  picoclaw skills list-builtin")
-	fmt.Println("  picoclaw skills remove weather")
+	fmt.Println("  KakoClaw skills list")
+	fmt.Println("  KakoClaw skills install sipeed/KakoClaw-skills/weather")
+	fmt.Println("  KakoClaw skills install-builtin")
+	fmt.Println("  KakoClaw skills list-builtin")
+	fmt.Println("  KakoClaw skills remove weather")
 }
 
 func skillsListCmd(loader *skills.SkillsLoader) {
@@ -1634,8 +1634,8 @@ func skillsListCmd(loader *skills.SkillsLoader) {
 
 func skillsInstallCmd(installer *skills.SkillInstaller) {
 	if len(os.Args) < 4 {
-		fmt.Println("Usage: picoclaw skills install <github-repo>")
-		fmt.Println("Example: picoclaw skills install sipeed/picoclaw-skills/weather")
+		fmt.Println("Usage: KakoClaw skills install <github-repo>")
+		fmt.Println("Example: KakoClaw skills install sipeed/KakoClaw-skills/weather")
 		return
 	}
 
@@ -1665,7 +1665,7 @@ func skillsRemoveCmd(installer *skills.SkillInstaller, skillName string) {
 }
 
 func skillsInstallBuiltinCmd(workspace string) {
-	builtinSkillsDir := "./picoclaw/skills"
+	builtinSkillsDir := "./KakoClaw/skills"
 	workspaceSkillsDir := filepath.Join(workspace, "skills")
 
 	fmt.Printf("Copying builtin skills to workspace...\n")
@@ -1706,7 +1706,7 @@ func skillsListBuiltinCmd() {
 		fmt.Printf("Error loading config: %v\n", err)
 		return
 	}
-	builtinSkillsDir := filepath.Join(filepath.Dir(cfg.WorkspacePath()), "picoclaw", "skills")
+	builtinSkillsDir := filepath.Join(filepath.Dir(cfg.WorkspacePath()), "KakoClaw", "skills")
 
 	fmt.Println("\nAvailable Builtin Skills:")
 	fmt.Println("-----------------------")

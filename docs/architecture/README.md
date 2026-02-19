@@ -1,6 +1,6 @@
 # Arquitectura
 
-Documentación técnica sobre la arquitectura y diseño interno de PicoClaw.
+Documentación técnica sobre la arquitectura y diseño interno de KakoClaw.
 
 ## Archivos
 

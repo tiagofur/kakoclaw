@@ -7,8 +7,8 @@ import (
 	"net/smtp"
 	"strings"
 
-	"github.com/sipeed/picoclaw/pkg/config"
-	"github.com/sipeed/picoclaw/pkg/logger"
+	"github.com/sipeed/kakoclaw/pkg/config"
+	"github.com/sipeed/kakoclaw/pkg/logger"
 )
 
 type EmailTool struct {

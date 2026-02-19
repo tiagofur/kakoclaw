@@ -16,12 +16,12 @@ if ('serviceWorker' in navigator) {
   import('virtual:pwa-register').then(({ registerSW }) => {
     const updateSW = registerSW({
       onNeedRefresh() {
-        if (confirm('A new version of PicoClaw is available. Reload to update?')) {
+        if (confirm('A new version of KakoClaw is available. Reload to update?')) {
           updateSW(true)
         }
       },
       onOfflineReady() {
-        console.log('PicoClaw is ready to work offline')
+        console.log('KakoClaw is ready to work offline')
       },
       onRegisteredSW(swUrl, registration) {
         // Check for updates every 60 minutes

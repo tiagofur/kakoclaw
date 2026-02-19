@@ -1,13 +1,13 @@
 <template>
   <Teleport to="body">
     <div class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div class="bg-picoclaw-surface border border-picoclaw-border rounded-lg max-w-md w-full shadow-lg">
+      <div class="bg-kakoclaw-surface border border-kakoclaw-border rounded-lg max-w-md w-full shadow-lg">
         <!-- Header -->
-        <div class="flex items-center justify-between p-4 border-b border-picoclaw-border">
+        <div class="flex items-center justify-between p-4 border-b border-kakoclaw-border">
           <h3 class="text-lg font-semibold">Change Password</h3>
           <button
             @click="$emit('close')"
-            class="p-1 hover:bg-picoclaw-border rounded transition-smooth"
+            class="p-1 hover:bg-kakoclaw-border rounded transition-smooth"
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -27,7 +27,7 @@
               id="current"
               type="password"
               placeholder="Enter current password"
-              class="w-full px-3 py-2 bg-picoclaw-bg border border-picoclaw-border rounded focus-ring text-sm"
+              class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded focus-ring text-sm"
               required
               :disabled="isLoading"
             />
@@ -43,12 +43,12 @@
               id="new"
               type="password"
               placeholder="Enter new password (min 10 chars)"
-              class="w-full px-3 py-2 bg-picoclaw-bg border border-picoclaw-border rounded focus-ring text-sm"
+              class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded focus-ring text-sm"
               required
               minlength="10"
               :disabled="isLoading"
             />
-            <p class="text-xs text-picoclaw-text-secondary mt-1">Minimum 10 characters</p>
+            <p class="text-xs text-kakoclaw-text-secondary mt-1">Minimum 10 characters</p>
           </div>
 
           <!-- Confirm Password -->
@@ -61,35 +61,35 @@
               id="confirm"
               type="password"
               placeholder="Confirm new password"
-              class="w-full px-3 py-2 bg-picoclaw-bg border border-picoclaw-border rounded focus-ring text-sm"
+              class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded focus-ring text-sm"
               required
               :disabled="isLoading"
             />
           </div>
 
           <!-- Error Message -->
-          <div v-if="errorMessage" class="p-3 bg-picoclaw-error/20 border border-picoclaw-error rounded text-picoclaw-error text-sm">
+          <div v-if="errorMessage" class="p-3 bg-kakoclaw-error/20 border border-kakoclaw-error rounded text-kakoclaw-error text-sm">
             {{ errorMessage }}
           </div>
 
           <!-- Success Message -->
-          <div v-if="successMessage" class="p-3 bg-picoclaw-success/20 border border-picoclaw-success rounded text-picoclaw-success text-sm">
+          <div v-if="successMessage" class="p-3 bg-kakoclaw-success/20 border border-kakoclaw-success rounded text-kakoclaw-success text-sm">
             {{ successMessage }}
           </div>
 
           <!-- Actions -->
-          <div class="flex gap-3 pt-4 border-t border-picoclaw-border">
+          <div class="flex gap-3 pt-4 border-t border-kakoclaw-border">
             <button
               type="button"
               @click="$emit('close')"
-              class="flex-1 px-3 py-2 border border-picoclaw-border rounded hover:bg-picoclaw-border transition-smooth"
+              class="flex-1 px-3 py-2 border border-kakoclaw-border rounded hover:bg-kakoclaw-border transition-smooth"
               :disabled="isLoading"
             >
               Cancel
             </button>
             <button
               type="submit"
-              class="flex-1 px-3 py-2 bg-picoclaw-accent hover:bg-picoclaw-accent-hover text-white rounded transition-smooth disabled:opacity-50"
+              class="flex-1 px-3 py-2 bg-kakoclaw-accent hover:bg-kakoclaw-accent-hover text-white rounded transition-smooth disabled:opacity-50"
               :disabled="isLoading"
             >
               {{ isLoading ? 'Updating...' : 'Update Password' }}
@@ -153,3 +153,6 @@ const handleChangePassword = async () => {
   }
 }
 </script>
+
+<style scoped>
+</style>

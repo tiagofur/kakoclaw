@@ -1,6 +1,6 @@
 # Ejemplos
 
-Ejemplos prácticos y casos de uso de PicoClaw.
+Ejemplos prácticos y casos de uso de KakoClaw.
 
 ## Archivos
 

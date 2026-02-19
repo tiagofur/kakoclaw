@@ -1,13 +1,13 @@
-# 📱 PicoClaw en Android (Termux)
+# 📱 KakoClaw en Android (Termux)
 
-¡PicoClaw funciona perfectamente en Android a través de Termux!
+¡KakoClaw funciona perfectamente en Android a través de Termux!
 
 ## ⚡ Instalación Rápida
 
 Copia y pega esto en Termux:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sipeed/picoclaw/main/scripts/install-termux.sh | bash
+curl -fsSL https://raw.githubusercontent.com/sipeed/KakoClaw/main/scripts/install-termux.sh | bash
 ```
 
 ## 📋 Requisitos
@@ -21,16 +21,16 @@ curl -fsSL https://raw.githubusercontent.com/sipeed/picoclaw/main/scripts/instal
 
 ```bash
 # Verificar instalación
-picoclaw version
+KakoClaw version
 
 # Modo interactivo
-picoclaw agent
+KakoClaw agent
 
 # Comando directo
-picoclaw agent -m "Hola desde Android"
+KakoClaw agent -m "Hola desde Android"
 
 # Ver estado
-picoclaw status
+KakoClaw status
 ```
 
 ## 🔧 Configuración Rápida
@@ -45,8 +45,8 @@ apk add ollama
 ollama serve &
 ollama pull llama3.2
 
-# Configurar PicoClaw
-# ~/.picoclaw/config.json:
+# Configurar KakoClaw
+# ~/.KakoClaw/config.json:
 {
   "agents": {
     "defaults": {
@@ -59,7 +59,7 @@ ollama pull llama3.2
 ### Opción 2: Con API Keys
 
 ```bash
-nano ~/.picoclaw/config.json
+nano ~/.KakoClaw/config.json
 ```
 
 ```json
@@ -91,9 +91,9 @@ Ver: [docs/deployment/termux-android.md](docs/deployment/termux-android.md)
 
 ## 🐛 Soporte
 
-- **Issues**: https://github.com/sipeed/picoclaw/issues
+- **Issues**: https://github.com/sipeed/KakoClaw/issues
 - **Discord**: https://discord.gg/V4sAZ9XWpN
 
 ---
 
-**¡Tu asistente de IA en el bolsillo! 🦞📱**
+**¡Tu asistente de IA en el bolsillo! 🐸📱**
