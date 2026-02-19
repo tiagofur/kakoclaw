@@ -36,7 +36,7 @@ RUN apt-get update \
 
 COPY --from=builder /out/kakoclaw /usr/local/bin/kakoclaw
 
-USER kakoclaw
+# USER kakoclaw
 ENV HOME=/home/kakoclaw
 
 EXPOSE 18880
