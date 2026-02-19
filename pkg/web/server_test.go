@@ -285,3 +285,122 @@ func TestIsAuthorizedAllowsJWTInWebSocketQuery(t *testing.T) {
 		t.Fatal("expected websocket query jwt to authorize")
 	}
 }
+
+// --- Chat session endpoints ---
+
+func TestHandleChatSessionsListEmpty(t *testing.T) {
+	s := newTestServer(t)
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/chat/sessions", nil)
+	s.handleChatSessions(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var out struct {
+		Sessions []interface{} `json:"sessions"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+}
+
+func TestHandleChatSessionsListWithData(t *testing.T) {
+	s := newTestServer(t)
+	_ = s.store.SaveMessage("web:sess1", "user", "hello")
+	_ = s.store.SaveMessage("web:sess1", "assistant", "hi")
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/chat/sessions", nil)
+	s.handleChatSessions(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "web:sess1") {
+		t.Fatalf("expected session in list, got: %s", rr.Body.String())
+	}
+}
+
+func TestHandleChatSessionsArchivedFilter(t *testing.T) {
+	s := newTestServer(t)
+	_ = s.store.SaveMessage("active:x", "user", "active")
+	_ = s.store.SaveMessage("archived:x", "user", "archived")
+	archivedTrue := true
+	_, _ = s.store.UpdateSession("archived:x", nil, &archivedTrue)
+
+	// Non-archived (default)
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/chat/sessions?archived=false", nil)
+	s.handleChatSessions(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	if strings.Contains(rr.Body.String(), "archived:x") {
+		t.Fatalf("archived session should not appear: %s", rr.Body.String())
+	}
+
+	// Archived only
+	rr2 := httptest.NewRecorder()
+	req2 := httptest.NewRequest(http.MethodGet, "/api/v1/chat/sessions?archived=true", nil)
+	s.handleChatSessions(rr2, req2)
+	if !strings.Contains(rr2.Body.String(), "archived:x") {
+		t.Fatalf("expected archived session: %s", rr2.Body.String())
+	}
+}
+
+func TestHandleChatSessionMessagesGet(t *testing.T) {
+	s := newTestServer(t)
+	_ = s.store.SaveMessage("msgs:test", "user", "hello msg")
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/chat/sessions/msgs:test", nil)
+	s.handleChatSessionMessages(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "hello msg") {
+		t.Fatalf("expected message content, got: %s", rr.Body.String())
+	}
+}
+
+func TestHandleChatSessionMessagesPatch(t *testing.T) {
+	s := newTestServer(t)
+	_ = s.store.SaveMessage("patch:test", "user", "msg")
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/chat/sessions/patch:test", strings.NewReader(`{"title":"My Title"}`))
+	s.handleChatSessionMessages(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "My Title") {
+		t.Fatalf("expected updated title, got: %s", rr.Body.String())
+	}
+}
+
+func TestHandleChatSessionMessagesDelete(t *testing.T) {
+	s := newTestServer(t)
+	_ = s.store.SaveMessage("del:test", "user", "bye")
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/chat/sessions/del:test", nil)
+	s.handleChatSessionMessages(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	// Verify deleted
+	msgs, _ := s.store.GetMessages("del:test")
+	if len(msgs) != 0 {
+		t.Fatalf("expected 0 messages after delete, got %d", len(msgs))
+	}
+}
+
+func TestHandleChatSessionMessagesNoID(t *testing.T) {
+	s := newTestServer(t)
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/chat/sessions/", nil)
+	s.handleChatSessionMessages(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rr.Code)
+	}
+}

@@ -247,8 +247,17 @@ func (s *Storage) ListSessions(archived *bool, limit, offset int) ([]SessionSumm
 	var sessions []SessionSummary
 	for rows.Next() {
 		var ss SessionSummary
-		if err := rows.Scan(&ss.SessionID, &ss.Title, &ss.Archived, &ss.LastMessage, &ss.UpdatedAt, &ss.MessageCount); err != nil {
+		var updatedAtStr string
+		if err := rows.Scan(&ss.SessionID, &ss.Title, &ss.Archived, &ss.LastMessage, &updatedAtStr, &ss.MessageCount); err != nil {
 			return nil, fmt.Errorf("scanning session: %w", err)
+		}
+		if updatedAtStr != "" {
+			for _, layout := range []string{time.RFC3339, "2006-01-02 15:04:05", time.RFC3339Nano, time.DateTime} {
+				if t, err := time.Parse(layout, updatedAtStr); err == nil {
+					ss.UpdatedAt = t
+					break
+				}
+			}
 		}
 		sessions = append(sessions, ss)
 	}
