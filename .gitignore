@@ -28,4 +28,6 @@ ralph/
 # Docker local files
 .env
 picoclaw-data/
+KakoClaw-data/
+KakoClaw-data/workspace/web/web-auth.json
 nul
