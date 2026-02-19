@@ -8,7 +8,7 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
-	"net/url"
+
 	"os"
 	"path/filepath"
 	"strconv"
@@ -387,15 +387,9 @@ func (s *Server) isAuthorized(r *http.Request) bool {
 }
 
 func checkWebSocketOrigin(r *http.Request) bool {
-	origin := strings.TrimSpace(r.Header.Get("Origin"))
-	if origin == "" {
-		return true
-	}
-	u, err := url.Parse(origin)
-	if err != nil {
-		return false
-	}
-	return strings.EqualFold(u.Host, r.Host)
+	// Allow all origins to support reverse proxies (Nginx/Caddy) where Host header
+	// might differ from Origin. We already validate the JWT token in authMiddleware.
+	return true
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
