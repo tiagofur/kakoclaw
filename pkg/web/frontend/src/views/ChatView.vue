@@ -422,7 +422,17 @@ const selectCommand = (cmd) => {
 const fetchSessions = async () => {
   try {
     const data = await taskService.fetchChatSessions()
-    sessions.value = data.sessions || []
+    // Explicitly filter out tasks: anything starting with 'task:' or containing ':task:'
+    sessions.value = (data.sessions || []).filter(s => {
+      const id = s.session_id || ''
+      return !id.startsWith('task:') && !id.includes(':task:')
+    })
+    
+    // If current session was a task and is now filtered out, reset view
+    const currentId = currentSessionId.value || ''
+    if (currentId && (currentId.startsWith('task:') || currentId.includes(':task:'))) {
+        startNewChat()
+    }
   } catch (error) {
     console.error('Failed to fetch sessions:', error)
   }

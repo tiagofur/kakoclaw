@@ -16,6 +16,7 @@ import (
 
 	"github.com/sipeed/picoclaw/pkg/config"
 	"github.com/sipeed/picoclaw/pkg/cron"
+	"github.com/sipeed/picoclaw/pkg/logger"
 	"github.com/sipeed/picoclaw/pkg/storage"
 )
 
@@ -452,6 +453,22 @@ func (s *Server) handleCronAction(w http.ResponseWriter, r *http.Request) {
 		}
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{"job": job})
 
+	case r.Method == http.MethodPost && strings.HasSuffix(path, "/run"):
+		jobID := strings.TrimSpace(strings.TrimSuffix(path, "/run"))
+		if jobID == "" {
+			http.Error(w, "job id required", http.StatusBadRequest)
+			return
+		}
+		if err := s.cronService.RunJob(jobID); err != nil {
+			statusCode := http.StatusInternalServerError
+			if strings.Contains(err.Error(), "not found") {
+				statusCode = http.StatusNotFound
+			}
+			http.Error(w, err.Error(), statusCode)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "triggered"})
+
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
@@ -488,9 +505,53 @@ func (s *Server) handleChannels(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	if r.Method != http.MethodGet {
+	if r.Method != http.MethodGet && r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
+	}
+
+	if r.Method == http.MethodPost {
+		var newConfig map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&newConfig); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		// Update channels config if present
+		if channels, ok := newConfig["channels"].(map[string]interface{}); ok {
+			updateChannelConfig(s.fullConfig, channels)
+			
+			// Persist config
+			configPath := filepath.Join(os.Getenv("HOME"), ".picoclaw", "config.json")
+			if path := os.Getenv("PICOCLAW_CONFIG_PATH"); path != "" {
+				configPath = path
+			}
+			// Special handling for Windows home dir if HOME not set or purely for robustness
+			if home, err := os.UserHomeDir(); err == nil && !strings.Contains(configPath, home) && strings.HasPrefix(configPath, "~") {
+                 configPath = strings.Replace(configPath, "~", home, 1)
+            }
+            
+            // Re-save using config package
+			if err := config.SaveConfig(configPath, s.fullConfig); err != nil {
+                // If it fails, maybe it's because we guessed the path wrong, try to rely on what Config might know or just log error
+                // Ideally main should pass the config path to server, but for now we try standard location
+				logger.ErrorCF("web", "Failed to save config", map[string]interface{}{"error": err.Error()})
+                http.Error(w, "failed to save config: "+err.Error(), http.StatusInternalServerError)
+                return
+			}
+
+			// Restart affected channels
+			if s.channelManager != nil {
+				ctx := context.Background()
+				for name := range channels {
+					if err := s.channelManager.RestartChannel(ctx, name); err != nil {
+						logger.ErrorCF("web", "Failed to restart channel", map[string]interface{}{"channel": name, "error": err.Error()})
+					}
+				}
+			}
+		}
+
+		// Return updated config (redacted)
 	}
 
 	if s.fullConfig == nil {
@@ -792,10 +853,12 @@ func redactChannels(cfg *config.Config) map[string]interface{} {
 		"telegram": map[string]interface{}{
 			"enabled":    cfg.Channels.Telegram.Enabled,
 			"configured": cfg.Channels.Telegram.Token != "",
+			"allow_from": strings.Join(cfg.Channels.Telegram.AllowFrom, ","),
 		},
 		"discord": map[string]interface{}{
 			"enabled":    cfg.Channels.Discord.Enabled,
 			"configured": cfg.Channels.Discord.Token != "",
+			"allow_from": strings.Join(cfg.Channels.Discord.AllowFrom, ","),
 		},
 		"slack": map[string]interface{}{
 			"enabled":    cfg.Channels.Slack.Enabled,
@@ -804,25 +867,32 @@ func redactChannels(cfg *config.Config) map[string]interface{} {
 		"whatsapp": map[string]interface{}{
 			"enabled":    cfg.Channels.WhatsApp.Enabled,
 			"configured": cfg.Channels.WhatsApp.BridgeURL != "",
+			"bridge_url": cfg.Channels.WhatsApp.BridgeURL,
 		},
 		"feishu": map[string]interface{}{
 			"enabled":    cfg.Channels.Feishu.Enabled,
 			"configured": cfg.Channels.Feishu.AppID != "",
+			"app_id":     cfg.Channels.Feishu.AppID,
 		},
 		"dingtalk": map[string]interface{}{
 			"enabled":    cfg.Channels.DingTalk.Enabled,
 			"configured": cfg.Channels.DingTalk.ClientID != "",
+			"client_id":  cfg.Channels.DingTalk.ClientID,
 		},
 		"qq": map[string]interface{}{
 			"enabled":    cfg.Channels.QQ.Enabled,
 			"configured": cfg.Channels.QQ.AppID != "",
+			"app_id":     cfg.Channels.QQ.AppID,
 		},
 		"maixcam": map[string]interface{}{
-			"enabled": cfg.Channels.MaixCam.Enabled,
+			"enabled":    cfg.Channels.MaixCam.Enabled,
+			"host":       cfg.Channels.MaixCam.Host,
+			"port":       cfg.Channels.MaixCam.Port,
 		},
 		"signal": map[string]interface{}{
-			"enabled":    cfg.Channels.Signal.Enabled,
-			"configured": cfg.Channels.Signal.PhoneNumber != "",
+			"enabled":      cfg.Channels.Signal.Enabled,
+			"configured":   cfg.Channels.Signal.PhoneNumber != "",
+			"phone_number": cfg.Channels.Signal.PhoneNumber,
 		},
 	}
 }
@@ -1429,6 +1499,96 @@ func parseChatGPTExport(data json.RawMessage) ([]importSession, error) {
 	}
 
 	return sessions, nil
+}
+
+// Helper to update channels config from generic map
+func updateChannelConfig(cfg *config.Config, updates map[string]interface{}) {
+	for name, val := range updates {
+		data, ok := val.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		// Only update fields if they are provided
+		if enabled, ok := data["enabled"].(bool); ok {
+			switch name {
+			case "telegram": cfg.Channels.Telegram.Enabled = enabled
+			case "discord": cfg.Channels.Discord.Enabled = enabled
+			case "whatsapp": cfg.Channels.WhatsApp.Enabled = enabled
+			case "slack": cfg.Channels.Slack.Enabled = enabled
+			case "feishu": cfg.Channels.Feishu.Enabled = enabled
+			case "dingtalk": cfg.Channels.DingTalk.Enabled = enabled
+			case "qq": cfg.Channels.QQ.Enabled = enabled
+			case "signal": cfg.Channels.Signal.Enabled = enabled
+			case "maixcam": cfg.Channels.MaixCam.Enabled = enabled
+			}
+		}
+		
+		switch name {
+		case "telegram":
+			if token, ok := data["token"].(string); ok && token != "" {
+				cfg.Channels.Telegram.Token = token
+			}
+			if allow, ok := data["allow_from"].(string); ok {
+				if allow == "" {
+					cfg.Channels.Telegram.AllowFrom = []string{}
+				} else {
+					cfg.Channels.Telegram.AllowFrom = strings.Split(allow, ",")
+				}
+			}
+		case "discord":
+			if token, ok := data["token"].(string); ok && token != "" {
+				cfg.Channels.Discord.Token = token
+			}
+			if allow, ok := data["allow_from"].(string); ok {
+				if allow == "" {
+					cfg.Channels.Discord.AllowFrom = []string{}
+				} else {
+					cfg.Channels.Discord.AllowFrom = strings.Split(allow, ",")
+				}
+			}
+		case "whatsapp":
+			if url, ok := data["bridge_url"].(string); ok && url != "" {
+				cfg.Channels.WhatsApp.BridgeURL = url
+			}
+		case "slack":
+			if botToken, ok := data["bot_token"].(string); ok && botToken != "" {
+				cfg.Channels.Slack.BotToken = botToken
+			}
+		case "feishu":
+			if appId, ok := data["app_id"].(string); ok && appId != "" {
+				cfg.Channels.Feishu.AppID = appId
+			}
+			if appSecret, ok := data["app_secret"].(string); ok && appSecret != "" {
+				cfg.Channels.Feishu.AppSecret = appSecret
+			}
+		case "dingtalk":
+			if clientId, ok := data["client_id"].(string); ok && clientId != "" {
+				cfg.Channels.DingTalk.ClientID = clientId
+			}
+			if clientSecret, ok := data["client_secret"].(string); ok && clientSecret != "" {
+				cfg.Channels.DingTalk.ClientSecret = clientSecret
+			}
+		case "qq":
+			if appId, ok := data["app_id"].(string); ok && appId != "" {
+				cfg.Channels.QQ.AppID = appId
+			}
+			if appSecret, ok := data["app_secret"].(string); ok && appSecret != "" {
+				cfg.Channels.QQ.AppSecret = appSecret
+			}
+		case "signal":
+			if phone, ok := data["phone_number"].(string); ok && phone != "" {
+				cfg.Channels.Signal.PhoneNumber = phone
+			}
+		case "maixcam":
+			if host, ok := data["host"].(string); ok && host != "" {
+				cfg.Channels.MaixCam.Host = host
+			}
+			if port, ok := data["port"].(float64); ok {
+				cfg.Channels.MaixCam.Port = int(port)
+			}
+		}
+	}
 }
 
 func mapChatGPTRole(role string) string {

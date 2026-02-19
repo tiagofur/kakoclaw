@@ -173,6 +173,28 @@ func (cs *CronService) checkJobs() {
 	}
 }
 
+// ExecuteJob executes a job immediately (public wrapper for executeJob, mainly for testing/manual triggering)
+func (cs *CronService) RunJob(jobID string) error {
+	cs.mu.RLock()
+	var targetJob *CronJob
+	for i := range cs.store.Jobs {
+		if cs.store.Jobs[i].ID == jobID {
+			// Copy the job to execute outside the lock
+			jobCopy := cs.store.Jobs[i]
+			targetJob = &jobCopy
+			break
+		}
+	}
+	cs.mu.RUnlock()
+
+	if targetJob == nil {
+		return fmt.Errorf("job not found")
+	}
+
+	cs.executeJob(targetJob)
+	return nil
+}
+
 func (cs *CronService) executeJob(job *CronJob) {
 	startTime := time.Now().UnixMilli()
 

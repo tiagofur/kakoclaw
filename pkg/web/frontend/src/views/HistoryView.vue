@@ -315,7 +315,8 @@ const handleClickOutside = (e) => {
 const isSearchMode = computed(() => searchQuery.value.trim().length >= 2)
 
 const isTaskSession = (session) => {
-  return session.session_id && session.session_id.startsWith('web:task:')
+  const id = session.session_id || ''
+  return id.startsWith('task:') || id.includes(':task:')
 }
 
 const activeSessionId = computed(() => {
@@ -334,8 +335,8 @@ const filteredSessions = computed(() => {
   // Filter by type
   if (filterType.value !== 'all') {
     result = result.filter(s => {
-      const isChat = s.session_id && s.session_id.startsWith('web:chat')
-      return filterType.value === 'chat' ? isChat : !isChat
+      const isTask = isTaskSession(s)
+      return filterType.value === 'chat' ? !isTask : isTask
     })
   }
 

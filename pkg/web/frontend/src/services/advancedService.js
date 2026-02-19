@@ -63,6 +63,16 @@ export default {
     return response.data
   },
 
+  runCronJob: async (id) => {
+    const response = await client.post(`/cron/${id}/run`)
+    return response.data
+  },
+
+  updateConfig: async (config) => {
+    const response = await client.post('/config', config)
+    return response.data
+  },
+
   // Channels
   fetchChannels: async () => {
     const response = await client.get('/channels')

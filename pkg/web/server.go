@@ -1087,8 +1087,19 @@ func (s *Server) handleChatSessions(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to list sessions", http.StatusInternalServerError)
 		return
 	}
+
+	// Filter out task sessions (IDs starting with "task:" or containing ":task:")
+	filtered := make([]storage.SessionSummary, 0, len(sessions))
+	for _, sess := range sessions {
+		id := sess.SessionID
+		isTask := strings.HasPrefix(id, "task:") || strings.Contains(id, ":task:")
+		if !isTask {
+			filtered = append(filtered, sess)
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{"sessions": sessions})
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"sessions": filtered})
 }
 
 func (s *Server) handleChatSessionMessages(w http.ResponseWriter, r *http.Request) {

@@ -201,6 +201,89 @@ func (m *Manager) StartAll(ctx context.Context) error {
 	return nil
 }
 
+
+
+// RestartChannel restarts a specific channel (used after config update)
+func (m *Manager) RestartChannel(ctx context.Context, name string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// 1. Stop existing channel if running
+	if oldChan, exists := m.channels[name]; exists {
+		logger.InfoCF("channels", "Stopping channel for restart", map[string]interface{}{"channel": name})
+		if err := oldChan.Stop(ctx); err != nil {
+			logger.WarnCF("channels", "Error stopping channel during restart", map[string]interface{}{
+				"channel": name,
+				"error":   err.Error(),
+			})
+		}
+		delete(m.channels, name)
+	}
+
+	// 2. Re-initialize specific channel based on current config
+	logger.InfoCF("channels", "Re-initializing channel", map[string]interface{}{"channel": name})
+	var newChan Channel
+	var err error
+
+	switch name {
+	case "telegram":
+		if m.config.Channels.Telegram.Enabled && m.config.Channels.Telegram.Token != "" {
+			newChan, err = NewTelegramChannel(m.config.Channels.Telegram, m.bus)
+		}
+	case "discord":
+		if m.config.Channels.Discord.Enabled && m.config.Channels.Discord.Token != "" {
+			newChan, err = NewDiscordChannel(m.config.Channels.Discord, m.bus)
+		}
+	case "whatsapp":
+		if m.config.Channels.WhatsApp.Enabled && m.config.Channels.WhatsApp.BridgeURL != "" {
+			newChan, err = NewWhatsAppChannel(m.config.Channels.WhatsApp, m.bus)
+		}
+	case "slack":
+		if m.config.Channels.Slack.Enabled && m.config.Channels.Slack.BotToken != "" {
+			newChan, err = NewSlackChannel(m.config.Channels.Slack, m.bus)
+		}
+	case "feishu":
+		if m.config.Channels.Feishu.Enabled {
+			newChan, err = NewFeishuChannel(m.config.Channels.Feishu, m.bus)
+		}
+	case "dingtalk":
+		if m.config.Channels.DingTalk.Enabled {
+			newChan, err = NewDingTalkChannel(m.config.Channels.DingTalk, m.bus)
+		}
+	case "qq":
+		if m.config.Channels.QQ.Enabled {
+			newChan, err = NewQQChannel(m.config.Channels.QQ, m.bus)
+		}
+	case "signal":
+		if m.config.Channels.Signal.Enabled {
+			newChan, err = NewSignalChannel(m.config.Channels.Signal, m.bus)
+		}
+	case "maixcam":
+		if m.config.Channels.MaixCam.Enabled {
+			newChan, err = NewMaixCamChannel(m.config.Channels.MaixCam, m.bus)
+		}
+	default:
+		return fmt.Errorf("unknown channel type: %s", name)
+	}
+
+	if err != nil {
+		return fmt.Errorf("failed to re-initialize channel %s: %w", name, err)
+	}
+
+	// 3. Start new channel if successfully created
+	if newChan != nil {
+		m.channels[name] = newChan
+		if err := newChan.Start(ctx); err != nil {
+			return fmt.Errorf("failed to start channel %s: %w", name, err)
+		}
+		logger.InfoCF("channels", "Channel restarted successfully", map[string]interface{}{"channel": name})
+	} else {
+		logger.InfoCF("channels", "Channel disabled (configuration removed or invalid)", map[string]interface{}{"channel": name})
+	}
+
+	return nil
+}
+
 func (m *Manager) StopAll(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

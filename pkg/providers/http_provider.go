@@ -17,8 +17,11 @@ import (
 	"net/url"
 	"strings"
 
+	"time"
+
 	"github.com/sipeed/picoclaw/pkg/auth"
 	"github.com/sipeed/picoclaw/pkg/config"
+	"github.com/sipeed/picoclaw/pkg/logger"
 )
 
 type HTTPProvider struct {
@@ -29,7 +32,7 @@ type HTTPProvider struct {
 
 func NewHTTPProvider(apiKey, apiBase, proxy string) *HTTPProvider {
 	client := &http.Client{
-		Timeout: 0,
+		Timeout: 120 * time.Second,
 	}
 
 	if proxy != "" {
@@ -107,9 +110,24 @@ func (p *HTTPProvider) Chat(ctx context.Context, messages []Message, tools []Too
 
 	resp, err := p.httpClient.Do(req)
 	if err != nil {
+		logger.ErrorCF("provider", "HTTP request failed", map[string]interface{}{
+			"model": model,
+			"url":   p.apiBase + "/chat/completions",
+			"error": err.Error(),
+		})
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		logger.ErrorCF("provider", "HTTP request returned error status", map[string]interface{}{
+			"model":       model,
+			"status_code": resp.StatusCode,
+			"body":        string(body),
+		})
+		return nil, fmt.Errorf("API error (%d): %s", resp.StatusCode, string(body))
+	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

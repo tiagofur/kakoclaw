@@ -63,8 +63,12 @@
 
             <div class="flex items-center gap-2 mt-3">
               <button
-                @click="openEditModal(job)"
+                @click="runJob(job)"
                 class="px-3 py-1.5 text-xs text-picoclaw-accent bg-picoclaw-accent/10 rounded-lg hover:bg-picoclaw-accent/20 transition-colors"
+              >Run Now</button>
+              <button
+                @click="openEditModal(job)"
+                class="px-3 py-1.5 text-xs text-picoclaw-text-secondary bg-picoclaw-bg border border-picoclaw-border rounded-lg hover:bg-picoclaw-border transition-colors"
               >Edit</button>
               <button
                 @click="toggleJob(job.id, !job.enabled)"
@@ -615,6 +619,17 @@ const toggleJob = async (id, enabled) => {
     await loadJobs()
   } catch (err) {
     toast.error('Failed to toggle job')
+  }
+}
+
+const runJob = async (job) => {
+  try {
+    await advancedService.runCronJob(job.id)
+    toast.success(`Job '${job.name}' triggered`)
+    await loadJobs()
+  } catch (err) {
+    const msg = err?.response?.data || err.message || 'Unknown error'
+    toast.error(`Failed to run job: ${msg}`)
   }
 }
 

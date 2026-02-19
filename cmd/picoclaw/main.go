@@ -829,6 +829,12 @@ func webCmd() {
 	msgBus := bus.NewMessageBus()
 	agentLoop := agent.NewAgentLoop(cfg, msgBus, provider)
 
+	// Setup cron tool and service
+	cronService := setupCronTool(agentLoop, msgBus, cfg.WorkspacePath())
+	if err := cronService.Start(); err != nil {
+		fmt.Printf("Error starting cron service: %v\n", err)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -847,6 +853,7 @@ func webCmd() {
 
 	// Wire additional services for advanced REST endpoints
 	webServer.SetFullConfig(cfg)
+	webServer.SetCronService(cronService)
 	// Wire voice transcriber if Groq API key is available
 	if cfg.Providers.Groq.APIKey != "" {
 		webTranscriber := voice.NewGroqTranscriber(cfg.Providers.Groq.APIKey)
@@ -873,6 +880,37 @@ func webCmd() {
 		webServer.SetWorkflowEngine(wfEngine)
 	}
 
+	// Wire Channel Manager
+	channelManager, err := channels.NewManager(cfg, msgBus)
+	if err != nil {
+		fmt.Printf("Warning: Failed to initialize channel manager: %v\n", err)
+	} else {
+		// Wire transcriber to channels if available (using same logic as gatewayCmd)
+		if cfg.Providers.Groq.APIKey != "" {
+			transcriber := voice.NewGroqTranscriber(cfg.Providers.Groq.APIKey)
+			if telegramChannel, ok := channelManager.GetChannel("telegram"); ok {
+				if tc, ok := telegramChannel.(*channels.TelegramChannel); ok {
+					tc.SetTranscriber(transcriber)
+				}
+			}
+			if discordChannel, ok := channelManager.GetChannel("discord"); ok {
+				if dc, ok := discordChannel.(*channels.DiscordChannel); ok {
+					dc.SetTranscriber(transcriber)
+				}
+			}
+			if slackChannel, ok := channelManager.GetChannel("slack"); ok {
+				if sc, ok := slackChannel.(*channels.SlackChannel); ok {
+					sc.SetTranscriber(transcriber)
+				}
+			}
+		}
+
+		webServer.SetChannelManager(channelManager)
+		if err := channelManager.StartAll(ctx); err != nil {
+			fmt.Printf("Error starting channels: %v\n", err)
+		}
+	}
+
 	if err := webServer.Start(ctx); err != nil {
 		fmt.Printf("Error starting web server: %v\n", err)
 		os.Exit(1)
@@ -890,6 +928,7 @@ func webCmd() {
 		mcpManagerWeb.Stop()
 	}
 	_ = webServer.Stop(context.Background())
+	cronService.Stop()
 	agentLoop.Stop()
 	fmt.Println("✓ Web stopped")
 }
