@@ -468,8 +468,10 @@
 import { ref, onMounted } from 'vue'
 import advancedService from '../services/advancedService'
 import { useToast } from '../composables/useToast'
+import { useAuthStore } from '../stores/authStore'
 
 const toast = useToast()
+const authStore = useAuthStore()
 const loading = ref(true)
 const saving = ref(false)
 const configData = ref(null)
@@ -547,7 +549,11 @@ const exportBackup = async () => {
       include_env: exportOptions.value.include_env
     })
 
-    const response = await fetch(`/api/v1/backup/export?${params}`)
+    const response = await fetch(`/api/v1/backup/export?${params}`, {
+      headers: {
+        'Authorization': `Bearer ${authStore.token}`
+      }
+    })
     if (!response.ok) {
       throw new Error('Failed to export backup')
     }
@@ -589,6 +595,9 @@ const handleFileSelect = async (event) => {
 
     const response = await fetch('/api/v1/backup/validate', {
       method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authStore.token}`
+      },
       body: formData
     })
 
@@ -643,6 +652,9 @@ const importBackup = async () => {
 
     const response = await fetch('/api/v1/backup/import', {
       method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authStore.token}`
+      },
       body: formData
     })
 
