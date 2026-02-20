@@ -310,15 +310,29 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
               </svg>
             </button>
-            <!-- Send Button -->
+            <!-- Send/Stop Button (transforms based on loading state) -->
             <button
+              v-if="!isLoading"
               type="submit"
-              :disabled="!isConnected || isLoading || !messageInput.trim()"
+              :disabled="!isConnected || !messageInput.trim()"
               class="flex-1 md:flex-none px-3 md:px-5 py-2 md:py-3 bg-kakoclaw-accent hover:bg-kakoclaw-accent-hover disabled:bg-kakoclaw-surface disabled:text-kakoclaw-text-secondary text-white rounded-lg md:rounded-xl transition-all shadow-lg shadow-kakoclaw-accent/20 hover:shadow-kakoclaw-accent/40 font-medium flex items-center justify-center min-h-[2.5rem] md:min-h-auto md:min-w-[3rem] text-sm md:text-base"
               title="Enviar mensaje"
             >
               <svg class="w-4 md:w-5 h-4 md:h-5 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+              </svg>
+            </button>
+            <!-- Stop Button (visible when loading) -->
+            <button
+              v-else
+              type="button"
+              @click="cancelExecution"
+              class="flex-1 md:flex-none px-3 md:px-5 py-2 md:py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg md:rounded-xl transition-all shadow-lg font-medium flex items-center justify-center min-h-[2.5rem] md:min-h-auto md:min-w-[3rem] text-sm md:text-base"
+              title="Detener agente"
+            >
+              <svg class="w-4 md:w-5 h-4 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
               </svg>
             </button>
           </div>
@@ -718,6 +732,35 @@ const sendMessage = async () => {
   } else {
     isLoading.value = false
     chatStore.setGlobalLoading(false)
+  }
+}
+
+// Cancel current execution
+const cancelExecution = async () => {
+  if (!currentSessionId.value) return
+  
+  try {
+    const response = await fetch('/api/v1/chat/cancel', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify({
+        session_id: currentSessionId.value
+      })
+    })
+    
+    if (response.ok) {
+      toast.success('Execution canceled')
+      isLoading.value = false
+      chatStore.setGlobalLoading(false)
+    } else {
+      toast.error('Failed to cancel execution')
+    }
+  } catch (error) {
+    console.error('Failed to cancel execution:', error)
+    toast.error('Failed to cancel execution')
   }
 }
 

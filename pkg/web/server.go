@@ -35,6 +35,13 @@ import (
 //go:embed dist/*
 var staticFS embed.FS
 
+// activeExecution tracks a running agent execution with cancellation
+type activeExecution struct {
+	SessionID string
+	StartedAt time.Time
+	Cancel    context.CancelFunc
+}
+
 type Server struct {
 	cfg            config.WebConfig
 	fullConfig     *config.Config
@@ -55,6 +62,8 @@ type Server struct {
 	transcriber    *voice.GroqTranscriber
 	mcpManager     *mcp.Manager
 	workflowEngine *workflow.Engine
+	execMu         sync.RWMutex
+	activeExecs    map[string]*activeExecution
 }
 
 type taskItem struct {
@@ -82,6 +91,7 @@ func NewServer(cfg config.WebConfig, agentLoop *agent.AgentLoop, store *storage.
 		tasksClients: make(map[*websocket.Conn]struct{}),
 		connMu:       make(map[*websocket.Conn]*sync.Mutex),
 		memory:       agent.NewMemoryStore(workspace),
+		activeExecs:  make(map[string]*activeExecution),
 	}
 }
 
@@ -170,6 +180,8 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/chat/sessions/", s.handleChatSessionMessages) // New endpoint
 	mux.HandleFunc("/api/v1/chat/search", s.handleChatSearch)             // Search messages
 	mux.HandleFunc("/api/v1/chat/fork", s.handleChatFork)                 // Fork conversation
+	mux.HandleFunc("/api/v1/chat/cancel", s.handleChatCancel)             // Cancel execution
+	mux.HandleFunc("/api/v1/chat/active", s.handleChatActive)             // Active executions
 	mux.HandleFunc("/api/v1/memory/longterm", s.handleLongTermMemory)     // New endpoint
 	mux.HandleFunc("/api/v1/memory/daily", s.handleDailyNotes)            // New endpoint
 	mux.HandleFunc("/api/v1/skills", s.handleSkills)                      // Skills list + marketplace
@@ -737,6 +749,27 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 			excludeTools = append(excludeTools, "web_search")
 		}
 
+		// Create cancelable context for this execution
+		ctx, cancel := context.WithCancel(r.Context())
+		execID := fmt.Sprintf("%s:%d", sessionID, time.Now().UnixNano())
+
+		// Track active execution
+		s.execMu.Lock()
+		s.activeExecs[execID] = &activeExecution{
+			SessionID: sessionID,
+			StartedAt: time.Now(),
+			Cancel:    cancel,
+		}
+		s.execMu.Unlock()
+
+		// Cleanup after execution completes
+		defer func(id string) {
+			s.execMu.Lock()
+			delete(s.activeExecs, id)
+			s.execMu.Unlock()
+			cancel()
+		}(execID)
+
 		// Use streaming if supported
 		if s.agentLoop.SupportsStreaming() {
 			// Send stream_start
@@ -745,7 +778,7 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 			wsMu.Unlock()
 
 			response, err := s.agentLoop.ProcessDirectWithModelStream(
-				r.Context(), input, sessionID, req.Model,
+				ctx, input, sessionID, req.Model,
 				func(token string) error {
 					wsMu.Lock()
 					defer wsMu.Unlock()
@@ -758,11 +791,15 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 			)
 
 			if err != nil {
+				errMsg := err.Error()
+				if ctx.Err() == context.Canceled {
+					errMsg = "Execution canceled by user"
+				}
 				wsMu.Lock()
 				_ = conn.WriteJSON(map[string]interface{}{
 					"type":    "stream_end",
 					"content": "",
-					"error":   err.Error(),
+					"error":   errMsg,
 				})
 				_ = conn.WriteJSON(map[string]interface{}{"type": "ready"})
 				wsMu.Unlock()
@@ -778,13 +815,17 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 			wsMu.Unlock()
 		} else {
 			// Non-streaming fallback
-			response, err := s.agentLoop.ProcessDirectWithModel(r.Context(), input, sessionID, req.Model, excludeTools...)
+			response, err := s.agentLoop.ProcessDirectWithModel(ctx, input, sessionID, req.Model, excludeTools...)
 			if err != nil {
+				errMsg := err.Error()
+				if ctx.Err() == context.Canceled {
+					errMsg = "Execution canceled by user"
+				}
 				wsMu.Lock()
 				_ = conn.WriteJSON(map[string]interface{}{
 					"type":    "message",
 					"role":    "system",
-					"content": "error: " + err.Error(),
+					"content": "error: " + errMsg,
 				})
 				_ = conn.WriteJSON(map[string]interface{}{"type": "ready"})
 				wsMu.Unlock()
@@ -934,6 +975,68 @@ func (s *Server) handleTaskChatCommand(input string) (bool, string) {
 	}
 
 	return false, ""
+}
+
+// handleChatCancel cancels a running agent execution
+func (s *Server) handleChatCancel(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		SessionID string `json:"session_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	if req.SessionID == "" {
+		http.Error(w, "session_id required", http.StatusBadRequest)
+		return
+	}
+
+	// Find and cancel all executions for this session
+	s.execMu.Lock()
+	canceled := 0
+	for id, exec := range s.activeExecs {
+		if exec.SessionID == req.SessionID {
+			exec.Cancel()
+			delete(s.activeExecs, id)
+			canceled++
+		}
+	}
+	s.execMu.Unlock()
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"canceled": canceled,
+		"message":  fmt.Sprintf("Canceled %d execution(s)", canceled),
+	})
+}
+
+// handleChatActive returns the list of active executions
+func (s *Server) handleChatActive(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	s.execMu.RLock()
+	active := make([]map[string]interface{}, 0, len(s.activeExecs))
+	for id, exec := range s.activeExecs {
+		active = append(active, map[string]interface{}{
+			"id":         id,
+			"session_id": exec.SessionID,
+			"started_at": exec.StartedAt.Format(time.RFC3339),
+			"duration":   time.Since(exec.StartedAt).String(),
+		})
+	}
+	s.execMu.RUnlock()
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(active)
 }
 
 func (s *Server) handleTasksWS(w http.ResponseWriter, r *http.Request) {
