@@ -6,6 +6,7 @@ bin/
 *.dylib
 *.test
 *.out
+*.txt
 /picoclaw
 /picoclaw-test
 

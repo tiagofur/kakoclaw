@@ -130,16 +130,17 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 		dbFiles := []string{"KakoClaw.db", "KakoClaw.db-shm", "KakoClaw.db-wal"}
 		for _, dbFile := range dbFiles {
 			dbPath := filepath.Join(dataDir, dbFile)
-			count, size, err := addFileToZipWithCounts(zipWriter, dbPath, filepath.Join("database", filepath.Base(dbFile)))
+			zipEntryPath := filepath.ToSlash(filepath.Join("database", filepath.Base(dbFile)))
+			count, size, err := addFileToZipWithCounts(zipWriter, dbPath, zipEntryPath)
 			if err == nil {
 				totalFiles += count
 				totalSize += size
 				manifest.DatabaseFileCount += count
-				manifest.ExportedFiles = append(manifest.ExportedFiles, filepath.Join("database", filepath.Base(dbFile)))
+				manifest.ExportedFiles = append(manifest.ExportedFiles, zipEntryPath)
 				logger.InfoCF("backup", "Added database file", map[string]interface{}{"file": dbFile})
 			} else if !os.IsNotExist(err) {
 				logger.WarnCF("backup", "Failed to add database file", map[string]interface{}{"file": dbFile, "error": err.Error()})
-				manifest.FailedFiles = append(manifest.FailedFiles, filepath.Join("database", filepath.Base(dbFile)))
+				manifest.FailedFiles = append(manifest.FailedFiles, zipEntryPath)
 			}
 		}
 	}
@@ -192,12 +193,13 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 	bootstrapFiles := []string{"AGENTS.md", "SOUL.md", "USER.md", "IDENTITY.md"}
 	for _, bootstrapFile := range bootstrapFiles {
 		bootstrapPath := filepath.Join(dataDir, "workspace", bootstrapFile)
-		count, size, err := addFileToZipWithCounts(zipWriter, bootstrapPath, filepath.Join("workspace", bootstrapFile))
+		zipEntryPath := filepath.ToSlash(filepath.Join("workspace", bootstrapFile))
+		count, size, err := addFileToZipWithCounts(zipWriter, bootstrapPath, zipEntryPath)
 		if err == nil {
 			totalFiles += count
 			totalSize += size
 			manifest.BootstrapFileCount += count
-			manifest.ExportedFiles = append(manifest.ExportedFiles, filepath.Join("workspace", bootstrapFile))
+			manifest.ExportedFiles = append(manifest.ExportedFiles, zipEntryPath)
 			logger.InfoCF("backup", "Added bootstrap file", map[string]interface{}{"file": bootstrapFile})
 		} else if !os.IsNotExist(err) {
 			logger.WarnCF("backup", "Failed to add bootstrap file", map[string]interface{}{"file": bootstrapFile, "error": err.Error()})
@@ -607,7 +609,7 @@ func addFileToZipWithCounts(zipWriter *zip.Writer, filePath, zipPath string) (in
 	if err != nil {
 		return 0, 0, err
 	}
-	header.Name = zipPath
+	header.Name = filepath.ToSlash(zipPath)
 	header.Method = zip.Deflate
 
 	writer, err := zipWriter.CreateHeader(header)
@@ -637,7 +639,7 @@ func addDirToZipWithCounts(zipWriter *zip.Writer, dirPath, zipPath string) (int,
 			return err
 		}
 
-		zipEntryPath := filepath.Join(zipPath, relPath)
+		zipEntryPath := filepath.ToSlash(filepath.Join(zipPath, relPath))
 
 		if info.IsDir() {
 			return nil

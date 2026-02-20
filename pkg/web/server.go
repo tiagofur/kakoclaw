@@ -385,6 +385,11 @@ func (s *Server) authMiddleware(next http.Handler) http.HandlerFunc {
 	}
 }
 
+func (s *Server) isAuthorized(r *http.Request) bool {
+	_, ok := s.extractClaims(r)
+	return ok
+}
+
 func (s *Server) extractClaims(r *http.Request) (*jwtClaims, bool) {
 	if s.authManager == nil {
 		return nil, false

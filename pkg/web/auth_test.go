@@ -1,13 +1,23 @@
 package web
 
 import (
+	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/sipeed/kakoclaw/pkg/config"
+	"github.com/sipeed/kakoclaw/pkg/storage"
 )
 
 func TestAuthManagerLoginVerifyAndChangePassword(t *testing.T) {
 	dir := t.TempDir()
-	mgr, err := newAuthManager(dir, "admin", "InitialPass123!", "1h")
+	store, err := storage.New(config.StorageConfig{Path: filepath.Join(dir, "test.db")})
+	if err != nil {
+		t.Fatalf("storage.New failed: %v", err)
+	}
+	defer store.Close()
+
+	mgr, err := newAuthManager(store, "admin", "InitialPass123!", "1h")
 	if err != nil {
 		t.Fatalf("newAuthManager failed: %v", err)
 	}
@@ -24,7 +34,7 @@ func TestAuthManagerLoginVerifyAndChangePassword(t *testing.T) {
 		t.Fatalf("expected sub admin, got %s", claims.Sub)
 	}
 
-	if err := mgr.changePassword("InitialPass123!", "NewPass12345!"); err != nil {
+	if err := mgr.changePassword("admin", "InitialPass123!", "NewPass12345!"); err != nil {
 		t.Fatalf("changePassword failed: %v", err)
 	}
 	// Old token should be invalid after password change (JWT secret rotated)
@@ -41,7 +51,13 @@ func TestAuthManagerLoginVerifyAndChangePassword(t *testing.T) {
 
 func TestAuthManagerTokenExpiry(t *testing.T) {
 	dir := t.TempDir()
-	mgr, err := newAuthManager(dir, "admin", "InitialPass123!", "1ms")
+	store, err := storage.New(config.StorageConfig{Path: filepath.Join(dir, "test_expiry.db")})
+	if err != nil {
+		t.Fatalf("storage.New failed: %v", err)
+	}
+	defer store.Close()
+
+	mgr, err := newAuthManager(store, "admin", "InitialPass123!", "1ms")
 	if err != nil {
 		t.Fatalf("newAuthManager failed: %v", err)
 	}
