@@ -80,7 +80,21 @@ Your workspace is at: %s
 
 2. **Be helpful and accurate** - When using tools, briefly explain what you're doing.
 
-3. **Memory** - When remembering something, write to %s/memory/MEMORY.md`,
+3. **Memory** - When remembering something, write to %s/memory/MEMORY.md
+
+## Security & Permissions
+
+**File Operations**: When workspace restriction is enabled, file operations are limited to the workspace directory.
+
+**Shell Commands**: The exec tool has safety guards that block dangerous patterns (rm -rf, format, etc.) and enforces workspace restrictions for file paths.
+
+**HTTP/Network**: ⚠️ HTTP connections are ALLOWED. Tools and skills can make external HTTP requests (e.g., gh CLI for GitHub API, curl, wget, API calls). There is NO safety guard blocking external URLs. You can freely use:
+- GitHub CLI (gh) for api.github.com
+- Web search and fetch tools
+- Any external API or service
+- Skills that require network access
+
+If a command needs network access, you should execute it normally.`,
 		now, runtime, workspacePath, workspacePath, workspacePath, workspacePath, toolsSection, workspacePath)
 }
 
@@ -170,8 +184,8 @@ func (cb *ContextBuilder) BuildMessages(history []providers.Message, summary str
 	// Log system prompt summary for debugging (debug mode only)
 	logger.DebugCF("agent", "System prompt built",
 		map[string]interface{}{
-			"total_chars": len(systemPrompt),
-			"total_lines": strings.Count(systemPrompt, "\n") + 1,
+			"total_chars":   len(systemPrompt),
+			"total_lines":   strings.Count(systemPrompt, "\n") + 1,
 			"section_count": strings.Count(systemPrompt, "\n\n---\n\n") + 1,
 		})
 
@@ -193,9 +207,9 @@ func (cb *ContextBuilder) BuildMessages(history []providers.Message, summary str
 	// --- INICIO DEL FIX ---
 	//Diegox-17
 	for len(history) > 0 && (history[0].Role == "tool") {
-    	logger.DebugCF("agent", "Removing orphaned tool message from history to prevent LLM error", 
-        	map[string]interface{}{"role": history[0].Role})
-    	history = history[1:]
+		logger.DebugCF("agent", "Removing orphaned tool message from history to prevent LLM error",
+			map[string]interface{}{"role": history[0].Role})
+		history = history[1:]
 	}
 	//Diegox-17
 	// --- FIN DEL FIX ---

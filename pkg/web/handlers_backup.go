@@ -17,15 +17,20 @@ import (
 
 // BackupManifest represents the metadata of a backup archive
 type BackupManifest struct {
-	Version           string    `json:"version"`
-	CreatedAt         time.Time `json:"created_at"`
-	KakoClawVersion   string    `json:"kakoclaw_version"`
-	IncludesConfig    bool      `json:"includes_config"`
-	IncludesEnv       bool      `json:"includes_env"`
-	IncludesDatabase  bool      `json:"includes_database"`
-	IncludesWorkspace bool      `json:"includes_workspace"`
-	DataSizeBytes     int64     `json:"data_size_bytes"`
-	TotalFiles        int       `json:"total_files"`
+	Version            string    `json:"version"`
+	CreatedAt          time.Time `json:"created_at"`
+	KakoClawVersion    string    `json:"kakoclaw_version"`
+	DataSizeBytes      int64     `json:"data_size_bytes"`
+	TotalFiles         int       `json:"total_files"`
+	ConfigFileCount    int       `json:"config_file_count"`
+	EnvFileCount       int       `json:"env_file_count"`
+	DatabaseFileCount  int       `json:"database_file_count"`
+	WorkspaceFileCount int       `json:"workspace_file_count"`
+	SkillsFileCount    int       `json:"skills_file_count"`
+	CronFileCount      int       `json:"cron_file_count"`
+	BootstrapFileCount int       `json:"bootstrap_file_count"`
+	ExportedFiles      []string  `json:"exported_files"`
+	FailedFiles        []string  `json:"failed_files"`
 }
 
 // BackupOptions defines what to include in the backup
@@ -81,7 +86,7 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	workspacePath := filepath.Join(s.workspace, "..")
-	dataDir := filepath.Join(workspacePath, ".KakoClaw")
+	dataDir := workspacePath
 
 	logger.InfoCF("backup", "Starting backup", map[string]interface{}{
 		"workspace":         s.workspace,
@@ -110,13 +115,11 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 	defer zipWriter.Close()
 
 	manifest := BackupManifest{
-		Version:           backupVersion,
-		CreatedAt:         time.Now().UTC(),
-		KakoClawVersion:   "1.0.0",
-		IncludesConfig:    options.IncludeConfig,
-		IncludesEnv:       options.IncludeEnv,
-		IncludesDatabase:  options.IncludeDatabase,
-		IncludesWorkspace: options.IncludeWorkspace,
+		Version:         backupVersion,
+		CreatedAt:       time.Now().UTC(),
+		KakoClawVersion: "1.0.0",
+		ExportedFiles:   make([]string, 0),
+		FailedFiles:     make([]string, 0),
 	}
 
 	totalFiles := 0
@@ -127,11 +130,16 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 		dbFiles := []string{"KakoClaw.db", "KakoClaw.db-shm", "KakoClaw.db-wal"}
 		for _, dbFile := range dbFiles {
 			dbPath := filepath.Join(dataDir, dbFile)
-			if err := addFileToZip(zipWriter, dbPath, filepath.Join("database", filepath.Base(dbFile))); err == nil {
-				totalFiles++
-				if info, _ := os.Stat(dbPath); info != nil {
-					totalSize += info.Size()
-				}
+			count, size, err := addFileToZipWithCounts(zipWriter, dbPath, filepath.Join("database", filepath.Base(dbFile)))
+			if err == nil {
+				totalFiles += count
+				totalSize += size
+				manifest.DatabaseFileCount += count
+				manifest.ExportedFiles = append(manifest.ExportedFiles, filepath.Join("database", filepath.Base(dbFile)))
+				logger.InfoCF("backup", "Added database file", map[string]interface{}{"file": dbFile})
+			} else if !os.IsNotExist(err) {
+				logger.WarnCF("backup", "Failed to add database file", map[string]interface{}{"file": dbFile, "error": err.Error()})
+				manifest.FailedFiles = append(manifest.FailedFiles, filepath.Join("database", filepath.Base(dbFile)))
 			}
 		}
 	}
@@ -139,42 +147,114 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 	// Add workspace directory
 	if options.IncludeWorkspace {
 		workspaceFull := filepath.Join(dataDir, "workspace")
-		if err := addDirToZip(zipWriter, workspaceFull, "workspace", &totalFiles, &totalSize); err == nil {
+		count, size, err := addDirToZipWithCounts(zipWriter, workspaceFull, "workspace")
+		if err == nil || !os.IsNotExist(err) {
+			totalFiles += count
+			totalSize += size
+			manifest.WorkspaceFileCount = count
+			if count > 0 {
+				manifest.ExportedFiles = append(manifest.ExportedFiles, "workspace/")
+			}
+			if err != nil && count == 0 {
+				logger.WarnCF("backup", "Failed to add workspace", map[string]interface{}{"error": err.Error()})
+				manifest.FailedFiles = append(manifest.FailedFiles, "workspace/")
+			}
+		}
+	}
+
+	// Add skills directory
+	skillsPath := filepath.Join(dataDir, "skills")
+	count, size, err := addDirToZipWithCounts(zipWriter, skillsPath, "skills")
+	if count > 0 {
+		totalFiles += count
+		totalSize += size
+		manifest.SkillsFileCount = count
+		manifest.ExportedFiles = append(manifest.ExportedFiles, "skills/")
+		logger.InfoCF("backup", "Added skills directory", map[string]interface{}{"count": count})
+	} else if err != nil && !os.IsNotExist(err) {
+		logger.WarnCF("backup", "Failed to add skills", map[string]interface{}{"error": err.Error()})
+	}
+
+	// Add cron directory
+	cronPath := filepath.Join(dataDir, "cron")
+	count, size, err = addDirToZipWithCounts(zipWriter, cronPath, "cron")
+	if count > 0 {
+		totalFiles += count
+		totalSize += size
+		manifest.CronFileCount = count
+		manifest.ExportedFiles = append(manifest.ExportedFiles, "cron/")
+		logger.InfoCF("backup", "Added cron directory", map[string]interface{}{"count": count})
+	} else if err != nil && !os.IsNotExist(err) {
+		logger.WarnCF("backup", "Failed to add cron", map[string]interface{}{"error": err.Error()})
+	}
+
+	// Add bootstrap files
+	bootstrapFiles := []string{"AGENTS.md", "SOUL.md", "USER.md", "IDENTITY.md"}
+	for _, bootstrapFile := range bootstrapFiles {
+		bootstrapPath := filepath.Join(dataDir, "workspace", bootstrapFile)
+		count, size, err := addFileToZipWithCounts(zipWriter, bootstrapPath, filepath.Join("workspace", bootstrapFile))
+		if err == nil {
+			totalFiles += count
+			totalSize += size
+			manifest.BootstrapFileCount += count
+			manifest.ExportedFiles = append(manifest.ExportedFiles, filepath.Join("workspace", bootstrapFile))
+			logger.InfoCF("backup", "Added bootstrap file", map[string]interface{}{"file": bootstrapFile})
 		} else if !os.IsNotExist(err) {
-			logger.WarnCF("backup", "Failed to add workspace", map[string]interface{}{"error": err.Error()})
+			logger.WarnCF("backup", "Failed to add bootstrap file", map[string]interface{}{"file": bootstrapFile, "error": err.Error()})
 		}
 	}
 
 	// Add config.json
 	if options.IncludeConfig {
 		configPath := filepath.Join(dataDir, "config.json")
-		if err := addFileToZip(zipWriter, configPath, "config.json"); err == nil {
-			totalFiles++
-			if info, _ := os.Stat(configPath); info != nil {
-				totalSize += info.Size()
-			}
+		count, size, err := addFileToZipWithCounts(zipWriter, configPath, "config.json")
+		if err == nil {
+			totalFiles += count
+			totalSize += size
+			manifest.ConfigFileCount = count
+			manifest.ExportedFiles = append(manifest.ExportedFiles, "config.json")
+			logger.InfoCF("backup", "Added config.json", map[string]interface{}{})
+		} else if !os.IsNotExist(err) {
+			logger.WarnCF("backup", "Failed to add config.json", map[string]interface{}{"error": err.Error()})
+			manifest.FailedFiles = append(manifest.FailedFiles, "config.json")
 		}
 	}
 
 	// Add .env file
 	if options.IncludeEnv {
-		envPath := filepath.Join(workspacePath, ".env")
-		if err := addFileToZip(zipWriter, envPath, ".env"); err == nil {
-			totalFiles++
-			if info, _ := os.Stat(envPath); info != nil {
-				totalSize += info.Size()
-			}
+		envPath := filepath.Join(dataDir, ".env")
+		count, size, err := addFileToZipWithCounts(zipWriter, envPath, ".env")
+		if err == nil {
+			totalFiles += count
+			totalSize += size
+			manifest.EnvFileCount = count
+			manifest.ExportedFiles = append(manifest.ExportedFiles, ".env")
+			logger.InfoCF("backup", "Added .env file", map[string]interface{}{})
+		} else if !os.IsNotExist(err) {
+			logger.WarnCF("backup", "Failed to add .env file", map[string]interface{}{"error": err.Error()})
+			manifest.FailedFiles = append(manifest.FailedFiles, ".env")
 		}
 	}
 
 	manifest.DataSizeBytes = totalSize
 	manifest.TotalFiles = totalFiles
 
+	// Validate that something was exported
+	if manifest.TotalFiles == 0 {
+		logger.ErrorCF("backup", "Backup would be empty - no files found", map[string]interface{}{
+			"data_dir": dataDir,
+			"options":  options,
+		})
+		http.Error(w, "no data files found to backup", http.StatusBadRequest)
+		return
+	}
+
 	// Add manifest.json
 	manifestJSON, _ := json.MarshalIndent(manifest, "", "  ")
 	manifestPath := "manifest.json"
 	if manifestFile, err := zipWriter.Create(manifestPath); err == nil {
 		manifestFile.Write(manifestJSON)
+		logger.InfoCF("backup", "Added manifest.json", map[string]interface{}{})
 	}
 
 	if err := zipWriter.Close(); err != nil {
@@ -196,10 +276,18 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, tempFile.Name())
 
 	logger.InfoCF("backup", "Backup exported successfully", map[string]interface{}{
-		"filename":     filename,
-		"size_bytes":   totalSize,
-		"total_files":  totalFiles,
-		"includes_env": options.IncludeEnv,
+		"filename":        filename,
+		"size_bytes":      totalSize,
+		"total_files":     totalFiles,
+		"exported_files":  len(manifest.ExportedFiles),
+		"failed_files":    len(manifest.FailedFiles),
+		"database_count":  manifest.DatabaseFileCount,
+		"workspace_count": manifest.WorkspaceFileCount,
+		"skills_count":    manifest.SkillsFileCount,
+		"cron_count":      manifest.CronFileCount,
+		"bootstrap_count": manifest.BootstrapFileCount,
+		"config_count":    manifest.ConfigFileCount,
+		"env_count":       manifest.EnvFileCount,
 	})
 }
 
@@ -482,54 +570,64 @@ func (s *Server) handleBackupValidate(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"valid":              true,
-		"version":            manifest.Version,
-		"created_at":         manifest.CreatedAt,
-		"kakoclaw_version":   manifest.KakoClawVersion,
-		"includes_config":    manifest.IncludesConfig,
-		"includes_env":       manifest.IncludesEnv,
-		"includes_database":  manifest.IncludesDatabase,
-		"includes_workspace": manifest.IncludesWorkspace,
-		"data_size_bytes":    manifest.DataSizeBytes,
-		"total_files":        manifest.TotalFiles,
-		"manifest":           string(manifestJSON),
+		"valid":                true,
+		"version":              manifest.Version,
+		"created_at":           manifest.CreatedAt,
+		"kakoclaw_version":     manifest.KakoClawVersion,
+		"config_file_count":    manifest.ConfigFileCount,
+		"env_file_count":       manifest.EnvFileCount,
+		"database_file_count":  manifest.DatabaseFileCount,
+		"workspace_file_count": manifest.WorkspaceFileCount,
+		"data_size_bytes":      manifest.DataSizeBytes,
+		"total_files":          manifest.TotalFiles,
+		"exported_files":       manifest.ExportedFiles,
+		"failed_files":         manifest.FailedFiles,
+		"manifest":             string(manifestJSON),
 	})
 }
 
-func addFileToZip(zipWriter *zip.Writer, filePath, zipPath string) error {
+// addFileToZipWithCounts adds a single file to the zip and returns count, size, error
+func addFileToZipWithCounts(zipWriter *zip.Writer, filePath, zipPath string) (int, int64, error) {
 	info, err := os.Stat(filePath)
 	if err != nil {
-		return err
+		return 0, 0, err
 	}
 
 	if info.IsDir() {
-		return addDirToZip(zipWriter, filePath, zipPath, new(int), new(int64))
+		return addDirToZipWithCounts(zipWriter, filePath, zipPath)
 	}
 
 	file, err := os.Open(filePath)
 	if err != nil {
-		return err
+		return 0, 0, err
 	}
 	defer file.Close()
 
 	header, err := zip.FileInfoHeader(info)
 	if err != nil {
-		return err
+		return 0, 0, err
 	}
 	header.Name = zipPath
 	header.Method = zip.Deflate
 
 	writer, err := zipWriter.CreateHeader(header)
 	if err != nil {
-		return err
+		return 0, 0, err
 	}
 
 	_, err = io.Copy(writer, file)
-	return err
+	if err != nil {
+		return 0, 0, err
+	}
+	return 1, info.Size(), nil
 }
 
-func addDirToZip(zipWriter *zip.Writer, dirPath, zipPath string, fileCount *int, totalSize *int64) error {
-	return filepath.Walk(dirPath, func(filePath string, info os.FileInfo, err error) error {
+// addDirToZipWithCounts adds a directory to the zip and returns file count, total size, error
+func addDirToZipWithCounts(zipWriter *zip.Writer, dirPath, zipPath string) (int, int64, error) {
+	fileCount := 0
+	totalSize := int64(0)
+
+	err := filepath.Walk(dirPath, func(filePath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -567,10 +665,30 @@ func addDirToZip(zipWriter *zip.Writer, dirPath, zipPath string, fileCount *int,
 			return err
 		}
 
-		*fileCount++
-		*totalSize += info.Size()
+		fileCount++
+		totalSize += info.Size()
 		return nil
 	})
+
+	return fileCount, totalSize, err
+}
+
+// addFileToZip (DEPRECATED: use addFileToZipWithCounts) adds a single file to the zip
+func addFileToZip(zipWriter *zip.Writer, filePath, zipPath string) error {
+	_, _, err := addFileToZipWithCounts(zipWriter, filePath, zipPath)
+	return err
+}
+
+// addDirToZip (DEPRECATED: use addDirToZipWithCounts) adds a directory to the zip
+func addDirToZip(zipWriter *zip.Writer, dirPath, zipPath string, fileCount *int, totalSize *int64) error {
+	count, size, err := addDirToZipWithCounts(zipWriter, dirPath, zipPath)
+	if fileCount != nil {
+		*fileCount += count
+	}
+	if totalSize != nil {
+		*totalSize += size
+	}
+	return err
 }
 
 func fileExists(path string) bool {

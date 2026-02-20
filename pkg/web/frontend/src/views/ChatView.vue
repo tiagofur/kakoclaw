@@ -6,19 +6,19 @@
     <!-- Sidebar (History) -->
     <div 
       :class="[
-        'w-64 flex-shrink-0 border-r border-kakoclaw-border bg-kakoclaw-surface/50 backdrop-blur-sm transition-all duration-300 flex flex-col',
+        'w-56 md:w-64 flex-shrink-0 border-r border-kakoclaw-border bg-kakoclaw-surface/50 backdrop-blur-sm transition-all duration-300 flex flex-col',
         showSidebar ? 'translate-x-0' : '-translate-x-full absolute h-full z-20 md:relative md:translate-x-0'
       ]"
     >
-      <div class="p-4 border-b border-kakoclaw-border flex justify-between items-center">
-        <h2 class="font-semibold text-sm text-kakoclaw-text-secondary">History</h2>
-        <button @click="startNewChat" class="p-1.5 hover:bg-kakoclaw-bg rounded-md text-kakoclaw-accent transition-colors" title="Nuevo Chat">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+      <div class="p-2 md:p-4 border-b border-kakoclaw-border flex justify-between items-center gap-2">
+        <h2 class="font-semibold text-xs md:text-sm text-kakoclaw-text-secondary">History</h2>
+        <button @click="startNewChat" class="p-1 md:p-1.5 hover:bg-kakoclaw-bg rounded-md text-kakoclaw-accent transition-colors flex-shrink-0" title="Nuevo Chat">
+          <svg class="w-4 md:w-5 h-4 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
         </button>
       </div>
       
-      <div class="flex-1 overflow-y-auto p-2 space-y-1">
-        <div v-if="sessions.length === 0" class="text-xs text-kakoclaw-text-secondary text-center py-4">
+      <div class="flex-1 overflow-y-auto p-1.5 md:p-2 space-y-0.5 md:space-y-1">
+        <div v-if="sessions.length === 0" class="text-[10px] md:text-xs text-kakoclaw-text-secondary text-center py-4">
           No history yet
         </div>
         <div
@@ -43,24 +43,24 @@
             v-else
             @click="loadSession(session.session_id)"
             :class="[
-              'w-full text-left px-3 py-2 rounded-lg text-sm transition-colors',
+              'w-full text-left px-2 md:px-3 py-1.5 md:py-2 rounded-lg text-xs md:text-sm transition-colors',
               currentSessionId === session.session_id ? 'bg-kakoclaw-accent/10 text-kakoclaw-accent' : 'hover:bg-kakoclaw-bg text-kakoclaw-text-secondary hover:text-kakoclaw-text'
             ]"
           >
             <div class="flex items-center gap-2">
-              <svg v-if="session.session_id.startsWith('web:task:')" class="w-3.5 h-3.5 text-amber-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
-              <svg v-else class="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
-              <span class="truncate flex-1">{{ session.title || session.last_message || 'Empty session' }}</span>
+              <svg v-if="session.session_id.startsWith('web:task:')" class="w-3 md:w-3.5 h-3 md:h-3.5 text-amber-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+              <svg v-else class="w-3 md:w-3.5 h-3 md:h-3.5 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+              <span class="truncate flex-1 text-[11px] md:text-sm">{{ session.title || session.last_message || 'Empty session' }}</span>
               <!-- Context menu trigger -->
               <button
                 @click.stop="openContextMenu($event, session.session_id)"
-                class="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-kakoclaw-border rounded transition-opacity"
+                class="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-kakoclaw-border rounded transition-opacity flex-shrink-0"
                 title="Acciones de sesión"
               >
-                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><circle cx="10" cy="4" r="1.5"/><circle cx="10" cy="10" r="1.5"/><circle cx="10" cy="16" r="1.5"/></svg>
+                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><circle cx="10" cy="4" r="1.5"/><circle cx="10" cy="10" r="1.5"/><circle cx="10" cy="16" r="1.5"/></svg>
               </button>
             </div>
-            <div class="text-[10px] opacity-60 mt-0.5 pl-5 flex justify-between">
+            <div class="text-[9px] md:text-[10px] opacity-60 mt-0.5 pl-4 md:pl-5 flex justify-between">
               <span>{{ formatTime(session.updated_at) }}</span>
               <span v-if="session.message_count" class="text-kakoclaw-text-secondary">{{ session.message_count }} msg{{ session.message_count !== 1 ? 's' : '' }}</span>
             </div>
@@ -97,25 +97,33 @@
     <!-- Main Chat Area -->
     <div class="flex-1 flex flex-col min-w-0 relative bg-kakoclaw-bg/50">
       <!-- Top Bar: Mobile toggle + Model selector -->
-      <div class="flex items-center justify-between px-4 py-2 border-b border-kakoclaw-border/30 bg-kakoclaw-surface/30 backdrop-blur-sm z-20">
+      <div class="flex items-center justify-between px-2 md:px-4 py-1.5 md:py-2 border-b border-kakoclaw-border/30 bg-kakoclaw-surface/30 backdrop-blur-sm z-20 gap-2 flex-wrap">
         <!-- Mobile Sidebar Toggle -->
         <button 
           @click="showSidebar = !showSidebar"
-          class="md:hidden p-2 bg-kakoclaw-surface border border-kakoclaw-border rounded-lg shadow-sm"
+          class="md:hidden p-1.5 bg-kakoclaw-surface border border-kakoclaw-border rounded-lg shadow-sm flex-shrink-0"
         >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
         </button>
         <div class="hidden md:block"></div>
 
+        <!-- Global Loading Indicator -->
+        <div v-if="chatStore.globalIsLoading" class="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1 md:py-1.5 bg-kakoclaw-accent/10 border border-kakoclaw-accent rounded-lg order-3 md:order-2 w-full md:w-auto text-center md:text-left">
+          <svg class="w-3.5 md:w-4 h-3.5 md:h-4 text-kakoclaw-accent animate-spin flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          <span class="text-[10px] md:text-xs font-medium text-kakoclaw-accent">Agent working...</span>
+        </div>
+
         <!-- Model Selector -->
-        <div class="flex items-center gap-2">
-          <svg class="w-4 h-4 text-kakoclaw-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="flex items-center gap-1 md:gap-2 flex-shrink-0 order-2 md:order-3">
+          <svg class="w-3.5 md:w-4 h-3.5 md:h-4 text-kakoclaw-text-secondary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
           </svg>
           <select
             v-model="chatStore.selectedModel"
             :disabled="chatStore.allModels.length === 0"
-            class="bg-kakoclaw-bg/50 border border-kakoclaw-border rounded-lg px-3 py-1.5 text-xs text-kakoclaw-text focus:ring-2 focus:ring-kakoclaw-accent/50 focus:border-kakoclaw-accent transition-all cursor-pointer max-w-[280px]"
+            class="bg-kakoclaw-bg/50 border border-kakoclaw-border rounded-lg px-2 md:px-3 py-1 md:py-1.5 text-[10px] md:text-xs text-kakoclaw-text focus:ring-2 focus:ring-kakoclaw-accent/50 focus:border-kakoclaw-accent transition-all cursor-pointer max-w-[180px] md:max-w-[280px]"
           >
             <option v-if="chatStore.allModels.length === 0" value="">
               No models available
@@ -130,7 +138,7 @@
       <!-- Messages Area -->
       <div 
         ref="messagesContainer"
-        class="flex-1 overflow-y-auto p-4 space-y-6 z-10"
+        class="flex-1 overflow-y-auto p-3 md:p-4 space-y-4 md:space-y-6 z-10"
       >
         <div v-if="messages.length === 0" class="flex flex-col items-center justify-center h-full text-kakoclaw-text-secondary opacity-60">
           <div class="bg-kakoclaw-surface/50 p-6 rounded-full mb-4">
@@ -152,10 +160,10 @@
           >
             <div
               :class="[
-                'max-w-[85%] lg:max-w-2xl px-5 py-3 shadow-md',
+                'max-w-[90%] sm:max-w-[85%] lg:max-w-2xl px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 md:py-3 shadow-md rounded-2xl',
                 msg.role === 'user'
-                  ? 'bg-gradient-to-br from-kakoclaw-accent to-kakoclaw-accent-hover text-white rounded-2xl rounded-br-sm'
-                  : 'bg-kakoclaw-surface/90 border border-kakoclaw-border text-kakoclaw-text rounded-2xl rounded-bl-sm'
+                  ? 'bg-gradient-to-br from-kakoclaw-accent to-kakoclaw-accent-hover text-white rounded-br-sm'
+                  : 'bg-kakoclaw-surface/90 border border-kakoclaw-border text-kakoclaw-text rounded-bl-sm'
               ]"
             >
               <p v-if="msg.role === 'user'" class="text-sm md:text-base whitespace-pre-wrap break-words leading-relaxed">{{ msg.content }}</p>
@@ -164,20 +172,20 @@
                 <p v-if="msg.streaming" class="text-sm md:text-base whitespace-pre-wrap break-words leading-relaxed">{{ msg.content }}<span class="streaming-cursor"></span></p>
                 <MarkdownRenderer v-else :content="msg.content" class="text-sm md:text-base" />
               </template>
-              <div class="flex items-center justify-between mt-1.5">
-                <p class="text-[10px] opacity-0 group-hover:opacity-70 transition-opacity">
+              <div class="flex items-center justify-between mt-1 sm:mt-1.5">
+                <p class="text-[9px] sm:text-[10px] opacity-0 group-hover:opacity-70 transition-opacity">
                   {{ formatTime(msg.timestamp || msg.created_at) }}
                 </p>
-                <div class="flex items-center gap-1">
+                <div class="flex items-center gap-0.5 sm:gap-1">
                   <!-- Fork button (on any message) -->
                   <button
                     v-if="currentSessionId && msg.id"
                     @click="forkAtMessage(msg)"
                     :disabled="isLoading"
-                    class="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-kakoclaw-bg/80 text-kakoclaw-text-secondary hover:text-kakoclaw-accent disabled:opacity-30"
+                    class="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 sm:p-1 rounded-md hover:bg-kakoclaw-bg/80 text-kakoclaw-text-secondary hover:text-kakoclaw-accent disabled:opacity-30"
                     title="Ramificar conversación (Continuar desde aquí)"
                   >
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-3 sm:w-3.5 h-3 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                     </svg>
                   </button>
@@ -185,10 +193,10 @@
                   <button
                     v-if="msg.role === 'assistant' && !msg.streaming"
                     @click="copyMessageContent(msg.content)"
-                    class="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-kakoclaw-bg/80 text-kakoclaw-text-secondary hover:text-kakoclaw-accent"
+                    class="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 sm:p-1 rounded-md hover:bg-kakoclaw-bg/80 text-kakoclaw-text-secondary hover:text-kakoclaw-accent"
                     title="Copiar respuesta"
                   >
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-3 sm:w-3.5 h-3 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                     </svg>
                   </button>
@@ -197,10 +205,10 @@
                     v-if="msg.role === 'assistant' && isLastAssistantMessage(msg)"
                     @click="regenerateResponse"
                     :disabled="isLoading"
-                    class="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-kakoclaw-bg/80 text-kakoclaw-text-secondary hover:text-kakoclaw-accent disabled:opacity-30"
+                    class="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 sm:p-1 rounded-md hover:bg-kakoclaw-bg/80 text-kakoclaw-text-secondary hover:text-kakoclaw-accent disabled:opacity-30"
                     title="Regenerar respuesta"
                   >
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-3 sm:w-3.5 h-3 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                   </button>
@@ -212,18 +220,18 @@
 
         <!-- Loading indicator (only when not streaming — streaming shows the message directly) -->
         <div v-if="isLoading && !chatStore.isStreaming" class="flex justify-start">
-          <div class="bg-kakoclaw-surface/80 border border-kakoclaw-border rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm">
-            <div class="flex gap-1.5">
-              <div class="w-2 h-2 bg-kakoclaw-text-secondary/50 rounded-full animate-bounce" style="animation-delay: 0s"></div>
-              <div class="w-2 h-2 bg-kakoclaw-text-secondary/50 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
-              <div class="w-2 h-2 bg-kakoclaw-text-secondary/50 rounded-full animate-bounce" style="animation-delay: 0.4s"></div>
+          <div class="bg-kakoclaw-surface/80 border border-kakoclaw-border rounded-2xl rounded-bl-sm px-2 sm:px-4 py-1.5 sm:py-3 shadow-sm">
+            <div class="flex gap-1">
+              <div class="w-1.5 sm:w-2 h-1.5 sm:h-2 bg-kakoclaw-text-secondary/50 rounded-full animate-bounce" style="animation-delay: 0s"></div>
+              <div class="w-1.5 sm:w-2 h-1.5 sm:h-2 bg-kakoclaw-text-secondary/50 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+              <div class="w-1.5 sm:w-2 h-1.5 sm:h-2 bg-kakoclaw-text-secondary/50 rounded-full animate-bounce" style="animation-delay: 0.4s"></div>
             </div>
           </div>
         </div>
       </div>
 
       <!-- Input Area -->
-      <div class="border-t border-kakoclaw-border/50 bg-kakoclaw-surface/80 backdrop-blur-md p-4 z-20 relative">
+      <div class="border-t border-kakoclaw-border/50 bg-kakoclaw-surface/80 backdrop-blur-md p-2.5 md:p-4 z-20 relative">
         <!-- Slash Command Autocomplete -->
         <div v-if="showAutocomplete" class="absolute bottom-full left-4 right-4 max-w-4xl mx-auto mb-1">
           <div class="bg-kakoclaw-surface border border-kakoclaw-border rounded-xl shadow-xl overflow-hidden max-h-64 overflow-y-auto">
@@ -243,8 +251,8 @@
           </div>
         </div>
 
-        <form @submit.prevent="sendMessage" class="flex gap-3 max-w-4xl mx-auto items-end">
-          <div class="flex-1 relative">
+        <form @submit.prevent="sendMessage" class="flex flex-col gap-2 md:gap-3 md:flex-row md:items-end max-w-4xl mx-auto w-full">
+          <div class="flex-1 relative min-w-0">
             <textarea
               ref="chatInput"
               v-model="messageInput"
@@ -252,64 +260,68 @@
               @keydown="onInputKeydown"
               placeholder="Type a message or / for commands..."
               rows="1"
-              class="w-full px-4 py-3 bg-kakoclaw-bg/50 border border-kakoclaw-border rounded-xl focus:ring-2 focus:ring-kakoclaw-accent/50 focus:border-kakoclaw-accent transition-all text-sm shadow-inner resize-none overflow-hidden"
+              class="w-full px-3 md:px-4 py-2 md:py-3 bg-kakoclaw-bg/50 border border-kakoclaw-border rounded-lg md:rounded-xl focus:ring-2 focus:ring-kakoclaw-accent/50 focus:border-kakoclaw-accent transition-all text-sm shadow-inner resize-none overflow-hidden"
               :disabled="!isConnected || isLoading"
               style="max-height: 120px;"
             ></textarea>
           </div>
-          <!-- Web Search Toggle -->
-          <button
-            type="button"
-            @click="chatStore.setWebSearchEnabled(!chatStore.webSearchEnabled)"
-            :class="[
-              'px-3 py-3 rounded-xl transition-all font-medium flex items-center justify-center min-w-[3rem] border',
-              chatStore.webSearchEnabled
-                ? 'bg-kakoclaw-accent/15 border-kakoclaw-accent/40 text-kakoclaw-accent hover:bg-kakoclaw-accent/25'
-                : 'bg-kakoclaw-surface border-kakoclaw-border text-kakoclaw-text-secondary hover:text-kakoclaw-text hover:bg-kakoclaw-bg'
-            ]"
-            :title="chatStore.webSearchEnabled ? 'Búsqueda web activada (clic para desactivar)' : 'Búsqueda web desactivada (clic para activar)'"
-          >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </button>
-          <!-- Mic Button -->
-          <button
-            type="button"
-            @mousedown="startRecording"
-            @mouseup="stopRecording"
-            @mouseleave="stopRecording"
-            @touchstart.prevent="startRecording"
-            @touchend.prevent="stopRecording"
-            :disabled="!isConnected || isLoading || isTranscribing"
-            :class="[
-              'px-3 py-3 rounded-xl transition-all font-medium flex items-center justify-center min-w-[3rem]',
-              isRecording
-                ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/30 animate-pulse'
-                : isTranscribing
-                  ? 'bg-kakoclaw-surface text-kakoclaw-text-secondary cursor-wait'
-                  : 'bg-kakoclaw-surface hover:bg-kakoclaw-bg border border-kakoclaw-border text-kakoclaw-text-secondary hover:text-kakoclaw-accent'
-            ]"
-            :title="isRecording ? 'Suelta para transcribir' : isTranscribing ? 'Transcribiendo...' : 'Mantén presionado para grabar'"
-          >
-            <svg v-if="isTranscribing" class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-            </svg>
-            <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-            </svg>
-          </button>
-          <button
-            type="submit"
-            :disabled="!isConnected || isLoading || !messageInput.trim()"
-            class="px-5 py-3 bg-kakoclaw-accent hover:bg-kakoclaw-accent-hover disabled:bg-kakoclaw-surface disabled:text-kakoclaw-text-secondary text-white rounded-xl transition-all shadow-lg shadow-kakoclaw-accent/20 hover:shadow-kakoclaw-accent/40 font-medium flex items-center justify-center min-w-[3rem]"
-            title="Enviar mensaje"
-          >
-            <svg class="w-5 h-5 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-            </svg>
-          </button>
+          <!-- Action Buttons Row -->
+          <div class="flex gap-2 md:gap-3 w-full md:w-auto justify-stretch md:justify-end">
+            <!-- Web Search Toggle -->
+            <button
+              type="button"
+              @click="chatStore.setWebSearchEnabled(!chatStore.webSearchEnabled)"
+              :class="[
+                'flex-1 md:flex-none px-2 md:px-3 py-2 md:py-3 rounded-lg md:rounded-xl transition-all font-medium flex items-center justify-center min-h-[2.5rem] md:min-h-auto md:min-w-[3rem] border text-sm md:text-base',
+                chatStore.webSearchEnabled
+                  ? 'bg-kakoclaw-accent/15 border-kakoclaw-accent/40 text-kakoclaw-accent hover:bg-kakoclaw-accent/25'
+                  : 'bg-kakoclaw-surface border-kakoclaw-border text-kakoclaw-text-secondary hover:text-kakoclaw-text hover:bg-kakoclaw-bg'
+              ]"
+              :title="chatStore.webSearchEnabled ? 'Búsqueda web activada (clic para desactivar)' : 'Búsqueda web desactivada (clic para activar)'"
+            >
+              <svg class="w-4 md:w-5 h-4 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </button>
+            <!-- Mic Button -->
+            <button
+              type="button"
+              @mousedown="startRecording"
+              @mouseup="stopRecording"
+              @mouseleave="stopRecording"
+              @touchstart.prevent="startRecording"
+              @touchend.prevent="stopRecording"
+              :disabled="!isConnected || isLoading || isTranscribing"
+              :class="[
+                'flex-1 md:flex-none px-2 md:px-3 py-2 md:py-3 rounded-lg md:rounded-xl transition-all font-medium flex items-center justify-center min-h-[2.5rem] md:min-h-auto md:min-w-[3rem] text-sm md:text-base',
+                isRecording
+                  ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/30 animate-pulse'
+                  : isTranscribing
+                    ? 'bg-kakoclaw-surface text-kakoclaw-text-secondary cursor-wait'
+                    : 'bg-kakoclaw-surface hover:bg-kakoclaw-bg border border-kakoclaw-border text-kakoclaw-text-secondary hover:text-kakoclaw-accent'
+              ]"
+              :title="isRecording ? 'Suelta para transcribir' : isTranscribing ? 'Transcribiendo...' : 'Mantén presionado para grabar'"
+            >
+              <svg v-if="isTranscribing" class="w-4 md:w-5 h-4 md:h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+              </svg>
+              <svg v-else class="w-4 md:w-5 h-4 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+              </svg>
+            </button>
+            <!-- Send Button -->
+            <button
+              type="submit"
+              :disabled="!isConnected || isLoading || !messageInput.trim()"
+              class="flex-1 md:flex-none px-3 md:px-5 py-2 md:py-3 bg-kakoclaw-accent hover:bg-kakoclaw-accent-hover disabled:bg-kakoclaw-surface disabled:text-kakoclaw-text-secondary text-white rounded-lg md:rounded-xl transition-all shadow-lg shadow-kakoclaw-accent/20 hover:shadow-kakoclaw-accent/40 font-medium flex items-center justify-center min-h-[2.5rem] md:min-h-auto md:min-w-[3rem] text-sm md:text-base"
+              title="Enviar mensaje"
+            >
+              <svg class="w-4 md:w-5 h-4 md:h-5 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+              </svg>
+            </button>
+          </div>
         </form>
 
         <!-- Connection Status -->
@@ -327,7 +339,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { storeToRefs } from 'pinia'
 import MarkdownRenderer from '../components/Chat/MarkdownRenderer.vue'
 import { useChatStore } from '../stores/chatStore'
-import { ChatWebSocket } from '../services/websocketService'
+import { getChatWebSocket } from '../services/websocketService'
 import taskService from '../services/taskService'
 import advancedService from '../services/advancedService'
 import { useRoute, useRouter } from 'vue-router'
@@ -349,7 +361,7 @@ const renamingSession = ref(null)
 const renameInput = ref('')
 
 const { messages } = storeToRefs(chatStore)
-const chatWs = new ChatWebSocket()
+const chatWs = getChatWebSocket()
 const chatInput = ref(null)
 
 // Voice recording state
@@ -582,6 +594,7 @@ const handleMessage = (message) => {
   }
   if (message.type === 'ready') {
     isLoading.value = false
+    chatStore.setGlobalLoading(false) // Clear global loading state when response is ready
   }
 }
 
@@ -639,10 +652,11 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  // Remove listeners to prevent duplicates, but DON'T disconnect
+  // This allows the agent to continue working even when navigating away from chat
   chatWs.off('message', handleMessage)
   chatWs.off('disconnected', handleDisconnected)
   chatWs.off('connected', handleConnected)
-  chatWs.disconnect()
 })
 
 // Auto-scroll to bottom
@@ -683,6 +697,7 @@ const sendMessage = async () => {
 
   messageInput.value = ''
   isLoading.value = true
+  chatStore.setGlobalLoading(true) // Set global loading state so agent progress shows everywhere
 
   // Reset textarea height
   if (chatInput.value) {
@@ -702,6 +717,7 @@ const sendMessage = async () => {
     setTimeout(fetchSessions, 500)
   } else {
     isLoading.value = false
+    chatStore.setGlobalLoading(false)
   }
 }
 

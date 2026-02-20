@@ -207,4 +207,24 @@ class TaskWebSocket {
   }
 }
 
-export { ChatWebSocket, TaskWebSocket }
+// Singleton instance for ChatWebSocket to maintain persistent connection
+let chatWebSocketInstance = null
+
+function getChatWebSocket() {
+  if (!chatWebSocketInstance) {
+    chatWebSocketInstance = new ChatWebSocket()
+  }
+  return chatWebSocketInstance
+}
+
+// Singleton instance for TaskWebSocket
+let taskWebSocketInstance = null
+
+function getTaskWebSocket() {
+  if (!taskWebSocketInstance) {
+    taskWebSocketInstance = new TaskWebSocket()
+  }
+  return taskWebSocketInstance
+}
+
+export { ChatWebSocket, TaskWebSocket, getChatWebSocket, getTaskWebSocket }

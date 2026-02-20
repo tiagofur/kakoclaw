@@ -9,6 +9,7 @@ Ayuda para resolver problemas comunes con KakoClaw.
 - **[channel-issues.md](./channel-issues.md)** - Problemas de canales (pendiente)
 - **[debugging.md](./debugging.md)** - Técnicas de debugging (pendiente)
 - **[faq.md](./faq.md)** - Preguntas frecuentes
+- **[http-safety-guard-error.md](./http-safety-guard-error.md)** - Error "Safety Guard Blocking External HTTP"
 
 ## Índice de Problemas
 

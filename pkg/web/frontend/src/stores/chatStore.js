@@ -5,6 +5,7 @@ export const useChatStore = defineStore('chat', () => {
   const messages = ref([])
   const isConnected = ref(false)
   const isLoading = ref(false)
+  const globalIsLoading = ref(false) // Tracks loading state even when not viewing chat
   const ws = ref(null)
   const selectedModel = ref('')       // User-selected model override (empty = default)
   const currentModel = ref('')        // Default model from server config
@@ -91,6 +92,12 @@ export const useChatStore = defineStore('chat', () => {
 
   function setLoading(loading) {
     isLoading.value = loading
+    // Also update global loading state
+    globalIsLoading.value = loading
+  }
+
+  function setGlobalLoading(loading) {
+    globalIsLoading.value = loading
   }
 
   function setWebSocket(websocket) {
@@ -146,6 +153,7 @@ export const useChatStore = defineStore('chat', () => {
     messages,
     isConnected,
     isLoading,
+    globalIsLoading,
     isStreaming,
     streamingMessageId,
     ws,
@@ -163,6 +171,7 @@ export const useChatStore = defineStore('chat', () => {
     sendMessage,
     setConnected,
     setLoading,
+    setGlobalLoading,
     setWebSocket,
     setSelectedModel,
     setWebSearchEnabled,
