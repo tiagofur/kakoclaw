@@ -3,7 +3,7 @@
     <!-- Header -->
     <div class="flex-none p-4 border-b border-kakoclaw-border bg-kakoclaw-surface flex items-center justify-between">
       <div>
-        <h2 class="text-xl font-bold bg-gradient-to-r from-kakoclaw-accent to-purple-500 bg-clip-text text-transparent">Cron Jobs</h2>
+        <h2 class="text-xl font-bold bg-gradient-to-r from-kakoclaw-accent to-emerald-500 bg-clip-text text-transparent">Cron Jobs</h2>
         <p class="text-sm text-kakoclaw-text-secondary mt-1">Scheduled tasks and recurring automations</p>
       </div>
       <button

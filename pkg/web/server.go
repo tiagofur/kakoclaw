@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"mime"
 	"net/http"
 
 	"os"
@@ -154,8 +155,7 @@ func defaultWorkspace() string {
 }
 
 func (s *Server) Start(ctx context.Context) error {
-	dataDir := filepath.Join(s.workspace, "web")
-	authManager, err := newAuthManager(dataDir, s.cfg.Username, s.cfg.Password, s.cfg.JWTExpiry)
+	authManager, err := newAuthManager(s.store, s.cfg.Username, s.cfg.Password, s.cfg.JWTExpiry)
 	if err != nil {
 		return err
 	}
@@ -166,6 +166,9 @@ func (s *Server) Start(ctx context.Context) error {
 		// Fallback to internal storage if not provided (should be provided by main)
 		// For now, we assume it's passed or set. If not, we log warning.
 		logger.WarnC("web", "Storage not provided to web server, some features may be disabled")
+	} else {
+		// Wire persistent storage into the metrics singleton so that counters survive restarts.
+		observability.Global().SetStorage(s.store)
 	}
 
 	mux := http.NewServeMux()
@@ -173,6 +176,8 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/auth/login", s.handleLogin)
 	mux.HandleFunc("/api/v1/auth/change-password", s.handleChangePassword)
 	mux.HandleFunc("/api/v1/auth/me", s.handleMe)
+	mux.HandleFunc("/api/v1/users", s.handleUsers)                        // User management (Admin only)
+	mux.HandleFunc("/api/v1/users/", s.handleUserAction)                  // User actions
 	mux.HandleFunc("/api/v1/tasks", s.handleTasks)
 	mux.HandleFunc("/api/v1/tasks/search", s.handleTaskSearch) // Search tasks
 	mux.HandleFunc("/api/v1/tasks/", s.handleTasks)
@@ -199,13 +204,17 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/voice/transcribe", s.handleVoiceTranscribe)   // Voice-to-text (Groq STT)
 	mux.HandleFunc("/api/v1/knowledge", s.handleKnowledge)                // Knowledge base: list + upload
 	mux.HandleFunc("/api/v1/knowledge/search", s.handleKnowledgeSearch)   // Knowledge base: FTS5 search
-	mux.HandleFunc("/api/v1/knowledge/", s.handleKnowledgeAction)         // Knowledge base: delete by ID
+	mux.HandleFunc("/api/v1/knowledge/chunks/", s.handleKnowledgeChunkAction) // Knowledge base: update chunks
+	mux.HandleFunc("/api/v1/knowledge/", s.handleKnowledgeAction)         // Knowledge base: view chunks or delete by ID
 	mux.HandleFunc("/api/v1/openapi.json", s.handleOpenAPISpec)           // OpenAPI 3.0 spec (JSON)
 	mux.HandleFunc("/api/docs", s.handleAPIDocsUI)                        // Swagger UI
 	mux.HandleFunc("/api/v1/mcp", s.handleMCPServers)                     // MCP servers: list + status
 	mux.HandleFunc("/api/v1/mcp/", s.handleMCPServerAction)               // MCP server actions: reconnect
 	mux.HandleFunc("/api/v1/metrics", s.handleMetrics)                    // Observability metrics
 	mux.HandleFunc("/api/v1/tools", s.handleToolsList)                    // Available tools list
+	mux.HandleFunc("/api/v1/prompts", s.handlePrompts)                    // Prompt templates: list + create
+	mux.HandleFunc("/api/v1/prompts/", s.handlePromptAction)              // Prompt templates: update/delete
+	mux.HandleFunc("/api/v1/chat/attachments", s.handleChatAttachment)    // Chat file upload/extract
 	mux.HandleFunc("/api/v1/workflows", s.handleWorkflows)                // Workflows: list + create
 	mux.HandleFunc("/api/v1/workflows/", s.handleWorkflowAction)          // Workflow actions: get/update/delete/run
 	mux.HandleFunc("/api/v1/backup/export", s.handleBackupExport)         // Export backup
@@ -282,27 +291,19 @@ func (s *Server) staticHandler() http.Handler {
 			stat, _ := f.Stat()
 
 			// Get content type
-			contentType := "application/octet-stream"
-			if strings.HasSuffix(path, ".html") {
-				contentType = "text/html; charset=utf-8"
-			} else if strings.HasSuffix(path, ".css") {
-				contentType = "text/css; charset=utf-8"
-			} else if strings.HasSuffix(path, ".js") {
-				contentType = "application/javascript; charset=utf-8"
-			} else if strings.HasSuffix(path, ".json") {
-				contentType = "application/json"
-			} else if strings.HasSuffix(path, ".png") {
-				contentType = "image/png"
-			} else if strings.HasSuffix(path, ".jpg") || strings.HasSuffix(path, ".jpeg") {
-				contentType = "image/jpeg"
-			} else if strings.HasSuffix(path, ".svg") {
-				contentType = "image/svg+xml"
-			} else if strings.HasSuffix(path, ".woff2") {
-				contentType = "font/woff2"
-			} else if strings.HasSuffix(path, ".webmanifest") {
-				contentType = "application/manifest+json"
-			} else if strings.HasSuffix(path, ".ico") {
-				contentType = "image/x-icon"
+			contentType := mime.TypeByExtension(filepath.Ext(path))
+			if contentType == "" {
+				// Fallbacks for things that might not be in standard Windows/Linux mime db
+				switch filepath.Ext(path) {
+				case ".woff2":
+					contentType = "font/woff2"
+				case ".webmanifest":
+					contentType = "application/manifest+json"
+				case ".svg":
+					contentType = "image/svg+xml"
+				default:
+					contentType = "application/octet-stream"
+				}
 			}
 
 			w.Header().Set("Content-Type", contentType)
@@ -325,7 +326,7 @@ func (s *Server) staticHandler() http.Handler {
 				defer f.Close()
 				stat, _ := f.Stat()
 				w.Header().Set("Content-Type", "text/html; charset=utf-8")
-				w.Header().Set("Cache-Control", "public, max-age=3600")
+				w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 				w.Header().Set("Content-Length", fmt.Sprintf("%d", stat.Size()))
 				w.WriteHeader(http.StatusOK)
 				io.Copy(w, f)
@@ -338,6 +339,10 @@ func (s *Server) staticHandler() http.Handler {
 }
 
 const maxWebSocketClients = 100
+
+type contextKey string
+
+const userClaimsKey contextKey = "userClaims"
 
 func (s *Server) authMiddleware(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -363,7 +368,8 @@ func (s *Server) authMiddleware(next http.Handler) http.HandlerFunc {
 			return
 		}
 		if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/ws/") {
-			if !s.isAuthorized(r) {
+			claims, ok := s.extractClaims(r)
+			if !ok {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusUnauthorized)
 				_ = json.NewEncoder(w).Encode(map[string]string{
@@ -371,31 +377,34 @@ func (s *Server) authMiddleware(next http.Handler) http.HandlerFunc {
 				})
 				return
 			}
+			// Attach claims to context
+			ctx := context.WithValue(r.Context(), userClaimsKey, claims)
+			r = r.WithContext(ctx)
 		}
 		next.ServeHTTP(w, r)
 	}
 }
 
-func (s *Server) isAuthorized(r *http.Request) bool {
+func (s *Server) extractClaims(r *http.Request) (*jwtClaims, bool) {
 	if s.authManager == nil {
-		return false
+		return nil, false
 	}
 
 	authHeader := strings.TrimSpace(r.Header.Get("Authorization"))
 	if strings.HasPrefix(strings.ToLower(authHeader), "bearer ") {
 		token := strings.TrimSpace(authHeader[7:])
-		if _, err := s.authManager.verifyToken(token); err == nil {
-			return true
+		if claims, err := s.authManager.verifyToken(token); err == nil {
+			return claims, true
 		}
 	}
-	if strings.HasPrefix(r.URL.Path, "/ws/") {
+	if strings.HasPrefix(r.URL.Path, "/ws/") || strings.HasPrefix(r.URL.Path, "/api/") {
 		token := strings.TrimSpace(r.URL.Query().Get("token"))
-		if _, err := s.authManager.verifyToken(token); err == nil {
-			return true
+		if claims, err := s.authManager.verifyToken(token); err == nil && token != "" {
+			return claims, true
 		}
 	}
 
-	return false
+	return nil, false
 }
 
 func checkWebSocketOrigin(r *http.Request) bool {
@@ -559,14 +568,20 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Fetch updated task to broadcast
-		// NOTE: SearchTasks or ListTasks could be used, but we need ID lookup.
-		// Since we handle archive in memory or simple DB, we can just construct event
-		// or fetch it. For now, let's assume successful archive implies broadcast "updated"
-		// or specific "archived" event. Let's send "updated" with archived: true.
+		task, err := s.store.GetTask(id)
+		if err == nil {
+			item := taskItem{
+				ID:          toString(task.ID),
+				Title:       task.Title,
+				Description: task.Description,
+				Status:      task.Status,
+				Result:      task.Result,
+				CreatedAt:   task.CreatedAt,
+				Archived:    task.Archived,
+			}
+			s.broadcastTaskEvent("updated", item)
+		}
 
-		// TODO: Implement GetTask in storage to properly fetch updated state
-		// For now we just return success
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 		return
@@ -590,6 +605,21 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "failed to unarchive task", http.StatusInternalServerError)
 			return
 		}
+
+		task, err := s.store.GetTask(id)
+		if err == nil {
+			item := taskItem{
+				ID:          toString(task.ID),
+				Title:       task.Title,
+				Description: task.Description,
+				Status:      task.Status,
+				Result:      task.Result,
+				CreatedAt:   task.CreatedAt,
+				Archived:    task.Archived,
+			}
+			s.broadcastTaskEvent("updated", item)
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 		return
@@ -712,11 +742,12 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var req struct {
-			Type      string `json:"type"`
-			Content   string `json:"content"`
-			SessionID string `json:"session_id"`
-			Model     string `json:"model"`
-			WebSearch *bool  `json:"web_search"` // nil = default (enabled), false = exclude web_search tool
+			Type         string   `json:"type"`
+			Content      string   `json:"content"`
+			SessionID    string   `json:"session_id"`
+			Model        string   `json:"model"`
+			WebSearch    *bool    `json:"web_search"`    // legacy: nil = default (enabled), false = exclude web_search tool
+			ExcludeTools []string `json:"exclude_tools"` // new: granular control
 		}
 
 		// Try to decode as JSON
@@ -748,98 +779,114 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 		if req.WebSearch != nil && !*req.WebSearch {
 			excludeTools = append(excludeTools, "web_search")
 		}
-
-		// Create cancelable context for this execution
-		ctx, cancel := context.WithCancel(r.Context())
-		execID := fmt.Sprintf("%s:%d", sessionID, time.Now().UnixNano())
-
-		// Track active execution
-		s.execMu.Lock()
-		s.activeExecs[execID] = &activeExecution{
-			SessionID: sessionID,
-			StartedAt: time.Now(),
-			Cancel:    cancel,
+		if len(req.ExcludeTools) > 0 {
+			excludeTools = append(excludeTools, req.ExcludeTools...)
 		}
-		s.execMu.Unlock()
 
-		// Cleanup after execution completes
-		defer func(id string) {
+		func() {
+			// Create cancelable context for this execution
+			ctx, cancel := context.WithCancel(r.Context())
+			execID := fmt.Sprintf("%s:%d", sessionID, time.Now().UnixNano())
+
+			// Track active execution
 			s.execMu.Lock()
-			delete(s.activeExecs, id)
+			s.activeExecs[execID] = &activeExecution{
+				SessionID: sessionID,
+				StartedAt: time.Now(),
+				Cancel:    cancel,
+			}
 			s.execMu.Unlock()
-			cancel()
-		}(execID)
 
-		// Use streaming if supported
-		if s.agentLoop.SupportsStreaming() {
-			// Send stream_start
-			wsMu.Lock()
-			_ = conn.WriteJSON(map[string]interface{}{"type": "stream_start"})
-			wsMu.Unlock()
+			// Cleanup after execution completes
+			defer func(id string) {
+				s.execMu.Lock()
+				delete(s.activeExecs, id)
+				s.execMu.Unlock()
+				cancel()
+			}(execID)
 
-			response, err := s.agentLoop.ProcessDirectWithModelStream(
-				ctx, input, sessionID, req.Model,
-				func(token string) error {
+			// Use streaming if supported
+			if s.agentLoop.SupportsStreaming() {
+				// Send stream_start
+				wsMu.Lock()
+				_ = conn.WriteJSON(map[string]interface{}{"type": "stream_start"})
+				wsMu.Unlock()
+
+				response, err := s.agentLoop.ProcessDirectWithModelStream(
+					ctx, input, sessionID, req.Model,
+					func(token string) error {
+						wsMu.Lock()
+						defer wsMu.Unlock()
+						return conn.WriteJSON(map[string]interface{}{
+							"type":    "stream",
+							"content": token,
+						})
+					},
+					func(ev agent.ToolEvent) error {
+						wsMu.Lock()
+						defer wsMu.Unlock()
+						return conn.WriteJSON(map[string]interface{}{
+							"type":   "tool_call",
+							"name":   ev.Name,
+							"args":   ev.Args,
+							"result": ev.Result,
+							"status": ev.Status,
+						})
+					},
+					excludeTools...,
+				)
+
+				if err != nil {
+					errMsg := err.Error()
+					if ctx.Err() == context.Canceled {
+						errMsg = "Execution canceled by user"
+					}
 					wsMu.Lock()
-					defer wsMu.Unlock()
-					return conn.WriteJSON(map[string]interface{}{
-						"type":    "stream",
-						"content": token,
+					_ = conn.WriteJSON(map[string]interface{}{
+						"type":    "stream_end",
+						"content": "",
+						"error":   errMsg,
 					})
-				},
-				excludeTools...,
-			)
-
-			if err != nil {
-				errMsg := err.Error()
-				if ctx.Err() == context.Canceled {
-					errMsg = "Execution canceled by user"
+					_ = conn.WriteJSON(map[string]interface{}{"type": "ready"})
+					wsMu.Unlock()
+					return
 				}
+
 				wsMu.Lock()
 				_ = conn.WriteJSON(map[string]interface{}{
 					"type":    "stream_end",
-					"content": "",
-					"error":   errMsg,
+					"content": response,
 				})
 				_ = conn.WriteJSON(map[string]interface{}{"type": "ready"})
 				wsMu.Unlock()
-				continue
-			}
-
-			wsMu.Lock()
-			_ = conn.WriteJSON(map[string]interface{}{
-				"type":    "stream_end",
-				"content": response,
-			})
-			_ = conn.WriteJSON(map[string]interface{}{"type": "ready"})
-			wsMu.Unlock()
-		} else {
-			// Non-streaming fallback
-			response, err := s.agentLoop.ProcessDirectWithModel(ctx, input, sessionID, req.Model, excludeTools...)
-			if err != nil {
-				errMsg := err.Error()
-				if ctx.Err() == context.Canceled {
-					errMsg = "Execution canceled by user"
+			} else {
+				// Non-streaming fallback
+				response, err := s.agentLoop.ProcessDirectWithModel(ctx, input, sessionID, req.Model, excludeTools...)
+				if err != nil {
+					errMsg := err.Error()
+					if ctx.Err() == context.Canceled {
+						errMsg = "Execution canceled by user"
+					}
+					wsMu.Lock()
+					_ = conn.WriteJSON(map[string]interface{}{
+						"type":    "message",
+						"role":    "system",
+						"content": "error: " + errMsg,
+					})
+					_ = conn.WriteJSON(map[string]interface{}{"type": "ready"})
+					wsMu.Unlock()
+					return
 				}
 				wsMu.Lock()
 				_ = conn.WriteJSON(map[string]interface{}{
 					"type":    "message",
-					"role":    "system",
-					"content": "error: " + errMsg,
+					"role":    "assistant",
+					"content": response,
 				})
 				_ = conn.WriteJSON(map[string]interface{}{"type": "ready"})
 				wsMu.Unlock()
-				continue
 			}
-			wsMu.Lock()
-			_ = conn.WriteJSON(map[string]interface{}{
-				"type":    "message",
-				"role":    "assistant",
-				"content": response,
-			})
-			_ = conn.WriteJSON(map[string]interface{}{"type": "ready"})
-			wsMu.Unlock()
-		}
+		}()
 	}
 }
 
@@ -1130,7 +1177,12 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid json", http.StatusBadRequest)
 		return
 	}
-	if err := s.authManager.changePassword(in.OldPassword, in.NewPassword); err != nil {
+	claims, ok := r.Context().Value(userClaimsKey).(*jwtClaims)
+	if !ok || claims == nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if err := s.authManager.changePassword(claims.Sub, in.OldPassword, in.NewPassword); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -1311,13 +1363,21 @@ func (s *Server) handleChatFork(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Server) handleMe(w http.ResponseWriter, _ *http.Request) {
+func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	if s.authManager == nil {
 		http.Error(w, "auth unavailable", http.StatusServiceUnavailable)
 		return
 	}
+	claims, ok := r.Context().Value(userClaimsKey).(*jwtClaims)
+	if !ok || claims == nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"username": s.authManager.state.Username})
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"username": claims.Sub,
+		"role":     claims.Role,
+	})
 }
 
 func toString(v int64) string {
@@ -1519,6 +1579,17 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 	var currentModel string
 	var currentProvider string
 
+	getModels := func(providerName string, defaultModels []modelInfo, configuredModels []string) []modelInfo {
+		if len(configuredModels) > 0 {
+			custom := make([]modelInfo, 0, len(configuredModels))
+			for _, m := range configuredModels {
+				custom = append(custom, modelInfo{ID: m, Provider: providerName})
+			}
+			return custom
+		}
+		return defaultModels
+	}
+
 	if s.fullConfig != nil {
 		currentModel = s.fullConfig.Agents.Defaults.Model
 		currentProvider, _ = providers.GetProviderForModel(currentModel)
@@ -1528,12 +1599,12 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 			providersList = append(providersList, providerInfo{
 				Name: "anthropic", Enabled: true,
 				IsActive: currentProvider == "anthropic",
-				Models: []modelInfo{
+				Models: getModels("anthropic", []modelInfo{
 					{ID: "claude-sonnet-4-20250514", Provider: "anthropic"},
 					{ID: "claude-3-5-haiku-20241022", Provider: "anthropic"},
 					{ID: "claude-3-5-sonnet-20241022", Provider: "anthropic"},
 					{ID: "claude-3-haiku-20240307", Provider: "anthropic"},
-				},
+				}, s.fullConfig.Providers.Anthropic.Models),
 			})
 		}
 
@@ -1542,13 +1613,13 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 			providersList = append(providersList, providerInfo{
 				Name: "openai", Enabled: true,
 				IsActive: currentProvider == "openai",
-				Models: []modelInfo{
+				Models: getModels("openai", []modelInfo{
 					{ID: "gpt-4o", Provider: "openai"},
 					{ID: "gpt-4o-mini", Provider: "openai"},
 					{ID: "gpt-4-turbo", Provider: "openai"},
 					{ID: "o1", Provider: "openai"},
 					{ID: "o1-mini", Provider: "openai"},
-				},
+				}, s.fullConfig.Providers.OpenAI.Models),
 			})
 		}
 
@@ -1557,13 +1628,13 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 			providersList = append(providersList, providerInfo{
 				Name: "openrouter", Enabled: true,
 				IsActive: currentProvider == "openrouter",
-				Models: []modelInfo{
+				Models: getModels("openrouter", []modelInfo{
 					{ID: "anthropic/claude-sonnet-4-20250514", Provider: "openrouter"},
 					{ID: "openai/gpt-4o", Provider: "openrouter"},
 					{ID: "google/gemini-2.5-pro-preview", Provider: "openrouter"},
 					{ID: "deepseek/deepseek-r1", Provider: "openrouter"},
 					{ID: "meta-llama/llama-4-maverick", Provider: "openrouter"},
-				},
+				}, s.fullConfig.Providers.OpenRouter.Models),
 			})
 		}
 
@@ -1572,11 +1643,11 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 			providersList = append(providersList, providerInfo{
 				Name: "groq", Enabled: true,
 				IsActive: currentProvider == "groq",
-				Models: []modelInfo{
+				Models: getModels("groq", []modelInfo{
 					{ID: "llama-3.3-70b-versatile", Provider: "groq"},
 					{ID: "llama-3.1-8b-instant", Provider: "groq"},
 					{ID: "mixtral-8x7b-32768", Provider: "groq"},
-				},
+				}, s.fullConfig.Providers.Groq.Models),
 			})
 		}
 
@@ -1585,11 +1656,11 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 			providersList = append(providersList, providerInfo{
 				Name: "gemini", Enabled: true,
 				IsActive: currentProvider == "gemini",
-				Models: []modelInfo{
+				Models: getModels("gemini", []modelInfo{
 					{ID: "gemini-2.5-pro-preview-05-06", Provider: "gemini"},
 					{ID: "gemini-2.5-flash-preview-05-20", Provider: "gemini"},
 					{ID: "gemini-2.0-flash", Provider: "gemini"},
-				},
+				}, s.fullConfig.Providers.Gemini.Models),
 			})
 		}
 
@@ -1598,10 +1669,10 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 			providersList = append(providersList, providerInfo{
 				Name: "zhipu", Enabled: true,
 				IsActive: currentProvider == "zhipu",
-				Models: []modelInfo{
+				Models: getModels("zhipu", []modelInfo{
 					{ID: "glm-4.7", Provider: "zhipu"},
 					{ID: "glm-4-flash", Provider: "zhipu"},
-				},
+				}, s.fullConfig.Providers.Zhipu.Models),
 			})
 		}
 
@@ -1610,9 +1681,9 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 			providersList = append(providersList, providerInfo{
 				Name: "moonshot", Enabled: true,
 				IsActive: currentProvider == "moonshot",
-				Models: []modelInfo{
+				Models: getModels("moonshot", []modelInfo{
 					{ID: "moonshot/kimi-k2.5", Provider: "moonshot"},
-				},
+				}, s.fullConfig.Providers.Moonshot.Models),
 			})
 		}
 
@@ -1621,21 +1692,20 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 			providersList = append(providersList, providerInfo{
 				Name: "nvidia", Enabled: true,
 				IsActive: currentProvider == "nvidia",
-				Models: []modelInfo{
+				Models: getModels("nvidia", []modelInfo{
 					{ID: "nvidia/llama-3.1-nemotron-70b-instruct", Provider: "nvidia"},
-				},
+				}, s.fullConfig.Providers.Nvidia.Models),
 			})
 		}
 
 		// Ollama
 		if s.fullConfig.Providers.Ollama.APIBase != "" {
-			ollamaModels := []modelInfo{
-				{ID: "llama3.2", Provider: "ollama"},
-			}
 			providersList = append(providersList, providerInfo{
 				Name: "ollama", Enabled: true,
 				IsActive: currentProvider == "ollama",
-				Models:   ollamaModels,
+				Models: getModels("ollama", []modelInfo{
+					{ID: "llama3.2", Provider: "ollama"},
+				}, s.fullConfig.Providers.Ollama.Models),
 			})
 		}
 

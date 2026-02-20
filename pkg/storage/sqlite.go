@@ -127,6 +127,24 @@ func (s *Storage) migrate() error {
 		`UPDATE sessions SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL;`,
 		`UPDATE sessions SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL;`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_session_id ON sessions(session_id);`,
+		// Users table
+		`CREATE TABLE IF NOT EXISTS users (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			username TEXT NOT NULL UNIQUE,
+			password_hash TEXT NOT NULL,
+			role TEXT NOT NULL DEFAULT 'user',
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		);`,
+		// Settings table for global configuration
+		`CREATE TABLE IF NOT EXISTS settings (
+			key TEXT PRIMARY KEY,
+			value TEXT NOT NULL
+		);`,
+		// Appending user_id to existing tables
+		`ALTER TABLE chats ADD COLUMN user_id INTEGER DEFAULT 1;`,
+		`ALTER TABLE tasks ADD COLUMN user_id INTEGER DEFAULT 1;`,
+		`ALTER TABLE sessions ADD COLUMN user_id INTEGER DEFAULT 1;`,
 	}
 
 	for _, query := range queries {
@@ -150,11 +168,49 @@ func (s *Storage) migrate() error {
 		return fmt.Errorf("workflow migration: %w", err)
 	}
 
+	// Prompt templates table
+	if err := s.migratePrompts(); err != nil {
+		return fmt.Errorf("prompts migration: %w", err)
+	}
+
 	// Backfill sessions table from existing chats
 	if err := s.migrateSessions(); err != nil {
 		return fmt.Errorf("session migration: %w", err)
 	}
 
+	// Observability metrics tables
+	if err := s.migrateMetrics(); err != nil {
+		return fmt.Errorf("metrics migration: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Storage) migrateMetrics() error {
+	queries := []string{
+		// Aggregated counters (one row per metric key)
+		`CREATE TABLE IF NOT EXISTS metrics_counters (
+			key   TEXT PRIMARY KEY,
+			value INTEGER NOT NULL DEFAULT 0
+		);`,
+		// Recent events ring buffer (JSON payloads)
+		`CREATE TABLE IF NOT EXISTS metrics_events (
+			id         INTEGER PRIMARY KEY AUTOINCREMENT,
+			payload    TEXT NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_metrics_events_id ON metrics_events(id DESC);`,
+		// Model and Tool breakdowns as JSON blobs
+		`CREATE TABLE IF NOT EXISTS metrics_breakdowns (
+			key   TEXT PRIMARY KEY,
+			value TEXT NOT NULL
+		);`,
+	}
+	for _, q := range queries {
+		if _, err := s.db.Exec(q); err != nil {
+			return fmt.Errorf("metrics migration query: %w", err)
+		}
+	}
 	return nil
 }
 

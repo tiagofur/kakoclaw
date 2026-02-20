@@ -3,7 +3,7 @@
     <div class="flex-none mb-8">
       <div class="flex items-center justify-between">
         <div>
-          <h2 class="text-3xl font-bold bg-gradient-to-r from-kakoclaw-accent to-purple-500 bg-clip-text text-transparent mb-2">Metrics</h2>
+          <h2 class="text-3xl font-bold bg-gradient-to-r from-kakoclaw-accent to-emerald-500 bg-clip-text text-transparent mb-2">Metrics</h2>
           <p class="text-kakoclaw-text-secondary">In-process observability for LLM calls, tool executions, and agent runs.</p>
         </div>
         <button
@@ -66,8 +66,8 @@
       <!-- Agent Card -->
       <div class="bg-kakoclaw-surface border border-kakoclaw-border rounded-xl p-5">
         <div class="flex items-center gap-3 mb-4">
-          <div class="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
-            <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+          <div class="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+            <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
           </div>
           <h3 class="text-lg font-semibold">Agent Runs</h3>
         </div>
@@ -159,7 +159,7 @@
                   :class="{
                     'bg-blue-500/10 text-blue-400': evt.type === 'llm_call',
                     'bg-green-500/10 text-green-400': evt.type === 'tool_call',
-                    'bg-purple-500/10 text-purple-400': evt.type === 'agent_run',
+                    'bg-emerald-500/10 text-emerald-400': evt.type === 'agent_run',
                     'bg-red-500/10 text-red-400': evt.type === 'error'
                   }"
                 >{{ evt.type }}</span>

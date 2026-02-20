@@ -104,7 +104,22 @@ export const useTaskStore = defineStore('tasks', () => {
     const normalizedId = normalizeTaskId(id)
     const idx = tasks.value.findIndex(t => normalizeTaskId(t.id) === normalizedId)
     if (idx !== -1) {
+      const oldStatus = tasks.value[idx].status
       tasks.value[idx] = { ...tasks.value[idx], ...updates }
+      
+      // Trigger Push Notification if status changed to done or failed
+      if (updates.status && updates.status !== oldStatus && ['done', 'failed', 'completed'].includes(updates.status.toLowerCase())) {
+        if ('Notification' in window && Notification.permission === 'granted') {
+          try {
+            new Notification(`Task ${updates.status.toUpperCase()}`, {
+              body: tasks.value[idx].title,
+              icon: '/pwa-192x192.png'
+            })
+          } catch (e) {
+            console.error('Failed to send notification', e)
+          }
+        }
+      }
     }
   }
 

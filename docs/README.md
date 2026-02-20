@@ -2,9 +2,14 @@
 
 Bienvenido a la documentación oficial de KakoClaw - Tu asistente de IA ultraligero.
 
+## 🗺️ [Hoja de Ruta](./ROADMAP.md)
+
+Plan de desarrollo y próximas funcionalidades.
+
 ## 📚 Estructura de la Documentación
 
 ### 🏗️ [Arquitectura](./architecture/)
+
 Documentación técnica sobre la estructura interna y diseño del sistema.
 
 - [Visión General](./architecture/overview.md)
@@ -13,9 +18,11 @@ Documentación técnica sobre la estructura interna y diseño del sistema.
 - [Diagramas del Sistema](./architecture/diagrams.md)
 
 ### 📖 [Guías de Usuario](./guides/)
+
 Guías paso a paso para usuarios finales.
 
 - [Guía de Inicio Rápido](./guides/quickstart.md)
+- [Resumen de Inicio Rápido](./guides/QUICK_START_OVERVIEW.md)
 - [Instalación y Configuración](./guides/installation.md)
 - [Configuración de Proveedores LLM](./guides/llm-providers.md)
 - [Canales de Mensajería](./guides/channels.md)
@@ -25,11 +32,14 @@ Guías paso a paso para usuarios finales.
 - [Configuracion de Email](./guides/email-setup.md)
 
 ### 💻 [Desarrollo](./development/)
+
 Documentación para contribuidores y desarrolladores.
 
 - [Configuración del Entorno](./development/setup.md)
 - [Estructura del Proyecto](./development/project-structure.md)
 - [Guía de Contribución](./development/contributing.md)
+- [Configuración de Agentes y Tips](./development/AGENTS.md)
+- [Inicio Rápido del Frontend](./development/FRONTEND_QUICK_START.md)
 - [Crear un Nuevo Tool](./development/creating-tools.md)
 - [Crear un Nuevo Canal](./development/creating-channels.md)
 - [Crear un Nuevo Skill](./development/creating-skills.md)
@@ -37,6 +47,7 @@ Documentación para contribuidores y desarrolladores.
 - [Convenciones de Código](./development/code-conventions.md)
 
 ### 📋 [Referencia de API](./api-reference/)
+
 Documentación de referencia de interfaces y APIs.
 
 - [Tools API](./api-reference/tools.md)
@@ -46,15 +57,19 @@ Documentación de referencia de interfaces y APIs.
 - [Agent API](./api-reference/agent.md)
 
 ### 🚀 [Despliegue](./deployment/)
+
 Guías para desplegar KakoClaw en diferentes entornos.
 
 - [Despliegue Local](./deployment/local.md)
 - [Despliegue en Servidor](./deployment/server.md)
 - [Docker](./deployment/docker.md)
+- [Despliegue Docker Detallado](./deployment/DOCKER_DEPLOYMENT.md)
 - [Systemd Service](./deployment/systemd.md)
 - [Placas ARM/RISC-V](./deployment/embedded.md)
+- [KakoClaw en Android (Termux)](./deployment/termux-android.md)
 
 ### 🎯 [Ejemplos](./examples/)
+
 Ejemplos prácticos y casos de uso.
 
 - [Ejemplos Básicos](./examples/basic-examples.md)
@@ -63,6 +78,7 @@ Ejemplos prácticos y casos de uso.
 - [Workflows Completos](./examples/workflows.md)
 
 ### 🔧 [Solución de Problemas](./troubleshooting/)
+
 Ayuda para resolver problemas comunes.
 
 - [Problemas Comunes](./troubleshooting/common-issues.md)
@@ -72,11 +88,29 @@ Ayuda para resolver problemas comunes.
 - [FAQ](./troubleshooting/faq.md)
 
 ### 📊 [Análisis de Issues](./issues-analysis/)
+
 Análisis y clasificación de issues abiertas en GitHub.
 
 - [Resumen Ejecutivo](./issues-analysis/summary.md) - Overview de todas las issues
 - [Análisis Completo](./issues-analysis/README.md) - Clasificación detallada
 - [Planes de Implementación](./issues-analysis/implementation-plans.md) - Guías para contribuir
+
+### 📈 [Reportes y Bitácoras](./)
+
+Documentación detallada sobre el estado y cambios del proyecto.
+
+- [Reporte Completo: KakoClaw](./REPORTE_COMPLETO_PICACLAW.md)
+- [Changelog del Panel Web](./WEB_PANEL_CHANGELOG.md)
+- [Changelog General y Revisión](./APP_REVIEW_AND_CHANGELOG.md)
+
+### 📜 [Archivo de Sesiones](./archive/)
+
+Historial de implementaciones y resúmenes de sesiones pasadas.
+
+- [Resumen de Implementación de UI/UX](./archive/IMPLEMENTATION_SUMMARY.md)
+- [Resumen de Feature de Cancelación](./archive/IMPLEMENTATION_SUMMARY_CANCEL_FEATURE.md)
+- [Referencia Rápida de Feature de Cancelación](./archive/QUICK_REFERENCE_CANCEL_FEATURE.md)
+- [Resumen de Sesión](./archive/SESSION_SUMMARY.md)
 
 ## 🚀 Empezando
 
@@ -133,5 +167,5 @@ KakoClaw está licenciado bajo la Licencia MIT. Ver [LICENSE](../LICENSE) para m
 
 ---
 
-**Versión de la documentación**: 1.0  
+**Versión de la documentación**: 1.1  
 **Última actualización**: Febrero 2026

@@ -212,3 +212,48 @@ func (s *Storage) SearchKnowledge(query string, limit int) ([]KnowledgeSearchRes
 	}
 	return results, rows.Err()
 }
+
+// GetKnowledgeDocumentChunks retrieves all ordered chunks for a specific document.
+func (s *Storage) GetKnowledgeDocumentChunks(docID int64) ([]KnowledgeChunk, error) {
+	rows, err := s.db.Query(`
+		SELECT id, document_id, content, position
+		FROM knowledge_chunks
+		WHERE document_id = ?
+		ORDER BY position ASC
+	`, docID)
+	if err != nil {
+		return nil, fmt.Errorf("get document chunks: %w", err)
+	}
+	defer rows.Close()
+
+	var chunks []KnowledgeChunk
+	for rows.Next() {
+		var chunk KnowledgeChunk
+		if err := rows.Scan(&chunk.ID, &chunk.DocumentID, &chunk.Content, &chunk.Position); err != nil {
+			return nil, fmt.Errorf("scan chunk: %w", err)
+		}
+		chunks = append(chunks, chunk)
+	}
+	return chunks, rows.Err()
+}
+
+// UpdateKnowledgeChunk updates the content of an existing document chunk and its search index.
+func (s *Storage) UpdateKnowledgeChunk(chunkID int64, newContent string) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Update the chunk text
+	if _, err := tx.Exec(`UPDATE knowledge_chunks SET content = ? WHERE id = ?`, newContent, chunkID); err != nil {
+		return fmt.Errorf("update chunk: %w", err)
+	}
+
+	// Update the FTS5 index text
+	if _, err := tx.Exec(`UPDATE knowledge_fts SET content = ? WHERE rowid = ?`, newContent, chunkID); err != nil {
+		return fmt.Errorf("update fts chunk: %w", err)
+	}
+
+	return tx.Commit()
+}

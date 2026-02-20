@@ -3,7 +3,7 @@
     <!-- Header -->
     <div class="flex-none p-4 border-b border-kakoclaw-border bg-kakoclaw-surface flex items-center justify-between">
       <div>
-        <h2 class="text-xl font-bold bg-gradient-to-r from-kakoclaw-accent to-purple-500 bg-clip-text text-transparent">Skills</h2>
+        <h2 class="text-xl font-bold bg-gradient-to-r from-kakoclaw-accent to-emerald-500 bg-clip-text text-transparent">Skills</h2>
         <p class="text-sm text-kakoclaw-text-secondary mt-1">Manage installed skills and browse the marketplace</p>
       </div>
       <div class="flex bg-kakoclaw-bg rounded-lg p-1 border border-kakoclaw-border">

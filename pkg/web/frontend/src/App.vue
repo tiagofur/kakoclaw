@@ -14,6 +14,11 @@ onMounted(() => {
   // Restore session and UI preferences
   authStore.restoreSession()
   uiStore.restoreUIPreferences()
+
+  // Request Notification permission for task push events
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission()
+  }
 })
 </script>
 

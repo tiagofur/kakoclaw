@@ -3,11 +3,28 @@
     <!-- Header -->
     <div class="flex-none p-4 border-b border-kakoclaw-border bg-kakoclaw-surface flex items-center justify-between">
       <div>
-        <h2 class="text-xl font-bold bg-gradient-to-r from-kakoclaw-accent to-purple-500 bg-clip-text text-transparent">Files</h2>
-        <p class="text-sm text-kakoclaw-text-secondary mt-1">Browse workspace files</p>
+        <h2 class="text-xl font-bold bg-gradient-to-r from-kakoclaw-accent to-emerald-500 bg-clip-text text-transparent">Files</h2>
+        <p class="text-sm text-kakoclaw-text-secondary mt-1">Browse and upload workspace files</p>
       </div>
-      <div class="text-sm text-kakoclaw-text-secondary font-mono">
-        /{{ currentPath || '' }}
+      <div class="flex items-center gap-3">
+        <input type="file" ref="fileInput" class="hidden" @change="handleFileUpload" multiple />
+        <button
+          @click="$refs.fileInput.click()"
+          :disabled="uploading"
+          class="flex items-center gap-2 px-4 py-2 bg-kakoclaw-accent text-white rounded-lg hover:bg-kakoclaw-accent/90 transition-all text-sm shadow-lg shadow-kakoclaw-accent/20 disabled:opacity-50"
+        >
+          <svg v-if="uploading" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0l-4 4m4-4v12" />
+          </svg>
+          {{ uploading ? 'Uploading...' : 'Upload' }}
+        </button>
+        <div class="text-sm text-kakoclaw-text-secondary font-mono bg-kakoclaw-bg px-2 py-1 rounded border border-kakoclaw-border">
+          /{{ currentPath || '' }}
+        </div>
       </div>
     </div>
 
@@ -21,7 +38,21 @@
     </div>
 
     <!-- Content -->
-    <div class="flex-1 overflow-auto custom-scrollbar">
+    <div 
+      class="flex-1 overflow-auto custom-scrollbar relative"
+      :class="{ 'bg-kakoclaw-accent/5': isDragging }"
+      @dragover.prevent="isDragging = true"
+      @dragleave.prevent="isDragging = false"
+      @drop.prevent="onDrop"
+    >
+      <div v-if="isDragging" class="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
+        <div class="bg-kakoclaw-accent text-white px-6 py-3 rounded-full shadow-xl animate-bounce flex items-center gap-2">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+          </svg>
+          Drop files to upload to /{{ currentPath }}
+        </div>
+      </div>
       <div v-if="loading" class="flex items-center justify-center py-12">
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-kakoclaw-accent"></div>
       </div>
@@ -109,12 +140,49 @@ import { useToast } from '../composables/useToast'
 
 const toast = useToast()
 const loading = ref(true)
+const uploading = ref(false)
+const isDragging = ref(false)
 const currentPath = ref('')
 const entries = ref(null)
 const fileContent = ref(null)
 const fileName = ref('')
 const fileSize = ref(0)
 const fileError = ref(null)
+
+const handleFileUpload = async (event) => {
+  const files = event.target.files
+  if (!files || files.length === 0) return
+  await uploadFiles(files)
+  event.target.value = '' // Clear input
+}
+
+const onDrop = async (event) => {
+  isDragging.value = false
+  const files = event.dataTransfer.files
+  if (!files || files.length === 0) return
+  await uploadFiles(files)
+}
+
+const uploadFiles = async (files) => {
+  uploading.value = true
+  let successCount = 0
+  
+  for (const file of Array.from(files)) {
+    try {
+      await advancedService.uploadFile(currentPath.value, file)
+      successCount++
+    } catch (err) {
+      console.error(`Failed to upload ${file.name}:`, err)
+      toast.error(`Failed to upload ${file.name}`)
+    }
+  }
+
+  if (successCount > 0) {
+    toast.success(`Successfully uploaded ${successCount} file(s)`)
+    await navigateTo(currentPath.value) // Refresh list
+  }
+  uploading.value = false
+}
 
 const breadcrumbs = computed(() => {
   if (!currentPath.value) return []

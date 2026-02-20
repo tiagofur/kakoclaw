@@ -1,81 +1,69 @@
 <template>
   <div class="flex flex-col h-full bg-kakoclaw-bg relative overflow-hidden">
     <!-- Background Gradient Mesh (Subtle) -->
-    <div class="absolute inset-0 pointer-events-none opacity-20 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-purple-500/20 via-transparent to-transparent"></div>
+    <div class="absolute inset-0 pointer-events-none opacity-20 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-emerald-500/20 via-transparent to-transparent"></div>
 
     <!-- Filters & Controls -->
-    <div class="border-b border-kakoclaw-border/50 bg-kakoclaw-surface/80 backdrop-blur-md p-4 space-y-3 z-10 sticky top-0">
+    <div class="glass-sticky top-0 z-20 p-4 border-b border-kakoclaw-border/30">
       <!-- Search & Sort Row -->
-      <div class="flex gap-3 flex-col md:flex-row">
+      <div class="flex gap-4 flex-col lg:flex-row lg:items-center">
         <div class="flex-1 relative group">
-          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-kakoclaw-text-secondary group-focus-within:text-kakoclaw-accent transition-colors">
+          <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-kakoclaw-text-secondary group-focus-within:text-kakoclaw-accent transition-colors">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           </div>
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="Search tasks..."
-            class="w-full pl-9 px-3 py-2 bg-kakoclaw-bg/50 border border-kakoclaw-border rounded-lg focus:ring-2 focus:ring-kakoclaw-accent/50 focus:border-kakoclaw-accent transition-all text-sm shadow-sm"
+            placeholder="Search tasks by name or description..."
+            class="w-full pl-10 pr-4 py-2.5 bg-kakoclaw-bg/40 border border-kakoclaw-border/50 rounded-xl focus:ring-2 focus:ring-kakoclaw-accent/30 focus:border-kakoclaw-accent transition-all text-sm backdrop-blur-sm"
           />
         </div>
 
-        <select
-          v-model="sortBy"
-          @change="taskStore.setSortBy(sortBy)"
-          class="px-3 py-2 bg-kakoclaw-surface border border-kakoclaw-border rounded-lg focus:ring-2 focus:ring-kakoclaw-accent/50 text-sm hover:border-kakoclaw-text-secondary transition-colors cursor-pointer"
-        >
-          <option value="recent">Recent</option>
-          <option value="oldest">Oldest</option>
-          <option value="a-z">A-Z</option>
-          <option value="z-a">Z-A</option>
-        </select>
-
-        <select
-          v-model="statusFilter"
-          @change="taskStore.setFilter('status', statusFilter)"
-          class="px-3 py-2 bg-kakoclaw-surface border border-kakoclaw-border rounded-lg focus:ring-2 focus:ring-kakoclaw-accent/50 text-sm hover:border-kakoclaw-text-secondary transition-colors cursor-pointer"
-        >
-          <option value="">All Status</option>
-          <option value="backlog">Backlog</option>
-          <option value="todo">To Do</option>
-          <option value="in_progress">In Progress</option>
-          <option value="review">Review</option>
-          <option value="done">Done</option>
-        </select>
-
-        <div class="flex items-center gap-2">
-          <input 
-            type="checkbox" 
-            id="showArchived" 
-            v-model="showArchived"
-            class="rounded border-kakoclaw-border bg-kakoclaw-surface text-kakoclaw-accent focus:ring-kakoclaw-accent"
+        <div class="flex items-center gap-3 overflow-x-auto pb-1 md:pb-0 scrollbar-hide">
+          <select
+            v-model="sortBy"
+            @change="taskStore.setSortBy(sortBy)"
+            class="px-4 py-2.5 bg-kakoclaw-bg/40 border border-kakoclaw-border/50 rounded-xl focus:ring-2 focus:ring-kakoclaw-accent/30 text-sm hover:border-kakoclaw-accent/30 transition-all cursor-pointer backdrop-blur-sm outline-none"
           >
-          <label for="showArchived" class="text-sm text-kakoclaw-text-secondary select-none cursor-pointer">Show Archived</label>
+            <option value="recent">Recent First</option>
+            <option value="oldest">Oldest First</option>
+            <option value="a-z">Name (A-Z)</option>
+            <option value="z-a">Name (Z-A)</option>
+          </select>
+
+          <select
+            v-model="statusFilter"
+            @change="taskStore.setFilter('status', statusFilter)"
+            class="px-4 py-2.5 bg-kakoclaw-bg/40 border border-kakoclaw-border/50 rounded-xl focus:ring-2 focus:ring-kakoclaw-accent/30 text-sm hover:border-kakoclaw-accent/30 transition-all cursor-pointer backdrop-blur-sm outline-none"
+          >
+            <option value="">All Statuses</option>
+            <option value="backlog">Backlog</option>
+            <option value="todo">To Do</option>
+            <option value="in_progress">In Progress</option>
+            <option value="review">Review</option>
+            <option value="done">Done</option>
+          </select>
         </div>
 
-        <!-- Export dropdown -->
-        <div class="relative" ref="exportDropdownRef">
-          <button
-            @click="showExportMenu = !showExportMenu"
-            class="px-3 py-2 border border-kakoclaw-border hover:bg-kakoclaw-bg rounded-lg transition-colors text-sm flex items-center gap-2 text-kakoclaw-text-secondary hover:text-kakoclaw-text"
-            title="Export tasks"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-            Export
-          </button>
-          <div v-if="showExportMenu" class="absolute right-0 top-full mt-1 w-36 bg-kakoclaw-surface border border-kakoclaw-border rounded-lg shadow-lg p-1 z-50">
-            <button @click="handleExport('json')" class="w-full text-left px-3 py-2 hover:bg-kakoclaw-bg rounded text-sm transition-colors">Export JSON</button>
-            <button @click="handleExport('csv')" class="w-full text-left px-3 py-2 hover:bg-kakoclaw-bg rounded text-sm transition-colors">Export CSV</button>
+        <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2 px-3 py-2 bg-kakoclaw-bg/40 border border-kakoclaw-border/50 rounded-xl backdrop-blur-sm">
+            <input 
+              type="checkbox" 
+              id="showArchived" 
+              v-model="showArchived"
+              class="rounded border-kakoclaw-border bg-kakoclaw-surface text-kakoclaw-accent focus:ring-kakoclaw-accent transition-all cursor-pointer"
+            >
+            <label for="showArchived" class="text-xs font-medium text-kakoclaw-text-secondary select-none cursor-pointer hover:text-kakoclaw-text">Archived</label>
           </div>
-        </div>
 
-        <button
-          @click="showNewTaskModal = true"
-          class="px-4 py-2 bg-kakoclaw-accent hover:bg-kakoclaw-accent-hover text-white rounded-lg transition-all shadow-lg shadow-kakoclaw-accent/20 hover:shadow-kakoclaw-accent/40 text-sm font-medium flex items-center gap-2"
-        >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-          New Task
-        </button>
+          <button
+            @click="showNewTaskModal = true"
+            class="px-5 py-2.5 bg-kakoclaw-accent hover:bg-kakoclaw-accent-hover text-white rounded-xl transition-all shadow-lg shadow-kakoclaw-accent/20 hover:shadow-kakoclaw-accent/40 text-sm font-bold flex items-center gap-2 active:scale-95"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+            <span class="hidden sm:inline">New Task</span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -223,6 +211,12 @@ const fetchTasks = async () => {
 
 onMounted(async () => {
   document.addEventListener('click', handleClickOutside)
+  
+  // Clear any stale filters in the store to ensure tasks are visible
+  taskStore.clearFilter()
+  searchQuery.value = ''
+  statusFilter.value = ''
+  
   await fetchTasks()
 
   // Connect to WebSocket for real-time updates

@@ -7,12 +7,13 @@ export default defineConfig({
     vue(),
     VitePWA({
       registerType: 'prompt',
-      includeAssets: ['favicon.svg'],
+      injectRegister: 'auto',
+      includeAssets: ['favicon.svg', 'pwa-192x192.png', 'pwa-512x512.png'],
       manifest: {
         name: 'KakoClaw',
         short_name: 'KakoClaw',
         description: 'AI Agent Dashboard — Chat, Tasks, Knowledge Base, MCP & more',
-        theme_color: '#6366f1',
+        theme_color: '#10b981',
         background_color: '#0f172a',
         display: 'standalone',
         orientation: 'any',
@@ -25,6 +26,16 @@ export default defineConfig({
             sizes: 'any',
             type: 'image/svg+xml',
             purpose: 'any'
+          },
+          {
+            src: 'pwa-192x192.png',
+            sizes: '192x192',
+            type: 'image/png'
+          },
+          {
+            src: 'pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png'
           }
         ]
       },
@@ -50,7 +61,8 @@ export default defineConfig({
             }
           }
         ]
-      }
+      },
+      devOptions: { enabled: false }
     })
   ],
   root: __dirname,
@@ -58,7 +70,7 @@ export default defineConfig({
   build: {
     outDir: '../dist',
     emptyOutDir: true,
-    minify: 'terser',
+    minify: 'esbuild',
     sourcemap: false,
     rollupOptions: {
       output: {

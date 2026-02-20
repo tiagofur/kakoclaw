@@ -1,7 +1,7 @@
 <template>
   <div class="h-full flex flex-col max-w-4xl mx-auto w-full p-4 md:p-8">
     <div class="flex-none mb-8">
-      <h2 class="text-3xl font-bold bg-gradient-to-r from-kakoclaw-accent to-purple-500 bg-clip-text text-transparent mb-2">Reports</h2>
+      <h2 class="text-3xl font-bold bg-gradient-to-r from-kakoclaw-accent to-emerald-500 bg-clip-text text-transparent mb-2">Reports</h2>
       <p class="text-kakoclaw-text-secondary">Generate and send reports via email to Google Docs/Sheets integrations.</p>
     </div>
 

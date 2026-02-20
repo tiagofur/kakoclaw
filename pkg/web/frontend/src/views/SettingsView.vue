@@ -3,7 +3,7 @@
     <!-- Header -->
     <div class="flex-none p-4 border-b border-kakoclaw-border bg-kakoclaw-surface flex items-center justify-between">
       <div>
-        <h2 class="text-xl font-bold bg-gradient-to-r from-kakoclaw-accent to-purple-500 bg-clip-text text-transparent">Settings</h2>
+        <h2 class="text-xl font-bold bg-gradient-to-r from-kakoclaw-accent to-emerald-500 bg-clip-text text-transparent">Settings</h2>
         <p class="text-sm text-kakoclaw-text-secondary mt-1">Configure your agent, providers, and channels</p>
       </div>
       <div class="flex bg-kakoclaw-bg rounded-lg p-1 border border-kakoclaw-border overflow-x-auto max-w-[50%] sm:max-w-none">
@@ -24,169 +24,99 @@
       </div>
 
       <template v-else-if="configData">
-        <!-- Agent Settings -->
-        <div v-if="activeTab === 'agents'" class="space-y-6 max-w-2xl mx-auto">
-          <div class="bg-kakoclaw-surface border border-kakoclaw-border rounded-xl p-6">
-            <h3 class="font-semibold mb-6 flex items-center text-kakoclaw-text">
-               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-kakoclaw-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-               </svg>
-               Agent Defaults
-            </h3>
-            
-            <div class="space-y-4">
+        <!-- Component Tabs -->
+        <AgentSettingsTab 
+          v-if="activeTab === 'agents'"
+          :agents="configData.agents"
+          :providersList="providersList"
+          :saving="saving"
+          @save="saveConfig"
+        />
+
+        <ProvidersSettingsTab 
+          v-if="activeTab === 'providers'"
+          :providers="configData.providers"
+          :providersList="providersList"
+          :saving="saving"
+          @save="saveConfig"
+        />
+
+        <ChannelsSettingsTab 
+          v-if="activeTab === 'channels'"
+          :availableChannels="availableChannels"
+          :channels="configData.channels"
+          @toggle="toggleChannel"
+          @config="openChannelConfig"
+        />
+
+        <div v-if="activeTab === 'users' && authStore.user?.role === 'admin'" class="space-y-6 max-w-5xl mx-auto animate-fadeIn">
+          <div class="glass-panel rounded-2xl p-8">
+            <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-8">
               <div>
-                <label class="block text-sm font-medium text-kakoclaw-text-secondary mb-1">Default Provider</label>
-                <select v-model="configData.agents.defaults.provider" class="w-full bg-kakoclaw-bg border border-kakoclaw-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-kakoclaw-accent outline-none text-kakoclaw-text">
-                  <option v-for="p in providersList" :key="p.name" :value="p.name">{{ p.name }}</option>
-                </select>
+                <h3 class="text-sm font-bold uppercase tracking-widest text-kakoclaw-text-secondary opacity-70">User Accounts</h3>
+                <p class="text-xs text-kakoclaw-text-secondary mt-1">Manage workspace access and permissions</p>
               </div>
-
-              <div>
-                <label class="block text-sm font-medium text-kakoclaw-text-secondary mb-1">Default Model</label>
-                <select v-model="configData.agents.defaults.model" class="w-full bg-kakoclaw-bg border border-kakoclaw-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-kakoclaw-accent outline-none text-kakoclaw-text">
-                  <optgroup v-for="p in providersList" :key="p.name" :label="p.name">
-                    <option v-for="m in p.models" :key="m.id" :value="m.id">{{ m.id }}</option>
-                  </optgroup>
-                </select>
-              </div>
-
-              <div class="grid grid-cols-2 gap-4">
-                <div>
-                  <label class="block text-sm font-medium text-kakoclaw-text-secondary mb-1">Temperature</label>
-                  <input v-model.number="configData.agents.defaults.temperature" type="number" step="0.1" min="0" max="2" class="w-full bg-kakoclaw-bg border border-kakoclaw-border rounded-lg px-3 py-2 text-sm outline-none text-kakoclaw-text">
-                </div>
-                <div>
-                  <label class="block text-sm font-medium text-kakoclaw-text-secondary mb-1">Max Tokens</label>
-                  <input v-model.number="configData.agents.defaults.max_tokens" type="number" class="w-full bg-kakoclaw-bg border border-kakoclaw-border rounded-lg px-3 py-2 text-sm outline-none text-kakoclaw-text">
-                </div>
-              </div>
-
-              <div>
-                <label class="block text-sm font-medium text-kakoclaw-text-secondary mb-1">Max Tool Iterations</label>
-                <input v-model.number="configData.agents.defaults.max_tool_iterations" type="number" class="w-full bg-kakoclaw-bg border border-kakoclaw-border rounded-lg px-3 py-2 text-sm outline-none text-kakoclaw-text">
-              </div>
-
-              <div class="pt-4 border-t border-kakoclaw-border mt-6">
-                <button @click="saveConfig({agents: configData.agents})" :disabled="saving" class="w-full bg-kakoclaw-accent text-white py-2 rounded-lg font-medium hover:bg-kakoclaw-accent-hover transition-colors flex items-center justify-center disabled:opacity-50">
-                  <span v-if="saving" class="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin mr-2"></span>
-                  Save Agent Settings
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Providers -->
-        <div v-if="activeTab === 'providers'" class="space-y-4 max-w-4xl mx-auto">
-          <div
-            v-for="(info, name) in configData.providers"
-            :key="name"
-            class="bg-kakoclaw-surface border border-kakoclaw-border rounded-xl p-5"
-          >
-            <div class="flex items-center justify-between mb-4">
-              <h3 class="font-semibold capitalize text-lg flex items-center text-kakoclaw-text">
-                 <span class="w-8 h-8 rounded-lg bg-kakoclaw-bg border border-kakoclaw-border flex items-center justify-center mr-3 text-kakoclaw-accent text-xs font-bold">{{ name.substring(0,2).toUpperCase() }}</span>
-                 {{ name }}
-              </h3>
-              <span
-                class="px-2 py-0.5 text-xs rounded-full"
-                :class="info.configured ? 'bg-emerald-500/10 text-emerald-400' : 'bg-gray-500/10 text-gray-400'"
-              >{{ info.configured ? 'Configured' : 'Not configured' }}</span>
-            </div>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-              <div>
-                <label class="block text-xs font-bold text-kakoclaw-text-secondary mb-1 uppercase tracking-tight">API Key</label>
-                <input 
-                  v-model="info.api_key" 
-                  type="password" 
-                  :placeholder="info.configured ? '••••••••••••••••' : 'Enter API Key'" 
-                  class="w-full bg-kakoclaw-bg border border-kakoclaw-border rounded-lg px-3 py-2 text-sm outline-none focus:border-kakoclaw-accent text-kakoclaw-text"
-                >
-              </div>
-              <div class="flex gap-2">
-                <div class="flex-1">
-                  <label class="block text-xs font-bold text-kakoclaw-text-secondary mb-1 uppercase tracking-tight">API Base (optional)</label>
-                  <input 
-                    v-model="info.api_base" 
-                    type="text" 
-                    placeholder="https://api..." 
-                    class="w-full bg-kakoclaw-bg border border-kakoclaw-border rounded-lg px-3 py-2 text-sm outline-none focus:border-kakoclaw-accent text-kakoclaw-text"
-                  >
-                </div>
-                <button 
-                  @click="saveConfig({providers: {[name]: {api_key: info.api_key, api_base: info.api_base}}})" 
-                  :disabled="saving"
-                  class="bg-kakoclaw-accent text-white px-4 h-9 rounded-lg hover:bg-kakoclaw-accent-hover transition-colors disabled:opacity-50 flex items-center"
-                >
-                  <span v-if="saving" class="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin mr-2"></span>
-                  Save
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Channels -->
-        <div v-if="activeTab === 'channels'" class="space-y-4 max-w-5xl mx-auto">
-           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div 
-                v-for="channel in availableChannels" 
-                :key="channel.id"
-                class="bg-kakoclaw-surface rounded-xl border border-kakoclaw-border p-5 transition-all hover:shadow-md"
+              <button 
+                @click="openUserModal()"
+                class="px-4 py-2 bg-kakoclaw-accent hover:bg-kakoclaw-accent-hover text-white rounded-xl transition-all shadow-lg shadow-kakoclaw-accent/20 hover:shadow-kakoclaw-accent/40 text-sm font-bold flex items-center justify-center gap-2 active:scale-95"
               >
-                <div class="flex items-center justify-between mb-4">
-                  <div class="flex items-center space-x-3">
-                    <div 
-                      class="w-10 h-10 rounded-lg flex items-center justify-center bg-kakoclaw-bg border border-kakoclaw-border text-kakoclaw-text-secondary"
-                      :class="{'bg-kakoclaw-accent !text-white border-transparent shadow-sm': configData.channels[channel.id]?.enabled}"
-                      v-html="channel.icon"
-                    ></div>
-                    <h3 class="font-medium text-kakoclaw-text">{{ channel.name }}</h3>
-                  </div>
-                  <button 
-                    @click="toggleChannel(channel.id)"
-                    class="relative inline-flex flex-shrink-0 h-6 w-11 border-2 border-transparent rounded-full cursor-pointer transition-colors duration-200 focus:outline-none"
-                    :class="configData.channels[channel.id]?.enabled ? 'bg-kakoclaw-success' : 'bg-kakoclaw-border'"
-                  >
-                    <span 
-                      aria-hidden="true" 
-                      class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform ring-0 transition duration-200"
-                      :class="configData.channels[channel.id]?.enabled ? 'translate-x-5' : 'translate-x-0'"
-                    ></span>
-                  </button>
-                </div>
-                <p class="text-xs text-kakoclaw-text-secondary mb-6 h-8 line-clamp-2">{{ channel.description }}</p>
-                <div class="flex gap-2">
-                  <button 
-                    @click="openChannelConfig(channel)"
-                    class="flex-1 py-1.5 text-xs font-medium border border-kakoclaw-border rounded-lg hover:bg-kakoclaw-bg transition-colors flex items-center justify-center text-kakoclaw-text"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    Settings
-                  </button>
-                  <div 
-                    v-if="configData.channels[channel.id]?.enabled"
-                    class="px-2 py-1.5 border border-kakoclaw-border rounded-lg bg-emerald-500/10 flex items-center"
-                    title="Active"
-                  >
-                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  </div>
-                </div>
-              </div>
-           </div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                Add User
+              </button>
+            </div>
+            
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-sm whitespace-nowrap">
+                <thead class="uppercase tracking-wider border-b border-kakoclaw-border text-[10px] text-kakoclaw-text-secondary font-bold">
+                  <tr>
+                    <th scope="col" class="px-4 py-3">ID</th>
+                    <th scope="col" class="px-4 py-3">Username</th>
+                    <th scope="col" class="px-4 py-3">Role</th>
+                    <th scope="col" class="px-4 py-3">Created</th>
+                    <th scope="col" class="px-4 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-kakoclaw-border text-kakoclaw-text">
+                  <tr v-for="u in usersList" :key="u.id" class="hover:bg-kakoclaw-bg/50 transition-colors">
+                    <td class="px-4 py-3 font-mono text-xs">{{ u.id }}</td>
+                    <td class="px-4 py-3 font-medium">{{ u.username }}</td>
+                    <td class="px-4 py-3">
+                      <span class="px-2 py-0.5 text-[10px] font-bold uppercase rounded-full" 
+                            :class="u.role === 'admin' ? 'bg-teal-500/10 text-teal-400' : 'bg-kakoclaw-accent/10 text-kakoclaw-accent'">
+                        {{ u.role }}
+                      </span>
+                    </td>
+                    <td class="px-4 py-3 text-xs text-kakoclaw-text-secondary">{{ formatDate(u.created_at) }}</td>
+                    <td class="px-4 py-3 text-right">
+                      <button @click="openUserModal(u)" class="text-kakoclaw-text-secondary hover:text-kakoclaw-accent p-1 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                      </button>
+                      <button @click="deleteUserLocal(u)" :disabled="authStore.user?.username === u.username" class="text-kakoclaw-text-secondary hover:text-red-400 p-1 transition-colors ml-1 disabled:opacity-30 disabled:hover:text-kakoclaw-text-secondary">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </td>
+                  </tr>
+                  <tr v-if="usersList.length === 0">
+                    <td colspan="5" class="px-4 py-8 text-center text-kakoclaw-text-secondary text-sm">No users found.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
 
         <!-- System -->
-        <div v-if="activeTab === 'system'" class="space-y-6 max-w-4xl mx-auto">
+        <div v-if="activeTab === 'system'" class="space-y-6 max-w-4xl mx-auto animate-fadeIn">
           <!-- Web & Gateway -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="bg-kakoclaw-surface border border-kakoclaw-border rounded-xl p-5">
-              <h3 class="font-bold mb-4 text-kakoclaw-text-secondary uppercase tracking-widest text-[10px]">Web Server</h3>
+            <div class="glass-panel rounded-2xl p-6">
+              <h3 class="text-[10px] font-bold uppercase tracking-widest text-kakoclaw-text-secondary opacity-60 mb-6">Web Server</h3>
               <div class="space-y-3">
                 <div v-for="(val, key) in configData.web" :key="key" class="flex justify-between items-center py-1">
                   <span class="text-sm text-kakoclaw-text-secondary">{{ formatKey(key) }}</span>
@@ -194,9 +124,9 @@
                 </div>
               </div>
             </div>
-            <div class="bg-kakoclaw-surface border border-kakoclaw-border rounded-xl p-5">
-              <h3 class="font-bold mb-4 text-kakoclaw-text-secondary uppercase tracking-widest text-[10px]">Gateway</h3>
-              <div class="space-y-3">
+            <div class="glass-panel rounded-2xl p-6">
+              <h3 class="text-[10px] font-bold uppercase tracking-widest text-kakoclaw-text-secondary opacity-60 mb-6">Gateway</h3>
+              <div class="space-y-4">
                 <div v-for="(val, key) in configData.gateway" :key="key" class="flex justify-between items-center py-1">
                   <span class="text-sm text-kakoclaw-text-secondary">{{ formatKey(key) }}</span>
                   <span class="text-sm font-mono text-kakoclaw-text">{{ String(val) }}</span>
@@ -205,9 +135,9 @@
             </div>
           </div>
           
-          <div class="bg-kakoclaw-surface border border-kakoclaw-border rounded-xl p-5">
-            <h3 class="font-bold mb-4 text-kakoclaw-text-secondary uppercase tracking-widest text-[10px]">Storage & Backend</h3>
-            <div class="space-y-3">
+          <div class="glass-panel rounded-2xl p-6">
+            <h3 class="text-[10px] font-bold uppercase tracking-widest text-kakoclaw-text-secondary opacity-60 mb-6">Storage & Backend</h3>
+            <div class="space-y-4">
               <div class="flex justify-between items-center py-1">
                 <span class="text-sm text-kakoclaw-text-secondary">Database Path</span>
                 <span class="text-sm font-mono text-kakoclaw-text text-right truncate ml-4">{{ configData.storage?.path || '(not set)' }}</span>
@@ -215,40 +145,40 @@
             </div>
           </div>
 
-          <div class="bg-kakoclaw-surface border border-kakoclaw-border rounded-xl p-6">
-            <div class="flex justify-between items-center mb-6">
-              <h3 class="font-bold text-kakoclaw-text-secondary uppercase tracking-widest text-[10px]">Search Utilities</h3>
+          <div class="glass-panel rounded-2xl p-8">
+            <div class="flex justify-between items-center mb-8">
+              <h3 class="text-[10px] font-bold uppercase tracking-widest text-kakoclaw-text-secondary opacity-60">Search Utilities</h3>
               <button 
                 @click="saveConfig({tools: configData.tools})" 
                 :disabled="saving"
-                class="text-kakoclaw-accent hover:text-kakoclaw-accent-hover text-xs font-bold uppercase disabled:opacity-50"
+                class="text-kakoclaw-accent hover:text-kakoclaw-accent-hover text-xs font-bold uppercase tracking-widest disabled:opacity-50 transition-all active:scale-95"
               >
                 {{ saving ? 'Updating...' : 'Save Updates' }}
               </button>
             </div>
-            <div class="space-y-5">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
                <div>
-                  <label class="block text-xs font-semibold text-kakoclaw-text-secondary mb-1.5">Web Search API Key</label>
-                  <input v-model="configData.tools.web.search.api_key" type="password" placeholder="••••••••••••••••" class="w-full bg-kakoclaw-bg border border-kakoclaw-border rounded-lg px-3 py-2 text-sm outline-none focus:border-kakoclaw-accent text-kakoclaw-text">
+                  <label class="block text-[10px] font-bold uppercase tracking-widest text-kakoclaw-text-secondary mb-2 opacity-70">Web Search API Key</label>
+                  <input v-model="configData.tools.web.search.api_key" type="password" placeholder="••••••••••••••••" class="w-full bg-kakoclaw-bg/40 border border-kakoclaw-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-kakoclaw-accent text-kakoclaw-text backdrop-blur-sm transition-all">
                </div>
                <div>
-                  <label class="block text-xs font-semibold text-kakoclaw-text-secondary mb-1.5">Max Search Results</label>
-                  <input v-model.number="configData.tools.web.search.max_results" type="number" class="w-full bg-kakoclaw-bg border border-kakoclaw-border rounded-lg px-3 py-2 text-sm outline-none focus:border-kakoclaw-accent text-kakoclaw-text">
+                  <label class="block text-[10px] font-bold uppercase tracking-widest text-kakoclaw-text-secondary mb-2 opacity-70">Max Search Results</label>
+                  <input v-model.number="configData.tools.web.search.max_results" type="number" class="w-full bg-kakoclaw-bg/40 border border-kakoclaw-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-kakoclaw-accent text-kakoclaw-text backdrop-blur-sm transition-all">
                </div>
              </div>
            </div>
 
           <!-- Backup Section -->
-          <div class="bg-kakoclaw-surface border border-kakoclaw-border rounded-xl p-6">
-             <div class="flex justify-between items-center mb-6">
-               <h3 class="font-bold text-kakoclaw-text-secondary uppercase tracking-widest text-[10px]">Backup & Restore</h3>
+          <div class="glass-panel rounded-2xl p-8">
+             <div class="flex justify-between items-center mb-8">
+               <h3 class="text-[10px] font-bold uppercase tracking-widest text-kakoclaw-text-secondary opacity-60">Backup & Restore</h3>
              </div>
 
              <!-- Export Section -->
-             <div class="space-y-4 mb-8">
-               <h4 class="font-semibold text-kakoclaw-text flex items-center">
+             <div class="space-y-5 mb-10">
+               <h4 class="font-bold text-kakoclaw-text flex items-center text-sm">
                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2 text-kakoclaw-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                  </svg>
                  Export Backup
                </h4>
@@ -278,30 +208,30 @@
                  </p>
                </div>
 
-               <button
-                 @click="exportBackup"
-                 :disabled="exporting || (!exportOptions.include_database && !exportOptions.include_workspace && !exportOptions.include_config && !exportOptions.include_env)"
-                 class="w-full bg-kakoclaw-accent text-white py-2.5 rounded-lg font-medium hover:bg-kakoclaw-accent-hover transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-               >
-                 <svg v-if="exporting" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                   <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                 </svg>
-                 <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                 </svg>
-                 {{ exporting ? 'Creating Backup...' : 'Download Backup (.kakoclaw)' }}
-               </button>
+                <button
+                  @click="exportBackup"
+                  :disabled="exporting || (!exportOptions.include_database && !exportOptions.include_workspace && !exportOptions.include_config && !exportOptions.include_env)"
+                  class="w-full bg-kakoclaw-accent text-white py-3 rounded-xl font-bold hover:bg-kakoclaw-accent-hover transition-all shadow-lg shadow-kakoclaw-accent/20 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+                >
+                  <svg v-if="exporting" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  {{ exporting ? 'Creating Backup...' : 'Download Backup (.kakoclaw)' }}
+                </button>
              </div>
 
-             <!-- Import Section -->
-             <div class="space-y-4">
-               <h4 class="font-semibold text-kakoclaw-text flex items-center">
-                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                 </svg>
-                 Import Backup
-               </h4>
+              <!-- Import Section -->
+              <div class="space-y-4">
+                <h4 class="font-bold text-kakoclaw-text flex items-center text-sm">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                  Import Backup
+                </h4>
 
                <div class="border-2 border-dashed border-kakoclaw-border rounded-xl p-8 transition-colors hover:border-kakoclaw-accent/50">
                  <input type="file" @change="handleFileSelect" accept=".kakoclaw" class="hidden" ref="fileInput">
@@ -373,20 +303,20 @@
                      </p>
                    </div>
 
-                   <button
-                     @click="importBackup"
-                     :disabled="importing || !validationResult || (!importOptions.replace_database && !importOptions.replace_workspace && !importOptions.replace_config && !importOptions.replace_env)"
-                     class="w-full bg-orange-500 hover:bg-orange-600 text-white py-2.5 rounded-lg font-medium transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                   >
-                     <svg v-if="importing" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                       <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                       <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                     </svg>
-                     <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                     </svg>
-                     {{ importing ? 'Importing Backup...' : 'Import Backup' }}
-                   </button>
+                    <button
+                      @click="importBackup"
+                      :disabled="importing || !validationResult || (!importOptions.replace_database && !importOptions.replace_workspace && !importOptions.replace_config && !importOptions.replace_env)"
+                      class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+                    >
+                      <svg v-if="importing" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                      </svg>
+                      {{ importing ? 'Importing Backup...' : 'Import Backup' }}
+                    </button>
                  </div>
                </div>
              </div>
@@ -461,14 +391,54 @@
         </div>
       </div>
     </div>
+
+    <!-- User Edit/Create Modal -->
+    <div v-if="showUserModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div class="bg-kakoclaw-surface rounded-2xl shadow-2xl w-full max-w-sm border border-kakoclaw-border overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div class="flex justify-between items-center p-5 border-b border-kakoclaw-border bg-kakoclaw-bg/20">
+          <h3 class="text-md font-bold text-kakoclaw-text">{{ userForm.id ? 'Edit User' : 'Create User' }}</h3>
+          <button @click="showUserModal = false" class="text-kakoclaw-text-secondary hover:text-kakoclaw-text">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+        <div class="p-5 space-y-4">
+          <div>
+            <label class="block text-xs font-bold text-kakoclaw-text-secondary mb-1 uppercase">Username</label>
+            <input v-model="userForm.username" type="text" :disabled="!!userForm.id" class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm outline-none focus:ring-1 focus:ring-kakoclaw-accent disabled:opacity-50 text-kakoclaw-text">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-kakoclaw-text-secondary mb-1 uppercase">{{ userForm.id ? 'New Password (Optional)' : 'Password' }}</label>
+            <input v-model="userForm.password" type="password" class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm outline-none focus:ring-1 focus:ring-kakoclaw-accent text-kakoclaw-text">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-kakoclaw-text-secondary mb-1 uppercase">Role</label>
+            <select v-model="userForm.role" class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm outline-none focus:ring-1 focus:ring-kakoclaw-accent text-kakoclaw-text">
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+        </div>
+        <div class="flex justify-end space-x-2 p-5 border-t border-kakoclaw-border bg-kakoclaw-bg/20">
+          <button @click="showUserModal = false" class="px-4 py-2 text-sm font-medium text-kakoclaw-text-secondary hover:text-kakoclaw-text">Cancel</button>
+          <button @click="saveUser" :disabled="savingUser" class="px-4 py-2 text-sm font-bold bg-kakoclaw-accent text-white rounded-lg hover:bg-kakoclaw-accent-hover flex items-center disabled:opacity-50">
+            <span v-if="savingUser" class="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin mr-2"></span>
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import advancedService from '../services/advancedService'
+import usersService from '../services/usersService'
 import { useToast } from '../composables/useToast'
 import { useAuthStore } from '../stores/authStore'
+import AgentSettingsTab from '../components/Settings/AgentSettingsTab.vue'
+import ProvidersSettingsTab from '../components/Settings/ProvidersSettingsTab.vue'
+import ChannelsSettingsTab from '../components/Settings/ChannelsSettingsTab.vue'
 
 const toast = useToast()
 const authStore = useAuthStore()
@@ -484,6 +454,10 @@ const tabs = [
   { key: 'channels', label: 'Channels' },
   { key: 'system', label: 'System' }
 ]
+// Dynamically add users tab if admin
+if (authStore.user?.role === 'admin') {
+  tabs.splice(1, 0, { key: 'users', label: 'Users' })
+}
 
 const chatIcon = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 text-current"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" /></svg>'
 const hashIcon = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 text-current"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 8.25h13.5m-13.5 7.5h13.5m-3-10.5-3 15m-3-15-3 15" /></svg>'
@@ -501,6 +475,12 @@ const availableChannels = [
 const showChannelModal = ref(false)
 const selectedChannel = ref(null)
 const channelForm = ref({})
+
+// Users Management stuff
+const usersList = ref([])
+const showUserModal = ref(false)
+const userForm = ref({})
+const savingUser = ref(false)
 
 // Backup stuff
 const exporting = ref(false)
@@ -680,12 +660,19 @@ const importBackup = async () => {
 const loadData = async () => {
   loading.value = true
   try {
-    const [cfg, mods] = await Promise.all([
+    const promises = [
       advancedService.fetchConfig(),
       advancedService.fetchModels()
-    ])
-    configData.value = cfg.config || {}
-    providersList.value = mods.providers || []
+    ]
+    if (authStore.user?.role === 'admin') {
+      promises.push(usersService.listUsers())
+    }
+    const results = await Promise.all(promises)
+    configData.value = results[0].config || {}
+    providersList.value = results[1].providers || []
+    if (results[2]) {
+      usersList.value = results[2]
+    }
   } catch (err) {
     console.error(err)
     toast.error('Failed to load configuration')
@@ -751,6 +738,51 @@ const saveChannelConfig = async () => {
   }
   await saveConfig(payload)
   showChannelModal.value = false
+}
+
+// User Actions
+const openUserModal = (u = null) => {
+  if (u) {
+    userForm.value = { ...u, password: '' }
+  } else {
+    userForm.value = { id: null, username: '', password: '', role: 'user' }
+  }
+  showUserModal.value = true
+}
+
+const saveUser = async () => {
+  savingUser.value = true
+  try {
+    if (userForm.value.id) {
+       await usersService.updateUser(userForm.value.id, userForm.value.password, userForm.value.role)
+       toast.success('User updated successfully')
+    } else {
+       if (!userForm.value.username || !userForm.value.password) {
+         toast.error('Username and password are required')
+         return
+       }
+       await usersService.createUser(userForm.value.username, userForm.value.password, userForm.value.role)
+       toast.success('User created successfully')
+    }
+    showUserModal.value = false
+    const updatedUsers = await usersService.listUsers()
+    usersList.value = updatedUsers
+  } catch (err) {
+    toast.error(err.response?.data?.error || err.message || 'Error saving user')
+  } finally {
+    savingUser.value = false
+  }
+}
+
+const deleteUserLocal = async (u) => {
+  if (!confirm(`Are you sure you want to delete user @${u.username}?`)) return
+  try {
+    await usersService.deleteUser(u.id)
+    toast.success('User deleted successfully')
+    usersList.value = usersList.value.filter(usr => usr.id !== u.id)
+  } catch(err) {
+    toast.error(err.response?.data?.error || err.message || 'Error deleting user')
+  }
 }
 
 onMounted(loadData)

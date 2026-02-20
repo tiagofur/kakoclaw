@@ -2,7 +2,7 @@
   <div class="h-full flex flex-col bg-kakoclaw-bg">
     <!-- Header -->
     <div class="flex-none p-4 border-b border-kakoclaw-border bg-kakoclaw-surface">
-      <h2 class="text-xl font-bold bg-gradient-to-r from-kakoclaw-accent to-purple-500 bg-clip-text text-transparent">Dashboard</h2>
+      <h2 class="text-xl font-bold bg-gradient-to-r from-kakoclaw-accent to-emerald-500 bg-clip-text text-transparent">Dashboard</h2>
       <p class="text-sm text-kakoclaw-text-secondary mt-1">Overview of your KakoClaw workspace</p>
     </div>
 
@@ -15,33 +15,76 @@
       </div>
 
       <template v-else>
+        <!-- Welcome banner -->
+        <div class="relative overflow-hidden bg-gradient-to-r from-kakoclaw-accent to-emerald-600 rounded-2xl p-8 mb-8 shadow-lg shadow-kakoclaw-accent/10 group">
+          <div class="absolute top-0 right-0 p-4 opacity-10 transition-transform group-hover:scale-110 duration-700">
+            <svg class="w-32 h-32" fill="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          </div>
+          <div class="relative z-10">
+            <h3 class="text-2xl md:text-3xl font-bold text-white">Welcome back, {{ authStore.user?.username || 'Commander' }}</h3>
+            <p class="text-white/80 mt-2 text-sm md:text-base max-w-lg">Your KakoClaw workspace is active. Here's a quick summary of your agent's activity and system performance.</p>
+          </div>
+        </div>
         <!-- Stats Grid -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div class="bg-kakoclaw-surface border border-kakoclaw-border rounded-xl p-4">
-            <div class="text-sm text-kakoclaw-text-secondary">Total Tasks</div>
-            <div class="text-2xl font-bold mt-1">{{ stats.totalTasks }}</div>
+          <div class="glass-panel rounded-2xl p-5 transition-all duration-300 hover:shadow-kakoclaw-accent/5 hover:-translate-y-1">
+            <div class="text-xs font-semibold uppercase tracking-wider text-kakoclaw-text-secondary opacity-70">Total Tasks</div>
+            <div class="text-3xl font-bold mt-2">{{ stats.totalTasks }}</div>
           </div>
-          <div class="bg-kakoclaw-surface border border-kakoclaw-border rounded-xl p-4">
-            <div class="text-sm text-kakoclaw-text-secondary">In Progress</div>
-            <div class="text-2xl font-bold mt-1 text-blue-400">{{ stats.inProgress }}</div>
+          <div class="glass-panel rounded-2xl p-5 transition-all duration-300 hover:shadow-blue-500/5 hover:-translate-y-1">
+            <div class="text-xs font-semibold uppercase tracking-wider text-kakoclaw-text-secondary opacity-70">In Progress</div>
+            <div class="text-3xl font-bold mt-2 text-blue-500">{{ stats.inProgress }}</div>
           </div>
-          <div class="bg-kakoclaw-surface border border-kakoclaw-border rounded-xl p-4">
-            <div class="text-sm text-kakoclaw-text-secondary">Chat Sessions</div>
-            <div class="text-2xl font-bold mt-1 text-emerald-400">{{ stats.chatSessions }}</div>
+          <div class="glass-panel rounded-2xl p-5 transition-all duration-300 hover:shadow-emerald-500/5 hover:-translate-y-1">
+            <div class="text-xs font-semibold uppercase tracking-wider text-kakoclaw-text-secondary opacity-70">Chat Sessions</div>
+            <div class="text-3xl font-bold mt-2 text-emerald-500">{{ stats.chatSessions }}</div>
           </div>
-          <div class="bg-kakoclaw-surface border border-kakoclaw-border rounded-xl p-4">
-            <div class="text-sm text-kakoclaw-text-secondary">Total Messages</div>
-            <div class="text-2xl font-bold mt-1 text-purple-400">{{ stats.totalMessages }}</div>
+          <div class="glass-panel rounded-2xl p-5 transition-all duration-300 hover:shadow-cyan-500/5 hover:-translate-y-1">
+            <div class="text-xs font-semibold uppercase tracking-wider text-kakoclaw-text-secondary opacity-70">Total Messages</div>
+            <div class="text-3xl font-bold mt-2 text-cyan-500">{{ stats.totalMessages }}</div>
           </div>
         </div>
 
-        <!-- Task Status Breakdown -->
-        <div class="bg-kakoclaw-surface border border-kakoclaw-border rounded-xl p-5">
-          <h3 class="font-semibold mb-4">Tasks by Status</h3>
-          <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            <div v-for="s in statusBreakdown" :key="s.status" class="text-center p-3 rounded-lg bg-kakoclaw-bg">
-              <div class="text-lg font-bold" :class="s.color">{{ s.count }}</div>
-              <div class="text-xs text-kakoclaw-text-secondary mt-1 capitalize">{{ s.label }}</div>
+        <!-- Charts Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6" v-if="metricsData">
+          <!-- Model Activity Ratio -->
+          <div class="glass-panel rounded-2xl p-6 flex flex-col items-center">
+            <h3 class="text-sm font-bold uppercase tracking-widest text-kakoclaw-text-secondary mb-6 self-start">Model Activity</h3>
+            <div class="w-full relative flex-1 min-h-[250px] flex items-center justify-center">
+               <Doughnut v-if="modelChartData.labels.length > 0" :data="modelChartData" :options="chartOptions" />
+               <div v-else class="text-sm text-kakoclaw-text-secondary opacity-50 italic">No model usage data available yet.</div>
+            </div>
+          </div>
+          
+          <!-- Tasks by Status -->
+          <div class="glass-panel rounded-2xl p-6 flex flex-col items-center">
+             <h3 class="text-sm font-bold uppercase tracking-widest text-kakoclaw-text-secondary mb-6 self-start">Tasks by Status</h3>
+             <div class="w-full relative flex-1 min-h-[250px] flex items-center justify-center">
+                <Bar v-if="taskChartData.labels.length > 0" :data="taskChartData" :options="barOptions" />
+                <div v-else class="text-sm text-kakoclaw-text-secondary opacity-50 italic">No task data available yet.</div>
+             </div>
+          </div>
+        </div>
+
+        <!-- Observability Stats Grid -->
+        <div class="bg-kakoclaw-surface border border-kakoclaw-border rounded-xl p-5" v-if="metricsData">
+          <h3 class="font-semibold mb-4">Total System Activity</h3>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+            <div>
+              <p class="text-xl font-bold">{{ metricsData.llm_calls }}</p>
+              <p class="text-xs text-kakoclaw-text-secondary mt-1">LLM Calls</p>
+            </div>
+            <div>
+              <p class="text-xl font-bold">{{ metricsData.tool_calls }}</p>
+              <p class="text-xs text-kakoclaw-text-secondary mt-1">Tool Calls</p>
+            </div>
+            <div>
+              <p class="text-xl font-bold">{{ metricsData.agent_runs }}</p>
+              <p class="text-xs text-kakoclaw-text-secondary mt-1">Agent Runs</p>
+            </div>
+            <div>
+              <p class="text-xl font-bold">{{ formatNumber(metricsData.llm_tokens_in + metricsData.llm_tokens_out) }}</p>
+              <p class="text-xs text-kakoclaw-text-secondary mt-1">Tokens Processed</p>
             </div>
           </div>
         </div>
@@ -155,13 +198,27 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useAuthStore } from '../stores/authStore'
 import taskService from '../services/taskService'
+import advancedService from '../services/advancedService'
 import { useToast } from '../composables/useToast'
+import { Doughnut, Bar } from 'vue-chartjs'
+import { Chart as ChartJS, Title, Tooltip, Legend, ArcElement, CategoryScale, LinearScale, BarElement } from 'chart.js'
 
+ChartJS.register(Title, Tooltip, Legend, ArcElement, CategoryScale, LinearScale, BarElement)
+
+const authStore = useAuthStore()
 const toast = useToast()
 const loading = ref(true)
 const tasks = ref([])
 const sessions = ref([])
+const metricsData = ref(null)
+
+const formatNumber = (num) => {
+  if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M'
+  if (num >= 1000) return (num / 1000).toFixed(1) + 'k'
+  return num
+}
 
 const stats = computed(() => {
   const totalTasks = tasks.value.length
@@ -211,14 +268,77 @@ const formatDate = (dateStr) => {
   return d.toLocaleDateString()
 }
 
+// Chart Options
+const chartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      position: 'right',
+      labels: { color: '#9CA3AF', font: { size: 12 } }
+    }
+  },
+  cutout: '65%'
+}
+
+const barOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { display: false }
+  },
+  scales: {
+    y: {
+      beginAtZero: true,
+      grid: { color: 'rgba(255,255,255,0.05)' },
+      ticks: { color: '#9CA3AF' }
+    },
+    x: {
+      grid: { display: false },
+      ticks: { color: '#9CA3AF' }
+    }
+  }
+}
+
+// Data Processing for Charts
+const modelChartData = computed(() => {
+  if (!metricsData.value || !metricsData.value.llm_by_model) return { labels: [], datasets: [{ data: [] }] }
+  
+  const labels = Object.keys(metricsData.value.llm_by_model)
+  const data = Object.values(metricsData.value.llm_by_model).map(m => m.calls)
+  
+  return {
+    labels,
+    datasets: [{
+      backgroundColor: ['#10b981', '#22c55e', '#84cc16', '#06b6d4', '#0891b2', '#14b8a6'],
+      borderColor: '#1e1e2e',
+      borderWidth: 2,
+      data
+    }]
+  }
+})
+
+const taskChartData = computed(() => {
+  return {
+    labels: statusBreakdown.value.map(s => s.label),
+    datasets: [{
+      backgroundColor: ['#9ca3af', '#facc15', '#60a5fa', '#fb923c', '#4ade80'],
+      data: statusBreakdown.value.map(s => s.count),
+      borderRadius: 4
+    }]
+  }
+})
+
 onMounted(async () => {
   try {
-    const [tasksData, sessionsData] = await Promise.all([
+    const [tasksData, sessionsData, metrics] = await Promise.all([
       taskService.fetchTasks(false),
-      taskService.fetchChatSessions()
+      taskService.fetchChatSessions(),
+      advancedService.fetchMetrics()
     ])
     tasks.value = tasksData.tasks || []
     sessions.value = sessionsData.sessions || []
+    metricsData.value = metrics || null
   } catch (err) {
     console.error('Failed to load dashboard data:', err)
     toast.error('Failed to load dashboard data')

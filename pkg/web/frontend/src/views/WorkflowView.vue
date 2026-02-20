@@ -3,7 +3,7 @@
     <!-- Header -->
     <div class="flex-none p-4 border-b border-kakoclaw-border bg-kakoclaw-surface flex items-center justify-between">
       <div>
-        <h2 class="text-xl font-bold bg-gradient-to-r from-kakoclaw-accent to-purple-500 bg-clip-text text-transparent">
+        <h2 class="text-xl font-bold bg-gradient-to-r from-kakoclaw-accent to-emerald-500 bg-clip-text text-transparent">
           {{ editing ? (editingWorkflow.id ? 'Edit Workflow' : 'New Workflow') : 'Workflows' }}
         </h2>
         <p class="text-sm text-kakoclaw-text-secondary mt-1">
@@ -153,11 +153,12 @@
         <div class="mb-4">
           <h3 class="text-sm font-semibold text-kakoclaw-text-secondary mb-3">Pipeline Steps</h3>
 
-          <VueDraggable v-model="editingWorkflow.steps" :animation="200" handle=".drag-handle"
-            class="space-y-3">
-            <template #item="{ element: step, index }">
-              <div :key="step.id" class="bg-kakoclaw-surface border border-kakoclaw-border rounded-xl overflow-hidden"
-                :class="expandedStep === step.id ? 'ring-1 ring-kakoclaw-accent/50' : ''">
+          <!-- Only mount Draggable when we have steps to avoid "Root element not found" on mount -->
+          <div v-if="editingWorkflow.steps.length > 0" class="space-y-3">
+            <VueDraggable v-model="editingWorkflow.steps" :animation="200" handle=".drag-handle">
+              <template #item="{ element: step, index }">
+                <div :key="step.id" class="bg-kakoclaw-surface border border-kakoclaw-border rounded-xl overflow-hidden mb-3"
+                  :class="expandedStep === step.id ? 'ring-1 ring-kakoclaw-accent/50' : ''">
                 <!-- Step Header -->
                 <div class="flex items-center gap-3 px-4 py-3 cursor-pointer" @click="toggleStep(step.id)">
                   <div class="drag-handle cursor-grab text-kakoclaw-text-secondary hover:text-kakoclaw-text">
@@ -274,7 +275,11 @@
                 </div>
               </div>
             </template>
-          </VueDraggable>
+            </VueDraggable>
+          </div>
+          <div v-else class="text-center py-8 border-2 border-dashed border-kakoclaw-border rounded-xl text-kakoclaw-text-secondary">
+             No steps yet. Add a step below to start building your pipeline.
+          </div>
         </div>
 
         <!-- Add Step Buttons -->
@@ -290,7 +295,7 @@
             Tool
           </button>
           <button @click="addStep('condition')"
-            class="flex items-center gap-2 px-3 py-2 text-xs bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-lg hover:bg-purple-500/20 transition-colors">
+            class="flex items-center gap-2 px-3 py-2 text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg hover:bg-emerald-500/20 transition-colors">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
             Condition
           </button>
@@ -330,11 +335,6 @@
       </template>
     </div>
 
-    <!-- Error Toast -->
-    <div v-if="error" class="fixed bottom-4 right-4 max-w-sm bg-red-500/90 text-white px-4 py-3 rounded-lg shadow-lg z-50 text-sm">
-      {{ error }}
-      <button @click="error = ''" class="ml-2 opacity-75 hover:opacity-100">&times;</button>
-    </div>
   </div>
 </template>
 
@@ -342,11 +342,12 @@
 import { ref, reactive, onMounted } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
 import workflowService from '../services/workflowService'
+import { useToast } from '../composables/useToast'
 
+const toast = useToast()
 const loading = ref(true)
 const saving = ref(false)
 const editing = ref(false)
-const error = ref('')
 const workflows = ref([])
 const availableTools = ref([])
 const expandedStep = ref(null)
@@ -381,7 +382,7 @@ async function loadWorkflows() {
     const data = await workflowService.fetchWorkflows()
     workflows.value = (data.workflows || []).map(w => ({ ...w, _lastResults: null, _runs: null }))
   } catch (e) {
-    error.value = 'Failed to load workflows: ' + extractError(e)
+    toast.error('Failed to load workflows: ' + extractError(e))
   } finally {
     loading.value = false
   }
@@ -501,11 +502,11 @@ function serializeSteps(steps) {
 
 async function saveWorkflow() {
   if (!editingWorkflow.name.trim()) {
-    error.value = 'Workflow name is required'
+    toast.error('Workflow name is required')
     return
   }
   if (editingWorkflow.steps.length === 0) {
-    error.value = 'Workflow must have at least one step'
+    toast.error('Workflow must have at least one step')
     return
   }
   // Validate tool step JSON
@@ -516,7 +517,7 @@ async function saveWorkflow() {
         step._config._argsError = ''
       } catch (e) {
         step._config._argsError = 'Invalid JSON: ' + e.message
-        error.value = 'Fix JSON errors in tool step arguments before saving'
+        toast.error('Fix JSON errors in tool step arguments before saving')
         return
       }
     }
@@ -533,14 +534,15 @@ async function saveWorkflow() {
 
     if (editingWorkflow.id) {
       await workflowService.updateWorkflow(editingWorkflow.id, payload)
+      toast.success('Workflow updated successfully')
     } else {
       const created = await workflowService.createWorkflow(payload)
       editingWorkflow.id = created.id
+      toast.success('Workflow created successfully')
     }
     await loadWorkflows()
-    error.value = ''
   } catch (e) {
-    error.value = 'Failed to save: ' + extractError(e)
+    toast.error('Failed to save: ' + extractError(e))
   } finally {
     saving.value = false
   }
@@ -550,9 +552,10 @@ async function deleteWorkflow(wf) {
   if (!confirm(`Delete workflow "${wf.name}"?`)) return
   try {
     await workflowService.deleteWorkflow(wf.id)
+    toast.success('Workflow deleted successfully')
     await loadWorkflows()
   } catch (e) {
-    error.value = 'Failed to delete: ' + extractError(e)
+    toast.error('Failed to delete: ' + extractError(e))
   }
 }
 
@@ -561,8 +564,9 @@ async function runWorkflow(wf) {
   try {
     const data = await workflowService.runWorkflow(wf.id)
     wf._lastResults = data.results || []
+    toast.success('Workflow executed successfully')
   } catch (e) {
-    error.value = 'Run failed: ' + extractError(e)
+    toast.error('Run failed: ' + extractError(e))
   } finally {
     runningId.value = null
   }
@@ -577,8 +581,9 @@ async function testRun() {
   try {
     const data = await workflowService.runWorkflow(editingWorkflow.id)
     testResults.value = data.results || []
+    toast.success('Test run completed')
   } catch (e) {
-    error.value = 'Test run failed: ' + extractError(e)
+    toast.error('Test run failed: ' + extractError(e))
   } finally {
     testRunning.value = false
   }
@@ -589,7 +594,7 @@ async function showRuns(wf) {
     const data = await workflowService.getWorkflowRuns(wf.id)
     wf._runs = data.runs || []
   } catch (e) {
-    error.value = 'Failed to load runs: ' + extractError(e)
+    toast.error('Failed to load runs: ' + extractError(e))
   }
 }
 
@@ -617,7 +622,7 @@ function runDuration(run) {
 function stepTypeClass(type) {
   if (type === 'prompt') return 'bg-blue-500/10 text-blue-400'
   if (type === 'tool') return 'bg-amber-500/10 text-amber-400'
-  if (type === 'condition') return 'bg-purple-500/10 text-purple-400'
+  if (type === 'condition') return 'bg-emerald-500/10 text-emerald-400'
   return 'bg-gray-500/10 text-gray-400'
 }
 </script>

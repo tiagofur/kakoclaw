@@ -5,6 +5,28 @@ export const useUIStore = defineStore('ui', () => {
   const theme = ref('dark')
   const sidebarCollapsed = ref(false)
   const activeTab = ref('chat')
+  const canInstallPwa = ref(false)
+  let deferredPrompt = null
+
+  // Capture the PWA install event
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault()
+    deferredPrompt = e
+    canInstallPwa.value = true
+  })
+
+  async function installPwa() {
+    if (!deferredPrompt) return
+    deferredPrompt.prompt()
+    const { outcome } = await deferredPrompt.userChoice
+    if (outcome === 'accepted') {
+      console.log('User accepted the install prompt')
+    } else {
+      console.log('User dismissed the install prompt')
+    }
+    deferredPrompt = null
+    canInstallPwa.value = false
+  }
 
   function setTheme(newTheme) {
     theme.value = newTheme
@@ -46,10 +68,12 @@ export const useUIStore = defineStore('ui', () => {
     theme,
     sidebarCollapsed,
     activeTab,
+    canInstallPwa,
     setTheme,
     toggleTheme,
     toggleSidebar,
     setActiveTab,
-    restoreUIPreferences
+    restoreUIPreferences,
+    installPwa
   }
 })

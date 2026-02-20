@@ -5,11 +5,18 @@ import client from './api'
 export default {
   login: async (username, password) => {
     const response = await client.post('/auth/login', { username, password })
+    const token = response.data.token
+    const expiresIn = response.data.expires_in ? Math.floor(response.data.expires_in / 60) : 1440
+
+    // Temporarily set token in client to fetch user details
+    client.defaults.headers.common['Authorization'] = `Bearer ${token}`
+    const meResponse = await client.get('/auth/me')
+    
     const authStore = useAuthStore()
     authStore.setCredentials(
-      { username: response.data.username },
-      response.data.token,
-      response.data.expires_in ? Math.floor(response.data.expires_in / 60) : 1440
+      meResponse.data, // now includes { username, role }
+      token,
+      expiresIn
     )
     return response.data
   },

@@ -61,8 +61,21 @@ type processOptions struct {
 	EnableSummary   bool     // Whether to trigger summarization
 	SendResponse    bool     // Whether to send response via bus
 	ModelOverride   string   // If set, use this model instead of the default for LLM calls
-	ExcludeTools    []string // Tool names to exclude from this request (e.g., "web_search")
+	ExcludeTools    []string     // Tool names to exclude from this request (e.g., "web_search")
+	OnToken         StreamCallback // Optional callback for text tokens
+	OnTool          ToolCallback // Optional callback for tool call updates
 }
+
+// ToolEvent represents a tool call update during agent execution.
+type ToolEvent struct {
+	Name   string                 `json:"name"`
+	Args   map[string]interface{} `json:"arguments"`
+	Result string                 `json:"result,omitempty"`
+	Status string                 `json:"status"` // "started", "finished", "error"
+}
+
+// ToolCallback is called when a tool is about to be executed or starts/finishes.
+type ToolCallback func(ev ToolEvent) error
 
 func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers.LLMProvider) *AgentLoop {
 	workspace := cfg.WorkspacePath()
@@ -244,7 +257,7 @@ type StreamCallback func(token string) error
 // If the provider doesn't support streaming, falls back to sending the full response at once.
 // The onToken callback is called for each token; the full accumulated response is still returned.
 // excludeTools optionally specifies tool names to exclude from this request.
-func (al *AgentLoop) ProcessDirectWithModelStream(ctx context.Context, content, sessionKey, modelOverride string, onToken StreamCallback, excludeTools ...string) (string, error) {
+func (al *AgentLoop) ProcessDirectWithModelStream(ctx context.Context, content, sessionKey, modelOverride string, onToken StreamCallback, onTool ToolCallback, excludeTools ...string) (string, error) {
 	msg := bus.InboundMessage{
 		Channel:    "cli",
 		SenderID:   "cron",
@@ -253,7 +266,7 @@ func (al *AgentLoop) ProcessDirectWithModelStream(ctx context.Context, content, 
 		SessionKey: sessionKey,
 	}
 
-	return al.processMessageWithModelStream(ctx, msg, modelOverride, onToken, excludeTools...)
+	return al.processMessageWithModelStream(ctx, msg, modelOverride, onToken, onTool, excludeTools...)
 }
 
 // SupportsStreaming returns true if the current provider supports streaming.
@@ -306,7 +319,7 @@ func (al *AgentLoop) processMessageWithModel(ctx context.Context, msg bus.Inboun
 	})
 }
 
-func (al *AgentLoop) processMessageWithModelStream(ctx context.Context, msg bus.InboundMessage, modelOverride string, onToken StreamCallback, excludeTools ...string) (string, error) {
+func (al *AgentLoop) processMessageWithModelStream(ctx context.Context, msg bus.InboundMessage, modelOverride string, onToken StreamCallback, onTool ToolCallback, excludeTools ...string) (string, error) {
 	// Rate limiting
 	userKey := fmt.Sprintf("user:%s", msg.SenderID)
 	if !ratelimit.GetGlobalLimiter().Allow(userKey) {
@@ -335,6 +348,8 @@ func (al *AgentLoop) processMessageWithModelStream(ctx context.Context, msg bus.
 		SendResponse:    false,
 		ModelOverride:   modelOverride,
 		ExcludeTools:    excludeTools,
+		OnToken:         onToken,
+		OnTool:          onTool,
 	}, onToken)
 }
 
@@ -662,7 +677,7 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 		// Save assistant message with tool calls to session
 		al.sessions.AddFullMessage(opts.SessionKey, assistantMsg)
 
-		// Execute tool calls
+			// Execute tool calls
 		for _, tc := range response.ToolCalls {
 			// Log tool call with arguments preview
 			argsJSON, _ := json.Marshal(tc.Arguments)
@@ -673,12 +688,26 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 					"iteration": iteration,
 				})
 
+			// Notify start of tool call
+			if opts.OnTool != nil {
+				_ = opts.OnTool(ToolEvent{Name: tc.Name, Args: tc.Arguments, Status: "started"})
+			}
+
 			toolStart := time.Now()
 			result, err := al.tools.ExecuteWithContext(ctx, tc.Name, tc.Arguments, opts.Channel, opts.ChatID)
 			toolDur := time.Since(toolStart)
 			observability.Global().RecordToolCall(tc.Name, toolDur, err)
 			if err != nil {
 				result = fmt.Sprintf("Error: %v", err)
+			}
+
+			// Notify end of tool call
+			if opts.OnTool != nil {
+				status := "finished"
+				if err != nil {
+					status = "error"
+				}
+				_ = opts.OnTool(ToolEvent{Name: tc.Name, Args: tc.Arguments, Result: result, Status: status})
 			}
 
 			toolResultMsg := providers.Message{
@@ -870,12 +899,26 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 						"iteration": iteration,
 					})
 
+				// Notify start of tool call
+				if opts.OnTool != nil {
+					_ = opts.OnTool(ToolEvent{Name: tc.Name, Args: tc.Arguments, Status: "started"})
+				}
+
 				toolStart := time.Now()
 				result, err := al.tools.ExecuteWithContext(ctx, tc.Name, tc.Arguments, opts.Channel, opts.ChatID)
 				toolDur := time.Since(toolStart)
 				observability.Global().RecordToolCall(tc.Name, toolDur, err)
 				if err != nil {
 					result = fmt.Sprintf("Error: %v", err)
+				}
+
+				// Notify end of tool call
+				if opts.OnTool != nil {
+					status := "finished"
+					if err != nil {
+						status = "error"
+					}
+					_ = opts.OnTool(ToolEvent{Name: tc.Name, Args: tc.Arguments, Result: result, Status: status})
 				}
 
 				toolResultMsg := providers.Message{

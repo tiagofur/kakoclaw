@@ -1,11 +1,11 @@
 <template>
-  <div class="glass-panel rounded-xl p-3 flex flex-col h-full min-w-[320px]">
+  <div class="glass-panel rounded-2xl p-4 flex flex-col h-full min-w-[320px] shadow-sm">
     <!-- Column Header -->
-    <div class="mb-3 pb-3 border-b border-kakoclaw-border/50 flex items-center justify-between">
-      <h3 class="font-bold text-sm uppercase tracking-wider text-kakoclaw-text-secondary flex items-center gap-2">
+    <div class="mb-4 pb-3 border-b border-kakoclaw-border/30 flex items-center justify-between">
+      <h3 class="font-bold text-xs uppercase tracking-[0.2em] text-kakoclaw-text-secondary flex items-center gap-2 opacity-80">
         {{ title }}
       </h3>
-      <span class="text-xs bg-kakoclaw-surface font-mono text-kakoclaw-text px-2 py-0.5 rounded-full border border-kakoclaw-border">
+      <span class="text-[10px] bg-kakoclaw-bg/50 font-bold text-kakoclaw-accent px-2.5 py-1 rounded-full border border-kakoclaw-accent/10 shadow-sm">
           {{ tasks.length }}
       </span>
     </div>
@@ -22,9 +22,9 @@
         draggable="true"
         @dragstart="dragStart($event, task)"
         @click="$emit('task-click', task)"
-        class="bg-kakoclaw-surface border border-kakoclaw-border rounded-lg p-3 cursor-move hover:border-kakoclaw-accent/50 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 group relative overflow-hidden"
+        class="bg-kakoclaw-surface/50 border border-kakoclaw-border/50 rounded-xl p-4 cursor-grab active:cursor-grabbing hover:border-kakoclaw-accent/40 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group relative overflow-hidden backdrop-blur-sm"
       >
-        <div class="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-kakoclaw-accent/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+        <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-kakoclaw-accent to-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
         
         <div class="flex items-start justify-between gap-2 mb-1">
            <h4 class="font-semibold text-sm leading-tight text-kakoclaw-text group-hover:text-kakoclaw-accent transition-colors">

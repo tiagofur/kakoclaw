@@ -3,7 +3,7 @@
     <!-- Header -->
     <div class="flex-none p-4 border-b border-kakoclaw-border bg-kakoclaw-surface flex items-center justify-between">
       <div>
-        <h2 class="text-xl font-bold bg-gradient-to-r from-kakoclaw-accent to-purple-500 bg-clip-text text-transparent">Knowledge Base</h2>
+        <h2 class="text-xl font-bold bg-gradient-to-r from-kakoclaw-accent to-emerald-500 bg-clip-text text-transparent">Knowledge Base</h2>
         <p class="text-sm text-kakoclaw-text-secondary mt-1">Upload documents to give the AI context for better answers</p>
       </div>
       <div class="flex items-center gap-2">
@@ -109,19 +109,78 @@
               </div>
               <div class="flex items-center justify-between mt-4">
                 <span class="text-xs text-kakoclaw-text-secondary">{{ formatDate(doc.created_at) }}</span>
-                <button
-                  @click="deleteDoc(doc.id, doc.name)"
-                  :disabled="deleting === doc.id"
-                  class="px-3 py-1.5 text-xs text-red-400 bg-red-500/10 rounded-lg hover:bg-red-500/20 transition-colors disabled:opacity-50"
-                >
-                  <span v-if="deleting === doc.id">Deleting...</span>
-                  <span v-else>Delete</span>
-                </button>
+                <div class="flex gap-2">
+                  <button
+                    @click="openDocViewer(doc)"
+                    class="px-3 py-1.5 text-xs text-kakoclaw-text bg-kakoclaw-bg border border-kakoclaw-border rounded-lg hover:bg-kakoclaw-surface hover:text-kakoclaw-accent transition-colors"
+                  >
+                    View
+                  </button>
+                  <button
+                    @click="deleteDoc(doc.id, doc.name)"
+                    :disabled="deleting === doc.id"
+                    class="px-3 py-1.5 text-xs text-red-400 bg-red-500/10 rounded-lg hover:bg-red-500/20 transition-colors disabled:opacity-50"
+                  >
+                    <span v-if="deleting === doc.id">Deleting...</span>
+                    <span v-else>Delete</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </template>
+    </div>
+
+    <!-- Document Viewer Modal -->
+    <div v-if="selectedDoc" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div class="bg-kakoclaw-bg border border-kakoclaw-border rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden text-kakoclaw-text">
+        <div class="p-4 border-b border-kakoclaw-border bg-kakoclaw-surface flex items-center justify-between flex-none">
+          <div>
+            <h3 class="font-bold text-lg text-kakoclaw-text">{{ selectedDoc.name }}</h3>
+            <p class="text-xs text-kakoclaw-text-secondary mt-1">
+              {{ selectedDoc.chunk_count }} chunks • {{ formatSize(selectedDoc.size) }}
+            </p>
+          </div>
+          <button @click="closeDocViewer" class="p-2 hover:bg-kakoclaw-border rounded-lg text-kakoclaw-text-secondary transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="flex-1 overflow-auto p-6 bg-kakoclaw-bg">
+          <div v-if="loadingChunks" class="flex justify-center items-center h-40">
+             <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-kakoclaw-accent"></div>
+          </div>
+          <div v-else class="space-y-6">
+             <div v-for="chunk in docChunks" :key="chunk.id" class="bg-kakoclaw-surface border border-kakoclaw-border rounded-lg p-4 hover:border-kakoclaw-accent/30 transition-colors">
+                <div class="flex items-center justify-between mb-3 pb-2 border-b border-kakoclaw-border">
+                   <h5 class="text-xs font-bold text-kakoclaw-text-secondary uppercase tracking-wider">Chunk #{{ chunk.position + 1 }}</h5>
+                   <button v-if="editingChunkId !== chunk.id" @click="startEditingChunk(chunk)" class="text-xs text-kakoclaw-accent hover:underline flex items-center gap-1">
+                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                     Edit
+                   </button>
+                   <div v-else class="flex gap-2">
+                     <button @click="cancelEditingChunk" class="text-xs text-kakoclaw-text-secondary hover:underline">Cancel</button>
+                     <button @click="saveChunk(chunk.id)" :disabled="savingChunk" class="text-xs bg-kakoclaw-accent text-white px-2 py-1 rounded hover:bg-kakoclaw-accent-hover disabled:opacity-50">
+                       {{ savingChunk ? 'Saving...' : 'Save' }}
+                     </button>
+                   </div>
+                </div>
+
+                <textarea
+                   v-if="editingChunkId === chunk.id"
+                   v-model="editChunkContent"
+                   class="w-full h-40 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg p-3 text-sm font-mono focus:border-kakoclaw-accent outline-none text-kakoclaw-text resize-y"
+                ></textarea>
+                <div v-else class="text-sm text-kakoclaw-text whitespace-pre-wrap font-mono leading-relaxed bg-kakoclaw-bg/50 p-3 rounded-lg border border-kakoclaw-border/30">
+                  {{ chunk.content }}
+                </div>
+             </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -141,6 +200,14 @@ const searchQuery = ref('')
 const lastSearchQuery = ref('')
 const searchResults = ref([])
 const searchPerformed = ref(false)
+
+// Chunk Viewer/Editor state
+const selectedDoc = ref(null)
+const docChunks = ref([])
+const loadingChunks = ref(false)
+const editingChunkId = ref(null)
+const editChunkContent = ref('')
+const savingChunk = ref(false)
 
 const loadDocuments = async () => {
   loading.value = true
@@ -203,6 +270,66 @@ const deleteDoc = async (id, name) => {
     toast.error('Failed to delete document')
   } finally {
     deleting.value = null
+  }
+}
+
+// Viewer and Chunk Edit Logic
+const openDocViewer = async (doc) => {
+  selectedDoc.value = doc
+  loadingChunks.value = true
+  editingChunkId.value = null
+  try {
+    const data = await advancedService.fetchKnowledgeChunks(doc.id)
+    docChunks.value = data.chunks || []
+  } catch (err) {
+    console.error('Failed to load doc chunks:', err)
+    toast.error('Failed to load document chunks')
+    selectedDoc.value = null
+  } finally {
+    loadingChunks.value = false
+  }
+}
+
+const closeDocViewer = () => {
+  selectedDoc.value = null
+  docChunks.value = []
+  editingChunkId.value = null
+}
+
+const startEditingChunk = (chunk) => {
+  editingChunkId.value = chunk.id
+  editChunkContent.value = chunk.content
+}
+
+const cancelEditingChunk = () => {
+  editingChunkId.value = null
+  editChunkContent.value = ''
+}
+
+const saveChunk = async (chunkId) => {
+  const newContent = editChunkContent.value.trim()
+  if (!newContent) {
+    toast.error('Chunk content cannot be empty')
+    return
+  }
+
+  savingChunk.value = true
+  try {
+    await advancedService.updateKnowledgeChunk(chunkId, newContent)
+    
+    // update local state
+    const chunkIndex = docChunks.value.findIndex(c => c.id === chunkId)
+    if (chunkIndex !== -1) {
+      docChunks.value[chunkIndex].content = newContent
+    }
+    
+    toast.success('Chunk updated')
+    editingChunkId.value = null
+  } catch (err) {
+    console.error('Failed to update chunk', err)
+    toast.error('Failed to update chunk')
+  } finally {
+    savingChunk.value = false
   }
 }
 

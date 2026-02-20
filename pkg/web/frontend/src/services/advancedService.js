@@ -93,17 +93,30 @@ export default {
 
   downloadFile: (path = '') => {
     const encodedPath = path.split('/').map(encodeURIComponent).join('/')
-    window.open(`/api/v1/files/${encodedPath}?download=true`, '_blank')
+    const token = localStorage.getItem('auth.token')
+    window.open(`/api/v1/files/${encodedPath}?download=true&token=${token}`, '_blank')
+  },
+
+  uploadFile: async (path, file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await client.post(`/files/${path}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000
+    })
+    return response.data
   },
 
   // Export
   exportTasks: (format = 'json') => {
-    window.open(`/api/v1/export/tasks?format=${format}`, '_blank')
+    const token = localStorage.getItem('auth.token')
+    window.open(`/api/v1/export/tasks?format=${format}&token=${token}`, '_blank')
   },
 
   exportChat: (sessionId = '') => {
-    const params = sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : ''
-    window.open(`/api/v1/export/chat${params}`, '_blank')
+    const params = sessionId ? `session_id=${encodeURIComponent(sessionId)}&` : ''
+    const token = localStorage.getItem('auth.token')
+    window.open(`/api/v1/export/chat?${params}token=${token}`, '_blank')
   },
 
   // Import conversations (ChatGPT, Claude, KakoClaw formats)
@@ -166,6 +179,16 @@ export default {
     return response.data
   },
 
+  fetchKnowledgeChunks: async (id) => {
+    const response = await client.get(`/knowledge/${id}/chunks`)
+    return response.data
+  },
+
+  updateKnowledgeChunk: async (chunkId, content) => {
+    const response = await client.put(`/knowledge/chunks/${chunkId}`, { content })
+    return response.data
+  },
+
   // MCP Servers
   fetchMCPServers: async () => {
     const response = await client.get('/mcp')
@@ -183,5 +206,40 @@ export default {
   fetchMetrics: async () => {
     const response = await client.get('/metrics')
     return response.data
+  },
+
+  // Tools
+  fetchTools: async () => {
+    const response = await client.get('/tools')
+    return response.data
+  },
+
+  // Prompt Templates (F7)
+  fetchPrompts: async () => {
+    const response = await client.get('/prompts')
+    return response.data
+  },
+  createPrompt: async (prompt) => {
+    const response = await client.post('/prompts', prompt)
+    return response.data
+  },
+  updatePrompt: async (id, prompt) => {
+    const response = await client.put(`/prompts/${id}`, prompt)
+    return response.data
+  },
+  deletePrompt: async (id) => {
+    const response = await client.delete(`/prompts/${id}`)
+    return response.data
+  },
+
+  // Chat File Attachments (F9)
+  uploadChatAttachment: async (file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await client.post('/chat/attachments', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    return response.data
   }
 }
+

@@ -21,34 +21,62 @@
 
       <!-- Page Content -->
       <main class="flex-1 overflow-auto relative scroll-smooth p-4 md:p-6">
-        <router-view v-slot="{ Component }">
-          <transition 
-            enter-active-class="transition ease-out duration-300 transform" 
-            enter-from-class="opacity-0 translate-y-2" 
-            enter-to-class="opacity-100 translate-y-0"
-            leave-active-class="transition ease-in duration-200 transform" 
-            leave-from-class="opacity-100 translate-y-0" 
-            leave-to-class="opacity-0 -translate-y-2"
-            mode="out-in"
-          >
-            <component :is="Component" />
-          </transition>
-        </router-view>
+        <router-view />
       </main>
     </div>
   </div>
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { onMounted, onBeforeUnmount } from 'vue'
 import { useUIStore } from '../../stores/uiStore'
+import { useChatStore } from '../../stores/chatStore'
+import { getChatWebSocket } from '../../services/websocketService'
 import Sidebar from './Sidebar.vue'
 import ToastContainer from './ToastContainer.vue'
 
 const uiStore = useUIStore()
+const chatStore = useChatStore()
+const chatWs = getChatWebSocket()
+
+// Flag set by ChatView when it's mounted and managing WS messages directly.
+// When true, this background listener skips queueing (ChatView handles messages itself).
+let chatViewActive = false
+
+const setChatViewActive = (active) => { chatViewActive = active }
+
+// Expose globally so ChatView can signal its mount/unmount status
+window.__kakoclaw_setChatViewActive = setChatViewActive
+
+// Background handler: runs when ChatView is NOT mounted.
+// Captures WS messages into the chatStore so they aren't lost.
+const backgroundMessageHandler = (message) => {
+  if (chatViewActive) return // ChatView is handling messages itself
+
+  if (message.type === 'stream_start') {
+    chatStore.setIsWorking(true)
+    chatStore.enqueuePendingMessage(message)
+  } else if (message.type === 'stream') {
+    chatStore.enqueuePendingMessage(message)
+  } else if (message.type === 'stream_end') {
+    chatStore.enqueuePendingMessage(message)
+  } else if (message.type === 'message') {
+    chatStore.enqueuePendingMessage(message)
+  } else if (message.type === 'tool_call') {
+    chatStore.enqueuePendingMessage(message)
+  } else if (message.type === 'ready') {
+    chatStore.setIsWorking(false)
+    chatStore.setGlobalLoading(false)
+    chatStore.enqueuePendingMessage(message)
+  }
+}
 
 onMounted(() => {
-  // Any global init
+  chatWs.on('message', backgroundMessageHandler)
+})
+
+onBeforeUnmount(() => {
+  chatWs.off('message', backgroundMessageHandler)
 })
 </script>
 

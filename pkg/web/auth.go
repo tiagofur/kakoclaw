@@ -9,38 +9,33 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/sipeed/kakoclaw/pkg/storage"
 	"golang.org/x/crypto/bcrypt"
 )
 
-type authState struct {
-	Username     string `json:"username"`
-	PasswordHash string `json:"password_hash"`
-	JWTSecretB64 string `json:"jwt_secret_b64"`
-}
-
 type jwtClaims struct {
-	Sub string `json:"sub"`
-	Exp int64  `json:"exp"`
+	Sub  string `json:"sub"`
+	Role string `json:"role"`
+	Exp  int64  `json:"exp"`
 }
 
 type authManager struct {
-	path      string
+	store     *storage.Storage
 	jwtExpiry time.Duration
-	state     authState
 }
 
-func newAuthManager(dataDir string, cfgUsername, cfgPassword, cfgExpiry string) (*authManager, error) {
-	if err := os.MkdirAll(dataDir, 0755); err != nil {
-		return nil, err
+func newAuthManager(store *storage.Storage, cfgUsername, cfgPassword, cfgExpiry string) (*authManager, error) {
+	if store == nil {
+		return nil, errors.New("storage is required for authManager")
 	}
+
 	mgr := &authManager{
-		path: filepath.Join(dataDir, "web-auth.json"),
+		store: store,
 	}
+
 	if cfgExpiry == "" {
 		cfgExpiry = "24h"
 	}
@@ -50,7 +45,28 @@ func newAuthManager(dataDir string, cfgUsername, cfgPassword, cfgExpiry string) 
 	}
 	mgr.jwtExpiry = expiry
 
-	if _, err := os.Stat(mgr.path); errors.Is(err, os.ErrNotExist) {
+	// Ensure JWT secret exists in DB
+	secret, err := mgr.store.GetSetting("jwt_secret_b64")
+	if err != nil {
+		return nil, err
+	}
+	if secret == "" {
+		newSecret := make([]byte, 32)
+		if _, err := rand.Read(newSecret); err != nil {
+			return nil, err
+		}
+		secret = base64.RawURLEncoding.EncodeToString(newSecret)
+		if err := mgr.store.SetSetting("jwt_secret_b64", secret); err != nil {
+			return nil, err
+		}
+	}
+
+	// Ensure there is at least one admin user
+	count, err := mgr.store.CountUsers()
+	if err != nil {
+		return nil, err
+	}
+	if count == 0 {
 		username := strings.TrimSpace(cfgUsername)
 		if username == "" {
 			username = "admin"
@@ -60,71 +76,37 @@ func newAuthManager(dataDir string, cfgUsername, cfgPassword, cfgExpiry string) 
 			password = randomPassword(20)
 			fmt.Printf("🔐 Web temporary password for '%s': %s\n", username, password)
 		}
-		hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+		_, err := mgr.store.CreateUser(username, password, "admin")
 		if err != nil {
 			return nil, err
 		}
-		secret := make([]byte, 32)
-		if _, err := rand.Read(secret); err != nil {
-			return nil, err
-		}
-		mgr.state = authState{
-			Username:     username,
-			PasswordHash: string(hash),
-			JWTSecretB64: base64.RawURLEncoding.EncodeToString(secret),
-		}
-		if err := mgr.save(); err != nil {
-			return nil, err
-		}
-	} else if err != nil {
-		return nil, err
 	}
 
-	if err := mgr.load(); err != nil {
-		return nil, err
-	}
 	return mgr, nil
 }
 
-func (m *authManager) load() error {
-	data, err := os.ReadFile(m.path)
-	if err != nil {
-		return err
-	}
-	var st authState
-	if err := json.Unmarshal(data, &st); err != nil {
-		return err
-	}
-	if st.Username == "" || st.PasswordHash == "" || st.JWTSecretB64 == "" {
-		return errors.New("invalid auth state")
-	}
-	m.state = st
-	return nil
-}
-
-func (m *authManager) save() error {
-	data, err := json.MarshalIndent(m.state, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(m.path, data, 0600)
-}
-
 func (m *authManager) login(username, password string) (string, error) {
-	if subtle.ConstantTimeCompare([]byte(strings.TrimSpace(username)), []byte(m.state.Username)) != 1 {
+	user, err := m.store.GetUserByUsername(username)
+	if err != nil {
+		if errors.Is(err, storage.ErrUserNotFound) {
+			return "", errors.New("invalid credentials")
+		}
+		return "", err
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
 		return "", errors.New("invalid credentials")
 	}
-	if err := bcrypt.CompareHashAndPassword([]byte(m.state.PasswordHash), []byte(password)); err != nil {
-		return "", errors.New("invalid credentials")
-	}
-	return m.signToken(m.state.Username)
+
+	return m.signToken(user.Username, user.Role)
 }
 
-func (m *authManager) signToken(username string) (string, error) {
+func (m *authManager) signToken(username, role string) (string, error) {
 	headerRaw := `{"alg":"HS256","typ":"JWT"}`
 	claims := jwtClaims{
-		Sub: username,
-		Exp: time.Now().UTC().Add(m.jwtExpiry).Unix(),
+		Sub:  username,
+		Role: role,
+		Exp:  time.Now().UTC().Add(m.jwtExpiry).Unix(),
 	}
 	payloadRaw, err := json.Marshal(claims)
 	if err != nil {
@@ -135,7 +117,11 @@ func (m *authManager) signToken(username string) (string, error) {
 	payload := base64.RawURLEncoding.EncodeToString(payloadRaw)
 	signingInput := header + "." + payload
 
-	secret, err := base64.RawURLEncoding.DecodeString(m.state.JWTSecretB64)
+	secretB64, err := m.store.GetSetting("jwt_secret_b64")
+	if err != nil {
+		return "", err
+	}
+	secret, err := base64.RawURLEncoding.DecodeString(secretB64)
 	if err != nil {
 		return "", err
 	}
@@ -152,7 +138,11 @@ func (m *authManager) verifyToken(token string) (*jwtClaims, error) {
 	}
 	signingInput := parts[0] + "." + parts[1]
 
-	secret, err := base64.RawURLEncoding.DecodeString(m.state.JWTSecretB64)
+	secretB64, err := m.store.GetSetting("jwt_secret_b64")
+	if err != nil {
+		return nil, err
+	}
+	secret, err := base64.RawURLEncoding.DecodeString(secretB64)
 	if err != nil {
 		return nil, err
 	}
@@ -174,28 +164,36 @@ func (m *authManager) verifyToken(token string) (*jwtClaims, error) {
 	if claims.Sub == "" || claims.Exp <= 0 || time.Now().UTC().Unix() >= claims.Exp {
 		return nil, errors.New("token expired")
 	}
+	// Fallback for older tokens lacking role
+	if claims.Role == "" {
+		claims.Role = "user"
+	}
 	return &claims, nil
 }
 
-func (m *authManager) changePassword(oldPassword, newPassword string) error {
-	if err := bcrypt.CompareHashAndPassword([]byte(m.state.PasswordHash), []byte(oldPassword)); err != nil {
+func (m *authManager) changePassword(username, oldPassword, newPassword string) error {
+	user, err := m.store.GetUserByUsername(username)
+	if err != nil {
+		return err
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(oldPassword)); err != nil {
 		return errors.New("invalid credentials")
 	}
 	if len(strings.TrimSpace(newPassword)) < 10 {
 		return errors.New("new password must be at least 10 characters")
 	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
-	if err != nil {
+
+	if err := m.store.UpdateUserPassword(user.ID, newPassword); err != nil {
 		return err
 	}
+
 	// Rotate JWT secret to invalidate all existing tokens
 	newSecret := make([]byte, 32)
 	if _, err := rand.Read(newSecret); err != nil {
 		return err
 	}
-	m.state.PasswordHash = string(hash)
-	m.state.JWTSecretB64 = base64.RawURLEncoding.EncodeToString(newSecret)
-	return m.save()
+	return m.store.SetSetting("jwt_secret_b64", base64.RawURLEncoding.EncodeToString(newSecret))
 }
 
 func randomPassword(n int) string {
@@ -213,4 +211,3 @@ func randomPassword(n int) string {
 	}
 	return string(buf)
 }
-

@@ -637,7 +637,7 @@ type fileEntry struct {
 func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	if r.Method != http.MethodGet {
+	if r.Method != http.MethodGet && r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -652,6 +652,54 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 	absPath, _ := filepath.Abs(fullPath)
 	if !strings.HasPrefix(absPath, absWorkspace) {
 		http.Error(w, "access denied", http.StatusForbidden)
+		return
+	}
+
+	// Handle Upload (POST)
+	if r.Method == http.MethodPost {
+		// Limit upload size (e.g., 20MB)
+		if err := r.ParseMultipartForm(20 << 20); err != nil {
+			http.Error(w, "failed to parse form", http.StatusBadRequest)
+			return
+		}
+
+		file, header, err := r.FormFile("file")
+		if err != nil {
+			http.Error(w, "missing file field", http.StatusBadRequest)
+			return
+		}
+		defer file.Close()
+
+		// If fullPath is a directory, append filename. Otherwise fullPath is the target file.
+		targetPath := fullPath
+		if info, err := os.Stat(fullPath); err == nil && info.IsDir() {
+			targetPath = filepath.Join(fullPath, header.Filename)
+		}
+
+		// Security: verify targetPath is still in workspace (after joining filename)
+		absTarget, _ := filepath.Abs(targetPath)
+		if !strings.HasPrefix(absTarget, absWorkspace) {
+			http.Error(w, "invalid filename", http.StatusForbidden)
+			return
+		}
+
+		out, err := os.Create(targetPath)
+		if err != nil {
+			http.Error(w, "failed to create file", http.StatusInternalServerError)
+			return
+		}
+		defer out.Close()
+
+		if _, err := io.Copy(out, file); err != nil {
+			http.Error(w, "failed to save file", http.StatusInternalServerError)
+			return
+		}
+
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"status": "uploaded",
+			"name":   header.Filename,
+			"path":   filepath.ToSlash(strings.TrimPrefix(targetPath, s.workspace)),
+		})
 		return
 	}
 
@@ -922,7 +970,8 @@ func redactProviders(cfg *config.Config) map[string]interface{} {
 		providers[p.name] = map[string]interface{}{
 			"api_key":    redactKey(p.pc.APIKey),
 			"api_base":   p.pc.APIBase,
-			"configured": p.pc.APIKey != "",
+			"models":     p.pc.Models,
+			"configured": p.pc.APIKey != "" || p.pc.APIBase != "",
 		}
 	}
 	return providers
@@ -1043,6 +1092,64 @@ func (s *Server) handleKnowledgeAction(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		_ = json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
+		return
+	}
+
+	if len(pathParts) > 1 && pathParts[1] == "chunks" && r.Method == http.MethodGet {
+		chunks, err := s.store.GetKnowledgeDocumentChunks(docID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "failed to get chunks: " + err.Error()})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"chunks": chunks})
+		return
+	}
+
+	w.WriteHeader(http.StatusMethodNotAllowed)
+	_ = json.NewEncoder(w).Encode(map[string]string{"error": "method not allowed"})
+}
+
+// handleKnowledgeChunkAction handles PUT /api/v1/knowledge/chunks/{id}
+func (s *Server) handleKnowledgeChunkAction(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if s.store == nil {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "storage not configured"})
+		return
+	}
+
+	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/v1/knowledge/chunks/"), "/")
+	if len(pathParts) == 0 || pathParts[0] == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "chunk id required"})
+		return
+	}
+
+	var chunkID int64
+	if _, err := fmt.Sscanf(pathParts[0], "%d", &chunkID); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid chunk id"})
+		return
+	}
+
+	if r.Method == http.MethodPut {
+		var req struct {
+			Content string `json:"content"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Content) == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "valid chunk content required"})
+			return
+		}
+
+		if err := s.store.UpdateKnowledgeChunk(chunkID, req.Content); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "failed to update chunk: " + err.Error()})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "updated"})
 		return
 	}
 
@@ -2073,6 +2180,14 @@ func updateProvidersConfig(cfg *config.Config, updates map[string]interface{}) {
 			}
 			if apiBase, ok := data["api_base"].(string); ok {
 				p.APIBase = apiBase
+			}
+			if models, ok := data["models"].([]interface{}); ok {
+				p.Models = make([]string, 0, len(models))
+				for _, m := range models {
+					if ms, ok := m.(string); ok && ms != "" {
+						p.Models = append(p.Models, ms)
+					}
+				}
 			}
 		}
 	}

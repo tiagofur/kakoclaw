@@ -162,10 +162,11 @@ type ProvidersConfig struct {
 }
 
 type ProviderConfig struct {
-	APIKey     string `json:"api_key"`
-	APIBase    string `json:"api_base"`
-	Proxy      string `json:"proxy,omitempty"`
-	AuthMethod string `json:"auth_method,omitempty"`
+	APIKey     string   `json:"api_key"`
+	APIBase    string   `json:"api_base"`
+	Proxy      string   `json:"proxy,omitempty"`
+	AuthMethod string   `json:"auth_method,omitempty"`
+	Models     []string `json:"models,omitempty"`
 }
 
 type GatewayConfig struct {

@@ -6,13 +6,18 @@ export const useChatStore = defineStore('chat', () => {
   const isConnected = ref(false)
   const isLoading = ref(false)
   const globalIsLoading = ref(false) // Tracks loading state even when not viewing chat
+  const isWorking = ref(false)        // True while agent is processing a request (persists across navigation)
+  const activeSessionId = ref(null)   // Persisted active session ID across view navigation
+  const pendingMessages = ref([])     // Messages received while ChatView was unmounted
   const ws = ref(null)
   const selectedModel = ref('')       // User-selected model override (empty = default)
   const currentModel = ref('')        // Default model from server config
   const availableProviders = ref([])  // Providers list from /api/v1/models
   const isStreaming = ref(false)      // True while receiving streaming tokens
   const streamingMessageId = ref(null) // ID of the message currently being streamed
-  const webSearchEnabled = ref(true)  // Whether web_search tool is available to the LLM
+  const webSearchEnabled = ref(true)  // Whether web_search tool is available to the LLM (legacy/shortcut)
+  const availableTools = ref([])      // All tools available from backend
+  const enabledTools = ref([])        // Tools currently enabled by user
 
   function addMessage(message) {
     messages.value.push({
@@ -62,6 +67,26 @@ export const useChatStore = defineStore('chat', () => {
     isStreaming.value = false
   }
 
+  function addToolCall(toolCall) {
+    if (!streamingMessageId.value) return
+    const msg = messages.value.find(m => m.id === streamingMessageId.value)
+    if (msg) {
+      if (!msg.toolCalls) msg.toolCalls = []
+      
+      // Try to find an open tool call with the same name to update it
+      const existingIdx = msg.toolCalls.findLastIndex(tc => tc.name === toolCall.name && tc.status === 'started')
+      if (existingIdx !== -1 && toolCall.status !== 'started') {
+        msg.toolCalls[existingIdx] = { ...msg.toolCalls[existingIdx], ...toolCall }
+      } else {
+        msg.toolCalls.push({
+          ...toolCall,
+          id: Date.now() + Math.random(),
+          timestamp: new Date().toISOString()
+        })
+      }
+    }
+  }
+
   function setMessages(newMessages) {
     messages.value = newMessages
   }
@@ -72,6 +97,27 @@ export const useChatStore = defineStore('chat', () => {
     streamingMessageId.value = null
   }
 
+  function setActiveSessionId(sessionId) {
+    activeSessionId.value = sessionId
+  }
+
+  function setIsWorking(working) {
+    isWorking.value = working
+    globalIsLoading.value = working
+  }
+
+  // Called by background listener (MainLayout) to queue messages when ChatView is not mounted
+  function enqueuePendingMessage(message) {
+    pendingMessages.value.push(message)
+  }
+
+  // Called by ChatView on mount to flush and process all queued messages
+  function flushPendingMessages() {
+    const flushed = [...pendingMessages.value]
+    pendingMessages.value = []
+    return flushed
+  }
+
   function sendMessage(content, sessionId) {
     if (ws.value && ws.value.isConnected()) {
       ws.value.send({
@@ -79,7 +125,7 @@ export const useChatStore = defineStore('chat', () => {
         content,
         session_id: sessionId || 'web:chat:' + Date.now().toString(36),
         model: selectedModel.value || undefined,
-        web_search: webSearchEnabled.value
+        exclude_tools: availableTools.value.filter(tool => !enabledTools.value.includes(tool))
       })
       return true
     }
@@ -98,6 +144,7 @@ export const useChatStore = defineStore('chat', () => {
 
   function setGlobalLoading(loading) {
     globalIsLoading.value = loading
+    if (!loading) isWorking.value = false
   }
 
   function setWebSocket(websocket) {
@@ -110,6 +157,34 @@ export const useChatStore = defineStore('chat', () => {
 
   function setWebSearchEnabled(enabled) {
     webSearchEnabled.value = enabled
+    // Sync with tools list
+    if (enabled && !enabledTools.value.includes('web_search')) {
+      enabledTools.value.push('web_search')
+    } else if (!enabled) {
+      enabledTools.value = enabledTools.value.filter(t => t !== 'web_search')
+    }
+  }
+
+  function setTools(tools) {
+    availableTools.value = tools
+    // Default all tools to enabled if not already set
+    if (enabledTools.value.length === 0) {
+      enabledTools.value = [...tools]
+    }
+    // Sync webSearchEnabled
+    webSearchEnabled.value = enabledTools.value.includes('web_search')
+  }
+
+  function toggleTool(toolName) {
+    if (enabledTools.value.includes(toolName)) {
+      enabledTools.value = enabledTools.value.filter(t => t !== toolName)
+    } else {
+      enabledTools.value.push(toolName)
+    }
+    // Sync webSearchEnabled
+    if (toolName === 'web_search') {
+      webSearchEnabled.value = enabledTools.value.includes('web_search')
+    }
   }
 
   function setModelsData(data) {
@@ -154,6 +229,9 @@ export const useChatStore = defineStore('chat', () => {
     isConnected,
     isLoading,
     globalIsLoading,
+    isWorking,
+    activeSessionId,
+    pendingMessages,
     isStreaming,
     streamingMessageId,
     ws,
@@ -166,15 +244,24 @@ export const useChatStore = defineStore('chat', () => {
     startStreamingMessage,
     appendStreamToken,
     endStreamingMessage,
+    addToolCall,
     setMessages,
     clearMessages,
     sendMessage,
     setConnected,
     setLoading,
     setGlobalLoading,
+    setIsWorking,
+    setActiveSessionId,
+    enqueuePendingMessage,
+    flushPendingMessages,
     setWebSocket,
     setSelectedModel,
     setWebSearchEnabled,
+    setAvailableTools: setTools,
+    toggleTool,
+    availableTools,
+    enabledTools,
     setModelsData
   }
 })

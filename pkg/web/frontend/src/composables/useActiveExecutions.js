@@ -13,7 +13,7 @@ export function useActiveExecutions(options = {}) {
 
   const fetchActiveExecutions = async () => {
     try {
-      const token = localStorage.getItem('token')
+      const token = localStorage.getItem('auth.token')
       const response = await fetch('/api/v1/chat/active', {
         headers: {
           'Authorization': `Bearer ${token}`

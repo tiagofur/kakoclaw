@@ -6,8 +6,8 @@
     <!-- Sidebar (History) -->
     <div 
       :class="[
-        'w-56 md:w-64 flex-shrink-0 border-r border-kakoclaw-border bg-kakoclaw-surface/50 backdrop-blur-sm transition-all duration-300 flex flex-col',
-        showSidebar ? 'translate-x-0' : '-translate-x-full absolute h-full z-20 md:relative md:translate-x-0'
+        'flex-shrink-0 border-r border-kakoclaw-border bg-kakoclaw-surface/50 backdrop-blur-md transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] flex flex-col',
+        showSidebar ? 'w-56 md:w-64 opacity-100' : 'w-0 opacity-0 border-none overflow-hidden scale-95 origin-left'
       ]"
     >
       <div class="p-2 md:p-4 border-b border-kakoclaw-border flex justify-between items-center gap-2">
@@ -98,14 +98,18 @@
     <div class="flex-1 flex flex-col min-w-0 relative bg-kakoclaw-bg/50">
       <!-- Top Bar: Mobile toggle + Model selector -->
       <div class="flex items-center justify-between px-2 md:px-4 py-1.5 md:py-2 border-b border-kakoclaw-border/30 bg-kakoclaw-surface/30 backdrop-blur-sm z-20 gap-2 flex-wrap">
-        <!-- Mobile Sidebar Toggle -->
-        <button 
-          @click="showSidebar = !showSidebar"
-          class="md:hidden p-1.5 bg-kakoclaw-surface border border-kakoclaw-border rounded-lg shadow-sm flex-shrink-0"
-        >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
-        </button>
-        <div class="hidden md:block"></div>
+        <div class="flex items-center gap-2">
+          <button 
+            @click="toggleSidebar"
+            class="p-2 hover:bg-kakoclaw-accent/10 rounded-xl text-kakoclaw-text-secondary hover:text-kakoclaw-accent transition-all duration-300 glass border border-transparent hover:border-kakoclaw-accent/30 flex items-center justify-center group"
+            title="Toggle Sidebar"
+          >
+            <svg class="w-5 h-5 transition-transform duration-500" :class="{'rotate-180': !showSidebar}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+            </svg>
+          </button>
+          <div class="hidden md:block"></div>
+        </div>
 
         <!-- Global Loading Indicator -->
         <div v-if="chatStore.globalIsLoading" class="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1 md:py-1.5 bg-kakoclaw-accent/10 border border-kakoclaw-accent rounded-lg order-3 md:order-2 w-full md:w-auto text-center md:text-left">
@@ -151,71 +155,16 @@
         </div>
 
         <!-- Messages -->
-        <div v-for="msg in messages" :key="msg.id || msg.timestamp" class="animate-fadeIn group">
-          <div
-            :class="[
-              'flex w-full',
-              msg.role === 'user' ? 'justify-end' : 'justify-start'
-            ]"
-          >
-            <div
-              :class="[
-                'max-w-[90%] sm:max-w-[85%] lg:max-w-2xl px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 md:py-3 shadow-md rounded-2xl',
-                msg.role === 'user'
-                  ? 'bg-gradient-to-br from-kakoclaw-accent to-kakoclaw-accent-hover text-white rounded-br-sm'
-                  : 'bg-kakoclaw-surface/90 border border-kakoclaw-border text-kakoclaw-text rounded-bl-sm'
-              ]"
-            >
-              <p v-if="msg.role === 'user'" class="text-sm md:text-base whitespace-pre-wrap break-words leading-relaxed">{{ msg.content }}</p>
-              <template v-else>
-                <!-- Streaming: show raw text with cursor while streaming, markdown when done -->
-                <p v-if="msg.streaming" class="text-sm md:text-base whitespace-pre-wrap break-words leading-relaxed">{{ msg.content }}<span class="streaming-cursor"></span></p>
-                <MarkdownRenderer v-else :content="msg.content" class="text-sm md:text-base" />
-              </template>
-              <div class="flex items-center justify-between mt-1 sm:mt-1.5">
-                <p class="text-[9px] sm:text-[10px] opacity-0 group-hover:opacity-70 transition-opacity">
-                  {{ formatTime(msg.timestamp || msg.created_at) }}
-                </p>
-                <div class="flex items-center gap-0.5 sm:gap-1">
-                  <!-- Fork button (on any message) -->
-                  <button
-                    v-if="currentSessionId && msg.id"
-                    @click="forkAtMessage(msg)"
-                    :disabled="isLoading"
-                    class="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 sm:p-1 rounded-md hover:bg-kakoclaw-bg/80 text-kakoclaw-text-secondary hover:text-kakoclaw-accent disabled:opacity-30"
-                    title="Ramificar conversación (Continuar desde aquí)"
-                  >
-                    <svg class="w-3 sm:w-3.5 h-3 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                    </svg>
-                  </button>
-                  <!-- Copy button (on assistant messages) -->
-                  <button
-                    v-if="msg.role === 'assistant' && !msg.streaming"
-                    @click="copyMessageContent(msg.content)"
-                    class="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 sm:p-1 rounded-md hover:bg-kakoclaw-bg/80 text-kakoclaw-text-secondary hover:text-kakoclaw-accent"
-                    title="Copiar respuesta"
-                  >
-                    <svg class="w-3 sm:w-3.5 h-3 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                  </button>
-                  <!-- Regenerate button (only on last assistant message) -->
-                  <button
-                    v-if="msg.role === 'assistant' && isLastAssistantMessage(msg)"
-                    @click="regenerateResponse"
-                    :disabled="isLoading"
-                    class="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 sm:p-1 rounded-md hover:bg-kakoclaw-bg/80 text-kakoclaw-text-secondary hover:text-kakoclaw-accent disabled:opacity-30"
-                    title="Regenerar respuesta"
-                  >
-                    <svg class="w-3 sm:w-3.5 h-3 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+        <div v-for="msg in messages" :key="msg.id || msg.timestamp" class="animate-fadeIn group w-full">
+          <MessageBubble
+            :msg="msg"
+            :currentSessionId="currentSessionId"
+            :isLoading="isLoading"
+            :isLastAssistantMessage="isLastAssistantMessage(msg)"
+            @fork="forkAtMessage"
+            @copy="copyMessageContent"
+            @regenerate="regenerateResponse"
+          />
         </div>
 
         <!-- Loading indicator (only when not streaming — streaming shows the message directly) -->
@@ -251,8 +200,31 @@
           </div>
         </div>
 
-        <form @submit.prevent="sendMessage" class="flex flex-col gap-2 md:gap-3 md:flex-row md:items-end max-w-4xl mx-auto w-full">
-          <div class="flex-1 relative min-w-0">
+        <form @submit.prevent="sendMessage" class="flex flex-col gap-2 md:gap-3 max-w-4xl mx-auto w-full">
+          <!-- File Attachment Preview Strip -->
+          <div v-if="attachments.length > 0" class="flex flex-wrap gap-2 px-1">
+            <div
+              v-for="(att, idx) in attachments"
+              :key="idx"
+              class="flex items-center gap-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg px-2.5 py-1.5 text-xs max-w-[200px]"
+            >
+              <svg class="w-3.5 h-3.5 text-kakoclaw-accent flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+              <span class="truncate text-kakoclaw-text flex-1">{{ att.name }}</span>
+              <button type="button" @click="removeAttachment(idx)" class="text-kakoclaw-text-secondary hover:text-red-400 transition-colors flex-shrink-0">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div v-if="uploadingFile" class="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-kakoclaw-text-secondary">
+              <div class="w-3 h-3 border-2 border-kakoclaw-accent border-t-transparent rounded-full animate-spin"></div>
+              Uploading...
+            </div>
+          </div>
+
+          <div class="flex gap-2 md:gap-3 md:items-end">
+            <!-- Hidden file input -->
+            <input ref="fileInputRef" type="file" class="hidden" accept=".txt,.md,.json,.csv,.html,.xml,.yaml,.yml,.py,.go,.js,.ts,.java,.c,.cpp,.h,.cs,.rb,.rs,.php,.log,.pdf" @change="handleFileAttach">
+
+            <div class="flex-1 relative min-w-0">
             <textarea
               ref="chatInput"
               v-model="messageInput"
@@ -264,25 +236,94 @@
               :disabled="!isConnected || isLoading"
               style="max-height: 120px;"
             ></textarea>
-          </div>
-          <!-- Action Buttons Row -->
-          <div class="flex gap-2 md:gap-3 w-full md:w-auto justify-stretch md:justify-end">
-            <!-- Web Search Toggle -->
-            <button
-              type="button"
-              @click="chatStore.setWebSearchEnabled(!chatStore.webSearchEnabled)"
-              :class="[
-                'flex-1 md:flex-none px-2 md:px-3 py-2 md:py-3 rounded-lg md:rounded-xl transition-all font-medium flex items-center justify-center min-h-[2.5rem] md:min-h-auto md:min-w-[3rem] border text-sm md:text-base',
-                chatStore.webSearchEnabled
-                  ? 'bg-kakoclaw-accent/15 border-kakoclaw-accent/40 text-kakoclaw-accent hover:bg-kakoclaw-accent/25'
-                  : 'bg-kakoclaw-surface border-kakoclaw-border text-kakoclaw-text-secondary hover:text-kakoclaw-text hover:bg-kakoclaw-bg'
-              ]"
-              :title="chatStore.webSearchEnabled ? 'Búsqueda web activada (clic para desactivar)' : 'Búsqueda web desactivada (clic para activar)'"
-            >
-              <svg class="w-4 md:w-5 h-4 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </button>
+            </div>
+
+            <!-- Action Buttons Row -->
+            <div class="flex gap-2 md:gap-3 flex-shrink-0 flex-wrap sm:flex-nowrap">
+              <!-- Attach File Button -->
+              <button
+                type="button"
+                @click="fileInputRef?.click()"
+                :disabled="!isConnected || isLoading || uploadingFile"
+                class="flex-none px-2 md:px-3 py-2 md:py-3 rounded-lg md:rounded-xl bg-kakoclaw-surface border border-kakoclaw-border text-kakoclaw-text-secondary hover:text-kakoclaw-accent hover:bg-kakoclaw-bg transition-all flex items-center justify-center min-h-[2.5rem] md:min-h-auto"
+                title="Attach file"
+              >
+                <svg class="w-4 md:w-5 h-4 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                </svg>
+              </button>
+
+              <!-- Prompt Library Button -->
+              <button
+                type="button"
+                @click="showPromptLibrary = true"
+                :disabled="!isConnected || isLoading"
+                class="flex-none px-2 md:px-3 py-2 md:py-3 rounded-lg md:rounded-xl bg-kakoclaw-surface border border-kakoclaw-border text-kakoclaw-text-secondary hover:text-kakoclaw-accent hover:bg-kakoclaw-bg transition-all flex items-center justify-center min-h-[2.5rem] md:min-h-auto"
+                title="Prompt Library"
+              >
+                <svg class="w-4 md:w-5 h-4 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+              </button>
+
+              <!-- Tools Manager Popover Toggle -->
+            <div class="relative">
+              <button
+                type="button"
+                @click="showToolsPopover = !showToolsPopover"
+                :class="[
+                  'flex-1 md:flex-none px-2 md:px-3 py-2 md:py-3 rounded-lg md:rounded-xl transition-all font-medium flex items-center justify-center min-h-[2.5rem] md:min-h-auto md:min-w-[3rem] border text-sm md:text-base',
+                  chatStore.enabledTools.length < chatStore.availableTools.length
+                    ? 'bg-amber-500/10 border-amber-500/40 text-amber-600 hover:bg-amber-500/20'
+                    : 'bg-kakoclaw-surface border-kakoclaw-border text-kakoclaw-text-secondary hover:text-kakoclaw-accent hover:bg-kakoclaw-bg'
+                ]"
+                title="Manage AI Tools"
+              >
+                <svg class="w-4 md:w-5 h-4 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span v-if="chatStore.enabledTools.length < chatStore.availableTools.length" class="absolute -top-1 -right-1 flex h-3 w-3">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                </span>
+              </button>
+
+              <!-- Tools Popover -->
+              <Teleport to="body">
+                <div v-if="showToolsPopover" class="fixed inset-0 z-[60]" @click="showToolsPopover = false"></div>
+                <div 
+                  v-if="showToolsPopover" 
+                  class="fixed bottom-24 right-4 md:right-auto md:left-1/2 md:-translate-x-1/2 w-64 md:w-72 bg-kakoclaw-surface border border-kakoclaw-border rounded-2xl shadow-2xl z-[70] overflow-hidden animate-slideUp"
+                >
+                  <div class="p-3 border-b border-kakoclaw-border bg-kakoclaw-bg/50">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-kakoclaw-text-secondary">AI Tools</h3>
+                  </div>
+                  <div class="max-h-64 overflow-y-auto p-2 space-y-1 custom-scrollbar">
+                    <div v-if="chatStore.availableTools.length === 0" class="text-center py-4 text-xs text-kakoclaw-text-secondary">
+                      Loading tools...
+                    </div>
+                    <button
+                      v-for="tool in chatStore.availableTools"
+                      :key="tool"
+                      @click="chatStore.toggleTool(tool)"
+                      class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-colors"
+                      :class="chatStore.enabledTools.includes(tool) ? 'bg-kakoclaw-accent/10 text-kakoclaw-accent' : 'hover:bg-kakoclaw-bg text-kakoclaw-text-secondary'"
+                    >
+                      <div class="flex items-center gap-2">
+                        <div 
+                          class="w-4 h-4 rounded border flex items-center justify-center transition-colors"
+                          :class="chatStore.enabledTools.includes(tool) ? 'bg-kakoclaw-accent border-kakoclaw-accent text-white' : 'border-kakoclaw-border'"
+                        >
+                          <svg v-if="chatStore.enabledTools.includes(tool)" class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
+                        </div>
+                        <span class="font-mono">{{ tool }}</span>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              </Teleport>
+            </div>
             <!-- Mic Button -->
             <button
               type="button"
@@ -336,6 +377,7 @@
               </svg>
             </button>
           </div>
+          </div><!-- end flex row wrapper -->
         </form>
 
         <!-- Connection Status -->
@@ -346,12 +388,20 @@
       </div>
     </div>
   </div>
+
+  <!-- Prompt Library Modal -->
+  <PromptLibrary
+    :show="showPromptLibrary"
+    @close="showPromptLibrary = false"
+    @use="insertPrompt"
+  />
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { storeToRefs } from 'pinia'
-import MarkdownRenderer from '../components/Chat/MarkdownRenderer.vue'
+import MessageBubble from '../components/MessageBubble.vue'
+import PromptLibrary from '../components/PromptModal.vue'
 import { useChatStore } from '../stores/chatStore'
 import { getChatWebSocket } from '../services/websocketService'
 import taskService from '../services/taskService'
@@ -367,12 +417,55 @@ const messagesContainer = ref(null)
 const messageInput = ref('')
 const isConnected = ref(false)
 const isLoading = ref(false)
-const showSidebar = ref(false)
+const showSidebar = ref(localStorage.getItem('chat.sidebar') !== 'false')
 const sessions = ref([])
+
+const toggleSidebar = () => {
+  showSidebar.value = !showSidebar.value
+  localStorage.setItem('chat.sidebar', showSidebar.value)
+}
 const currentSessionId = ref(null)
 const contextMenu = ref({ show: false, sessionId: null, x: 0, y: 0 })
 const renamingSession = ref(null)
 const renameInput = ref('')
+const showToolsPopover = ref(false)
+const showPromptLibrary = ref(false)
+
+// File attachments state
+const fileInputRef = ref(null)
+const attachments = ref([])
+const uploadingFile = ref(false)
+
+const handleFileAttach = async (e) => {
+  const file = e.target.files?.[0]
+  if (!file) return
+  uploadingFile.value = true
+  try {
+    const result = await advancedService.uploadChatAttachment(file)
+    attachments.value.push({ name: result.name, content: result.content, truncated: result.truncated })
+    if (result.truncated) toast.error('File was truncated to 50,000 characters')
+  } catch (err) {
+    toast.error('Failed to attach file: ' + (err.response?.data?.error || err.message))
+  } finally {
+    uploadingFile.value = false
+    if (fileInputRef.value) fileInputRef.value.value = ''
+  }
+}
+
+const removeAttachment = (idx) => {
+  attachments.value.splice(idx, 1)
+}
+
+const insertPrompt = (content) => {
+  messageInput.value = content
+  nextTick(() => {
+    if (chatInput.value) {
+      chatInput.value.style.height = 'auto'
+      chatInput.value.style.height = Math.min(chatInput.value.scrollHeight, 120) + 'px'
+      chatInput.value.focus()
+    }
+  })
+}
 
 const { messages } = storeToRefs(chatStore)
 const chatWs = getChatWebSocket()
@@ -606,6 +699,9 @@ const handleMessage = (message) => {
     chatStore.endStreamingMessage(message.content || '')
     fetchSessions()
   }
+  if (message.type === 'tool_call') {
+    chatStore.addToolCall(message)
+  }
   if (message.type === 'ready') {
     isLoading.value = false
     chatStore.setGlobalLoading(false) // Clear global loading state when response is ready
@@ -623,6 +719,9 @@ const handleConnected = () => {
 }
 
 onMounted(async () => {
+  // Tell MainLayout's background listener to yield — we're handling messages now
+  window.__kakoclaw_setChatViewActive?.(true)
+
   await fetchSessions()
 
   // Fetch available models
@@ -633,9 +732,19 @@ onMounted(async () => {
     console.error('Failed to fetch models:', error)
     chatStore.setModelsData({ current_model: '', providers: [] })
   }
+
+  // Fetch available tools
+  try {
+    const toolsData = await advancedService.fetchTools()
+    chatStore.setAvailableTools(toolsData.tools || [])
+  } catch (error) {
+    console.error('Failed to fetch tools:', error)
+  }
   
-  // Check for session ID in route
+  // Determine which session to show:
+  // 1. Route param, 2. Previously active session (from store), 3. Most recent session
   const routeSessionId = normalizeSessionId(route.query.id)
+  const storedSessionId = chatStore.activeSessionId
   if (routeSessionId) {
     const routeSessionExists = sessions.value.some(s => s.session_id === routeSessionId)
     if (routeSessionExists) {
@@ -643,6 +752,9 @@ onMounted(async () => {
     } else if (sessions.value.length > 0) {
       await loadSession(sessions.value[0].session_id)
     }
+  } else if (storedSessionId && sessions.value.some(s => s.session_id === storedSessionId)) {
+    // Restore session that was active before navigation
+    await loadSession(storedSessionId, { updateRoute: true })
   } else if (sessions.value.length > 0) {
     await loadSession(sessions.value[0].session_id)
   }
@@ -663,6 +775,24 @@ onMounted(async () => {
   } catch (error) {
     console.error('Failed to connect to chat:', error)
   }
+
+  // Flush any messages that arrived while ChatView was not mounted
+  const pending = chatStore.flushPendingMessages()
+  if (pending.length > 0) {
+    // Sync isLoading based on whether agent was still working
+    const hasReadyEvent = pending.some(m => m.type === 'ready')
+    if (!hasReadyEvent) {
+      isLoading.value = true
+    }
+    for (const msg of pending) {
+      handleMessage(msg)
+    }
+    // After processing, scroll to bottom
+    await nextTick()
+    if (messagesContainer.value) {
+      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
+    }
+  }
 })
 
 onBeforeUnmount(() => {
@@ -671,6 +801,8 @@ onBeforeUnmount(() => {
   chatWs.off('message', handleMessage)
   chatWs.off('disconnected', handleDisconnected)
   chatWs.off('connected', handleConnected)
+  // Tell MainLayout background listener to resume capturing messages
+  window.__kakoclaw_setChatViewActive?.(false)
 })
 
 // Auto-scroll to bottom
@@ -702,16 +834,27 @@ const sendMessage = async () => {
     router.replace({ query: { id: currentSessionId.value } })
   }
 
+  // Add attachment content to message if present
+  let finalContent = content
+  if (attachments.value.length > 0) {
+    const attachmentText = attachments.value.map(a =>
+      `\n\n--- Attached file: ${a.name} ---\n${a.content}\n--- End of ${a.name} ---`
+    ).join('')
+    finalContent = content + attachmentText
+    attachments.value = []
+  }
+
   // Add user message locally
   chatStore.addMessage({
     role: 'user',
-    content,
+    content: finalContent,
     timestamp: new Date().toISOString()
   })
 
   messageInput.value = ''
   isLoading.value = true
-  chatStore.setGlobalLoading(true) // Set global loading state so agent progress shows everywhere
+  chatStore.setIsWorking(true)  // Persist loading state for background navigation
+  chatStore.setActiveSessionId(currentSessionId.value) // Persist active session for restoration
 
   // Reset textarea height
   if (chatInput.value) {
@@ -722,7 +865,7 @@ const sendMessage = async () => {
   if (chatWs.isConnected()) {
     chatWs.send({
       type: 'message',
-      content,
+      content: finalContent,
       session_id: currentSessionId.value,
       model: chatStore.selectedModel || undefined,
       web_search: chatStore.webSearchEnabled
@@ -744,7 +887,7 @@ const cancelExecution = async () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
+        'Authorization': `Bearer ${localStorage.getItem('auth.token')}`
       },
       body: JSON.stringify({
         session_id: currentSessionId.value

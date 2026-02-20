@@ -3,7 +3,18 @@
     <!-- Header with filters -->
     <div class="flex-none p-4 border-b border-kakoclaw-border bg-kakoclaw-surface sticky top-0 z-10">
       <div class="flex justify-between items-center mb-3">
-        <h2 class="text-xl font-bold bg-gradient-to-r from-kakoclaw-accent to-purple-500 bg-clip-text text-transparent">Chat History</h2>
+        <div class="flex items-center gap-2">
+          <button 
+            @click="toggleSidebar"
+            class="p-2 hover:bg-kakoclaw-accent/10 rounded-xl text-kakoclaw-text-secondary hover:text-kakoclaw-accent transition-all duration-300 glass border border-transparent hover:border-kakoclaw-accent/30 flex items-center justify-center group"
+            title="Toggle Sidebar"
+          >
+            <svg class="w-5 h-5 transition-transform duration-500" :class="{'rotate-180': isSidebarCollapsed}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+            </svg>
+          </button>
+          <h2 class="text-xl font-bold bg-gradient-to-r from-kakoclaw-accent to-emerald-500 bg-clip-text text-transparent ml-1">Chat History</h2>
+        </div>
         <div class="flex items-center gap-2">
           <div class="relative" ref="exportDropdownRef">
             <button @click="showExportMenu = !showExportMenu" class="p-2 hover:bg-kakoclaw-bg rounded-lg text-kakoclaw-text-secondary transition-colors" title="Export chat history">
@@ -68,7 +79,10 @@
 
     <div class="flex-1 flex overflow-hidden">
       <!-- Session List / Search Results -->
-      <div class="w-1/3 border-r border-kakoclaw-border overflow-y-auto p-2 space-y-1 bg-kakoclaw-surface/50">
+      <div 
+        class="border-r border-kakoclaw-border overflow-y-auto p-2 space-y-1 bg-kakoclaw-surface/50 backdrop-blur-sm transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]"
+        :class="isSidebarCollapsed ? 'w-0 opacity-0 p-0 border-none overflow-hidden scale-95 origin-left' : 'w-1/3 opacity-100'"
+      >
         <div v-if="loading" class="text-center py-4 text-kakoclaw-text-secondary animate-pulse">Loading sessions...</div>
         <div v-else-if="searching" class="text-center py-4 text-kakoclaw-text-secondary animate-pulse">Searching...</div>
 
@@ -86,7 +100,7 @@
           >
             <div class="flex items-center gap-2 mb-1">
               <span class="text-[10px] font-medium px-1.5 py-0.5 rounded"
-                :class="result.role === 'user' ? 'bg-kakoclaw-accent/20 text-kakoclaw-accent' : 'bg-purple-500/20 text-purple-400'">
+                :class="result.role === 'user' ? 'bg-kakoclaw-accent/20 text-kakoclaw-accent' : 'bg-emerald-500/20 text-emerald-400'">
                 {{ result.role }}
               </span>
               <span class="text-[10px] px-1.5 py-0.5 rounded"
@@ -156,6 +170,17 @@
             </template>
           </div>
         </template>
+        
+        <!-- Load More Button -->
+        <div v-if="!isSearchMode && hasMoreSessions && filteredSessions.length > 0" class="py-3 px-2">
+          <button
+            @click="loadMore"
+            :disabled="loading"
+            class="w-full py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-xs font-semibold text-kakoclaw-accent hover:bg-kakoclaw-surface transition-colors disabled:opacity-50"
+          >
+            {{ loading ? 'Loading...' : 'Load More Sessions' }}
+          </button>
+        </div>
       </div>
 
       <!-- Message View -->
@@ -239,7 +264,13 @@ import { useToast } from '../composables/useToast'
 
 const router = useRouter()
 const toast = useToast()
+const isSidebarCollapsed = ref(localStorage.getItem('history.sidebar') === 'true')
 const sessions = ref([])
+
+const toggleSidebar = () => {
+  isSidebarCollapsed.value = !isSidebarCollapsed.value
+  localStorage.setItem('history.sidebar', isSidebarCollapsed.value)
+}
 const selectedSession = ref(null)
 const messages = ref([])
 const loading = ref(false)
@@ -247,6 +278,11 @@ const loadingMessages = ref(false)
 const filterType = ref('all')
 const filterDate = ref('all')
 const showArchived = ref(false)
+
+// Pagination state
+const sessionLimit = 30
+const sessionOffset = ref(0)
+const hasMoreSessions = ref(true)
 
 // Session management
 const renamingSession = ref(null)
@@ -401,16 +437,38 @@ const forkAtMessage = async (msg) => {
   }
 }
 
-const loadSessions = async () => {
+const loadSessions = async (reset = true) => {
+  if (reset) {
+    sessionOffset.value = 0
+    sessions.value = []
+    hasMoreSessions.value = true
+  }
   loading.value = true
   try {
-    const data = await taskService.fetchChatSessions({ archived: showArchived.value })
-    sessions.value = data.sessions || []
+    const data = await taskService.fetchChatSessions({ 
+      archived: showArchived.value,
+      limit: sessionLimit,
+      offset: sessionOffset.value
+    })
+    const newSessions = data.sessions || []
+    if (reset) {
+      sessions.value = newSessions
+    } else {
+      sessions.value = [...sessions.value, ...newSessions]
+    }
+    hasMoreSessions.value = newSessions.length >= sessionLimit
   } catch (error) {
     console.error('Failed to load sessions:', error)
     toast.error('Failed to load sessions')
   } finally {
     loading.value = false
+  }
+}
+
+const loadMore = () => {
+  if (!loading.value && hasMoreSessions.value) {
+    sessionOffset.value += sessionLimit
+    loadSessions(false)
   }
 }
 

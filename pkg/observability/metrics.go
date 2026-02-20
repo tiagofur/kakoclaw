@@ -1,9 +1,20 @@
 package observability
 
 import (
+	"encoding/json"
 	"sync"
 	"time"
 )
+
+// MetricsStorage is implemented by storage.Storage and wired in at server startup.
+type MetricsStorage interface {
+	SaveMetricCounters(counters map[string]int64) error
+	LoadMetricCounters() (map[string]int64, error)
+	SaveMetricBreakdowns(modelMetrics json.RawMessage, toolMetrics json.RawMessage) error
+	LoadMetricBreakdowns() (json.RawMessage, json.RawMessage, error)
+	AppendMetricEvent(event interface{}) error
+	LoadRecentEvents() ([]json.RawMessage, error)
+}
 
 // Metrics collects in-process observability data for LLM calls, tool executions,
 // and general system usage. Thread-safe.
@@ -35,6 +46,9 @@ type Metrics struct {
 
 	// Uptime
 	StartedAt time.Time `json:"started_at"`
+
+	// Optional persistence backend (nil = in-memory only)
+	store MetricsStorage
 }
 
 type ModelMetrics struct {
@@ -84,10 +98,114 @@ func New() *Metrics {
 	}
 }
 
+// SetStorage injects a persistence backend and pre-loads existing counters from it.
+func (m *Metrics) SetStorage(s MetricsStorage) {
+	m.mu.Lock()
+	m.store = s
+	m.mu.Unlock()
+
+	m.loadFromDB(s)
+}
+
+// loadFromDB pre-populates the in-memory counters and recent events from persistent storage.
+func (m *Metrics) loadFromDB(s MetricsStorage) {
+	counters, err := s.LoadMetricCounters()
+	if err != nil || len(counters) == 0 {
+		return
+	}
+
+	rawEvents, _ := s.LoadRecentEvents()
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Restore scalar counters
+	m.LLMCalls = counters["llm_calls"]
+	m.LLMErrors = counters["llm_errors"]
+	m.LLMTotalMs = counters["llm_total_ms"]
+	m.LLMTokensIn = counters["llm_tokens_in"]
+	m.LLMTokensOut = counters["llm_tokens_out"]
+	m.ToolCalls = counters["tool_calls"]
+	m.ToolErrors = counters["tool_errors"]
+	m.ToolTotalMs = counters["tool_total_ms"]
+	m.AgentRuns = counters["agent_runs"]
+	m.AgentErrors = counters["agent_errors"]
+	m.AgentTotalMs = counters["agent_total_ms"]
+	m.AgentIterTotal = counters["agent_iterations_total"]
+
+	// Restore recent events
+	for _, raw := range rawEvents {
+		var evt Event
+		if json.Unmarshal(raw, &evt) == nil {
+			m.RecentEvents = append(m.RecentEvents, evt)
+		}
+	}
+
+	// Restore breakdown maps
+	rawModels, rawTools, _ := s.LoadMetricBreakdowns()
+	if len(rawModels) > 0 {
+		var modelMap map[string]*ModelMetrics
+		if json.Unmarshal(rawModels, &modelMap) == nil {
+			m.LLMByModel = modelMap
+		}
+	}
+	if len(rawTools) > 0 {
+		var toolMap map[string]*ToolMetrics
+		if json.Unmarshal(rawTools, &toolMap) == nil {
+			m.ToolByName = toolMap
+		}
+	}
+}
+
+// flushCounters persists the current in-memory counters to DB (called without lock held).
+func (m *Metrics) flushCounters() {
+	m.mu.RLock()
+	s := m.store
+	counters := map[string]int64{
+		"llm_calls":              m.LLMCalls,
+		"llm_errors":             m.LLMErrors,
+		"llm_total_ms":           m.LLMTotalMs,
+		"llm_tokens_in":          m.LLMTokensIn,
+		"llm_tokens_out":         m.LLMTokensOut,
+		"tool_calls":             m.ToolCalls,
+		"tool_errors":            m.ToolErrors,
+		"tool_total_ms":          m.ToolTotalMs,
+		"agent_runs":             m.AgentRuns,
+		"agent_errors":           m.AgentErrors,
+		"agent_total_ms":         m.AgentTotalMs,
+		"agent_iterations_total": m.AgentIterTotal,
+	}
+	m.mu.RUnlock()
+
+	if s != nil {
+		_ = s.SaveMetricCounters(counters)
+
+		// Persist breakdowns
+		m.mu.RLock()
+		mod, _ := json.Marshal(m.LLMByModel)
+		tls, _ := json.Marshal(m.ToolByName)
+		m.mu.RUnlock()
+		_ = s.SaveMetricBreakdowns(mod, tls)
+	}
+}
+
+// asyncFlush fires a goroutine to persist counters and a new event.
+func (m *Metrics) asyncFlush(evt Event) {
+	m.mu.RLock()
+	s := m.store
+	m.mu.RUnlock()
+	if s == nil {
+		return
+	}
+	go func() {
+		m.flushCounters()
+		_ = s.AppendMetricEvent(evt)
+	}()
+}
+
 // RecordLLMCall records a single LLM API call.
 func (m *Metrics) RecordLLMCall(model string, duration time.Duration, tokensIn, tokensOut int, err error) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	ms := duration.Milliseconds()
 	m.LLMCalls++
@@ -122,12 +240,15 @@ func (m *Metrics) RecordLLMCall(model string, duration time.Duration, tokensIn, 
 		evt.Error = err.Error()
 	}
 	m.addEvent(evt)
+
+	m.mu.Unlock()
+
+	m.asyncFlush(evt)
 }
 
 // RecordToolCall records a single tool execution.
 func (m *Metrics) RecordToolCall(toolName string, duration time.Duration, err error) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	ms := duration.Milliseconds()
 	m.ToolCalls++
@@ -158,12 +279,15 @@ func (m *Metrics) RecordToolCall(toolName string, duration time.Duration, err er
 		evt.Error = err.Error()
 	}
 	m.addEvent(evt)
+
+	m.mu.Unlock()
+
+	m.asyncFlush(evt)
 }
 
 // RecordAgentRun records a full agent loop execution.
 func (m *Metrics) RecordAgentRun(duration time.Duration, iterations int, err error) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	ms := duration.Milliseconds()
 	m.AgentRuns++
@@ -183,6 +307,10 @@ func (m *Metrics) RecordAgentRun(duration time.Duration, iterations int, err err
 		evt.Error = err.Error()
 	}
 	m.addEvent(evt)
+
+	m.mu.Unlock()
+
+	m.asyncFlush(evt)
 }
 
 // Snapshot returns a read-only copy of the current metrics.
