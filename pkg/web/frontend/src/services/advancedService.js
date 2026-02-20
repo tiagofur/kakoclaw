@@ -18,7 +18,9 @@ export default {
   },
 
   installSkill: async (repository) => {
-    const response = await client.post('/skills/install', { repository })
+    const response = await client.post('/skills/install', { repository }, {
+      timeout: 120000 // 2 min for installation
+    })
     return response.data
   },
 
@@ -33,7 +35,9 @@ export default {
   },
 
   createSkill: async (payload) => {
-    const response = await client.post('/skills/create', payload)
+    const response = await client.post('/skills/create', payload, {
+      timeout: 120000 // 2 min for skill creation
+    })
     return response.data
   },
 
@@ -64,7 +68,9 @@ export default {
   },
 
   runCronJob: async (id) => {
-    const response = await client.post(`/cron/${id}/run`)
+    const response = await client.post(`/cron/${id}/run`, {}, {
+      timeout: 300000 // 5 min for manual job run
+    })
     return response.data
   },
 
