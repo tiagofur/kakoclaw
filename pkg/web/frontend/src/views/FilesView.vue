@@ -41,11 +41,11 @@
             <span class="text-kakoclaw-text-secondary">..</span>
           </button>
 
-          <button
+          <div
             v-for="entry in entries"
             :key="entry.path"
             @click="entry.is_dir ? navigateTo(entry.path) : viewFile(entry.path)"
-            class="w-full flex items-center gap-3 px-6 py-3 hover:bg-kakoclaw-surface transition-colors text-left"
+            class="w-full flex items-center gap-3 px-6 py-3 hover:bg-kakoclaw-surface transition-colors text-left cursor-pointer group"
           >
             <!-- Folder icon -->
             <svg v-if="entry.is_dir" class="w-5 h-5 text-yellow-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -60,7 +60,17 @@
             </div>
             <span v-if="!entry.is_dir" class="text-xs text-kakoclaw-text-secondary flex-shrink-0">{{ formatSize(entry.size) }}</span>
             <span class="text-xs text-kakoclaw-text-secondary flex-shrink-0">{{ formatDate(entry.mod_time) }}</span>
-          </button>
+            
+            <button
+              @click.stop="downloadEntry(entry.path)"
+              class="ml-2 p-1.5 text-kakoclaw-text-secondary opacity-0 group-hover:opacity-100 hover:text-kakoclaw-accent hover:bg-kakoclaw-bg rounded-lg transition-all"
+              title="Download"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+            </button>
+          </div>
 
           <div v-if="entries.length === 0" class="text-center py-12 text-kakoclaw-text-secondary">
             <p>Empty directory</p>
@@ -71,7 +81,18 @@
         <div v-if="fileContent !== null" class="p-6">
           <div class="flex items-center justify-between mb-4">
             <h3 class="font-semibold">{{ fileName }}</h3>
-            <span class="text-sm text-kakoclaw-text-secondary">{{ formatSize(fileSize) }}</span>
+            <div class="flex items-center gap-4">
+              <button
+                @click="downloadEntry(currentPath)"
+                class="flex items-center gap-2 px-3 py-1.5 text-sm bg-kakoclaw-surface border border-kakoclaw-border rounded-lg hover:bg-kakoclaw-border transition-colors text-kakoclaw-accent"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Download
+              </button>
+              <span class="text-sm text-kakoclaw-text-secondary">{{ formatSize(fileSize) }}</span>
+            </div>
           </div>
           <div v-if="fileError" class="text-yellow-400 text-sm mb-4">{{ fileError }}</div>
           <pre v-else class="bg-kakoclaw-surface border border-kakoclaw-border rounded-xl p-4 text-sm font-mono overflow-auto max-h-[70vh] whitespace-pre-wrap">{{ fileContent }}</pre>
@@ -132,6 +153,10 @@ const navigateTo = async (path) => {
 
 const viewFile = async (path) => {
   await navigateTo(path)
+}
+
+const downloadEntry = (path) => {
+  advancedService.downloadFile(path)
 }
 
 const navigateUp = () => {

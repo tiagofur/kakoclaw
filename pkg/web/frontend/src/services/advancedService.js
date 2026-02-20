@@ -91,6 +91,11 @@ export default {
     return response.data
   },
 
+  downloadFile: (path = '') => {
+    const encodedPath = path.split('/').map(encodeURIComponent).join('/')
+    window.open(`/api/v1/files/${encodedPath}?download=true`, '_blank')
+  },
+
   // Export
   exportTasks: (format = 'json') => {
     window.open(`/api/v1/export/tasks?format=${format}`, '_blank')

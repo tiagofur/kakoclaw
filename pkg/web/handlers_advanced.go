@@ -1,10 +1,12 @@
 package web
 
 import (
+	"archive/zip"
 	"context"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -659,7 +661,53 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	isDownload := r.URL.Query().Get("download") == "true"
+
 	if info.IsDir() {
+		if isDownload {
+			zipName := info.Name()
+			if zipName == "." || zipName == "" || zipName == "/" {
+				zipName = "workspace"
+			}
+			w.Header().Set("Content-Type", "application/zip")
+			w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.zip\"", zipName))
+			
+			zw := zip.NewWriter(w)
+			defer zw.Close()
+
+			err := filepath.Walk(fullPath, func(path string, walkInfo os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+				if walkInfo.IsDir() {
+					return nil
+				}
+				
+				relP, err := filepath.Rel(fullPath, path)
+				if err != nil {
+					return err
+				}
+
+				f, err := zw.Create(filepath.ToSlash(relP))
+				if err != nil {
+					return err
+				}
+
+				file, err := os.Open(path)
+				if err != nil {
+					return err
+				}
+				defer file.Close()
+
+				_, err = io.Copy(f, file)
+				return err
+			})
+			if err != nil {
+				logger.ErrorCF("web", "Failed to create zip", map[string]interface{}{"path": fullPath, "error": err.Error()})
+			}
+			return
+		}
+
 		entries, err := os.ReadDir(fullPath)
 		if err != nil {
 			http.Error(w, "failed to read directory", http.StatusInternalServerError)
@@ -694,6 +742,20 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 			"path":    filepath.ToSlash(relPath),
 			"entries": files,
 		})
+		return
+	}
+
+	if isDownload {
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", info.Name()))
+		w.Header().Set("Content-Type", "application/octet-stream")
+		// serve file content
+		file, err := os.Open(fullPath)
+		if err != nil {
+			http.Error(w, "failed to read file", http.StatusInternalServerError)
+			return
+		}
+		defer file.Close()
+		io.Copy(w, file)
 		return
 	}
 
