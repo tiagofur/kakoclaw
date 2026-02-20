@@ -18,9 +18,13 @@ RUN go mod download
 # Copy all source code
 COPY . .
 
-# Build Vue frontend
+# Build Vue frontend (only if dist/ doesn't exist or is empty)
 WORKDIR /src/pkg/web/frontend
-RUN npm install && npm run build
+RUN if [ ! -d "../dist" ] || [ -z "$(ls -A ../dist 2>/dev/null)" ]; then \
+      npm install && npm run build; \
+    else \
+      echo "Using pre-built frontend from dist/"; \
+    fi
 
 # Build Go binary (which now embeds the frontend dist/)
 WORKDIR /src
