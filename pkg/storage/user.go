@@ -6,11 +6,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type User struct {
 	ID           int64     `json:"id"`
+	UUID         string    `json:"uuid"` // Unique identifier for filesystem/workspace paths
 	Username     string    `json:"username"`
 	PasswordHash string    `json:"-"`
 	Role         string    `json:"role"` // 'admin' or 'user'
@@ -28,7 +30,7 @@ func (s *Storage) CountUsers() (int, error) {
 	return count, err
 }
 
-// CreateUser creates a new user.
+// CreateUser creates a new user with an automatically generated UUID.
 func (s *Storage) CreateUser(username, password, role string) (*User, error) {
 	username = strings.TrimSpace(username)
 	if username == "" {
@@ -43,10 +45,13 @@ func (s *Storage) CreateUser(username, password, role string) (*User, error) {
 		return nil, err
 	}
 
+	// Generate UUID for user
+	userUUID := uuid.New().String()
+
 	res, err := s.db.Exec(`
-		INSERT INTO users (username, password_hash, role)
-		VALUES (?, ?, ?)`,
-		username, string(hash), role,
+		INSERT INTO users (username, password_hash, role, uuid)
+		VALUES (?, ?, ?, ?)`,
+		username, string(hash), role, userUUID,
 	)
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
@@ -66,9 +71,24 @@ func (s *Storage) CreateUser(username, password, role string) (*User, error) {
 func (s *Storage) GetUserByID(id int64) (*User, error) {
 	u := &User{}
 	err := s.db.QueryRow(`
-		SELECT id, username, password_hash, role, created_at, updated_at
+		SELECT id, uuid, username, password_hash, role, created_at, updated_at
 		FROM users WHERE id = ?`, id).
-		Scan(&u.ID, &u.Username, &u.PasswordHash, &u.Role, &u.CreatedAt, &u.UpdatedAt)
+		Scan(&u.ID, &u.UUID, &u.Username, &u.PasswordHash, &u.Role, &u.CreatedAt, &u.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, ErrUserNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return u, nil
+}
+
+func (s *Storage) GetUserByUUID(userUUID string) (*User, error) {
+	u := &User{}
+	err := s.db.QueryRow(`
+		SELECT id, uuid, username, password_hash, role, created_at, updated_at
+		FROM users WHERE uuid = ?`, userUUID).
+		Scan(&u.ID, &u.UUID, &u.Username, &u.PasswordHash, &u.Role, &u.CreatedAt, &u.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, ErrUserNotFound
 	}
@@ -81,9 +101,9 @@ func (s *Storage) GetUserByID(id int64) (*User, error) {
 func (s *Storage) GetUserByUsername(username string) (*User, error) {
 	u := &User{}
 	err := s.db.QueryRow(`
-		SELECT id, username, password_hash, role, created_at, updated_at
+		SELECT id, uuid, username, password_hash, role, created_at, updated_at
 		FROM users WHERE username = ? COLLATE NOCASE`, username).
-		Scan(&u.ID, &u.Username, &u.PasswordHash, &u.Role, &u.CreatedAt, &u.UpdatedAt)
+		Scan(&u.ID, &u.UUID, &u.Username, &u.PasswordHash, &u.Role, &u.CreatedAt, &u.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, ErrUserNotFound
 	}
@@ -95,7 +115,7 @@ func (s *Storage) GetUserByUsername(username string) (*User, error) {
 
 func (s *Storage) ListUsers() ([]*User, error) {
 	rows, err := s.db.Query(`
-		SELECT id, username, password_hash, role, created_at, updated_at
+		SELECT id, uuid, username, password_hash, role, created_at, updated_at
 		FROM users ORDER BY created_at ASC`)
 	if err != nil {
 		return nil, err
@@ -105,7 +125,7 @@ func (s *Storage) ListUsers() ([]*User, error) {
 	var users []*User
 	for rows.Next() {
 		u := &User{}
-		if err := rows.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.Role, &u.CreatedAt, &u.UpdatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.UUID, &u.Username, &u.PasswordHash, &u.Role, &u.CreatedAt, &u.UpdatedAt); err != nil {
 			return nil, err
 		}
 		users = append(users, u)

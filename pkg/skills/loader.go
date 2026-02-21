@@ -22,8 +22,9 @@ type SkillInfo struct {
 }
 
 type SkillsLoader struct {
-	workspace       string
+	workspace       string // user workspace, if multiuser-enabled
 	workspaceSkills string // workspace skills (项目级别)
+	userSkillsPath  string // user-specific skills (~/.kakoclaw/users/<uuid>/skills)
 	globalSkills    string // 全局 skills (~/.KakoClaw/skills)
 	builtinSkills   string // 内置 skills
 }
@@ -32,20 +33,63 @@ func NewSkillsLoader(workspace string, globalSkills string, builtinSkills string
 	return &SkillsLoader{
 		workspace:       workspace,
 		workspaceSkills: filepath.Join(workspace, "skills"),
+		userSkillsPath:  "",           // Will be set via SetUserSkillsPath if needed
 		globalSkills:    globalSkills, // ~/.KakoClaw/skills
 		builtinSkills:   builtinSkills,
 	}
 }
 
+// SetUserSkillsPath sets the user-specific skills directory for multiuser support.
+// This should be ~/.kakoclaw/users/<userUUID>/skills
+func (sl *SkillsLoader) SetUserSkillsPath(path string) {
+	sl.userSkillsPath = path
+}
+
 func (sl *SkillsLoader) ListSkills() []SkillInfo {
 	skills := make([]SkillInfo, 0)
 
+	// 1. User-specific skills (~/.kakoclaw/users/<uuid>/skills) - highest priority
+	if sl.userSkillsPath != "" {
+		if dirs, err := os.ReadDir(sl.userSkillsPath); err == nil {
+			for _, dir := range dirs {
+				if dir.IsDir() {
+					skillFile := filepath.Join(sl.userSkillsPath, dir.Name(), "SKILL.md")
+					if _, err := os.Stat(skillFile); err == nil {
+						info := SkillInfo{
+							Name:   dir.Name(),
+							Path:   skillFile,
+							Source: "user",
+						}
+						metadata := sl.getSkillMetadata(skillFile)
+						if metadata != nil {
+							info.Description = metadata.Description
+						}
+						skills = append(skills, info)
+					}
+				}
+			}
+		}
+	}
+
+	// 2. Workspace skills (项目级别) - override user skills
 	if sl.workspaceSkills != "" {
 		if dirs, err := os.ReadDir(sl.workspaceSkills); err == nil {
 			for _, dir := range dirs {
 				if dir.IsDir() {
 					skillFile := filepath.Join(sl.workspaceSkills, dir.Name(), "SKILL.md")
 					if _, err := os.Stat(skillFile); err == nil {
+						// Check if already added from user skills
+						exists := false
+						for _, s := range skills {
+							if s.Name == dir.Name() && s.Source == "user" {
+								exists = true
+								break
+							}
+						}
+						if exists {
+							continue
+						}
+
 						info := SkillInfo{
 							Name:   dir.Name(),
 							Path:   skillFile,
@@ -62,17 +106,17 @@ func (sl *SkillsLoader) ListSkills() []SkillInfo {
 		}
 	}
 
-	// 全局 skills (~/.KakoClaw/skills) - 被 workspace skills 覆盖
+	// 3. 全局 skills (~/.KakoClaw/skills) - 被 user 和 workspace skills 覆盖
 	if sl.globalSkills != "" {
 		if dirs, err := os.ReadDir(sl.globalSkills); err == nil {
 			for _, dir := range dirs {
 				if dir.IsDir() {
 					skillFile := filepath.Join(sl.globalSkills, dir.Name(), "SKILL.md")
 					if _, err := os.Stat(skillFile); err == nil {
-						// 检查是否已被 workspace skills 覆盖
+						// 检查是否已被 user 或 workspace skills 覆盖
 						exists := false
 						for _, s := range skills {
-							if s.Name == dir.Name() && s.Source == "workspace" {
+							if s.Name == dir.Name() && (s.Source == "user" || s.Source == "workspace") {
 								exists = true
 								break
 							}
@@ -97,16 +141,17 @@ func (sl *SkillsLoader) ListSkills() []SkillInfo {
 		}
 	}
 
+	// 4. Builtin skills - lowest priority
 	if sl.builtinSkills != "" {
 		if dirs, err := os.ReadDir(sl.builtinSkills); err == nil {
 			for _, dir := range dirs {
 				if dir.IsDir() {
 					skillFile := filepath.Join(sl.builtinSkills, dir.Name(), "SKILL.md")
 					if _, err := os.Stat(skillFile); err == nil {
-						// 检查是否已被 workspace 或 global skills 覆盖
+						// 检查是否已被 user, workspace, 或 global skills 覆盖
 						exists := false
 						for _, s := range skills {
-							if s.Name == dir.Name() && (s.Source == "workspace" || s.Source == "global") {
+							if s.Name == dir.Name() && (s.Source == "user" || s.Source == "workspace" || s.Source == "global") {
 								exists = true
 								break
 							}

@@ -16,6 +16,12 @@ type ContextualTool interface {
 	SetContext(channel, chatID string)
 }
 
+// WorkspaceTool is an optional interface for tools that depend on a workspace path.
+type WorkspaceTool interface {
+	Tool
+	SetWorkspace(workspace string)
+}
+
 func ToolToSchema(tool Tool) map[string]interface{} {
 	return map[string]interface{}{
 		"type": "function",

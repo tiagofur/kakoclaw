@@ -180,5 +180,5 @@ func (c *WhatsAppChannel) handleIncomingMessage(msg map[string]interface{}) {
 
 	log.Printf("WhatsApp message from %s: %s...", senderID, utils.Truncate(content, 50))
 
-	c.HandleMessage(senderID, chatID, content, mediaPaths, metadata)
+	_ = c.HandleMessage(senderID, chatID, content, mediaPaths, metadata)
 }

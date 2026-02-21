@@ -167,7 +167,7 @@ func (c *QQChannel) handleC2CMessage() event.C2CMessageEventHandler {
 			"message_id": data.ID,
 		}
 
-		c.HandleMessage(senderID, senderID, content, []string{}, metadata)
+		_ = c.HandleMessage(senderID, senderID, content, []string{}, metadata)
 
 		return nil
 	}
@@ -209,13 +209,11 @@ func (c *QQChannel) handleGroupATMessage() event.GroupATMessageEventHandler {
 			"group_id":   data.GroupID,
 		}
 
-		c.HandleMessage(senderID, data.GroupID, content, []string{}, metadata)
+		_ = c.HandleMessage(senderID, data.GroupID, content, []string{}, metadata)
 
 		return nil
 	}
 }
-
-// isDuplicate 检查消息是否重复
 func (c *QQChannel) isDuplicate(messageID string) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()

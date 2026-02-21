@@ -116,6 +116,8 @@ func main() {
 		statusCmd()
 	case "migrate":
 		migrateCmd()
+	case "migrate-multiuser":
+		migrateMultiuserCmd()
 	case "auth":
 		authCmd()
 	case "doctor":
@@ -194,6 +196,7 @@ func printHelp() {
 	fmt.Println("  status      Show KakoClaw status")
 	fmt.Println("  cron        Manage scheduled tasks")
 	fmt.Println("  migrate     Migrate from OpenClaw to KakoClaw")
+	fmt.Println("  migrate-multiuser  Migrate legacy data to multiuser layout")
 	fmt.Println("  skills      Manage skills (install, list, remove)")
 	fmt.Println("  version     Show version information")
 }
@@ -434,6 +437,61 @@ func migrateCmd() {
 	}
 }
 
+func migrateMultiuserCmd() {
+	cfg, err := loadConfig()
+	if err != nil {
+		fmt.Printf("Error loading config: %v\n", err)
+		os.Exit(1)
+	}
+
+	if cfg.Storage.Path == "" {
+		fmt.Println("Storage path is not configured; cannot migrate multiuser data")
+		os.Exit(1)
+	}
+
+	store, err := storage.New(cfg.Storage)
+	if err != nil {
+		fmt.Printf("Error opening storage: %v\n", err)
+		os.Exit(1)
+	}
+	defer store.Close()
+
+	var user *storage.User
+	if strings.TrimSpace(cfg.Web.Username) != "" {
+		if u, err := store.GetUserByUsername(cfg.Web.Username); err == nil {
+			user = u
+		}
+	}
+	if user == nil {
+		users, err := store.ListUsers()
+		if err != nil || len(users) == 0 {
+			fmt.Println("No users found in storage; create a user first")
+			os.Exit(1)
+		}
+		user = users[0]
+	}
+
+	res, err := migrate.MigrateToMultiuser(cfg, store, user)
+	if err != nil {
+		fmt.Printf("Multiuser migration failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("Multiuser migration completed")
+	if res.WorkspaceMoved {
+		fmt.Println("  - Workspace moved to user directory")
+	}
+	if res.ConfigCopied {
+		fmt.Println("  - Config copied to user directory")
+	}
+	if res.DataBackfilled {
+		fmt.Println("  - Database user_id backfilled")
+	}
+	for _, w := range res.Warnings {
+		fmt.Printf("  - Warning: %s\n", w)
+	}
+}
+
 func migrateHelp() {
 	fmt.Println("\nMigrate from OpenClaw to KakoClaw")
 	fmt.Println()
@@ -492,6 +550,18 @@ func agentCmd() {
 
 	msgBus := bus.NewMessageBus()
 	agentLoop := agent.NewAgentLoop(cfg, msgBus, provider)
+
+	var channelStore *storage.Storage
+	if cfg.Storage.Path != "" {
+		if store, err := storage.New(cfg.Storage); err == nil {
+			channelStore = store
+		} else {
+			fmt.Printf("Warning: Failed to initialize storage for channels: %v\n", err)
+		}
+	}
+	if channelStore != nil {
+		defer channelStore.Close()
+	}
 
 	// Print agent startup info (only for interactive mode)
 	startupInfo := agentLoop.GetStartupInfo()
@@ -656,7 +726,20 @@ func gatewayCmd() {
 		true,
 	)
 
-	channelManager, err := channels.NewManager(cfg, msgBus)
+	// Initialize storage for channels
+	var channelStore *storage.Storage
+	if cfg.Storage.Path != "" {
+		if store, err := storage.New(cfg.Storage); err == nil {
+			channelStore = store
+		} else {
+			fmt.Printf("Warning: Failed to initialize storage for channels: %v\n", err)
+		}
+	}
+	if channelStore != nil {
+		defer channelStore.Close()
+	}
+
+	channelManager, err := channels.NewManager(cfg, msgBus, channelStore)
 	if err != nil {
 		fmt.Printf("Error creating channel manager: %v\n", err)
 		os.Exit(1)
@@ -738,11 +821,16 @@ func gatewayCmd() {
 		webServer = web.NewServerWithWorkspace(cfg.Web, agentLoop, cfg.WorkspacePath())
 
 		// Initialize storage for tasks, chat history, etc.
-		store, err := storage.New(cfg.Storage)
-		if err == nil {
-			webServer.SetStorage(store)
-		} else {
-			fmt.Printf("Warning: Failed to initialize storage for web: %v\n", err)
+		if channelStore != nil {
+			webServer.SetStorage(channelStore)
+		} else if cfg.Storage.Path != "" {
+			store, err := storage.New(cfg.Storage)
+			if err == nil {
+				webServer.SetStorage(store)
+				channelStore = store
+			} else {
+				fmt.Printf("Warning: Failed to initialize storage for web: %v\n", err)
+			}
 		}
 
 		// Wire additional services for advanced REST endpoints
@@ -764,8 +852,8 @@ func gatewayCmd() {
 		skillInstaller := skills.NewSkillInstaller(cfg.WorkspacePath())
 		webServer.SetSkills(skillsLoader, skillInstaller)
 		// Wire workflow engine
-		if store != nil {
-			wfEngine := workflow.NewEngine(agentLoop, agentLoop.ToolRegistry(), store)
+		if channelStore != nil {
+			wfEngine := workflow.NewEngine(agentLoop, agentLoop.ToolRegistry(), channelStore)
 			webServer.SetWorkflowEngine(wfEngine)
 		}
 		if err := webServer.Start(ctx); err != nil {
@@ -867,7 +955,7 @@ func webCmd() {
 	}
 
 	// Wire Channel Manager
-	channelManager, err := channels.NewManager(cfg, msgBus)
+	channelManager, err := channels.NewManager(cfg, msgBus, store)
 	if err != nil {
 		fmt.Printf("Warning: Failed to initialize channel manager: %v\n", err)
 	} else {

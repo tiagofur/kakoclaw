@@ -130,17 +130,31 @@ func (s *Storage) migrate() error {
 		// Users table
 		`CREATE TABLE IF NOT EXISTS users (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			uuid TEXT UNIQUE,
 			username TEXT NOT NULL UNIQUE,
 			password_hash TEXT NOT NULL,
 			role TEXT NOT NULL DEFAULT 'user',
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		);`,
+		// Migration: Add uuid column if it doesn't exist
+		`ALTER TABLE users ADD COLUMN uuid TEXT UNIQUE;`,
 		// Settings table for global configuration
 		`CREATE TABLE IF NOT EXISTS settings (
 			key TEXT PRIMARY KEY,
 			value TEXT NOT NULL
 		);`,
+		// Channel user mapping table
+		`CREATE TABLE IF NOT EXISTS channel_users (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			channel TEXT NOT NULL,
+			sender_id TEXT NOT NULL,
+			user_id INTEGER NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(channel, sender_id)
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_channel_users_channel_sender ON channel_users(channel, sender_id);`,
 		// Appending user_id to existing tables
 		`ALTER TABLE chats ADD COLUMN user_id INTEGER DEFAULT 1;`,
 		`ALTER TABLE tasks ADD COLUMN user_id INTEGER DEFAULT 1;`,

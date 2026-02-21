@@ -176,50 +176,50 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/auth/login", s.handleLogin)
 	mux.HandleFunc("/api/v1/auth/change-password", s.handleChangePassword)
 	mux.HandleFunc("/api/v1/auth/me", s.handleMe)
-	mux.HandleFunc("/api/v1/users", s.handleUsers)                        // User management (Admin only)
-	mux.HandleFunc("/api/v1/users/", s.handleUserAction)                  // User actions
+	mux.HandleFunc("/api/v1/users", s.handleUsers)       // User management (Admin only)
+	mux.HandleFunc("/api/v1/users/", s.handleUserAction) // User actions
 	mux.HandleFunc("/api/v1/tasks", s.handleTasks)
 	mux.HandleFunc("/api/v1/tasks/search", s.handleTaskSearch) // Search tasks
 	mux.HandleFunc("/api/v1/tasks/", s.handleTasks)
-	mux.HandleFunc("/api/v1/chat/sessions", s.handleChatSessions)         // New endpoint
-	mux.HandleFunc("/api/v1/chat/sessions/", s.handleChatSessionMessages) // New endpoint
-	mux.HandleFunc("/api/v1/chat/search", s.handleChatSearch)             // Search messages
-	mux.HandleFunc("/api/v1/chat/fork", s.handleChatFork)                 // Fork conversation
-	mux.HandleFunc("/api/v1/chat/cancel", s.handleChatCancel)             // Cancel execution
-	mux.HandleFunc("/api/v1/chat/active", s.handleChatActive)             // Active executions
-	mux.HandleFunc("/api/v1/memory/longterm", s.handleLongTermMemory)     // New endpoint
-	mux.HandleFunc("/api/v1/memory/daily", s.handleDailyNotes)            // New endpoint
-	mux.HandleFunc("/api/v1/skills", s.handleSkills)                      // Skills list + marketplace
-	mux.HandleFunc("/api/v1/skills/", s.handleSkillAction)                // Install/uninstall/view
-	mux.HandleFunc("/api/v1/cron", s.handleCron)                          // Cron jobs list + create
-	mux.HandleFunc("/api/v1/cron/", s.handleCronAction)                   // Cron job actions
-	mux.HandleFunc("/api/v1/channels", s.handleChannels)                  // Channels status
-	mux.HandleFunc("/api/v1/config", s.handleConfig)                      // Config (read-only, redacted)
-	mux.HandleFunc("/api/v1/files", s.handleFiles)                        // File browser
-	mux.HandleFunc("/api/v1/files/", s.handleFiles)                       // File browser subpaths
-	mux.HandleFunc("/api/v1/export/tasks", s.handleExportTasks)           // Export tasks
-	mux.HandleFunc("/api/v1/export/chat", s.handleExportChat)             // Export chat history
-	mux.HandleFunc("/api/v1/import/chat", s.handleImportChat)             // Import conversations
-	mux.HandleFunc("/api/v1/models", s.handleModels)                      // Available models/providers
-	mux.HandleFunc("/api/v1/voice/transcribe", s.handleVoiceTranscribe)   // Voice-to-text (Groq STT)
-	mux.HandleFunc("/api/v1/knowledge", s.handleKnowledge)                // Knowledge base: list + upload
-	mux.HandleFunc("/api/v1/knowledge/search", s.handleKnowledgeSearch)   // Knowledge base: FTS5 search
+	mux.HandleFunc("/api/v1/chat/sessions", s.handleChatSessions)             // New endpoint
+	mux.HandleFunc("/api/v1/chat/sessions/", s.handleChatSessionMessages)     // New endpoint
+	mux.HandleFunc("/api/v1/chat/search", s.handleChatSearch)                 // Search messages
+	mux.HandleFunc("/api/v1/chat/fork", s.handleChatFork)                     // Fork conversation
+	mux.HandleFunc("/api/v1/chat/cancel", s.handleChatCancel)                 // Cancel execution
+	mux.HandleFunc("/api/v1/chat/active", s.handleChatActive)                 // Active executions
+	mux.HandleFunc("/api/v1/memory/longterm", s.handleLongTermMemory)         // New endpoint
+	mux.HandleFunc("/api/v1/memory/daily", s.handleDailyNotes)                // New endpoint
+	mux.HandleFunc("/api/v1/skills", s.handleSkills)                          // Skills list + marketplace
+	mux.HandleFunc("/api/v1/skills/", s.handleSkillAction)                    // Install/uninstall/view
+	mux.HandleFunc("/api/v1/cron", s.handleCron)                              // Cron jobs list + create
+	mux.HandleFunc("/api/v1/cron/", s.handleCronAction)                       // Cron job actions
+	mux.HandleFunc("/api/v1/channels", s.handleChannels)                      // Channels status
+	mux.HandleFunc("/api/v1/config", s.handleConfig)                          // Config (read-only, redacted)
+	mux.HandleFunc("/api/v1/files", s.handleFiles)                            // File browser
+	mux.HandleFunc("/api/v1/files/", s.handleFiles)                           // File browser subpaths
+	mux.HandleFunc("/api/v1/export/tasks", s.handleExportTasks)               // Export tasks
+	mux.HandleFunc("/api/v1/export/chat", s.handleExportChat)                 // Export chat history
+	mux.HandleFunc("/api/v1/import/chat", s.handleImportChat)                 // Import conversations
+	mux.HandleFunc("/api/v1/models", s.handleModels)                          // Available models/providers
+	mux.HandleFunc("/api/v1/voice/transcribe", s.handleVoiceTranscribe)       // Voice-to-text (Groq STT)
+	mux.HandleFunc("/api/v1/knowledge", s.handleKnowledge)                    // Knowledge base: list + upload
+	mux.HandleFunc("/api/v1/knowledge/search", s.handleKnowledgeSearch)       // Knowledge base: FTS5 search
 	mux.HandleFunc("/api/v1/knowledge/chunks/", s.handleKnowledgeChunkAction) // Knowledge base: update chunks
-	mux.HandleFunc("/api/v1/knowledge/", s.handleKnowledgeAction)         // Knowledge base: view chunks or delete by ID
-	mux.HandleFunc("/api/v1/openapi.json", s.handleOpenAPISpec)           // OpenAPI 3.0 spec (JSON)
-	mux.HandleFunc("/api/docs", s.handleAPIDocsUI)                        // Swagger UI
-	mux.HandleFunc("/api/v1/mcp", s.handleMCPServers)                     // MCP servers: list + status
-	mux.HandleFunc("/api/v1/mcp/", s.handleMCPServerAction)               // MCP server actions: reconnect
-	mux.HandleFunc("/api/v1/metrics", s.handleMetrics)                    // Observability metrics
-	mux.HandleFunc("/api/v1/tools", s.handleToolsList)                    // Available tools list
-	mux.HandleFunc("/api/v1/prompts", s.handlePrompts)                    // Prompt templates: list + create
-	mux.HandleFunc("/api/v1/prompts/", s.handlePromptAction)              // Prompt templates: update/delete
-	mux.HandleFunc("/api/v1/chat/attachments", s.handleChatAttachment)    // Chat file upload/extract
-	mux.HandleFunc("/api/v1/workflows", s.handleWorkflows)                // Workflows: list + create
-	mux.HandleFunc("/api/v1/workflows/", s.handleWorkflowAction)          // Workflow actions: get/update/delete/run
-	mux.HandleFunc("/api/v1/backup/export", s.handleBackupExport)         // Export backup
-	mux.HandleFunc("/api/v1/backup/import", s.handleBackupImport)         // Import backup
-	mux.HandleFunc("/api/v1/backup/validate", s.handleBackupValidate)     // Validate backup
+	mux.HandleFunc("/api/v1/knowledge/", s.handleKnowledgeAction)             // Knowledge base: view chunks or delete by ID
+	mux.HandleFunc("/api/v1/openapi.json", s.handleOpenAPISpec)               // OpenAPI 3.0 spec (JSON)
+	mux.HandleFunc("/api/docs", s.handleAPIDocsUI)                            // Swagger UI
+	mux.HandleFunc("/api/v1/mcp", s.handleMCPServers)                         // MCP servers: list + status
+	mux.HandleFunc("/api/v1/mcp/", s.handleMCPServerAction)                   // MCP server actions: reconnect
+	mux.HandleFunc("/api/v1/metrics", s.handleMetrics)                        // Observability metrics
+	mux.HandleFunc("/api/v1/tools", s.handleToolsList)                        // Available tools list
+	mux.HandleFunc("/api/v1/prompts", s.handlePrompts)                        // Prompt templates: list + create
+	mux.HandleFunc("/api/v1/prompts/", s.handlePromptAction)                  // Prompt templates: update/delete
+	mux.HandleFunc("/api/v1/chat/attachments", s.handleChatAttachment)        // Chat file upload/extract
+	mux.HandleFunc("/api/v1/workflows", s.handleWorkflows)                    // Workflows: list + create
+	mux.HandleFunc("/api/v1/workflows/", s.handleWorkflowAction)              // Workflow actions: get/update/delete/run
+	mux.HandleFunc("/api/v1/backup/export", s.handleBackupExport)             // Export backup
+	mux.HandleFunc("/api/v1/backup/import", s.handleBackupImport)             // Import backup
+	mux.HandleFunc("/api/v1/backup/validate", s.handleBackupValidate)         // Validate backup
 	mux.HandleFunc("/ws/chat", s.handleChatWS)
 	mux.HandleFunc("/ws/tasks", s.handleTasksWS)
 	mux.Handle("/", s.staticHandler())
@@ -418,6 +418,23 @@ func checkWebSocketOrigin(r *http.Request) bool {
 	return true
 }
 
+// getUserIDFromClaims extracts the user_id from the request's JWT claims.
+// Returns user_id and true if found; otherwise 0 and false.
+func (s *Server) getUserIDFromClaims(r *http.Request) (int64, bool) {
+	claims, ok := r.Context().Value(userClaimsKey).(*jwtClaims)
+	if !ok || claims == nil {
+		return 0, false
+	}
+	if s.store == nil {
+		return 0, false
+	}
+	user, err := s.store.GetUserByUsername(claims.Sub)
+	if err != nil {
+		return 0, false
+	}
+	return user.ID, true
+}
+
 func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]string{
@@ -430,6 +447,12 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "tasks store unavailable", http.StatusServiceUnavailable)
 		return
 	}
+	userID, ok := s.getUserIDFromClaims(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	path := strings.TrimPrefix(r.URL.Path, "/api/v1/tasks")
 	path = strings.TrimPrefix(path, "/")
 
@@ -437,7 +460,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			includeArchived := r.URL.Query().Get("include_archived") == "true"
-			tasks, err := s.store.ListTasks(includeArchived)
+			tasks, err := s.store.ListTasksForUser(userID, includeArchived)
 			if err != nil {
 				http.Error(w, "failed to list tasks", http.StatusInternalServerError)
 				return
@@ -473,14 +496,14 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "invalid status", http.StatusBadRequest)
 				return
 			}
-			id, err := s.store.CreateTask(strings.TrimSpace(in.Title), strings.TrimSpace(in.Description), status)
+			id, err := s.store.CreateTaskForUser(userID, strings.TrimSpace(in.Title), strings.TrimSpace(in.Description), status)
 			if err != nil {
 				http.Error(w, "failed to create task", http.StatusInternalServerError)
 				return
 			}
 
 			// Fetch the created task to get full details (like created_at)
-			created, err := s.store.GetTask(id)
+			created, err := s.store.GetTaskForUser(userID, id)
 			if err != nil {
 				http.Error(w, "failed to get created task", http.StatusInternalServerError)
 				return
@@ -532,7 +555,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		updated, err := s.store.UpdateTaskStatus(id, status)
+		updated, err := s.store.UpdateTaskStatusForUser(userID, id, status)
 		if err != nil {
 			http.Error(w, "task not found", http.StatusNotFound)
 			return
@@ -568,12 +591,12 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if err := s.store.ArchiveTask(id); err != nil {
+		if err := s.store.ArchiveTaskForUser(userID, id); err != nil {
 			http.Error(w, "failed to archive task", http.StatusInternalServerError)
 			return
 		}
 
-		task, err := s.store.GetTask(id)
+		task, err := s.store.GetTaskForUser(userID, id)
 		if err == nil {
 			item := taskItem{
 				ID:          toString(task.ID),
@@ -606,12 +629,12 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if err := s.store.UnarchiveTask(id); err != nil {
+		if err := s.store.UnarchiveTaskForUser(userID, id); err != nil {
 			http.Error(w, "failed to unarchive task", http.StatusInternalServerError)
 			return
 		}
 
-		task, err := s.store.GetTask(id)
+		task, err := s.store.GetTaskForUser(userID, id)
 		if err == nil {
 			item := taskItem{
 				ID:          toString(task.ID),
@@ -681,7 +704,8 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		updated, err := s.store.UpdateTask(
+		updated, err := s.store.UpdateTaskForUser(
+			userID,
 			id,
 			strings.TrimSpace(in.Title),
 			strings.TrimSpace(in.Description),
@@ -707,7 +731,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(item)
 	case http.MethodDelete:
-		if err := s.store.DeleteTask(id); err != nil {
+		if err := s.store.DeleteTaskForUser(userID, id); err != nil {
 			http.Error(w, "failed to delete task", http.StatusInternalServerError)
 			return
 		}
@@ -727,6 +751,13 @@ type chatResponse struct {
 func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 	if s.agentLoop == nil {
 		http.Error(w, "agent loop unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	// Extract user_id once per connection
+	userID, ok := s.getUserIDFromClaims(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
@@ -772,7 +803,7 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 			sessionID = "web:chat"
 		}
 
-		if handled, response := s.handleTaskChatCommand(input); handled {
+		if handled, response := s.handleTaskChatCommand(userID, input); handled {
 			wsMu.Lock()
 			_ = conn.WriteJSON(chatResponse{Role: "assistant", Content: response})
 			wsMu.Unlock()
@@ -895,7 +926,7 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) handleTaskChatCommand(input string) (bool, string) {
+func (s *Server) handleTaskChatCommand(userID int64, input string) (bool, string) {
 	if s.store == nil {
 		return false, ""
 	}
@@ -905,12 +936,12 @@ func (s *Server) handleTaskChatCommand(input string) (bool, string) {
 		if title == "" {
 			return true, "Uso: /task create <titulo>"
 		}
-		id, err := s.store.CreateTask(title, "", "todo")
+		id, err := s.store.CreateTaskForUser(userID, title, "", "todo")
 		if err != nil {
 			return true, "No pude crear la tarea."
 		}
 
-		created, err := s.store.GetTask(id)
+		created, err := s.store.GetTaskForUser(userID, id)
 		if err != nil {
 			return true, "Tarea creada pero fallé al recuperarla via ID."
 		}
@@ -930,7 +961,7 @@ func (s *Server) handleTaskChatCommand(input string) (bool, string) {
 	}
 
 	if lower == "/task list" || lower == "/list" {
-		tasks, err := s.store.ListTasks(false)
+		tasks, err := s.store.ListTasksForUser(userID, false)
 		if err != nil {
 			return true, "No pude listar tareas."
 		}
@@ -957,7 +988,7 @@ func (s *Server) handleTaskChatCommand(input string) (bool, string) {
 			return true, "ID inválido"
 		}
 
-		updated, err := s.store.UpdateTaskStatus(id, "todo")
+		updated, err := s.store.UpdateTaskStatusForUser(userID, id, "todo")
 		if err != nil {
 			return true, "No encontré esa tarea."
 		}
@@ -990,7 +1021,7 @@ func (s *Server) handleTaskChatCommand(input string) (bool, string) {
 		if !ok {
 			return true, "Estado inválido. Usa: backlog|todo|in_progress|review|done"
 		}
-		updated, err := s.store.UpdateTaskStatus(id, status)
+		updated, err := s.store.UpdateTaskStatusForUser(userID, id, status)
 		if err != nil {
 			return true, "No encontré esa tarea."
 		}
@@ -1018,7 +1049,7 @@ func (s *Server) handleTaskChatCommand(input string) (bool, string) {
 		if err != nil {
 			return true, "ID inválido"
 		}
-		if err := s.store.ArchiveTask(id); err != nil {
+		if err := s.store.ArchiveTaskForUser(userID, id); err != nil {
 			return true, "Error al archivar la tarea."
 		}
 		// Broadcast delete to frontend
@@ -1200,12 +1231,17 @@ func (s *Server) handleTaskSearch(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "store unavailable", http.StatusServiceUnavailable)
 		return
 	}
+	userID, ok := s.getUserIDFromClaims(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	if q == "" {
 		http.Error(w, "query parameter 'q' is required", http.StatusBadRequest)
 		return
 	}
-	results, err := s.store.SearchTasks(q)
+	results, err := s.store.SearchTasksForUser(userID, q)
 	if err != nil {
 		http.Error(w, "search failed", http.StatusInternalServerError)
 		return
@@ -1217,6 +1253,11 @@ func (s *Server) handleTaskSearch(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleChatSessions(w http.ResponseWriter, r *http.Request) {
 	if s.store == nil {
 		http.Error(w, "store unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	userID, ok := s.getUserIDFromClaims(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
@@ -1239,7 +1280,7 @@ func (s *Server) handleChatSessions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	sessions, err := s.store.ListSessions(archivedFilter, limit, offset)
+	sessions, err := s.store.ListSessionsForUser(userID, archivedFilter, limit, offset)
 	if err != nil {
 		http.Error(w, "failed to list sessions", http.StatusInternalServerError)
 		return
@@ -1252,6 +1293,11 @@ func (s *Server) handleChatSessions(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleChatSessionMessages(w http.ResponseWriter, r *http.Request) {
 	if s.store == nil {
 		http.Error(w, "store unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	userID, ok := s.getUserIDFromClaims(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
@@ -1267,7 +1313,7 @@ func (s *Server) handleChatSessionMessages(w http.ResponseWriter, r *http.Reques
 
 	switch r.Method {
 	case http.MethodGet:
-		messages, err := s.store.GetMessages(id)
+		messages, err := s.store.GetMessagesForUser(userID, id)
 		if err != nil {
 			http.Error(w, "failed to get messages", http.StatusInternalServerError)
 			return
@@ -1276,7 +1322,7 @@ func (s *Server) handleChatSessionMessages(w http.ResponseWriter, r *http.Reques
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{"messages": messages})
 
 	case http.MethodDelete:
-		if err := s.store.DeleteSession(id); err != nil {
+		if err := s.store.DeleteSessionForUser(userID, id); err != nil {
 			http.Error(w, "failed to delete session", http.StatusInternalServerError)
 			return
 		}
@@ -1296,7 +1342,7 @@ func (s *Server) handleChatSessionMessages(w http.ResponseWriter, r *http.Reques
 			http.Error(w, "nothing to update", http.StatusBadRequest)
 			return
 		}
-		sess, err := s.store.UpdateSession(id, payload.Title, payload.Archived)
+		sess, err := s.store.UpdateSessionForUser(userID, id, payload.Title, payload.Archived)
 		if err != nil {
 			http.Error(w, "failed to update session", http.StatusInternalServerError)
 			return
@@ -1314,12 +1360,17 @@ func (s *Server) handleChatSearch(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "store unavailable", http.StatusServiceUnavailable)
 		return
 	}
+	userID, ok := s.getUserIDFromClaims(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	if q == "" {
 		http.Error(w, "query parameter 'q' is required", http.StatusBadRequest)
 		return
 	}
-	results, err := s.store.SearchMessages(q)
+	results, err := s.store.SearchMessagesForUser(userID, q)
 	if err != nil {
 		http.Error(w, "search failed", http.StatusInternalServerError)
 		return
@@ -1335,6 +1386,11 @@ func (s *Server) handleChatFork(w http.ResponseWriter, r *http.Request) {
 	}
 	if s.store == nil {
 		http.Error(w, "store unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	userID, ok := s.getUserIDFromClaims(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
@@ -1354,7 +1410,7 @@ func (s *Server) handleChatFork(w http.ResponseWriter, r *http.Request) {
 
 	newSessionID := fmt.Sprintf("web:chat:fork:%d", time.Now().UnixMilli())
 
-	count, err := s.store.ForkSession(payload.SessionID, newSessionID, payload.MessageID)
+	count, err := s.store.ForkSessionForUser(userID, payload.SessionID, newSessionID, payload.MessageID)
 	if err != nil {
 		http.Error(w, "fork failed: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -1481,7 +1537,7 @@ func (s *Server) runTaskWorker(ctx context.Context) {
 }
 
 func (s *Server) processNextTodoTask(ctx context.Context) {
-	tasks, err := s.store.ListTasks(false)
+	tasks, err := s.store.ListAllUsersTasks(false)
 	if err != nil {
 		logger.WarnCF("web", "task worker: failed to list tasks", map[string]interface{}{"error": err.Error()})
 		return
@@ -1495,7 +1551,7 @@ func (s *Server) processNextTodoTask(ctx context.Context) {
 		_ = s.store.AddTaskLog(t.ID, "started", "Task picked up by worker")
 
 		// Move to in_progress
-		inProgress, err := s.store.UpdateTaskStatus(t.ID, "in_progress")
+		inProgress, err := s.store.UpdateTaskStatusForUser(t.UserID, t.ID, "in_progress")
 		if err != nil {
 			_ = s.store.AddTaskLog(t.ID, "error", "Failed to move to in_progress: "+err.Error())
 			logger.WarnCF("web", "task worker: failed to update status", map[string]interface{}{"task_id": t.ID, "error": err.Error()})
@@ -1521,7 +1577,7 @@ func (s *Server) processNextTodoTask(ctx context.Context) {
 		prompt := "Ejecuta esta tarea y devuelve un resumen breve.\nTitulo: " + t.Title + "\nDescripcion: " + t.Description
 		// Use a dedicated session for task worker to not mix with user chat
 		taskSessionKey := "web:task:" + toString(t.ID)
-		result, err := s.agentLoop.ProcessDirect(ctx, prompt, taskSessionKey)
+		result, err := s.agentLoop.ProcessDirectWithUser(ctx, t.UserID, prompt, taskSessionKey)
 
 		var finalStatus string
 		var finalResult string
@@ -1537,7 +1593,7 @@ func (s *Server) processNextTodoTask(ctx context.Context) {
 		}
 
 		// Update result and status
-		updated, updateErr := s.store.UpdateTask(t.ID, t.Title, t.Description, finalStatus, finalResult)
+		updated, updateErr := s.store.UpdateTaskForUser(t.UserID, t.ID, t.Title, t.Description, finalStatus, finalResult)
 		if updateErr != nil {
 			_ = s.store.AddTaskLog(t.ID, "error", "Failed to save result: "+updateErr.Error())
 			logger.WarnCF("web", "task worker: failed to save result", map[string]interface{}{"task_id": t.ID, "error": updateErr.Error()})

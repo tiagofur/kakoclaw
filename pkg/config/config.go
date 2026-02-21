@@ -366,6 +366,43 @@ func LoadConfig(path string) (*Config, error) {
 	return cfg, nil
 }
 
+// LoadConfigForUser loads configuration for a specific user.
+// It first tries to load from ~/.kakoclaw/users/<userUUID>/config.json
+// If that doesn't exist, it falls back to ~/.kakoclaw/config.json (global)
+// If neither exists, it returns DefaultConfig()
+func LoadConfigForUser(userUUID string) (*Config, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, err
+	}
+
+	// Try user-specific config first
+	userConfigPath := filepath.Join(home, ".kakoclaw", "users", userUUID, "config.json")
+	if data, err := os.ReadFile(userConfigPath); err == nil {
+		cfg := DefaultConfig()
+		if err := json.Unmarshal(data, cfg); err != nil {
+			return nil, fmt.Errorf("parsing user config at %s: %w", userConfigPath, err)
+		}
+		if err := env.Parse(cfg); err != nil {
+			return nil, err
+		}
+		parseProviderEnvVars(cfg)
+		if err := validateWebConfig(&cfg.Web); err != nil {
+			return nil, fmt.Errorf("web config: %w", err)
+		}
+		return cfg, nil
+	}
+
+	// Fall back to global config
+	globalConfigPath := filepath.Join(home, ".kakoclaw", "config.json")
+	cfg, err := LoadConfig(globalConfigPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
+}
+
 func validateWebConfig(w *WebConfig) error {
 	if w.Port < 1 || w.Port > 65535 {
 		w.Port = 18880

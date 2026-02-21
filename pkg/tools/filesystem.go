@@ -45,6 +45,10 @@ func NewReadFileTool(workspace string, restrict bool) *ReadFileTool {
 	return &ReadFileTool{workspace: workspace, restrict: restrict}
 }
 
+func (t *ReadFileTool) SetWorkspace(workspace string) {
+	t.workspace = workspace
+}
+
 func (t *ReadFileTool) Name() string {
 	return "read_file"
 }
@@ -92,6 +96,10 @@ type WriteFileTool struct {
 
 func NewWriteFileTool(workspace string, restrict bool) *WriteFileTool {
 	return &WriteFileTool{workspace: workspace, restrict: restrict}
+}
+
+func (t *WriteFileTool) SetWorkspace(workspace string) {
+	t.workspace = workspace
 }
 
 func (t *WriteFileTool) Name() string {
@@ -154,6 +162,10 @@ type ListDirTool struct {
 
 func NewListDirTool(workspace string, restrict bool) *ListDirTool {
 	return &ListDirTool{workspace: workspace, restrict: restrict}
+}
+
+func (t *ListDirTool) SetWorkspace(workspace string) {
+	t.workspace = workspace
 }
 
 func (t *ListDirTool) Name() string {
