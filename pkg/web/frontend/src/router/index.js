@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
 import LoginPage from '../views/LoginPage.vue'
+import OnboardingView from '../views/OnboardingView.vue'
 import MainLayout from '../components/Layout/MainLayout.vue'
 import DashboardView from '../views/DashboardView.vue'
 import ChatView from '../views/ChatView.vue'
@@ -23,6 +24,12 @@ const routes = [
     name: 'login',
     component: LoginPage,
     meta: { requiresAuth: false }
+  },
+  {
+    path: '/onboarding',
+    name: 'onboarding',
+    component: OnboardingView,
+    meta: { requiresAuth: true }
   },
   {
     path: '/',
