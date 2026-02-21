@@ -689,35 +689,62 @@ func gatewayCmd() {
 		os.Exit(1)
 	}
 
-	provider, err := providers.CreateProvider(cfg)
-	if err != nil {
-		fmt.Printf("Error creating provider: %v\n", err)
-		os.Exit(1)
+	msgBus := bus.NewMessageBus()
+
+	// Initialize storage for channels (required for multiuser)
+	var channelStore *storage.Storage
+	if cfg.Storage.Path != "" {
+		if store, err := storage.New(cfg.Storage); err == nil {
+			channelStore = store
+		} else {
+			fmt.Printf("Warning: Failed to initialize storage: %v\n", err)
+		}
+	}
+	if channelStore != nil {
+		defer channelStore.Close()
 	}
 
-	msgBus := bus.NewMessageBus()
-	agentLoop := agent.NewAgentLoop(cfg, msgBus, provider)
+	// Create multi-user channel manager (each user gets their own channels and agent)
+	multiChannelManager := channels.NewMultiUserChannelManager(cfg, msgBus, channelStore)
 
-	// Print agent startup info
-	fmt.Println("\n📦 Agent Status:")
-	startupInfo := agentLoop.GetStartupInfo()
-	toolsInfo := startupInfo["tools"].(map[string]interface{})
-	skillsInfo := startupInfo["skills"].(map[string]interface{})
-	fmt.Printf("  • Tools: %d loaded\n", toolsInfo["count"])
-	fmt.Printf("  • Skills: %d/%d available\n",
-		skillsInfo["available"],
-		skillsInfo["total"])
+	// Initialize channels for all users from database
+	if channelStore != nil {
+		if err := multiChannelManager.InitializeAllUsers(); err != nil {
+			logger.WarnCF("gateway", "Failed to initialize user channels", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+		fmt.Printf("✓ Multi-user system initialized (%d users)\n", multiChannelManager.GetUserCount())
+	} else {
+		fmt.Println("⚠ Warning: Storage not available, multiuser features disabled")
+		// Fallback: create a default agent loop for backward compatibility
+		provider, err := providers.CreateProvider(cfg)
+		if err != nil {
+			fmt.Printf("Error creating provider: %v\n", err)
+			os.Exit(1)
+		}
+		agentLoop := agent.NewAgentLoop(cfg, msgBus, provider)
 
-	// Log to file as well
-	logger.InfoCF("agent", "Agent initialized",
-		map[string]interface{}{
-			"tools_count":      toolsInfo["count"],
-			"skills_total":     skillsInfo["total"],
-			"skills_available": skillsInfo["available"],
-		})
+		// Print agent startup info
+		fmt.Println("\n📦 Agent Status:")
+		startupInfo := agentLoop.GetStartupInfo()
+		toolsInfo := startupInfo["tools"].(map[string]interface{})
+		skillsInfo := startupInfo["skills"].(map[string]interface{})
+		fmt.Printf("  • Tools: %d loaded\n", toolsInfo["count"])
+		fmt.Printf("  • Skills: %d/%d available\n",
+			skillsInfo["available"],
+			skillsInfo["total"])
+	}
 
-	// Setup cron tool and service
-	cronService := setupCronTool(agentLoop, msgBus, cfg.WorkspacePath())
+	// Setup cron tool and service (uses global config for now)
+	// TODO: Make cron service per-user in future phase
+	defaultProvider, err := providers.CreateProvider(cfg)
+	if err != nil {
+		fmt.Printf("Error creating default provider for cron: %v\n", err)
+		os.Exit(1)
+	}
+	defaultAgentLoop := agent.NewAgentLoop(cfg, msgBus, defaultProvider)
+	cronService := setupCronTool(defaultAgentLoop, msgBus, cfg.WorkspacePath())
 
 	heartbeatService := heartbeat.NewHeartbeatService(
 		cfg.WorkspacePath(),
@@ -726,60 +753,17 @@ func gatewayCmd() {
 		true,
 	)
 
-	// Initialize storage for channels
-	var channelStore *storage.Storage
-	if cfg.Storage.Path != "" {
-		if store, err := storage.New(cfg.Storage); err == nil {
-			channelStore = store
-		} else {
-			fmt.Printf("Warning: Failed to initialize storage for channels: %v\n", err)
-		}
-	}
-	if channelStore != nil {
-		defer channelStore.Close()
-	}
-
-	channelManager, err := channels.NewManager(cfg, msgBus, channelStore)
-	if err != nil {
-		fmt.Printf("Error creating channel manager: %v\n", err)
-		os.Exit(1)
-	}
-
+	// Transcriber setup (can be shared across all users)
 	var transcriber *voice.GroqTranscriber
 	if cfg.Providers.Groq.APIKey != "" {
 		transcriber = voice.NewGroqTranscriber(cfg.Providers.Groq.APIKey)
 		logger.InfoC("voice", "Groq voice transcription enabled")
 	}
 
-	if transcriber != nil {
-		if telegramChannel, ok := channelManager.GetChannel("telegram"); ok {
-			if tc, ok := telegramChannel.(*channels.TelegramChannel); ok {
-				tc.SetTranscriber(transcriber)
-				logger.InfoC("voice", "Groq transcription attached to Telegram channel")
-			}
-		}
-		if discordChannel, ok := channelManager.GetChannel("discord"); ok {
-			if dc, ok := discordChannel.(*channels.DiscordChannel); ok {
-				dc.SetTranscriber(transcriber)
-				logger.InfoC("voice", "Groq transcription attached to Discord channel")
-			}
-		}
-		if slackChannel, ok := channelManager.GetChannel("slack"); ok {
-			if sc, ok := slackChannel.(*channels.SlackChannel); ok {
-				sc.SetTranscriber(transcriber)
-				logger.InfoC("voice", "Groq transcription attached to Slack channel")
-			}
-		}
-	}
+	// Note: transcriber attachment to channels is handled per-user in MultiUserChannelManager
+	// TODO: Implement transcriber setup in per-user channel initialization
 
-	enabledChannels := channelManager.GetEnabledChannels()
-	if len(enabledChannels) > 0 {
-		fmt.Printf("✓ Channels enabled: %s\n", enabledChannels)
-	} else {
-		fmt.Println("⚠ Warning: No channels enabled")
-	}
-
-	fmt.Printf("✓ Gateway started on %s:%d\n", cfg.Gateway.Host, cfg.Gateway.Port)
+	fmt.Printf("✓ Gateway multi-user mode ready\n")
 	fmt.Println("Press Ctrl+C to stop")
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -795,13 +779,17 @@ func gatewayCmd() {
 	}
 	fmt.Println("✓ Heartbeat service started")
 
-	if err := channelManager.StartAll(ctx); err != nil {
+	// Start all user channel managers
+	if err := multiChannelManager.StartAll(ctx); err != nil {
 		fmt.Printf("Error starting channels: %v\n", err)
 	}
+	fmt.Println("✓ All user channels started")
 
-	go agentLoop.Run(ctx)
+	// Agent loops are started automatically by MultiUserChannelManager
+	// No need to call agentLoop.Run() here - each user has their own
 
-	// Setup MCP manager for configured servers
+	// Setup MCP manager for configured servers (global for now)
+	// TODO: Make MCP servers per-user in future phase
 	var mcpManager *mcp.Manager
 	if len(cfg.Tools.MCP.Servers) > 0 {
 		mcpManager = mcp.NewManager(cfg.Tools.MCP)
@@ -818,24 +806,18 @@ func gatewayCmd() {
 
 	var webServer *web.Server
 	if cfg.Web.Enabled {
-		webServer = web.NewServerWithWorkspace(cfg.Web, agentLoop, cfg.WorkspacePath())
+		// Use default agent loop for web panel (backward compatibility)
+		// Individual users will use their own agent loops via MultiUserChannelManager
+		webServer = web.NewServerWithWorkspace(cfg.Web, defaultAgentLoop, cfg.WorkspacePath())
 
 		// Initialize storage for tasks, chat history, etc.
 		if channelStore != nil {
 			webServer.SetStorage(channelStore)
-		} else if cfg.Storage.Path != "" {
-			store, err := storage.New(cfg.Storage)
-			if err == nil {
-				webServer.SetStorage(store)
-				channelStore = store
-			} else {
-				fmt.Printf("Warning: Failed to initialize storage for web: %v\n", err)
-			}
 		}
 
 		// Wire additional services for advanced REST endpoints
 		webServer.SetCronService(cronService)
-		webServer.SetChannelManager(channelManager)
+		webServer.SetMultiUserChannelManager(multiChannelManager)
 		webServer.SetFullConfig(cfg)
 		if transcriber != nil {
 			webServer.SetTranscriber(transcriber)
@@ -851,9 +833,10 @@ func gatewayCmd() {
 		)
 		skillInstaller := skills.NewSkillInstaller(cfg.WorkspacePath())
 		webServer.SetSkills(skillsLoader, skillInstaller)
-		// Wire workflow engine
+		// Wire workflow engine (uses default agent for now)
+		// TODO: Make workflow engine per-user
 		if channelStore != nil {
-			wfEngine := workflow.NewEngine(agentLoop, agentLoop.ToolRegistry(), channelStore)
+			wfEngine := workflow.NewEngine(defaultAgentLoop, defaultAgentLoop.ToolRegistry(), channelStore)
 			webServer.SetWorkflowEngine(wfEngine)
 		}
 		if err := webServer.Start(ctx); err != nil {
@@ -877,8 +860,10 @@ func gatewayCmd() {
 	if webServer != nil {
 		_ = webServer.Stop(context.Background())
 	}
-	agentLoop.Stop()
-	channelManager.StopAll(ctx)
+	// Stop default agent loop
+	defaultAgentLoop.Stop()
+	// Stop all user channel managers and agents
+	multiChannelManager.StopAll(ctx)
 	fmt.Println("✓ Gateway stopped")
 }
 

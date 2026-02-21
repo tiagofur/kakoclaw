@@ -44,27 +44,28 @@ type activeExecution struct {
 }
 
 type Server struct {
-	cfg            config.WebConfig
-	fullConfig     *config.Config
-	workspace      string
-	agentLoop      *agent.AgentLoop
-	server         *http.Server
-	authManager    *authManager
-	store          *storage.Storage
-	loginLimit     *ratelimit.RateLimiter
-	tasksMu        sync.RWMutex
-	tasksClients   map[*websocket.Conn]struct{}
-	connMu         map[*websocket.Conn]*sync.Mutex
-	memory         *agent.MemoryStore
-	cronService    *cron.CronService
-	skillsLoader   *skills.SkillsLoader
-	skillInstaller *skills.SkillInstaller
-	channelManager *channels.Manager
-	transcriber    *voice.GroqTranscriber
-	mcpManager     *mcp.Manager
-	workflowEngine *workflow.Engine
-	execMu         sync.RWMutex
-	activeExecs    map[string]*activeExecution
+	cfg                     config.WebConfig
+	fullConfig              *config.Config
+	workspace               string
+	agentLoop               *agent.AgentLoop
+	server                  *http.Server
+	authManager             *authManager
+	store                   *storage.Storage
+	loginLimit              *ratelimit.RateLimiter
+	tasksMu                 sync.RWMutex
+	tasksClients            map[*websocket.Conn]struct{}
+	connMu                  map[*websocket.Conn]*sync.Mutex
+	memory                  *agent.MemoryStore
+	cronService             *cron.CronService
+	skillsLoader            *skills.SkillsLoader
+	skillInstaller          *skills.SkillInstaller
+	channelManager          *channels.Manager
+	multiUserChannelManager *channels.MultiUserChannelManager
+	transcriber             *voice.GroqTranscriber
+	mcpManager              *mcp.Manager
+	workflowEngine          *workflow.Engine
+	execMu                  sync.RWMutex
+	activeExecs             map[string]*activeExecution
 }
 
 type taskItem struct {
@@ -124,6 +125,11 @@ func (s *Server) SetSkills(loader *skills.SkillsLoader, installer *skills.SkillI
 // SetChannelManager injects the channel manager for REST exposure
 func (s *Server) SetChannelManager(cm *channels.Manager) {
 	s.channelManager = cm
+}
+
+// SetMultiUserChannelManager injects the multi-user channel manager for REST exposure
+func (s *Server) SetMultiUserChannelManager(m *channels.MultiUserChannelManager) {
+	s.multiUserChannelManager = m
 }
 
 // SetTranscriber injects the Groq voice transcriber for REST exposure

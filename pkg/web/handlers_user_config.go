@@ -134,8 +134,20 @@ func (s *Server) handleUpdateUserConfig(w http.ResponseWriter, r *http.Request) 
 		"username":  user.Username,
 	})
 
-	// TODO: Restart user's channels if channel config changed
-	// This requires access to MultiUserChannelManager
+	// Restart user's channels if multi-user channel manager is available
+	if s.multiUserChannelManager != nil {
+		if err := s.multiUserChannelManager.RestartUserChannels(r.Context(), user.UUID); err != nil {
+			logger.WarnCF("web", "Failed to restart user channels after config update", map[string]interface{}{
+				"user_uuid": user.UUID,
+				"error":     err.Error(),
+			})
+			// Don't fail the request, config was saved successfully
+		} else {
+			logger.InfoCF("web", "Restarted user channels after config update", map[string]interface{}{
+				"user_uuid": user.UUID,
+			})
+		}
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -189,6 +201,23 @@ func (s *Server) handleDeleteUserConfigSection(w http.ResponseWriter, r *http.Re
 		"user_uuid": user.UUID,
 		"section":   section,
 	})
+
+	// Restart user's channels if multi-user channel manager is available
+	if s.multiUserChannelManager != nil {
+		if err := s.multiUserChannelManager.RestartUserChannels(r.Context(), user.UUID); err != nil {
+			logger.WarnCF("web", "Failed to restart user channels after config reset", map[string]interface{}{
+				"user_uuid": user.UUID,
+				"section":   section,
+				"error":     err.Error(),
+			})
+			// Don't fail the request, config was saved successfully
+		} else {
+			logger.InfoCF("web", "Restarted user channels after config reset", map[string]interface{}{
+				"user_uuid": user.UUID,
+				"section":   section,
+			})
+		}
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
