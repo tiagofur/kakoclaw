@@ -42,6 +42,10 @@ func NewExecTool(workingDir string, restrict bool) *ExecTool {
 	}
 }
 
+func (t *ExecTool) SetWorkspace(workspace string) {
+	t.workingDir = workspace
+}
+
 func (t *ExecTool) Name() string {
 	return "exec"
 }

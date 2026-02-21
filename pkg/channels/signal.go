@@ -80,7 +80,7 @@ func (c *SignalChannel) Send(ctx context.Context, msg bus.OutboundMessage) error
 	// Use signal-cli to send message
 	cmd := exec.CommandContext(ctx, "signal-cli", "-a", c.phoneNumber, "send", "-m", msg.Content, phone)
 	output, err := cmd.CombinedOutput()
-	
+
 	if err != nil {
 		logger.ErrorCF("signal", "Failed to send message", map[string]interface{}{
 			"error":  err.Error(),
@@ -112,7 +112,7 @@ func (c *SignalChannel) messageLoop(ctx context.Context) {
 			if !c.IsRunning() {
 				return
 			}
-			
+
 			messages, err := c.receiveMessages()
 			if err != nil {
 				logger.ErrorCF("signal", "Failed to receive messages", map[string]interface{}{
@@ -166,7 +166,7 @@ func (c *SignalChannel) handleMessage(msg SignalMessage) {
 	}
 
 	// Use phone number as chat ID for 1:1 conversations
-	c.HandleMessage(senderID, senderID, content, nil, metadata)
+	_ = c.HandleMessage(senderID, senderID, content, nil, metadata)
 }
 
 // receiveMessages fetches new messages from signal-cli
@@ -174,7 +174,7 @@ func (c *SignalChannel) receiveMessages() ([]SignalMessage, error) {
 	// Use signal-cli receive command with JSON output
 	cmd := exec.Command("signal-cli", "-a", c.phoneNumber, "receive", "--json")
 	output, err := cmd.Output()
-	
+
 	if err != nil {
 		// If no messages, signal-cli might return empty output
 		if exitErr, ok := err.(*exec.ExitError); ok && len(exitErr.Stderr) == 0 {
@@ -192,7 +192,7 @@ func (c *SignalChannel) receiveMessages() ([]SignalMessage, error) {
 			if line == "" {
 				continue
 			}
-			
+
 			var msg SignalMessage
 			if err := json.Unmarshal([]byte(line), &msg); err != nil {
 				logger.DebugCF("signal", "Failed to parse message", map[string]interface{}{
@@ -219,7 +219,7 @@ func (c *SignalChannel) checkSignalCLI() error {
 	cmd = exec.Command("signal-cli", "-a", c.phoneNumber, "listAccounts")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("signal account not registered for %s: %w. Output: %s", 
+		return fmt.Errorf("signal account not registered for %s: %w. Output: %s",
 			c.phoneNumber, err, string(output))
 	}
 
@@ -238,8 +238,8 @@ type SignalMessage struct {
 		SourceUUID   string `json:"sourceUuid"`
 		Timestamp    int64  `json:"timestamp"`
 		DataMessage  *struct {
-			Message    string   `json:"message"`
-			Timestamp  int64    `json:"timestamp"`
+			Message     string       `json:"message"`
+			Timestamp   int64        `json:"timestamp"`
 			Attachments []Attachment `json:"attachments,omitempty"`
 		} `json:"dataMessage,omitempty"`
 	} `json:"envelope"`
@@ -266,7 +266,7 @@ func (c *SignalChannel) downloadAttachment(attachmentID string) (string, error) 
 
 	// Download attachment
 	tmpFile := filepath.Join(tmpDir, fmt.Sprintf("attachment-%s", attachmentID))
-	
+
 	cmd := exec.Command("signal-cli", "-a", c.phoneNumber, "getAttachment", attachmentID, tmpFile)
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("failed to download attachment: %w", err)

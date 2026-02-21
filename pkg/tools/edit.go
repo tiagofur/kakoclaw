@@ -22,6 +22,10 @@ func NewEditFileTool(allowedDir string, restrict bool) *EditFileTool {
 	}
 }
 
+func (t *EditFileTool) SetWorkspace(workspace string) {
+	t.allowedDir = workspace
+}
+
 func (t *EditFileTool) Name() string {
 	return "edit_file"
 }
@@ -108,6 +112,10 @@ type AppendFileTool struct {
 
 func NewAppendFileTool(workspace string, restrict bool) *AppendFileTool {
 	return &AppendFileTool{workspace: workspace, restrict: restrict}
+}
+
+func (t *AppendFileTool) SetWorkspace(workspace string) {
+	t.workspace = workspace
 }
 
 func (t *AppendFileTool) Name() string {

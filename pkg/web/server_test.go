@@ -18,7 +18,7 @@ import (
 func newTestServer(t *testing.T) *Server {
 	t.Helper()
 	dir := t.TempDir()
-	
+
 	store, err := storage.New(config.StorageConfig{Path: filepath.Join(dir, "tasks.db")})
 	if err != nil {
 		t.Fatalf("storage.New failed: %v", err)
@@ -151,12 +151,13 @@ func TestHandleTaskLogsEndpoint(t *testing.T) {
 
 func TestTaskChatCommands(t *testing.T) {
 	s := newTestServer(t)
-	ok, msg := s.handleTaskChatCommand("/task create revisar logs")
+	// Use user_id 0 for test (legacy/default user)
+	ok, msg := s.handleTaskChatCommand(0, "/task create revisar logs")
 	if !ok || !strings.Contains(msg, "Tarea creada") {
 		t.Fatalf("expected create command handled, got ok=%v msg=%q", ok, msg)
 	}
 
-	ok, msg = s.handleTaskChatCommand("/task list")
+	ok, msg = s.handleTaskChatCommand(0, "/task list")
 	if !ok || !strings.Contains(msg, "revisar logs") {
 		t.Fatalf("expected list command output, got ok=%v msg=%q", ok, msg)
 	}
@@ -166,7 +167,7 @@ func TestTaskChatCommands(t *testing.T) {
 		t.Fatalf("create task for move command failed: %v", err)
 	}
 	idStr := toString(createdID)
-	ok, msg = s.handleTaskChatCommand("/task move " + idStr + " done")
+	ok, msg = s.handleTaskChatCommand(0, "/task move "+idStr+" done")
 	if !ok || !strings.Contains(msg, "movida a done") {
 		t.Fatalf("expected move command output, got ok=%v msg=%q", ok, msg)
 	}

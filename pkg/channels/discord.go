@@ -238,7 +238,7 @@ func (c *DiscordChannel) handleMessage(s *discordgo.Session, m *discordgo.Messag
 		"is_dm":        fmt.Sprintf("%t", m.GuildID == ""),
 	}
 
-	c.HandleMessage(senderID, m.ChannelID, content, mediaPaths, metadata)
+	_ = c.HandleMessage(senderID, m.ChannelID, content, mediaPaths, metadata)
 }
 
 func (c *DiscordChannel) downloadAttachment(url, filename string) string {

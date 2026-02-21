@@ -16,6 +16,8 @@ import (
 
 type ContextBuilder struct {
 	workspace    string
+	userUUID     string // User UUID for multiuser support
+	userID       int64  // User ID from database
 	skillsLoader *skills.SkillsLoader
 	memory       *MemoryStore
 	tools        *tools.ToolRegistry // Direct reference to tool registry
@@ -38,9 +40,49 @@ func NewContextBuilder(workspace string) *ContextBuilder {
 
 	return &ContextBuilder{
 		workspace:    workspace,
+		userUUID:     "", // Will be set via WithUser()
+		userID:       0,  // Default userID = 0 (backward compatibility)
 		skillsLoader: skills.NewSkillsLoader(workspace, globalSkillsDir, builtinSkillsDir),
 		memory:       NewMemoryStore(workspace),
 	}
+}
+
+// WithUser sets the user UUID and ID for this context builder.
+// This enables multiuser support by resolving workspace paths to user-specific directories.
+func (cb *ContextBuilder) WithUser(userUUID string, userID int64) *ContextBuilder {
+	cb.userUUID = userUUID
+	cb.userID = userID
+
+	userWorkspace := cb.getUserWorkspacePath()
+	cb.workspace = userWorkspace
+	cb.memory = NewMemoryStore(userWorkspace)
+
+	// Rebuild skills loader to point at user workspace and user skills path
+	wd, _ := os.Getwd()
+	builtinSkillsDir := filepath.Join(wd, "skills")
+	globalSkillsDir := filepath.Join(getGlobalConfigDir(), "skills")
+	cb.skillsLoader = skills.NewSkillsLoader(userWorkspace, globalSkillsDir, builtinSkillsDir)
+
+	home, err := os.UserHomeDir()
+	if err == nil {
+		userSkillsPath := filepath.Join(home, ".kakoclaw", "users", userUUID, "skills")
+		cb.skillsLoader.SetUserSkillsPath(userSkillsPath)
+	}
+
+	return cb
+}
+
+// getUserWorkspacePath returns the workspace path, either user-specific or global.
+func (cb *ContextBuilder) getUserWorkspacePath() string {
+	if cb.userUUID == "" {
+		return cb.workspace
+	}
+	// For multiuser: replace workspace with user-scoped path
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return cb.workspace
+	}
+	return filepath.Join(home, ".kakoclaw", "users", cb.userUUID, "workspace")
 }
 
 // SetToolsRegistry sets the tools registry for dynamic tool summary generation.
@@ -50,7 +92,7 @@ func (cb *ContextBuilder) SetToolsRegistry(registry *tools.ToolRegistry) {
 
 func (cb *ContextBuilder) getIdentity() string {
 	now := time.Now().Format("2006-01-02 15:04 (Monday)")
-	workspacePath, _ := filepath.Abs(filepath.Join(cb.workspace))
+	workspacePath, _ := filepath.Abs(cb.getUserWorkspacePath())
 	runtime := fmt.Sprintf("%s %s, Go %s", runtime.GOOS, runtime.GOARCH, runtime.Version())
 
 	// Build tools section dynamically
@@ -162,7 +204,7 @@ func (cb *ContextBuilder) LoadBootstrapFiles() string {
 
 	var result string
 	for _, filename := range bootstrapFiles {
-		filePath := filepath.Join(cb.workspace, filename)
+		filePath := filepath.Join(cb.getUserWorkspacePath(), filename)
 		if data, err := os.ReadFile(filePath); err == nil {
 			result += fmt.Sprintf("## %s\n\n%s\n\n", filename, string(data))
 		}

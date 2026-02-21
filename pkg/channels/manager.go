@@ -14,12 +14,14 @@ import (
 	"github.com/sipeed/kakoclaw/pkg/bus"
 	"github.com/sipeed/kakoclaw/pkg/config"
 	"github.com/sipeed/kakoclaw/pkg/logger"
+	"github.com/sipeed/kakoclaw/pkg/storage"
 )
 
 type Manager struct {
 	channels     map[string]Channel
 	bus          *bus.MessageBus
 	config       *config.Config
+	storage      *storage.Storage
 	dispatchTask *asyncTask
 	mu           sync.RWMutex
 }
@@ -28,11 +30,12 @@ type asyncTask struct {
 	cancel context.CancelFunc
 }
 
-func NewManager(cfg *config.Config, messageBus *bus.MessageBus) (*Manager, error) {
+func NewManager(cfg *config.Config, messageBus *bus.MessageBus, store *storage.Storage) (*Manager, error) {
 	m := &Manager{
 		channels: make(map[string]Channel),
 		bus:      messageBus,
 		config:   cfg,
+		storage:  store,
 	}
 
 	if err := m.initChannels(); err != nil {
@@ -53,6 +56,7 @@ func (m *Manager) initChannels() error {
 				"error": err.Error(),
 			})
 		} else {
+			m.applyUserResolver("telegram", telegram)
 			m.channels["telegram"] = telegram
 			logger.InfoC("channels", "Telegram channel enabled successfully")
 		}
@@ -66,6 +70,7 @@ func (m *Manager) initChannels() error {
 				"error": err.Error(),
 			})
 		} else {
+			m.applyUserResolver("whatsapp", whatsapp)
 			m.channels["whatsapp"] = whatsapp
 			logger.InfoC("channels", "WhatsApp channel enabled successfully")
 		}
@@ -79,6 +84,7 @@ func (m *Manager) initChannels() error {
 				"error": err.Error(),
 			})
 		} else {
+			m.applyUserResolver("feishu", feishu)
 			m.channels["feishu"] = feishu
 			logger.InfoC("channels", "Feishu channel enabled successfully")
 		}
@@ -92,6 +98,7 @@ func (m *Manager) initChannels() error {
 				"error": err.Error(),
 			})
 		} else {
+			m.applyUserResolver("discord", discord)
 			m.channels["discord"] = discord
 			logger.InfoC("channels", "Discord channel enabled successfully")
 		}
@@ -105,6 +112,7 @@ func (m *Manager) initChannels() error {
 				"error": err.Error(),
 			})
 		} else {
+			m.applyUserResolver("maixcam", maixcam)
 			m.channels["maixcam"] = maixcam
 			logger.InfoC("channels", "MaixCam channel enabled successfully")
 		}
@@ -118,6 +126,7 @@ func (m *Manager) initChannels() error {
 				"error": err.Error(),
 			})
 		} else {
+			m.applyUserResolver("qq", qq)
 			m.channels["qq"] = qq
 			logger.InfoC("channels", "QQ channel enabled successfully")
 		}
@@ -131,6 +140,7 @@ func (m *Manager) initChannels() error {
 				"error": err.Error(),
 			})
 		} else {
+			m.applyUserResolver("dingtalk", dingtalk)
 			m.channels["dingtalk"] = dingtalk
 			logger.InfoC("channels", "DingTalk channel enabled successfully")
 		}
@@ -144,6 +154,7 @@ func (m *Manager) initChannels() error {
 				"error": err.Error(),
 			})
 		} else {
+			m.applyUserResolver("slack", slackCh)
 			m.channels["slack"] = slackCh
 			logger.InfoC("channels", "Slack channel enabled successfully")
 		}
@@ -157,6 +168,7 @@ func (m *Manager) initChannels() error {
 				"error": err.Error(),
 			})
 		} else {
+			m.applyUserResolver("signal", signalCh)
 			m.channels["signal"] = signalCh
 			logger.InfoC("channels", "Signal channel enabled successfully")
 		}
@@ -201,7 +213,30 @@ func (m *Manager) StartAll(ctx context.Context) error {
 	return nil
 }
 
-
+func (m *Manager) applyUserResolver(channelName string, channel Channel) {
+	if m.storage == nil {
+		return
+	}
+	if setter, ok := channel.(interface {
+		SetUserResolver(func(string) (int64, error))
+	}); ok {
+		setter.SetUserResolver(func(senderID string) (int64, error) {
+			userID, err := m.storage.GetUserIDForChannelSender(channelName, senderID)
+			if err != nil {
+				return 0, err
+			}
+			if userID != 0 {
+				return userID, nil
+			}
+			// Fallback: if only one user exists, map to that user.
+			users, err := m.storage.ListUsers()
+			if err == nil && len(users) == 1 {
+				return users[0].ID, nil
+			}
+			return 0, nil
+		})
+	}
+}
 
 // RestartChannel restarts a specific channel (used after config update)
 func (m *Manager) RestartChannel(ctx context.Context, name string) error {
@@ -391,6 +426,11 @@ func (m *Manager) UnregisterChannel(name string) {
 }
 
 func (m *Manager) SendToChannel(ctx context.Context, channelName, chatID, content string) error {
+	return m.SendToChannelForUser(ctx, 0, channelName, chatID, content)
+}
+
+// SendToChannelForUser sends a message with an explicit user ID for routing context.
+func (m *Manager) SendToChannelForUser(ctx context.Context, userID int64, channelName, chatID, content string) error {
 	m.mu.RLock()
 	channel, exists := m.channels[channelName]
 	m.mu.RUnlock()
@@ -400,6 +440,7 @@ func (m *Manager) SendToChannel(ctx context.Context, channelName, chatID, conten
 	}
 
 	msg := bus.OutboundMessage{
+		UserID:  userID,
 		Channel: channelName,
 		ChatID:  chatID,
 		Content: content,

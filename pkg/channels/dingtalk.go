@@ -20,12 +20,12 @@ import (
 // It uses WebSocket for receiving messages via stream mode and API for sending
 type DingTalkChannel struct {
 	*BaseChannel
-	config         config.DingTalkConfig
-	clientID       string
-	clientSecret   string
-	streamClient   *client.StreamClient
-	ctx            context.Context
-	cancel         context.CancelFunc
+	config       config.DingTalkConfig
+	clientID     string
+	clientSecret string
+	streamClient *client.StreamClient
+	ctx          context.Context
+	cancel       context.CancelFunc
 	// Map to store session webhooks for each chat
 	sessionWebhooks sync.Map // chatID -> sessionWebhook
 }
@@ -109,8 +109,8 @@ func (c *DingTalkChannel) Send(ctx context.Context, msg bus.OutboundMessage) err
 	}
 
 	logger.DebugCF("dingtalk", "Sending message", map[string]interface{}{
-		"chat_id":  msg.ChatID,
-		"preview":  utils.Truncate(msg.Content, 100),
+		"chat_id": msg.ChatID,
+		"preview": utils.Truncate(msg.Content, 100),
 	})
 
 	// Use the session webhook to send the reply
@@ -162,7 +162,7 @@ func (c *DingTalkChannel) onChatBotMessageReceived(ctx context.Context, data *ch
 	})
 
 	// Handle the message through the base channel
-	c.HandleMessage(senderID, chatID, content, nil, metadata)
+	_ = c.HandleMessage(senderID, chatID, content, nil, metadata)
 
 	// Return nil to indicate we've handled the message asynchronously
 	// The response will be sent through the message bus

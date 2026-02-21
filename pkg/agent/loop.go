@@ -31,18 +31,21 @@ import (
 )
 
 type AgentLoop struct {
-	bus            *bus.MessageBus
-	provider       providers.LLMProvider
-	workspace      string
-	model          string
-	contextWindow  int // Maximum context window size in tokens
-	maxIterations  int
-	sessions       *session.SessionManager
-	contextBuilder *ContextBuilder
-	tools          *tools.ToolRegistry
-	running        atomic.Bool
-	summarizing    sync.Map // Tracks which sessions are currently being summarized
-	storage        *storage.Storage
+	bus              *bus.MessageBus
+	provider         providers.LLMProvider
+	workspace        string
+	defaultWorkspace string // Base workspace when no user is set
+	userUUID         string // User UUID for multiuser support
+	userID           int64  // User ID for multiuser support
+	model            string
+	contextWindow    int // Maximum context window size in tokens
+	maxIterations    int
+	sessions         *session.SessionManager
+	contextBuilder   *ContextBuilder
+	tools            *tools.ToolRegistry
+	running          atomic.Bool
+	summarizing      sync.Map // Tracks which sessions are currently being summarized
+	storage          *storage.Storage
 }
 
 // ToolRegistry returns the agent loop's tool registry so external
@@ -53,17 +56,17 @@ func (al *AgentLoop) ToolRegistry() *tools.ToolRegistry {
 
 // processOptions configures how a message is processed
 type processOptions struct {
-	SessionKey      string   // Session identifier for history/context
-	Channel         string   // Target channel for tool execution
-	ChatID          string   // Target chat ID for tool execution
-	UserMessage     string   // User message content (may include prefix)
-	DefaultResponse string   // Response when LLM returns empty
-	EnableSummary   bool     // Whether to trigger summarization
-	SendResponse    bool     // Whether to send response via bus
-	ModelOverride   string   // If set, use this model instead of the default for LLM calls
-	ExcludeTools    []string     // Tool names to exclude from this request (e.g., "web_search")
+	SessionKey      string         // Session identifier for history/context
+	Channel         string         // Target channel for tool execution
+	ChatID          string         // Target chat ID for tool execution
+	UserMessage     string         // User message content (may include prefix)
+	DefaultResponse string         // Response when LLM returns empty
+	EnableSummary   bool           // Whether to trigger summarization
+	SendResponse    bool           // Whether to send response via bus
+	ModelOverride   string         // If set, use this model instead of the default for LLM calls
+	ExcludeTools    []string       // Tool names to exclude from this request (e.g., "web_search")
 	OnToken         StreamCallback // Optional callback for text tokens
-	OnTool          ToolCallback // Optional callback for tool call updates
+	OnTool          ToolCallback   // Optional callback for tool call updates
 }
 
 // ToolEvent represents a tool call update during agent execution.
@@ -85,8 +88,8 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 
 	// Initialize Storage
 	var store *storage.Storage
-	var err error
 	if cfg.Storage.Path != "" {
+		var err error
 		store, err = storage.New(cfg.Storage)
 		if err != nil {
 			logger.ErrorCF("agent", "Failed to initialize storage", map[string]interface{}{"error": err.Error()})
@@ -105,15 +108,10 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 
 	if cfg.Tools.Email.Enabled {
 		if strings.TrimSpace(cfg.Tools.Email.Host) == "" || cfg.Tools.Email.Port <= 0 {
-			logger.WarnC("agent", "Email tool enabled but SMTP host/port are not configured")
+			logger.WarnC("agent", "Email tool enabled but SMTP host/port are missing")
+		} else {
+			toolsRegistry.Register(tools.NewEmailTool(cfg.Tools.Email))
 		}
-		if strings.TrimSpace(cfg.Tools.Email.Username) == "" || strings.TrimSpace(cfg.Tools.Email.Password) == "" {
-			logger.WarnC("agent", "Email tool enabled but SMTP username/password are missing")
-		}
-		if strings.Contains(strings.TrimSpace(cfg.Tools.Email.Password), " ") && strings.EqualFold(strings.TrimSpace(cfg.Tools.Email.Host), "smtp.gmail.com") {
-			logger.WarnC("agent", "Email password contains spaces; use raw Gmail app password value")
-		}
-		toolsRegistry.Register(tools.NewEmailTool(cfg.Tools.Email))
 	}
 
 	// Register message tool
@@ -166,18 +164,81 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 	contextBuilder.SetToolsRegistry(toolsRegistry)
 
 	return &AgentLoop{
-		bus:            msgBus,
-		provider:       provider,
-		workspace:      workspace,
-		model:          cfg.Agents.Defaults.Model,
-		contextWindow:  cfg.Agents.Defaults.MaxTokens, // Restore context window for summarization
-		maxIterations:  cfg.Agents.Defaults.MaxToolIterations,
-		sessions:       sessionsManager,
-		contextBuilder: contextBuilder,
-		tools:          toolsRegistry,
-		summarizing:    sync.Map{},
-		storage:        store,
+		bus:              msgBus,
+		provider:         provider,
+		workspace:        workspace,
+		defaultWorkspace: workspace,
+		userUUID:         "", // Will be set via SetUserForAgent if needed
+		userID:           0,  // Default for backward compatibility
+		model:            cfg.Agents.Defaults.Model,
+		contextWindow:    cfg.Agents.Defaults.MaxTokens, // Restore context window for summarization
+		maxIterations:    cfg.Agents.Defaults.MaxToolIterations,
+		sessions:         sessionsManager,
+		contextBuilder:   contextBuilder,
+		tools:            toolsRegistry,
+		summarizing:      sync.Map{},
+		storage:          store,
 	}
+}
+
+// SetUserForAgent configures the agent loop for a specific user (multiuser support).
+func (al *AgentLoop) SetUserForAgent(userUUID string, userID int64) {
+	al.userUUID = userUUID
+	al.userID = userID
+
+	if userUUID == "" {
+		al.workspace = al.defaultWorkspace
+		al.sessions.SetStorage(filepath.Join(al.workspace, "sessions"))
+		al.updateToolsWorkspace(al.workspace)
+		al.contextBuilder.WithUser(userUUID, userID)
+		return
+	}
+
+	if userUUID != "" {
+		workspace, err := config.EnsureUserWorkspace(userUUID)
+		if err != nil {
+			logger.WarnCF("agent", "Failed to ensure user workspace", map[string]interface{}{"error": err.Error()})
+		} else {
+			al.workspace = workspace
+			al.sessions.SetStorage(filepath.Join(workspace, "sessions"))
+			al.updateToolsWorkspace(workspace)
+		}
+	}
+
+	al.contextBuilder.WithUser(userUUID, userID)
+}
+
+// updateToolsWorkspace updates workspace paths for tools that depend on a workspace directory.
+func (al *AgentLoop) updateToolsWorkspace(workspace string) {
+	if al.tools == nil {
+		return
+	}
+	al.tools.ForEach(func(t tools.Tool) {
+		if wt, ok := t.(tools.WorkspaceTool); ok {
+			wt.SetWorkspace(workspace)
+		}
+	})
+}
+
+// applyMessageUserContext configures user context for the current inbound message.
+func (al *AgentLoop) applyMessageUserContext(msg bus.InboundMessage) {
+	if msg.UserID == 0 {
+		al.SetUserForAgent("", 0)
+		return
+	}
+	if al.storage == nil {
+		al.SetUserForAgent("", msg.UserID)
+		return
+	}
+
+	user, err := al.storage.GetUserByID(msg.UserID)
+	if err != nil {
+		logger.WarnCF("agent", "Failed to resolve user UUID", map[string]interface{}{"error": err.Error()})
+		al.SetUserForAgent("", msg.UserID)
+		return
+	}
+
+	al.SetUserForAgent(user.UUID, msg.UserID)
 }
 
 func (al *AgentLoop) Run(ctx context.Context) error {
@@ -193,6 +254,8 @@ func (al *AgentLoop) Run(ctx context.Context) error {
 				continue
 			}
 
+			al.applyMessageUserContext(msg)
+
 			response, err := al.processMessage(ctx, msg)
 			if err != nil {
 				response = fmt.Sprintf("Error processing message: %v", err)
@@ -200,6 +263,7 @@ func (al *AgentLoop) Run(ctx context.Context) error {
 
 			if response != "" {
 				al.bus.PublishOutbound(bus.OutboundMessage{
+					UserID:  msg.UserID,
 					Channel: msg.Channel,
 					ChatID:  msg.ChatID,
 					Content: response,
@@ -230,6 +294,20 @@ func (al *AgentLoop) ProcessDirectWithChannel(ctx context.Context, content, sess
 		ChatID:     chatID,
 		Content:    content,
 		SessionKey: sessionKey,
+	}
+
+	return al.processMessage(ctx, msg)
+}
+
+// ProcessDirectWithUser processes a message on behalf of a specific user.
+func (al *AgentLoop) ProcessDirectWithUser(ctx context.Context, userID int64, content, sessionKey string) (string, error) {
+	msg := bus.InboundMessage{
+		Channel:    "cli",
+		SenderID:   "task_worker",
+		ChatID:     "direct",
+		Content:    content,
+		SessionKey: sessionKey,
+		UserID:     userID,
 	}
 
 	return al.processMessage(ctx, msg)
@@ -280,9 +358,14 @@ func (al *AgentLoop) processMessage(ctx context.Context, msg bus.InboundMessage)
 }
 
 func (al *AgentLoop) processMessageWithModel(ctx context.Context, msg bus.InboundMessage, modelOverride string, excludeTools ...string) (string, error) {
+	al.applyMessageUserContext(msg)
+
 	// Issue #9: Rate limiting
 	// Check user rate limit
 	userKey := fmt.Sprintf("user:%s", msg.SenderID)
+	if msg.UserID > 0 {
+		userKey = fmt.Sprintf("user:%d", msg.UserID)
+	}
 	if !ratelimit.GetGlobalLimiter().Allow(userKey) {
 		logger.WarnCF("agent", "Rate limit exceeded for user", map[string]interface{}{
 			"sender_id": msg.SenderID,
@@ -400,8 +483,8 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, opts processOptions) (str
 	al.updateToolContexts(opts.Channel, opts.ChatID)
 
 	// 2. Build messages
-	history := al.sessions.GetHistory(opts.SessionKey)
-	summary := al.sessions.GetSummary(opts.SessionKey)
+	history := al.sessions.GetHistoryForUser(al.userID, opts.SessionKey)
+	summary := al.sessions.GetSummaryForUser(al.userID, opts.SessionKey)
 	messages := al.contextBuilder.BuildMessages(
 		history,
 		summary,
@@ -412,9 +495,9 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, opts processOptions) (str
 	)
 
 	// 3. Save user message to session
-	al.sessions.AddMessage(opts.SessionKey, "user", opts.UserMessage)
+	al.sessions.AddMessageForUser(al.userID, opts.SessionKey, "user", opts.UserMessage)
 	if al.storage != nil {
-		if err := al.storage.SaveMessage(opts.SessionKey, "user", opts.UserMessage); err != nil {
+		if err := al.storage.SaveMessageForUser(al.userID, opts.SessionKey, "user", opts.UserMessage); err != nil {
 			logger.ErrorCF("agent", "Failed to save user message to storage", map[string]interface{}{"error": err.Error()})
 		}
 	}
@@ -432,10 +515,10 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, opts processOptions) (str
 	}
 
 	// 6. Save final assistant message to session
-	al.sessions.AddMessage(opts.SessionKey, "assistant", finalContent)
-	al.sessions.Save(al.sessions.GetOrCreate(opts.SessionKey))
+	al.sessions.AddMessageForUser(al.userID, opts.SessionKey, "assistant", finalContent)
+	al.sessions.SaveForUser(al.userID, al.sessions.GetOrCreateForUser(al.userID, opts.SessionKey))
 	if al.storage != nil {
-		if err := al.storage.SaveMessage(opts.SessionKey, "assistant", finalContent); err != nil {
+		if err := al.storage.SaveMessageForUser(al.userID, opts.SessionKey, "assistant", finalContent); err != nil {
 			logger.ErrorCF("agent", "Failed to save assistant message to storage", map[string]interface{}{"error": err.Error()})
 		}
 	}
@@ -448,6 +531,7 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, opts processOptions) (str
 	// 8. Optional: send response via bus
 	if opts.SendResponse {
 		al.bus.PublishOutbound(bus.OutboundMessage{
+			UserID:  al.userID,
 			Channel: opts.Channel,
 			ChatID:  opts.ChatID,
 			Content: finalContent,
@@ -475,8 +559,8 @@ func (al *AgentLoop) runAgentLoopStream(ctx context.Context, opts processOptions
 	al.updateToolContexts(opts.Channel, opts.ChatID)
 
 	// 2. Build messages
-	history := al.sessions.GetHistory(opts.SessionKey)
-	summary := al.sessions.GetSummary(opts.SessionKey)
+	history := al.sessions.GetHistoryForUser(al.userID, opts.SessionKey)
+	summary := al.sessions.GetSummaryForUser(al.userID, opts.SessionKey)
 	messages := al.contextBuilder.BuildMessages(
 		history,
 		summary,
@@ -487,9 +571,9 @@ func (al *AgentLoop) runAgentLoopStream(ctx context.Context, opts processOptions
 	)
 
 	// 3. Save user message to session
-	al.sessions.AddMessage(opts.SessionKey, "user", opts.UserMessage)
+	al.sessions.AddMessageForUser(al.userID, opts.SessionKey, "user", opts.UserMessage)
 	if al.storage != nil {
-		if err := al.storage.SaveMessage(opts.SessionKey, "user", opts.UserMessage); err != nil {
+		if err := al.storage.SaveMessageForUser(al.userID, opts.SessionKey, "user", opts.UserMessage); err != nil {
 			logger.ErrorCF("agent", "Failed to save user message to storage", map[string]interface{}{"error": err.Error()})
 		}
 	}
@@ -507,10 +591,10 @@ func (al *AgentLoop) runAgentLoopStream(ctx context.Context, opts processOptions
 	}
 
 	// 6. Save final assistant message to session
-	al.sessions.AddMessage(opts.SessionKey, "assistant", finalContent)
-	al.sessions.Save(al.sessions.GetOrCreate(opts.SessionKey))
+	al.sessions.AddMessageForUser(al.userID, opts.SessionKey, "assistant", finalContent)
+	al.sessions.SaveForUser(al.userID, al.sessions.GetOrCreateForUser(al.userID, opts.SessionKey))
 	if al.storage != nil {
-		if err := al.storage.SaveMessage(opts.SessionKey, "assistant", finalContent); err != nil {
+		if err := al.storage.SaveMessageForUser(al.userID, opts.SessionKey, "assistant", finalContent); err != nil {
 			logger.ErrorCF("agent", "Failed to save assistant message to storage", map[string]interface{}{"error": err.Error()})
 		}
 	}
@@ -523,6 +607,7 @@ func (al *AgentLoop) runAgentLoopStream(ctx context.Context, opts processOptions
 	// 8. Optional: send response via bus
 	if opts.SendResponse {
 		al.bus.PublishOutbound(bus.OutboundMessage{
+			UserID:  al.userID,
 			Channel: opts.Channel,
 			ChatID:  opts.ChatID,
 			Content: finalContent,
@@ -675,9 +760,9 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 		messages = append(messages, assistantMsg)
 
 		// Save assistant message with tool calls to session
-		al.sessions.AddFullMessage(opts.SessionKey, assistantMsg)
+		al.sessions.AddFullMessageForUser(al.userID, opts.SessionKey, assistantMsg)
 
-			// Execute tool calls
+		// Execute tool calls
 		for _, tc := range response.ToolCalls {
 			// Log tool call with arguments preview
 			argsJSON, _ := json.Marshal(tc.Arguments)
@@ -718,7 +803,7 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 			messages = append(messages, toolResultMsg)
 
 			// Save tool result message to session
-			al.sessions.AddFullMessage(opts.SessionKey, toolResultMsg)
+			al.sessions.AddFullMessageForUser(al.userID, opts.SessionKey, toolResultMsg)
 		}
 	}
 
@@ -887,7 +972,7 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 				})
 			}
 			messages = append(messages, assistantMsg)
-			al.sessions.AddFullMessage(opts.SessionKey, assistantMsg)
+			al.sessions.AddFullMessageForUser(al.userID, opts.SessionKey, assistantMsg)
 
 			// Execute tool calls
 			for _, tc := range toolCalls {
@@ -927,7 +1012,7 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 					ToolCallID: tc.ID,
 				}
 				messages = append(messages, toolResultMsg)
-				al.sessions.AddFullMessage(opts.SessionKey, toolResultMsg)
+				al.sessions.AddFullMessageForUser(al.userID, opts.SessionKey, toolResultMsg)
 			}
 
 			continue // Next iteration
@@ -973,7 +1058,7 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 			})
 		}
 		messages = append(messages, assistantMsg)
-		al.sessions.AddFullMessage(opts.SessionKey, assistantMsg)
+		al.sessions.AddFullMessageForUser(al.userID, opts.SessionKey, assistantMsg)
 
 		for _, tc := range response.ToolCalls {
 			argsJSON, _ := json.Marshal(tc.Arguments)
@@ -998,7 +1083,7 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 				ToolCallID: tc.ID,
 			}
 			messages = append(messages, toolResultMsg)
-			al.sessions.AddFullMessage(opts.SessionKey, toolResultMsg)
+			al.sessions.AddFullMessageForUser(al.userID, opts.SessionKey, toolResultMsg)
 		}
 	}
 
@@ -1021,7 +1106,7 @@ func (al *AgentLoop) updateToolContexts(channel, chatID string) {
 
 // maybeSummarize triggers summarization if the session history exceeds thresholds.
 func (al *AgentLoop) maybeSummarize(sessionKey string) {
-	newHistory := al.sessions.GetHistory(sessionKey)
+	newHistory := al.sessions.GetHistoryForUser(al.userID, sessionKey)
 	tokenEstimate := al.estimateTokens(newHistory)
 	threshold := al.contextWindow * 75 / 100
 
@@ -1108,8 +1193,8 @@ func (al *AgentLoop) summarizeSession(sessionKey string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	history := al.sessions.GetHistory(sessionKey)
-	summary := al.sessions.GetSummary(sessionKey)
+	history := al.sessions.GetHistoryForUser(al.userID, sessionKey)
+	summary := al.sessions.GetSummaryForUser(al.userID, sessionKey)
 
 	// Keep last 4 messages for continuity
 	if len(history) <= 4 {
@@ -1172,9 +1257,9 @@ func (al *AgentLoop) summarizeSession(sessionKey string) {
 	}
 
 	if finalSummary != "" {
-		al.sessions.SetSummary(sessionKey, finalSummary)
-		al.sessions.TruncateHistory(sessionKey, 4)
-		al.sessions.Save(al.sessions.GetOrCreate(sessionKey))
+		al.sessions.SetSummaryForUser(al.userID, sessionKey, finalSummary)
+		al.sessions.TruncateHistoryForUser(al.userID, sessionKey, 4)
+		al.sessions.SaveForUser(al.userID, al.sessions.GetOrCreateForUser(al.userID, sessionKey))
 	}
 }
 

@@ -104,6 +104,15 @@ func (r *ToolRegistry) List() []string {
 	return names
 }
 
+// ForEach executes a function for each registered tool.
+func (r *ToolRegistry) ForEach(fn func(Tool)) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, tool := range r.tools {
+		fn(tool)
+	}
+}
+
 // Count returns the number of registered tools.
 func (r *ToolRegistry) Count() int {
 	r.mu.RLock()
