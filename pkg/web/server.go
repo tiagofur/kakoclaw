@@ -181,20 +181,28 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/tasks", s.handleTasks)
 	mux.HandleFunc("/api/v1/tasks/search", s.handleTaskSearch) // Search tasks
 	mux.HandleFunc("/api/v1/tasks/", s.handleTasks)
-	mux.HandleFunc("/api/v1/chat/sessions", s.handleChatSessions)             // New endpoint
-	mux.HandleFunc("/api/v1/chat/sessions/", s.handleChatSessionMessages)     // New endpoint
-	mux.HandleFunc("/api/v1/chat/search", s.handleChatSearch)                 // Search messages
-	mux.HandleFunc("/api/v1/chat/fork", s.handleChatFork)                     // Fork conversation
-	mux.HandleFunc("/api/v1/chat/cancel", s.handleChatCancel)                 // Cancel execution
-	mux.HandleFunc("/api/v1/chat/active", s.handleChatActive)                 // Active executions
-	mux.HandleFunc("/api/v1/memory/longterm", s.handleLongTermMemory)         // New endpoint
-	mux.HandleFunc("/api/v1/memory/daily", s.handleDailyNotes)                // New endpoint
-	mux.HandleFunc("/api/v1/skills", s.handleSkills)                          // Skills list + marketplace
-	mux.HandleFunc("/api/v1/skills/", s.handleSkillAction)                    // Install/uninstall/view
-	mux.HandleFunc("/api/v1/cron", s.handleCron)                              // Cron jobs list + create
-	mux.HandleFunc("/api/v1/cron/", s.handleCronAction)                       // Cron job actions
-	mux.HandleFunc("/api/v1/channels", s.handleChannels)                      // Channels status
-	mux.HandleFunc("/api/v1/config", s.handleConfig)                          // Config (read-only, redacted)
+	mux.HandleFunc("/api/v1/chat/sessions", s.handleChatSessions)         // New endpoint
+	mux.HandleFunc("/api/v1/chat/sessions/", s.handleChatSessionMessages) // New endpoint
+	mux.HandleFunc("/api/v1/chat/search", s.handleChatSearch)             // Search messages
+	mux.HandleFunc("/api/v1/chat/fork", s.handleChatFork)                 // Fork conversation
+	mux.HandleFunc("/api/v1/chat/cancel", s.handleChatCancel)             // Cancel execution
+	mux.HandleFunc("/api/v1/chat/active", s.handleChatActive)             // Active executions
+	mux.HandleFunc("/api/v1/memory/longterm", s.handleLongTermMemory)     // New endpoint
+	mux.HandleFunc("/api/v1/memory/daily", s.handleDailyNotes)            // New endpoint
+	mux.HandleFunc("/api/v1/skills", s.handleSkills)                      // Skills list + marketplace
+	mux.HandleFunc("/api/v1/skills/", s.handleSkillAction)                // Install/uninstall/view
+	mux.HandleFunc("/api/v1/cron", s.handleCron)                          // Cron jobs list + create
+	mux.HandleFunc("/api/v1/cron/", s.handleCronAction)                   // Cron job actions
+	mux.HandleFunc("/api/v1/channels", s.handleChannels)                  // Channels status
+	mux.HandleFunc("/api/v1/config", s.handleConfig)                      // Config (read-only, redacted)
+
+	// User-specific config management (new)
+	mux.HandleFunc("/api/v1/users/me/config", s.handleGetUserConfig)                 // Get user's merged config
+	mux.HandleFunc("/api/v1/users/me/config/update", s.handleUpdateUserConfig)       // Update user config
+	mux.HandleFunc("/api/v1/users/me/config/reset", s.handleDeleteUserConfigSection) // Reset section to global
+	mux.HandleFunc("/api/v1/users/me/providers", s.handleGetUserProviders)           // Get active providers
+	mux.HandleFunc("/api/v1/users/me/channels", s.handleGetUserChannels)             // Get active channels
+
 	mux.HandleFunc("/api/v1/files", s.handleFiles)                            // File browser
 	mux.HandleFunc("/api/v1/files/", s.handleFiles)                           // File browser subpaths
 	mux.HandleFunc("/api/v1/export/tasks", s.handleExportTasks)               // Export tasks
