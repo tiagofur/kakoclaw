@@ -16,6 +16,7 @@ type Channel interface {
 	IsRunning() bool
 	IsAllowed(senderID string) bool
 	GetUserIDForSender(senderID string) (int64, error) // Extract userID from senderID
+	SetCommandHandler(*CommandHandler)                 // Set command handler for this channel
 }
 
 type BaseChannel struct {
@@ -127,4 +128,10 @@ func (c *BaseChannel) HandleMessage(senderID, chatID, content string, media []st
 
 func (c *BaseChannel) setRunning(running bool) {
 	c.running = running
+}
+
+// SetCommandHandler is a default no-op implementation
+// Concrete channel types can override this to actually use command handlers
+func (c *BaseChannel) SetCommandHandler(handler *CommandHandler) {
+	// Default: no-op
 }

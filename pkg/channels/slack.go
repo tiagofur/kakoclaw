@@ -21,14 +21,15 @@ import (
 
 type SlackChannel struct {
 	*BaseChannel
-	config       config.SlackConfig
-	api          *slack.Client
-	socketClient *socketmode.Client
-	botUserID    string
-	transcriber  *voice.GroqTranscriber
-	ctx          context.Context
-	cancel       context.CancelFunc
-	pendingAcks  sync.Map
+	config         config.SlackConfig
+	api            *slack.Client
+	socketClient   *socketmode.Client
+	botUserID      string
+	transcriber    *voice.GroqTranscriber
+	ctx            context.Context
+	cancel         context.CancelFunc
+	pendingAcks    sync.Map
+	commandHandler *CommandHandler
 }
 
 type slackMessageRef struct {
@@ -51,15 +52,21 @@ func NewSlackChannel(cfg config.SlackConfig, messageBus *bus.MessageBus) (*Slack
 	base := NewBaseChannel("slack", cfg, messageBus, cfg.AllowFrom)
 
 	return &SlackChannel{
-		BaseChannel:  base,
-		config:       cfg,
-		api:          api,
-		socketClient: socketClient,
+		BaseChannel:    base,
+		config:         cfg,
+		api:            api,
+		socketClient:   socketClient,
+		commandHandler: nil,
 	}, nil
 }
 
 func (c *SlackChannel) SetTranscriber(transcriber *voice.GroqTranscriber) {
 	c.transcriber = transcriber
+}
+
+// SetCommandHandler sets the command handler for this channel
+func (c *SlackChannel) SetCommandHandler(handler *CommandHandler) {
+	c.commandHandler = handler
 }
 
 func (c *SlackChannel) Start(ctx context.Context) error {
@@ -216,6 +223,27 @@ func (c *SlackChannel) handleMessageEvent(ev *slackevents.MessageEvent) {
 		chatID = channelID + "/" + threadTS
 	}
 
+	// Check for commands first
+	content := ev.Text
+	content = c.stripBotMention(content)
+
+	if c.commandHandler != nil && IsCommand(content) {
+		handled, response, err := c.commandHandler.HandleCommand(c.ctx, "slack", senderID, content)
+		if handled {
+			if err != nil {
+				logger.ErrorCF("slack", "Command error", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+			// Send command response
+			if response != "" {
+				_, _, _ = c.api.PostMessage(channelID, slack.MsgOptionText(response, false))
+			}
+			return
+		}
+	}
+
+	// Add reaction to acknowledge receipt
 	c.api.AddReaction("eyes", slack.ItemRef{
 		Channel:   channelID,
 		Timestamp: messageTS,
@@ -225,9 +253,6 @@ func (c *SlackChannel) handleMessageEvent(ev *slackevents.MessageEvent) {
 		ChannelID: channelID,
 		Timestamp: messageTS,
 	})
-
-	content := ev.Text
-	content = c.stripBotMention(content)
 
 	var mediaPaths []string
 	localFiles := []string{} // 跟踪需要清理的本地文件

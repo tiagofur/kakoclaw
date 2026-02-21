@@ -38,6 +38,50 @@
       </div>
     </div>
 
+    <!-- Quick Setup via Channel -->
+    <div v-if="selectedChannel" class="bg-slate-700/30 border border-slate-600/50 rounded-lg p-6">
+      <h4 class="text-white font-bold mb-3 flex items-center gap-2">
+        <span class="text-lg">⚡</span> Quick Setup
+      </h4>
+      <p class="text-slate-400 text-sm mb-4">
+        Use this to start setup directly from {{ selectedChannel.name }}
+      </p>
+      
+      <div v-if="!setupToken" class="space-y-3">
+        <button
+          @click="generateSetupToken"
+          :disabled="generatingToken"
+          class="w-full px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-medium transition-colors"
+        >
+          {{ generatingToken ? '🔄 Generating...' : `📱 Generate Setup Link for ${selectedChannel.name}` }}
+        </button>
+        <p v-if="tokenError" class="text-red-400 text-xs">{{ tokenError }}</p>
+      </div>
+
+      <div v-else class="space-y-4">
+        <QRCode :url="setupUrl" />
+        
+        <div class="flex gap-2">
+          <button
+            @click="copySetupUrl"
+            class="flex-1 px-4 py-2 rounded-lg border border-blue-500 text-blue-400 hover:bg-blue-900/20 transition-colors font-medium text-sm"
+          >
+            📋 Copy Link
+          </button>
+          <button
+            @click="resetSetupToken"
+            class="flex-1 px-4 py-2 rounded-lg border border-slate-500 text-slate-300 hover:bg-slate-600/20 transition-colors font-medium text-sm"
+          >
+            ↺ Generate New
+          </button>
+        </div>
+
+        <div v-if="copySuccess" class="text-emerald-400 text-xs text-center">
+          ✓ Link copied to clipboard!
+        </div>
+      </div>
+    </div>
+
     <!-- Setup guide for selected channel -->
     <ChannelSetupGuide v-if="selectedChannel" :channel="selectedChannel.id" />
 
@@ -111,6 +155,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import ChannelSetupGuide from './ChannelSetupGuide.vue'
+import QRCode from '../QRCode.vue'
 
 const botToken = ref('')
 const channelId = ref('')
@@ -118,6 +163,16 @@ const webhookUrl = ref('')
 const selectedChannel = ref(null)
 const isTesting = ref(false)
 const testResult = ref(null)
+const setupToken = ref('')
+const generatingToken = ref(false)
+const tokenError = ref('')
+const copySuccess = ref(false)
+
+const setupUrl = computed(() => {
+  if (!setupToken.value) return ''
+  const baseUrl = window.location.origin
+  return `${baseUrl}/onboarding?token=${setupToken.value}`
+})
 
 const channels = [
   {
@@ -199,6 +254,55 @@ const selectChannel = (channel) => {
   channelId.value = ''
   webhookUrl.value = ''
   testResult.value = null
+  setupToken.value = ''
+  tokenError.value = ''
+}
+
+const generateSetupToken = async () => {
+  try {
+    generatingToken.value = true
+    tokenError.value = ''
+
+    const response = await fetch('/api/v1/setup/initialize', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        channel: selectedChannel.value.id,
+        sender_id: 'setup_wizard',
+        metadata: {
+          source: 'onboarding_wizard'
+        }
+      })
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to generate setup token')
+    }
+
+    const data = await response.json()
+    setupToken.value = data.token
+  } catch (err) {
+    tokenError.value = `Error: ${err.message}`
+  } finally {
+    generatingToken.value = false
+  }
+}
+
+const resetSetupToken = () => {
+  setupToken.value = ''
+  tokenError.value = ''
+  copySuccess.value = false
+}
+
+const copySetupUrl = () => {
+  navigator.clipboard.writeText(setupUrl.value).then(() => {
+    copySuccess.value = true
+    setTimeout(() => {
+      copySuccess.value = false
+    }, 2000)
+  })
 }
 
 const testConnection = async () => {

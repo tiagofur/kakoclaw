@@ -197,6 +197,11 @@ func (s *Storage) migrate() error {
 		return fmt.Errorf("metrics migration: %w", err)
 	}
 
+	// Setup sessions table for onboarding flow
+	if err := s.migrateSetupSessions(); err != nil {
+		return fmt.Errorf("setup sessions migration: %w", err)
+	}
+
 	return nil
 }
 
@@ -240,4 +245,33 @@ func expandHome(path string) string {
 		return home
 	}
 	return path
+}
+
+func (s *Storage) migrateSetupSessions() error {
+	queries := []string{
+		// Setup sessions table for onboarding flow
+		`CREATE TABLE IF NOT EXISTS setup_sessions (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			token TEXT NOT NULL UNIQUE,
+			user_id INTEGER,
+			channel TEXT NOT NULL,
+			sender_id TEXT NOT NULL,
+			metadata TEXT NOT NULL DEFAULT '{}',
+			expires_at DATETIME NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			used_at DATETIME
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_setup_sessions_token ON setup_sessions(token);`,
+		`CREATE INDEX IF NOT EXISTS idx_setup_sessions_expires_at ON setup_sessions(expires_at);`,
+	}
+	for _, q := range queries {
+		if _, err := s.db.Exec(q); err != nil {
+			// ALTER TABLE errors (duplicate column, etc.) are safe to ignore
+			if strings.HasPrefix(q, "ALTER TABLE") {
+				continue
+			}
+			return fmt.Errorf("setup sessions migration query: %w", err)
+		}
+	}
+	return nil
 }

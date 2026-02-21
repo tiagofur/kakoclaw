@@ -21,10 +21,11 @@ const (
 
 type DiscordChannel struct {
 	*BaseChannel
-	session     *discordgo.Session
-	config      config.DiscordConfig
-	transcriber *voice.GroqTranscriber
-	ctx         context.Context
+	session        *discordgo.Session
+	config         config.DiscordConfig
+	transcriber    *voice.GroqTranscriber
+	ctx            context.Context
+	commandHandler *CommandHandler
 }
 
 func NewDiscordChannel(cfg config.DiscordConfig, bus *bus.MessageBus) (*DiscordChannel, error) {
@@ -36,16 +37,22 @@ func NewDiscordChannel(cfg config.DiscordConfig, bus *bus.MessageBus) (*DiscordC
 	base := NewBaseChannel("discord", cfg, bus, cfg.AllowFrom)
 
 	return &DiscordChannel{
-		BaseChannel: base,
-		session:     session,
-		config:      cfg,
-		transcriber: nil,
-		ctx:         context.Background(),
+		BaseChannel:    base,
+		session:        session,
+		config:         cfg,
+		transcriber:    nil,
+		ctx:            context.Background(),
+		commandHandler: nil,
 	}, nil
 }
 
 func (c *DiscordChannel) SetTranscriber(transcriber *voice.GroqTranscriber) {
 	c.transcriber = transcriber
+}
+
+// SetCommandHandler sets the command handler for this channel
+func (c *DiscordChannel) SetCommandHandler(handler *CommandHandler) {
+	c.commandHandler = handler
 }
 
 func (c *DiscordChannel) getContext() context.Context {
@@ -149,6 +156,24 @@ func (c *DiscordChannel) handleMessage(s *discordgo.Session, m *discordgo.Messag
 	}
 
 	senderID := m.Author.ID
+
+	// Check for commands first
+	if c.commandHandler != nil && IsCommand(m.Content) {
+		handled, response, err := c.commandHandler.HandleCommand(c.getContext(), "discord", senderID, m.Content)
+		if handled {
+			if err != nil {
+				logger.ErrorCF("discord", "Command error", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+			// Send command response
+			if response != "" {
+				_, _ = s.ChannelMessageSend(m.ChannelID, response)
+			}
+			return
+		}
+	}
+
 	senderName := m.Author.Username
 	if m.Author.Discriminator != "" && m.Author.Discriminator != "0" {
 		senderName += "#" + m.Author.Discriminator

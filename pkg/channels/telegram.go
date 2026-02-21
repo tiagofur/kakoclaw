@@ -23,12 +23,13 @@ import (
 
 type TelegramChannel struct {
 	*BaseChannel
-	bot          *telego.Bot
-	config       config.TelegramConfig
-	chatIDs      map[string]int64
-	transcriber  *voice.GroqTranscriber
-	placeholders sync.Map // chatID -> messageID
-	stopThinking sync.Map // chatID -> thinkingCancel
+	bot            *telego.Bot
+	config         config.TelegramConfig
+	chatIDs        map[string]int64
+	transcriber    *voice.GroqTranscriber
+	placeholders   sync.Map // chatID -> messageID
+	stopThinking   sync.Map // chatID -> thinkingCancel
+	commandHandler *CommandHandler
 }
 
 type thinkingCancel struct {
@@ -64,18 +65,24 @@ func NewTelegramChannel(cfg config.TelegramConfig, bus *bus.MessageBus) (*Telegr
 	base := NewBaseChannel("telegram", cfg, bus, cfg.AllowFrom)
 
 	return &TelegramChannel{
-		BaseChannel:  base,
-		bot:          bot,
-		config:       cfg,
-		chatIDs:      make(map[string]int64),
-		transcriber:  nil,
-		placeholders: sync.Map{},
-		stopThinking: sync.Map{},
+		BaseChannel:    base,
+		bot:            bot,
+		config:         cfg,
+		chatIDs:        make(map[string]int64),
+		transcriber:    nil,
+		placeholders:   sync.Map{},
+		stopThinking:   sync.Map{},
+		commandHandler: nil,
 	}, nil
 }
 
 func (c *TelegramChannel) SetTranscriber(transcriber *voice.GroqTranscriber) {
 	c.transcriber = transcriber
+}
+
+// SetCommandHandler sets the command handler for this channel
+func (c *TelegramChannel) SetCommandHandler(handler *CommandHandler) {
+	c.commandHandler = handler
 }
 
 // cleanupThinking stops the thinking animation and cleans up resources (issue #36)
@@ -199,6 +206,31 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, update telego.Updat
 
 	chatID := message.Chat.ID
 	c.chatIDs[senderID] = chatID
+
+	// Extract initial text content for command checking
+	initialContent := ""
+	if message.Text != "" {
+		initialContent = message.Text
+	} else if message.Caption != "" {
+		initialContent = message.Caption
+	}
+
+	// Check for commands first
+	if c.commandHandler != nil && IsCommand(initialContent) {
+		handled, response, err := c.commandHandler.HandleCommand(ctx, "telegram", senderID, initialContent)
+		if handled {
+			if err != nil {
+				logger.ErrorCF("telegram", "Command error", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+			// Send command response
+			if response != "" {
+				_, _ = c.bot.SendMessage(ctx, tu.Message(tu.ID(chatID), response))
+			}
+			return
+		}
+	}
 
 	content := ""
 	mediaPaths := []string{}

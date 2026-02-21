@@ -209,6 +209,11 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/users/me/providers", s.handleGetUserProviders)           // Get active providers
 	mux.HandleFunc("/api/v1/users/me/channels", s.handleGetUserChannels)             // Get active channels
 
+	// Setup/Onboarding flow (Phase 4)
+	mux.HandleFunc("/api/v1/setup/initialize", s.handleSetupInitialize) // Create setup session
+	mux.HandleFunc("/api/v1/setup/validate/", s.handleSetupValidate)    // Validate token
+	mux.HandleFunc("/api/v1/setup/complete/", s.handleSetupComplete)    // Complete setup
+
 	mux.HandleFunc("/api/v1/files", s.handleFiles)                            // File browser
 	mux.HandleFunc("/api/v1/files/", s.handleFiles)                           // File browser subpaths
 	mux.HandleFunc("/api/v1/export/tasks", s.handleExportTasks)               // Export tasks
