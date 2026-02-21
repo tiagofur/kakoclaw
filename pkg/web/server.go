@@ -181,6 +181,7 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/health", s.handleHealth)
 	mux.HandleFunc("/api/v1/auth/login", s.handleLogin)
 	mux.HandleFunc("/api/v1/auth/change-password", s.handleChangePassword)
+	mux.HandleFunc("/api/v1/auth/profile", s.handleProfile)
 	mux.HandleFunc("/api/v1/auth/me", s.handleMe)
 	mux.HandleFunc("/api/v1/users", s.handleUsers)       // User management (Admin only)
 	mux.HandleFunc("/api/v1/users/", s.handleUserAction) // User actions
@@ -1243,6 +1244,85 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
+	if s.authManager == nil || s.store == nil {
+		http.Error(w, "service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	claims, ok := r.Context().Value(userClaimsKey).(*jwtClaims)
+	if !ok || claims == nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if r.Method == http.MethodGet {
+		user, err := s.store.GetUserByUsername(claims.Sub)
+		if err != nil {
+			http.Error(w, "user not found", http.StatusNotFound)
+			return
+		}
+		user.PasswordHash = "" // Redact password hash
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(user)
+		return
+	}
+
+	if r.Method == http.MethodPut {
+		ip := clientIP(r)
+		key := "update-profile:" + ip
+		s.loginLimit.SetLimit(key, 10, time.Minute)
+		if !s.loginLimit.Allow(key) {
+			http.Error(w, "too many attempts", http.StatusTooManyRequests)
+			return
+		}
+
+		var in struct {
+			Username string `json:"username"`
+			Email    string `json:"email"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+			http.Error(w, "invalid json", http.StatusBadRequest)
+			return
+		}
+
+		user, err := s.store.GetUserByUsername(claims.Sub)
+		if err != nil {
+			http.Error(w, "user not found", http.StatusNotFound)
+			return
+		}
+
+		if err := s.store.UpdateUserProfile(user.ID, in.Username, in.Email); err != nil {
+			if err == storage.ErrUserExists {
+				http.Error(w, "username already exists", http.StatusConflict)
+				return
+			}
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// If username changed, issue new token
+		newToken := ""
+		if in.Username != claims.Sub {
+			// Get updated user to get role
+			updatedUser, err := s.store.GetUserByID(user.ID)
+			if err == nil {
+				newToken, _ = s.authManager.signToken(updatedUser.Username, updatedUser.Role)
+			}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		response := map[string]interface{}{"status": "ok"}
+		if newToken != "" {
+			response["token"] = newToken
+		}
+		_ = json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 }
 
 func (s *Server) handleTaskSearch(w http.ResponseWriter, r *http.Request) {

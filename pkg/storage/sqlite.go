@@ -139,6 +139,8 @@ func (s *Storage) migrate() error {
 		);`,
 		// Migration: Add uuid column if it doesn't exist
 		`ALTER TABLE users ADD COLUMN uuid TEXT UNIQUE;`,
+		// Migration: Add email column
+		`ALTER TABLE users ADD COLUMN email TEXT;`,
 		// Settings table for global configuration
 		`CREATE TABLE IF NOT EXISTS settings (
 			key TEXT PRIMARY KEY,
