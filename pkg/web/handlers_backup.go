@@ -14,6 +14,8 @@ import (
 
 	"github.com/sipeed/kakoclaw/pkg/config"
 	"github.com/sipeed/kakoclaw/pkg/logger"
+	"github.com/sipeed/kakoclaw/pkg/observability"
+	"github.com/sipeed/kakoclaw/pkg/storage"
 )
 
 // BackupManifest represents the metadata of a backup archive
@@ -54,6 +56,44 @@ const (
 	maxBackupSize = 500 * 1024 * 1024 // 500MB
 	backupVersion = "1.0"
 )
+
+func (s *Server) activeDBPath() string {
+	if s.fullConfig != nil && strings.TrimSpace(s.fullConfig.Storage.Path) != "" {
+		return s.fullConfig.Storage.Path
+	}
+	return "~/.kakoclaw/kakoclaw.db"
+}
+
+func dbTargetPath(basePath, dbFileName string) string {
+	clean := strings.ToLower(strings.TrimSpace(dbFileName))
+	switch clean {
+	case "kakoclaw.db":
+		return basePath
+	case "kakoclaw.db-shm":
+		return basePath + "-shm"
+	case "kakoclaw.db-wal":
+		return basePath + "-wal"
+	default:
+		return ""
+	}
+}
+
+func expandTilde(path string) string {
+	if path == "" {
+		return path
+	}
+	if path[0] == '~' {
+		home, err := os.UserHomeDir()
+		if err != nil || home == "" {
+			return path
+		}
+		if len(path) > 1 && path[1] == '/' {
+			return home + path[1:]
+		}
+		return home
+	}
+	return path
+}
 
 // ==================== BACKUP HANDLERS ====================
 
@@ -107,13 +147,13 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	workspacePath := filepath.Join(userWorkspace, "..")
-	dataDir := workspacePath
+	userRoot := filepath.Dir(userWorkspace)
+	dbPath := expandTilde(s.activeDBPath())
 
 	logger.InfoCF("backup", "Starting backup", map[string]interface{}{
 		"workspace":         userWorkspace,
-		"workspacePath":     workspacePath,
-		"dataDir":           dataDir,
+		"user_root":         userRoot,
+		"db_path":           dbPath,
 		"include_database":  options.IncludeDatabase,
 		"include_workspace": options.IncludeWorkspace,
 	})
@@ -151,9 +191,12 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 	if options.IncludeDatabase {
 		dbFiles := []string{"KakoClaw.db", "KakoClaw.db-shm", "KakoClaw.db-wal"}
 		for _, dbFile := range dbFiles {
-			dbPath := filepath.Join(dataDir, dbFile)
+			dbFilePath := dbTargetPath(dbPath, dbFile)
+			if dbFilePath == "" {
+				continue
+			}
 			zipEntryPath := filepath.ToSlash(filepath.Join("database", filepath.Base(dbFile)))
-			count, size, err := addFileToZipWithCounts(zipWriter, dbPath, zipEntryPath)
+			count, size, err := addFileToZipWithCounts(zipWriter, dbFilePath, zipEntryPath)
 			if err == nil {
 				totalFiles += count
 				totalSize += size
@@ -169,7 +212,7 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 
 	// Add workspace directory
 	if options.IncludeWorkspace {
-		workspaceFull := filepath.Join(dataDir, "workspace")
+		workspaceFull := userWorkspace
 		count, size, err := addDirToZipWithCounts(zipWriter, workspaceFull, "workspace")
 		if err == nil || !os.IsNotExist(err) {
 			totalFiles += count
@@ -186,7 +229,7 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Add skills directory
-	skillsPath := filepath.Join(dataDir, "skills")
+	skillsPath := filepath.Join(userWorkspace, "skills")
 	count, size, err := addDirToZipWithCounts(zipWriter, skillsPath, "skills")
 	if count > 0 {
 		totalFiles += count
@@ -199,7 +242,7 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Add cron directory
-	cronPath := filepath.Join(dataDir, "cron")
+	cronPath := filepath.Join(userWorkspace, "cron")
 	count, size, err = addDirToZipWithCounts(zipWriter, cronPath, "cron")
 	if count > 0 {
 		totalFiles += count
@@ -214,7 +257,7 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 	// Add bootstrap files
 	bootstrapFiles := []string{"AGENTS.md", "SOUL.md", "USER.md", "IDENTITY.md"}
 	for _, bootstrapFile := range bootstrapFiles {
-		bootstrapPath := filepath.Join(dataDir, "workspace", bootstrapFile)
+		bootstrapPath := filepath.Join(userWorkspace, bootstrapFile)
 		zipEntryPath := filepath.ToSlash(filepath.Join("workspace", bootstrapFile))
 		count, size, err := addFileToZipWithCounts(zipWriter, bootstrapPath, zipEntryPath)
 		if err == nil {
@@ -230,7 +273,7 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 
 	// Add config.json
 	if options.IncludeConfig {
-		configPath := filepath.Join(dataDir, "config.json")
+		configPath := filepath.Join(userRoot, "config.json")
 		count, size, err := addFileToZipWithCounts(zipWriter, configPath, "config.json")
 		if err == nil {
 			totalFiles += count
@@ -246,7 +289,7 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 
 	// Add .env file
 	if options.IncludeEnv {
-		envPath := filepath.Join(dataDir, ".env")
+		envPath := filepath.Join(userRoot, ".env")
 		count, size, err := addFileToZipWithCounts(zipWriter, envPath, ".env")
 		if err == nil {
 			totalFiles += count
@@ -266,8 +309,9 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 	// Validate that something was exported
 	if manifest.TotalFiles == 0 {
 		logger.ErrorCF("backup", "Backup would be empty - no files found", map[string]interface{}{
-			"data_dir": dataDir,
-			"options":  options,
+			"user_root": userRoot,
+			"db_path":   dbPath,
+			"options":   options,
 		})
 		http.Error(w, "no data files found to backup", http.StatusBadRequest)
 		return
@@ -415,8 +459,8 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	workspacePath := filepath.Join(userWorkspace, "..")
-	dataDir := filepath.Join(workspacePath, ".KakoClaw")
+	userRoot := filepath.Dir(userWorkspace)
+	dbPath := expandTilde(s.activeDBPath())
 
 	var importOptions ImportOptions
 
@@ -434,34 +478,31 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if importOptions.ReplaceDatabase && s.store != nil {
+	replaceDB := importOptions.ReplaceDatabase
+	if replaceDB && s.store != nil {
 		if err := s.store.Close(); err != nil {
 			logger.WarnCF("backup", "Failed to close database", map[string]interface{}{"error": err.Error()})
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	backupDir := filepath.Join(dataDir, "backup-before-import-"+time.Now().Format("20060102-150405"))
+	backupDir := filepath.Join(userRoot, "backup-before-import-"+time.Now().Format("20060102-150405"))
 
 	for _, f := range zipReader.File {
 		if f.Name == "manifest.json" {
 			continue
 		}
 
-		targetPath := filepath.Join(dataDir, filepath.Clean(f.Name))
+		targetPath := filepath.Join(userRoot, filepath.Clean(f.Name))
 
 		if strings.HasPrefix(f.Name, "database/") {
 			if !importOptions.ReplaceDatabase {
 				continue
 			}
-			// Map old lowercase filenames to new uppercase filenames
 			dbFileName := filepath.Base(f.Name)
-			if dbFileName == "kakoclaw.db" {
-				targetPath = filepath.Join(dataDir, "KakoClaw.db")
-			} else if dbFileName == "kakoclaw.db-shm" {
-				targetPath = filepath.Join(dataDir, "KakoClaw.db-shm")
-			} else if dbFileName == "kakoclaw.db-wal" {
-				targetPath = filepath.Join(dataDir, "KakoClaw.db-wal")
+			targetPath = dbTargetPath(dbPath, dbFileName)
+			if targetPath == "" {
+				continue
 			}
 		}
 
@@ -469,20 +510,22 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 			if !importOptions.ReplaceWorkspace {
 				continue
 			}
+			relWorkspace := strings.TrimPrefix(f.Name, "workspace/")
+			targetPath = filepath.Join(userWorkspace, relWorkspace)
 		}
 
 		if f.Name == "config.json" {
 			if !importOptions.ReplaceConfig {
 				continue
 			}
-			targetPath = filepath.Join(dataDir, "config.json")
+			targetPath = filepath.Join(userRoot, "config.json")
 		}
 
 		if f.Name == ".env" {
 			if !importOptions.ReplaceEnv {
 				continue
 			}
-			targetPath = filepath.Join(workspacePath, ".env")
+			targetPath = filepath.Join(userRoot, ".env")
 		}
 
 		if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
@@ -517,6 +560,25 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 			logger.ErrorCF("backup", "Failed to copy file", map[string]interface{}{"file": targetPath, "error": err.Error()})
 			continue
 		}
+	}
+
+	if replaceDB {
+		newStore, err := storage.New(config.StorageConfig{Path: s.activeDBPath()})
+		if err != nil {
+			logger.ErrorCF("backup", "Backup import completed but database reconnect failed", map[string]interface{}{"error": err.Error()})
+			http.Error(w, "backup imported but failed to reconnect to database; restart service", http.StatusInternalServerError)
+			return
+		}
+		s.SetStorage(newStore)
+		observability.Global().SetStorage(newStore)
+
+		authManager, err := newAuthManager(newStore, s.cfg.Username, s.cfg.Password, s.cfg.JWTExpiry)
+		if err != nil {
+			logger.ErrorCF("backup", "Backup import completed but auth reinit failed", map[string]interface{}{"error": err.Error()})
+			http.Error(w, "backup imported but failed to reinitialize auth; restart service", http.StatusInternalServerError)
+			return
+		}
+		s.authManager = authManager
 	}
 
 	logger.InfoCF("backup", "Backup imported successfully", map[string]interface{}{
