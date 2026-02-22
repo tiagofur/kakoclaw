@@ -700,9 +700,6 @@ func gatewayCmd() {
 			fmt.Printf("Warning: Failed to initialize storage: %v\n", err)
 		}
 	}
-	if channelStore != nil {
-		defer channelStore.Close()
-	}
 
 	// Create multi-user channel manager (each user gets their own channels and agent)
 	multiChannelManager := channels.NewMultiUserChannelManager(cfg, msgBus, channelStore)
@@ -881,6 +878,11 @@ func gatewayCmd() {
 	}
 	// Stop all user channel managers and agents
 	multiChannelManager.StopAll(ctx)
+
+	// Close storage after all services have stopped
+	if channelStore != nil {
+		_ = channelStore.Close()
+	}
 	fmt.Println("✓ Gateway stopped")
 }
 

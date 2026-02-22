@@ -9,11 +9,13 @@ export const useUIStore = defineStore('ui', () => {
   let deferredPrompt = null
 
   // Capture the PWA install event
-  window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault()
-    deferredPrompt = e
-    canInstallPwa.value = true
-  })
+  if ('beforeinstallprompt' in window) {
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault()
+      deferredPrompt = e
+      canInstallPwa.value = true
+    })
+  }
 
   async function installPwa() {
     if (!deferredPrompt) return

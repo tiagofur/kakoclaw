@@ -157,13 +157,13 @@ const handleLogin = async () => {
     isBlockedError.value = isBlocked
     canDismissError.value = true
     
-    // Auto-clear non-blocked errors after 5 seconds
+    // Auto-clear non-blocked errors after 15 seconds
     if (!isBlocked) {
       setTimeout(() => {
         if (!isBlockedError.value) {
           clearError()
         }
-      }, 5000)
+      }, 15000)
     }
     // Blocked errors persist until manually dismissed
   } finally {
