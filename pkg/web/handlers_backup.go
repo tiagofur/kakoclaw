@@ -1,20 +1,20 @@
 package web
 
 import (
-"archive/zip"
-"compress/flate"
-"encoding/json"
-"fmt"
-"io"
-"net/http"
-"os"
-"path/filepath"
-"strings"
-"time"
+	"archive/zip"
+	"compress/flate"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
 
-"github.com/sipeed/kakoclaw/pkg/config"
-"github.com/sipeed/kakoclaw/pkg/logger"
-"github.com/sipeed/kakoclaw/pkg/storage"
+	"github.com/sipeed/kakoclaw/pkg/config"
+	"github.com/sipeed/kakoclaw/pkg/logger"
+	"github.com/sipeed/kakoclaw/pkg/storage"
 )
 
 // BackupManifest represents the metadata of a backup archive.
@@ -54,9 +54,9 @@ type ImportOptions struct {
 }
 
 const (
-maxBackupSize = 500 * 1024 * 1024 // 500MB
-backupVersion = "2.0"
-userDataEntry = "database/user_data.json"
+	maxBackupSize = 500 * 1024 * 1024 // 500MB
+	backupVersion = "2.0"
+	userDataEntry = "database/user_data.json"
 )
 
 func expandTilde(path string) string {
@@ -128,12 +128,12 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 	userRoot := filepath.Dir(userWorkspace)
 
 	logger.InfoCF("backup", "Starting personal backup export", map[string]interface{}{
-"user":              user.Username,
-"user_id":           user.ID,
-"workspace":         userWorkspace,
-"include_database":  options.IncludeDatabase,
-"include_workspace": options.IncludeWorkspace,
-})
+		"user":              user.Username,
+		"user_id":           user.ID,
+		"workspace":         userWorkspace,
+		"include_database":  options.IncludeDatabase,
+		"include_workspace": options.IncludeWorkspace,
+	})
 
 	filename := fmt.Sprintf("kakoclaw-%s-%s.kakoclaw", user.Username, time.Now().Format("2006-01-02"))
 
@@ -148,8 +148,8 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 
 	zipWriter := zip.NewWriter(tempFile)
 	zipWriter.RegisterCompressor(zip.Deflate, func(out io.Writer) (io.WriteCloser, error) {
-return flate.NewWriter(out, flate.BestCompression)
-})
+		return flate.NewWriter(out, flate.BestCompression)
+	})
 	defer zipWriter.Close()
 
 	manifest := BackupManifest{
@@ -182,11 +182,11 @@ return flate.NewWriter(out, flate.BestCompression)
 						manifest.DatabaseFileCount = 1
 						manifest.ExportedFiles = append(manifest.ExportedFiles, userDataEntry)
 						logger.InfoCF("backup", "Exported user DB data as JSON", map[string]interface{}{
-"sessions": len(userData.Sessions),
-"messages": len(userData.Messages),
-"tasks":    len(userData.Tasks),
-"bytes":    n,
-})
+							"sessions": len(userData.Sessions),
+							"messages": len(userData.Messages),
+							"tasks":    len(userData.Tasks),
+							"bytes":    n,
+						})
 					}
 				}
 			}
@@ -302,13 +302,13 @@ return flate.NewWriter(out, flate.BestCompression)
 	http.ServeFile(w, r, tempFile.Name())
 
 	logger.InfoCF("backup", "Personal backup exported", map[string]interface{}{
-"user":        user.Username,
-"filename":    filename,
-"total_files": totalFiles,
-"size_bytes":  totalSize,
-"db_records":  manifest.DatabaseFileCount,
-"workspace":   manifest.WorkspaceFileCount,
-})
+		"user":        user.Username,
+		"filename":    filename,
+		"total_files": totalFiles,
+		"size_bytes":  totalSize,
+		"db_records":  manifest.DatabaseFileCount,
+		"workspace":   manifest.WorkspaceFileCount,
+	})
 }
 
 // ==================== IMPORT ====================
@@ -367,9 +367,12 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to import backup", http.StatusInternalServerError)
 		return
 	}
-	defer zipFile.Close()
 
-	if _, err := io.Copy(zipFile, file); err != nil {
+	_, copyErr := io.Copy(zipFile, file)
+	// Sync and explicitly close before opening as zip reader — deferred close is too late.
+	_ = zipFile.Sync()
+	_ = zipFile.Close()
+	if copyErr != nil {
 		http.Error(w, "failed to save uploaded file", http.StatusInternalServerError)
 		return
 	}
@@ -407,8 +410,10 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 	} else {
 		importOptions.ReplaceDatabase = true
 		importOptions.ReplaceWorkspace = true
-		importOptions.ReplaceConfig = true
-		importOptions.ReplaceEnv = true
+		// Do NOT default config/env to true — overwriting server config can corrupt
+		// the running instance and require a container restart to recover.
+		importOptions.ReplaceConfig = false
+		importOptions.ReplaceEnv = false
 	}
 	if !importOptions.ReplaceDatabase && !importOptions.ReplaceWorkspace && !importOptions.ReplaceConfig && !importOptions.ReplaceEnv {
 		http.Error(w, "at least one replace option must be selected", http.StatusBadRequest)
@@ -435,15 +440,15 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.InfoCF("backup", "Starting personal backup import", map[string]interface{}{
-"user":           user.Username,
-"user_id":        user.ID,
-"manifest_ver":   manifest.Version,
-"is_v2":          isV2,
-"has_legacy_db":  hasLegacyDB,
-"replace_db":     importOptions.ReplaceDatabase,
-"replace_ws":     importOptions.ReplaceWorkspace,
-"replace_config": importOptions.ReplaceConfig,
-})
+		"user":           user.Username,
+		"user_id":        user.ID,
+		"manifest_ver":   manifest.Version,
+		"is_v2":          isV2,
+		"has_legacy_db":  hasLegacyDB,
+		"replace_db":     importOptions.ReplaceDatabase,
+		"replace_ws":     importOptions.ReplaceWorkspace,
+		"replace_config": importOptions.ReplaceConfig,
+	})
 
 	// Track if we already handled legacy DB (process main .db file only once)
 	legacyDBHandled := false
@@ -480,8 +485,8 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 				importedDBMessages = messages
 				importedDBTasks = tasks
 				logger.InfoCF("backup", "Imported user DB data", map[string]interface{}{
-"sessions": sessions, "messages": messages, "tasks": tasks,
-})
+					"sessions": sessions, "messages": messages, "tasks": tasks,
+				})
 			}
 			continue
 		}
@@ -600,33 +605,33 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.InfoCF("backup", "Personal backup imported", map[string]interface{}{
-"user":        user.Username,
-"files":       importedFiles,
-"db_sessions": importedDBSessions,
-"db_messages": importedDBMessages,
-"db_tasks":    importedDBTasks,
-"errors":      len(importErrors),
-})
+		"user":        user.Username,
+		"files":       importedFiles,
+		"db_sessions": importedDBSessions,
+		"db_messages": importedDBMessages,
+		"db_tasks":    importedDBTasks,
+		"errors":      len(importErrors),
+	})
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-"ok":      len(importErrors) == 0,
-"message": fmt.Sprintf("Imported %d files, %d sessions, %d messages, %d tasks", importedFiles, importedDBSessions, importedDBMessages, importedDBTasks),
-"details": map[string]interface{}{
-"files_restored":    importedFiles,
-"sessions_imported": importedDBSessions,
-"messages_imported": importedDBMessages,
-"tasks_imported":    importedDBTasks,
-},
-"errors":   importErrors,
-"manifest": manifest,
-"imported_by": map[string]interface{}{
-"username":  user.Username,
-"user_id":   user.ID,
-"user_uuid": user.UUID,
-"workspace": userWorkspace,
-},
-})
+		"ok":      len(importErrors) == 0,
+		"message": fmt.Sprintf("Imported %d files, %d sessions, %d messages, %d tasks", importedFiles, importedDBSessions, importedDBMessages, importedDBTasks),
+		"details": map[string]interface{}{
+			"files_restored":    importedFiles,
+			"sessions_imported": importedDBSessions,
+			"messages_imported": importedDBMessages,
+			"tasks_imported":    importedDBTasks,
+		},
+		"errors":   importErrors,
+		"manifest": manifest,
+		"imported_by": map[string]interface{}{
+			"username":  user.Username,
+			"user_id":   user.ID,
+			"user_uuid": user.UUID,
+			"workspace": userWorkspace,
+		},
+	})
 }
 
 // importLegacyDB handles v1 backups that contain raw .db files.
@@ -651,8 +656,8 @@ func (s *Server) importLegacyDB(tempDBPath string, targetUserID int64) error {
 	}
 
 	logger.InfoCF("backup", "Legacy DB data imported", map[string]interface{}{
-"sessions": sessions, "messages": messages, "tasks": tasks,
-})
+		"sessions": sessions, "messages": messages, "tasks": tasks,
+	})
 	return nil
 }
 
@@ -721,11 +726,11 @@ func (s *Server) handleBackupValidate(w http.ResponseWriter, r *http.Request) {
 	if !manifestFound {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
-"valid":   false,
-"error":   "missing manifest.json",
-"files":   len(zipReader.File),
-"version": "unknown",
-})
+			"valid":   false,
+			"error":   "missing manifest.json",
+			"files":   len(zipReader.File),
+			"version": "unknown",
+		})
 		return
 	}
 
@@ -748,22 +753,22 @@ func (s *Server) handleBackupValidate(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-"valid":                true,
-"version":              manifest.Version,
-"backup_type":          manifest.BackupType,
-"backup_format":        backupFormat,
-"created_at":           manifest.CreatedAt,
-"kakoclaw_version":     manifest.KakoClawVersion,
-"config_file_count":    manifest.ConfigFileCount,
-"env_file_count":       manifest.EnvFileCount,
-"database_file_count":  manifest.DatabaseFileCount,
-"workspace_file_count": manifest.WorkspaceFileCount,
-"data_size_bytes":      manifest.DataSizeBytes,
-"total_files":          manifest.TotalFiles,
-"exported_files":       manifest.ExportedFiles,
-"failed_files":         manifest.FailedFiles,
-"manifest":             string(manifestJSON),
-"includes_database":    manifest.DatabaseFileCount > 0 || hasUserDataJSON,
+		"valid":                true,
+		"version":              manifest.Version,
+		"backup_type":          manifest.BackupType,
+		"backup_format":        backupFormat,
+		"created_at":           manifest.CreatedAt,
+		"kakoclaw_version":     manifest.KakoClawVersion,
+		"config_file_count":    manifest.ConfigFileCount,
+		"env_file_count":       manifest.EnvFileCount,
+		"database_file_count":  manifest.DatabaseFileCount,
+		"workspace_file_count": manifest.WorkspaceFileCount,
+		"data_size_bytes":      manifest.DataSizeBytes,
+		"total_files":          manifest.TotalFiles,
+		"exported_files":       manifest.ExportedFiles,
+		"failed_files":         manifest.FailedFiles,
+		"manifest":             string(manifestJSON),
+		"includes_database":    manifest.DatabaseFileCount > 0 || hasUserDataJSON,
 		"includes_workspace":   manifest.WorkspaceFileCount > 0,
 		"includes_config":      manifest.ConfigFileCount > 0,
 		"includes_env":         manifest.EnvFileCount > 0,
@@ -774,8 +779,13 @@ func (s *Server) handleBackupValidate(w http.ResponseWriter, r *http.Request) {
 // ==================== HELPERS ====================
 
 // extractZipFile extracts a single zip entry to the given target path,
-// creating parent directories as needed.
+// creating parent directories as needed. Directory entries are skipped.
 func extractZipFile(f *zip.File, targetPath string) error {
+	// Skip directory entries
+	if f.FileInfo().IsDir() {
+		return nil
+	}
+
 	// Security: prevent path traversal
 	cleanName := filepath.Clean(f.Name)
 	if strings.Contains(cleanName, "..") {
@@ -845,18 +855,18 @@ func addDirToZipWithCounts(zipWriter *zip.Writer, dirPath, zipPath string) (int,
 	totalSize := int64(0)
 
 	err := filepath.Walk(dirPath, func(filePath string, info os.FileInfo, err error) error {
-if err != nil {
-return err
-}
+		if err != nil {
+			return err
+		}
 
-relPath, err := filepath.Rel(dirPath, filePath)
-if err != nil {
-return err
-}
+		relPath, err := filepath.Rel(dirPath, filePath)
+		if err != nil {
+			return err
+		}
 
-zipEntryPath := filepath.ToSlash(filepath.Join(zipPath, relPath))
+		zipEntryPath := filepath.ToSlash(filepath.Join(zipPath, relPath))
 
-if info.IsDir() {
+		if info.IsDir() {
 			return nil
 		}
 
