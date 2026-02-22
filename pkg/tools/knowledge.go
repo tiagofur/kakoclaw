@@ -10,11 +10,22 @@ import (
 
 // KnowledgeTool allows the agent to search the knowledge base (RAG).
 type KnowledgeTool struct {
-	store *storage.Storage
+	store  *storage.Storage
+	userID int64
 }
 
 func NewKnowledgeTool(store *storage.Storage) *KnowledgeTool {
-	return &KnowledgeTool{store: store}
+	return &KnowledgeTool{
+		store:  store,
+		userID: 1, // Default to user 1 for backward compatibility
+	}
+}
+
+// SetUserID implements the UserAwareTool interface.
+func (t *KnowledgeTool) SetUserID(userID int64) {
+	if userID > 0 {
+		t.userID = userID
+	}
 }
 
 func (t *KnowledgeTool) Name() string {
@@ -55,7 +66,7 @@ func (t *KnowledgeTool) Execute(ctx context.Context, args map[string]interface{}
 		limit = int(l)
 	}
 
-	results, err := t.store.SearchKnowledge(query, limit)
+	results, err := t.store.SearchKnowledge(t.userID, query, limit)
 	if err != nil {
 		// FTS5 MATCH can fail on invalid syntax — return a user-friendly message
 		if strings.Contains(err.Error(), "fts5") || strings.Contains(err.Error(), "MATCH") {

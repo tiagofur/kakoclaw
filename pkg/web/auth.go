@@ -89,13 +89,25 @@ func (m *authManager) login(username, password string) (string, error) {
 	user, err := m.store.GetUserByUsername(username)
 	if err != nil {
 		if errors.Is(err, storage.ErrUserNotFound) {
-			return "", errors.New("invalid credentials")
+			user, err = m.store.GetUserByEmail(username)
+			if err != nil {
+				if errors.Is(err, storage.ErrUserNotFound) {
+					return "", errors.New("invalid credentials")
+				}
+				return "", err
+			}
+		} else {
+			return "", err
 		}
-		return "", err
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
 		return "", errors.New("invalid credentials")
+	}
+
+	// Check if user is blocked
+	if user.Blocked {
+		return "", fmt.Errorf("usuario bloqueado. Motivo: %s. Contacte soporte", user.BlockedReason)
 	}
 
 	return m.signToken(user.Username, user.Role)

@@ -39,6 +39,7 @@ type CronJobState struct {
 
 type CronJob struct {
 	ID             string       `json:"id"`
+	UserID         int64        `json:"userId"` // User who owns this job
 	Name           string       `json:"name"`
 	Enabled        bool         `json:"enabled"`
 	Schedule       CronSchedule `json:"schedule"`
@@ -179,6 +180,34 @@ func (cs *CronService) RunJob(jobID string) error {
 	var targetJob *CronJob
 	for i := range cs.store.Jobs {
 		if cs.store.Jobs[i].ID == jobID {
+			// Copy the job to execute outside the lock
+			jobCopy := cs.store.Jobs[i]
+			targetJob = &jobCopy
+			break
+		}
+	}
+	cs.mu.RUnlock()
+
+	if targetJob == nil {
+		return fmt.Errorf("job not found")
+	}
+
+	cs.executeJob(targetJob)
+	return nil
+}
+
+// RunJobForUser executes a job immediately only if it belongs to the specified user
+func (cs *CronService) RunJobForUser(userID int64, jobID string) error {
+	cs.mu.RLock()
+
+	// Normalize userID
+	if userID == 0 {
+		userID = 1
+	}
+
+	var targetJob *CronJob
+	for i := range cs.store.Jobs {
+		if cs.store.Jobs[i].ID == jobID && cs.store.Jobs[i].UserID == userID {
 			// Copy the job to execute outside the lock
 			jobCopy := cs.store.Jobs[i]
 			targetJob = &jobCopy
@@ -382,7 +411,7 @@ func (cs *CronService) ValidateSchedule(schedule *CronSchedule) error {
 	return nil
 }
 
-func (cs *CronService) AddJob(name string, schedule CronSchedule, message string, deliver bool, channel, to string) (*CronJob, error) {
+func (cs *CronService) AddJob(userID int64, name string, schedule CronSchedule, message string, deliver bool, channel, to string) (*CronJob, error) {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
@@ -396,8 +425,14 @@ func (cs *CronService) AddJob(name string, schedule CronSchedule, message string
 	// One-time tasks (at) should be deleted after execution
 	deleteAfterRun := (schedule.Kind == "at")
 
+	// Normalize userID: if 0, use 1 for backward compatibility
+	if userID == 0 {
+		userID = 1
+	}
+
 	job := CronJob{
 		ID:       generateID(),
+		UserID:   userID,
 		Name:     name,
 		Enabled:  true,
 		Schedule: schedule,
@@ -465,11 +500,76 @@ func (cs *CronService) UpdateJob(jobID string, name string, schedule CronSchedul
 	return nil, nil
 }
 
+// UpdateJobForUser updates a job only if it belongs to the specified user
+func (cs *CronService) UpdateJobForUser(userID int64, jobID string, name string, schedule CronSchedule, message string, deliver bool, channel, to string) (*CronJob, error) {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+
+	// Normalize userID
+	if userID == 0 {
+		userID = 1
+	}
+
+	// Validate schedule
+	if err := cs.ValidateSchedule(&schedule); err != nil {
+		return nil, fmt.Errorf("invalid schedule: %w", err)
+	}
+
+	for i := range cs.store.Jobs {
+		if cs.store.Jobs[i].ID == jobID && cs.store.Jobs[i].UserID == userID {
+			now := time.Now().UnixMilli()
+
+			cs.store.Jobs[i].Name = name
+			cs.store.Jobs[i].Schedule = schedule
+			cs.store.Jobs[i].Payload.Message = message
+			cs.store.Jobs[i].Payload.Deliver = deliver
+			cs.store.Jobs[i].Payload.Channel = channel
+			cs.store.Jobs[i].Payload.To = to
+			cs.store.Jobs[i].UpdatedAtMS = now
+			cs.store.Jobs[i].DeleteAfterRun = (schedule.Kind == "at")
+
+			// Recompute next run if enabled
+			if cs.store.Jobs[i].Enabled {
+				cs.store.Jobs[i].State.NextRunAtMS = cs.computeNextRun(&schedule, now)
+			}
+
+			if err := cs.saveStoreUnsafe(); err != nil {
+				return nil, err
+			}
+
+			job := cs.store.Jobs[i]
+			return &job, nil
+		}
+	}
+
+	return nil, nil
+}
+
 func (cs *CronService) RemoveJob(jobID string) bool {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
 	return cs.removeJobUnsafe(jobID)
+}
+
+// RemoveJobForUser removes a job only if it belongs to the specified user
+func (cs *CronService) RemoveJobForUser(userID int64, jobID string) bool {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+
+	// Normalize userID
+	if userID == 0 {
+		userID = 1
+	}
+
+	// Verify ownership before removing
+	for _, job := range cs.store.Jobs {
+		if job.ID == jobID && job.UserID == userID {
+			return cs.removeJobUnsafe(jobID)
+		}
+	}
+
+	return false
 }
 
 func (cs *CronService) removeJobUnsafe(jobID string) bool {
@@ -518,6 +618,38 @@ func (cs *CronService) EnableJob(jobID string, enabled bool) *CronJob {
 	return nil
 }
 
+// EnableJobForUser enables/disables a job only if it belongs to the specified user
+func (cs *CronService) EnableJobForUser(userID int64, jobID string, enabled bool) *CronJob {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+
+	// Normalize userID
+	if userID == 0 {
+		userID = 1
+	}
+
+	for i := range cs.store.Jobs {
+		job := &cs.store.Jobs[i]
+		if job.ID == jobID && job.UserID == userID {
+			job.Enabled = enabled
+			job.UpdatedAtMS = time.Now().UnixMilli()
+
+			if enabled {
+				job.State.NextRunAtMS = cs.computeNextRun(&job.Schedule, time.Now().UnixMilli())
+			} else {
+				job.State.NextRunAtMS = nil
+			}
+
+			if err := cs.saveStoreUnsafe(); err != nil {
+				log.Printf("[cron] failed to save store after enable: %v", err)
+			}
+			return job
+		}
+	}
+
+	return nil
+}
+
 func (cs *CronService) ListJobs(includeDisabled bool) []CronJob {
 	cs.mu.RLock()
 	defer cs.mu.RUnlock()
@@ -534,6 +666,30 @@ func (cs *CronService) ListJobs(includeDisabled bool) []CronJob {
 	}
 
 	return enabled
+}
+
+// ListJobsForUser returns jobs filtered by userID
+func (cs *CronService) ListJobsForUser(userID int64, includeDisabled bool) []CronJob {
+	cs.mu.RLock()
+	defer cs.mu.RUnlock()
+
+	// Normalize userID: if 0, use 1 for backward compatibility
+	if userID == 0 {
+		userID = 1
+	}
+
+	var result []CronJob
+	for _, job := range cs.store.Jobs {
+		if job.UserID != userID {
+			continue
+		}
+		if !includeDisabled && !job.Enabled {
+			continue
+		}
+		result = append(result, job)
+	}
+
+	return result
 }
 
 func (cs *CronService) Status() map[string]interface{} {

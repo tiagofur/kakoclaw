@@ -226,7 +226,7 @@ func DefaultConfig() *Config {
 				Workspace:           "~/.kakoclaw/workspace",
 				RestrictToWorkspace: true,
 				Provider:            "",
-				Model:               "glm-4.7",
+				Model:               "openrouter",
 				MaxTokens:           8192,
 				Temperature:         0.7,
 				MaxToolIterations:   20,

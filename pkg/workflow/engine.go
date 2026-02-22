@@ -80,6 +80,11 @@ func NewEngine(agentLoop *agent.AgentLoop, toolRegistry *tools.ToolRegistry, sto
 
 // Run executes a workflow and records the run in storage.
 func (e *Engine) Run(ctx context.Context, wf *storage.Workflow) ([]StepResult, error) {
+	return e.RunWithParams(ctx, wf, nil)
+}
+
+// RunWithParams executes a workflow with runtime parameters and records the run in storage.
+func (e *Engine) RunWithParams(ctx context.Context, wf *storage.Workflow, params map[string]string) ([]StepResult, error) {
 	var steps []Step
 	if err := json.Unmarshal(wf.Steps, &steps); err != nil {
 		return nil, fmt.Errorf("parsing workflow steps: %w", err)
@@ -122,11 +127,11 @@ func (e *Engine) Run(ctx context.Context, wf *storage.Workflow) ([]StepResult, e
 
 		switch step.Type {
 		case StepPrompt:
-			output, stepErr = e.executePrompt(ctx, step, sessionKey, results)
+			output, stepErr = e.executePrompt(ctx, step, sessionKey, results, params)
 		case StepTool:
-			output, stepErr = e.executeTool(ctx, step, results)
+			output, stepErr = e.executeTool(ctx, step, results, params)
 		case StepCondition:
-			matched, evalErr := e.evaluateCondition(step, results)
+			matched, evalErr := e.evaluateCondition(step, results, params)
 			if evalErr != nil {
 				stepErr = evalErr
 			} else if !matched {
@@ -197,7 +202,7 @@ func (e *Engine) Run(ctx context.Context, wf *storage.Workflow) ([]StepResult, e
 }
 
 // executePrompt sends a message to the AI agent and returns the response.
-func (e *Engine) executePrompt(ctx context.Context, step Step, sessionKey string, prevResults []StepResult) (string, error) {
+func (e *Engine) executePrompt(ctx context.Context, step Step, sessionKey string, prevResults []StepResult, params map[string]string) (string, error) {
 	if e.agentLoop == nil {
 		return "", fmt.Errorf("agent loop not available")
 	}
@@ -207,7 +212,7 @@ func (e *Engine) executePrompt(ctx context.Context, step Step, sessionKey string
 		return "", fmt.Errorf("parsing prompt config: %w", err)
 	}
 
-	message := interpolate(cfg.Message, prevResults)
+	message := interpolate(cfg.Message, prevResults, params)
 
 	if cfg.Model != "" {
 		return e.agentLoop.ProcessDirectWithModel(ctx, message, sessionKey, cfg.Model)
@@ -216,7 +221,7 @@ func (e *Engine) executePrompt(ctx context.Context, step Step, sessionKey string
 }
 
 // executeTool calls a registered tool directly.
-func (e *Engine) executeTool(ctx context.Context, step Step, prevResults []StepResult) (string, error) {
+func (e *Engine) executeTool(ctx context.Context, step Step, prevResults []StepResult, params map[string]string) (string, error) {
 	if e.tools == nil {
 		return "", fmt.Errorf("tool registry not available")
 	}
@@ -230,7 +235,7 @@ func (e *Engine) executeTool(ctx context.Context, step Step, prevResults []StepR
 	args := make(map[string]interface{})
 	for k, v := range cfg.Args {
 		if s, ok := v.(string); ok {
-			args[k] = interpolate(s, prevResults)
+			args[k] = interpolate(s, prevResults, params)
 		} else {
 			args[k] = v
 		}
@@ -240,14 +245,14 @@ func (e *Engine) executeTool(ctx context.Context, step Step, prevResults []StepR
 }
 
 // evaluateCondition checks a condition against previous step outputs.
-func (e *Engine) evaluateCondition(step Step, prevResults []StepResult) (bool, error) {
+func (e *Engine) evaluateCondition(step Step, prevResults []StepResult, params map[string]string) (bool, error) {
 	var cfg ConditionConfig
 	if err := json.Unmarshal(step.Config, &cfg); err != nil {
 		return false, fmt.Errorf("parsing condition config: %w", err)
 	}
 
-	subject := interpolate(cfg.Reference, prevResults)
-	value := interpolate(cfg.Value, prevResults)
+	subject := interpolate(cfg.Reference, prevResults, params)
+	value := interpolate(cfg.Value, prevResults, params)
 
 	switch cfg.Operator {
 	case "contains":
@@ -270,10 +275,14 @@ func (e *Engine) evaluateCondition(step Step, prevResults []StepResult) (bool, e
 // templatePattern matches {{step.N.output}} or {{step.N.error}}
 var templatePattern = regexp.MustCompile(`\{\{step\.(\d+)\.(output|error)\}\}`)
 
-// interpolate replaces {{step.N.output}} and {{step.N.error}} placeholders
-// with values from previous step results. Step indices are 1-based.
-func interpolate(text string, results []StepResult) string {
-	return templatePattern.ReplaceAllStringFunc(text, func(match string) string {
+// paramPattern matches {{param.name}}
+var paramPattern = regexp.MustCompile(`\{\{param\.(\w+)\}\}`)
+
+// interpolate replaces {{step.N.output}}, {{step.N.error}}, and {{param.name}} placeholders
+// with values from previous step results and runtime parameters. Step indices are 1-based.
+func interpolate(text string, results []StepResult, params map[string]string) string {
+	// Replace step references
+	text = templatePattern.ReplaceAllStringFunc(text, func(match string) string {
 		parts := templatePattern.FindStringSubmatch(match)
 		if len(parts) != 3 {
 			return match
@@ -289,4 +298,21 @@ func interpolate(text string, results []StepResult) string {
 		}
 		return results[idx].Output
 	})
+
+	// Replace parameter references
+	if params != nil {
+		text = paramPattern.ReplaceAllStringFunc(text, func(match string) string {
+			parts := paramPattern.FindStringSubmatch(match)
+			if len(parts) != 2 {
+				return match
+			}
+			paramName := parts[1]
+			if val, ok := params[paramName]; ok {
+				return val
+			}
+			return match
+		})
+	}
+
+	return text
 }

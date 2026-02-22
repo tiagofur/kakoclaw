@@ -141,6 +141,12 @@ func (s *Storage) migrate() error {
 		`ALTER TABLE users ADD COLUMN uuid TEXT UNIQUE;`,
 		// Migration: Add email column
 		`ALTER TABLE users ADD COLUMN email TEXT;`,
+		// Migration: Add blocked columns for user blocking feature
+		`ALTER TABLE users ADD COLUMN blocked BOOLEAN NOT NULL DEFAULT 0;`,
+		`ALTER TABLE users ADD COLUMN blocked_reason TEXT;`,
+		`ALTER TABLE users ADD COLUMN blocked_by INTEGER;`,
+		`ALTER TABLE users ADD COLUMN blocked_at DATETIME;`,
+		`CREATE INDEX IF NOT EXISTS idx_users_blocked ON users(blocked);`,
 		// Settings table for global configuration
 		`CREATE TABLE IF NOT EXISTS settings (
 			key TEXT PRIMARY KEY,
@@ -202,6 +208,11 @@ func (s *Storage) migrate() error {
 	// Setup sessions table for onboarding flow
 	if err := s.migrateSetupSessions(); err != nil {
 		return fmt.Errorf("setup sessions migration: %w", err)
+	}
+
+	// User providers configuration table
+	if err := s.migrateUserProviders(); err != nil {
+		return fmt.Errorf("user providers migration: %w", err)
 	}
 
 	return nil

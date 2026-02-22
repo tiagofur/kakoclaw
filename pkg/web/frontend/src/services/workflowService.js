@@ -32,8 +32,8 @@ export default {
   },
 
   // Run a workflow
-  runWorkflow: async (id) => {
-    const response = await client.post(`/workflows/${id}/run`, {}, {
+  runWorkflow: async (id, parameters = {}) => {
+    const response = await client.post(`/workflows/${id}/run`, { parameters }, {
       timeout: 300000 // 5 min for workflow execution
     })
     return response.data

@@ -12,7 +12,7 @@ export function useUserConfig() {
       isLoading.value = true
       error.value = ''
 
-      const response = await fetch('/api/v1/users/me/config', {
+      const response = await fetch('/api/v1/me/config', {
         headers: {
           'Authorization': `Bearer ${authStore.token}`
         }

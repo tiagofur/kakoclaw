@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/sipeed/kakoclaw/pkg/bus"
+	"github.com/sipeed/kakoclaw/pkg/storage"
 )
 
 type Channel interface {
@@ -22,6 +23,7 @@ type Channel interface {
 type BaseChannel struct {
 	config       interface{}
 	bus          *bus.MessageBus
+	storage      *storage.Storage
 	running      bool
 	name         string
 	allowList    []string
@@ -32,6 +34,7 @@ func NewBaseChannel(name string, config interface{}, bus *bus.MessageBus, allowL
 	return &BaseChannel{
 		config:    config,
 		bus:       bus,
+		storage:   nil, // Will be set by calling SetStorage
 		name:      name,
 		allowList: allowList,
 		running:   false,
@@ -49,6 +52,11 @@ func (c *BaseChannel) IsRunning() bool {
 // SetUserResolver sets a resolver for senderID -> userID mappings.
 func (c *BaseChannel) SetUserResolver(resolver func(senderID string) (int64, error)) {
 	c.userResolver = resolver
+}
+
+// SetStorage sets the storage instance for blocked user checks.
+func (c *BaseChannel) SetStorage(store *storage.Storage) {
+	c.storage = store
 }
 
 // GetUserIDForSender is a default implementation that returns 0.
@@ -106,6 +114,23 @@ func (c *BaseChannel) HandleMessage(senderID, chatID, content string, media []st
 	if err != nil {
 		// Log error but continue with userID 0 as fallback
 		userID = 0
+	}
+
+	// Check if user is blocked
+	if userID > 0 && c.storage != nil {
+		blocked, user, err := c.storage.IsUserBlocked(userID)
+		if err == nil && blocked {
+			// Send blocked message back to user
+			response := fmt.Sprintf("⛔ Usuario bloqueado. Motivo: %s. Contacte soporte.", user.BlockedReason)
+			outMsg := bus.OutboundMessage{
+				UserID:  userID,
+				Channel: c.name,
+				ChatID:  chatID,
+				Content: response,
+			}
+			c.bus.PublishOutbound(outMsg)
+			return nil // Don't process the message further
+		}
 	}
 
 	// Build session key: channel:chatID (will be namespaced by SessionManager if userID > 0)

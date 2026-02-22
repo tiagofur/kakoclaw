@@ -12,6 +12,7 @@ func (s *Storage) BackfillUserID(userID int64) error {
 		`UPDATE chats SET user_id = ? WHERE user_id IS NULL OR user_id = 0`,
 		`UPDATE tasks SET user_id = ? WHERE user_id IS NULL OR user_id = 0`,
 		`UPDATE sessions SET user_id = ? WHERE user_id IS NULL OR user_id = 0`,
+		`UPDATE knowledge_documents SET user_id = ? WHERE user_id IS NULL OR user_id = 0`,
 	}
 
 	for _, q := range queries {

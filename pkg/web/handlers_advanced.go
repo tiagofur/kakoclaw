@@ -19,6 +19,7 @@ import (
 	"github.com/sipeed/kakoclaw/pkg/config"
 	"github.com/sipeed/kakoclaw/pkg/cron"
 	"github.com/sipeed/kakoclaw/pkg/logger"
+	"github.com/sipeed/kakoclaw/pkg/skills"
 	"github.com/sipeed/kakoclaw/pkg/storage"
 )
 
@@ -49,12 +50,31 @@ func (s *Server) handleSkills(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Default: list installed skills
-		if s.skillsLoader == nil {
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{"skills": []interface{}{}})
+		// Default: list installed skills for this user
+		userID, ok := s.getUserIDFromClaims(r)
+		if !ok {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
-		installed := s.skillsLoader.ListSkills()
+
+		user, err := s.store.GetUserByID(userID)
+		if err != nil {
+			http.Error(w, "user not found", http.StatusNotFound)
+			return
+		}
+
+		userWorkspace, err := config.EnsureUserWorkspace(user.UUID)
+		if err != nil {
+			http.Error(w, "failed to access workspace", http.StatusInternalServerError)
+			return
+		}
+
+		// Create a temporary loader for this user's workspace
+		globalSkillsDir := filepath.Join(filepath.Dir(filepath.Dir(userWorkspace)), "..", ".kakoclaw", "skills")
+		builtinSkillsDir := "skills"
+		userLoader := skills.NewSkillsLoader(userWorkspace, globalSkillsDir, builtinSkillsDir)
+
+		installed := userLoader.ListSkills()
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{"skills": installed})
 		return
 	}
@@ -134,7 +154,26 @@ func (s *Server) handleSkillAction(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		skillDir := filepath.Join(s.workspace, "skills", skillName)
+		// Get user-specific workspace
+		userID, ok := s.getUserIDFromClaims(r)
+		if !ok {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		user, err := s.store.GetUserByID(userID)
+		if err != nil {
+			http.Error(w, "user not found", http.StatusNotFound)
+			return
+		}
+
+		userWorkspace, err := config.EnsureUserWorkspace(user.UUID)
+		if err != nil {
+			http.Error(w, "failed to access workspace", http.StatusInternalServerError)
+			return
+		}
+
+		skillDir := filepath.Join(userWorkspace, "skills", skillName)
 		skillPath := filepath.Join(skillDir, "SKILL.md")
 		if _, err := os.Stat(skillPath); err == nil && !body.Overwrite {
 			http.Error(w, "skill already exists", http.StatusConflict)
@@ -158,10 +197,6 @@ func (s *Server) handleSkillAction(w http.ResponseWriter, r *http.Request) {
 
 	case r.Method == http.MethodPost && strings.HasPrefix(path, "install"):
 		// POST /api/v1/skills/install  body: {"repository": "owner/repo"}
-		if s.skillInstaller == nil {
-			http.Error(w, "skills installer not available", http.StatusServiceUnavailable)
-			return
-		}
 		var body struct {
 			Repository string `json:"repository"`
 		}
@@ -169,9 +204,32 @@ func (s *Server) handleSkillAction(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "repository field required", http.StatusBadRequest)
 			return
 		}
+
+		// Get user-specific workspace
+		userID, ok := s.getUserIDFromClaims(r)
+		if !ok {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		user, err := s.store.GetUserByID(userID)
+		if err != nil {
+			http.Error(w, "user not found", http.StatusNotFound)
+			return
+		}
+
+		userWorkspace, err := config.EnsureUserWorkspace(user.UUID)
+		if err != nil {
+			http.Error(w, "failed to access workspace", http.StatusInternalServerError)
+			return
+		}
+
+		// Create a temporary installer for this user's workspace
+		userInstaller := skills.NewSkillInstaller(userWorkspace)
+
 		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 		defer cancel()
-		if err := s.skillInstaller.InstallFromGitHub(ctx, body.Repository); err != nil {
+		if err := userInstaller.InstallFromGitHub(ctx, body.Repository); err != nil {
 			http.Error(w, "install failed: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -184,11 +242,30 @@ func (s *Server) handleSkillAction(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "skill name required", http.StatusBadRequest)
 			return
 		}
-		if s.skillInstaller == nil {
-			http.Error(w, "skills installer not available", http.StatusServiceUnavailable)
+
+		// Get user-specific workspace
+		userID, ok := s.getUserIDFromClaims(r)
+		if !ok {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
-		if err := s.skillInstaller.Uninstall(skillName); err != nil {
+
+		user, err := s.store.GetUserByID(userID)
+		if err != nil {
+			http.Error(w, "user not found", http.StatusNotFound)
+			return
+		}
+
+		userWorkspace, err := config.EnsureUserWorkspace(user.UUID)
+		if err != nil {
+			http.Error(w, "failed to access workspace", http.StatusInternalServerError)
+			return
+		}
+
+		// Create a temporary installer for this user's workspace
+		userInstaller := skills.NewSkillInstaller(userWorkspace)
+
+		if err := userInstaller.Uninstall(skillName); err != nil {
 			http.Error(w, "uninstall failed: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -201,11 +278,32 @@ func (s *Server) handleSkillAction(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "skill name required", http.StatusBadRequest)
 			return
 		}
-		if s.skillsLoader == nil {
-			http.Error(w, "skills loader not available", http.StatusServiceUnavailable)
+
+		// Get user-specific workspace
+		userID, ok := s.getUserIDFromClaims(r)
+		if !ok {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
-		content, ok := s.skillsLoader.LoadSkill(skillName)
+
+		user, err := s.store.GetUserByID(userID)
+		if err != nil {
+			http.Error(w, "user not found", http.StatusNotFound)
+			return
+		}
+
+		userWorkspace, err := config.EnsureUserWorkspace(user.UUID)
+		if err != nil {
+			http.Error(w, "failed to access workspace", http.StatusInternalServerError)
+			return
+		}
+
+		// Create a temporary loader for this user's workspace
+		globalSkillsDir := filepath.Join(filepath.Dir(filepath.Dir(userWorkspace)), "..", ".kakoclaw", "skills")
+		builtinSkillsDir := "skills"
+		userLoader := skills.NewSkillsLoader(userWorkspace, globalSkillsDir, builtinSkillsDir)
+
+		content, ok := userLoader.LoadSkill(skillName)
 		if !ok {
 			http.Error(w, "skill not found", http.StatusNotFound)
 			return
@@ -321,10 +419,17 @@ func (s *Server) handleCron(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get user from JWT claims
+	userID, ok := s.getUserIDFromClaims(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	switch r.Method {
 	case http.MethodGet:
 		includeDisabled := r.URL.Query().Get("include_disabled") == "true"
-		jobs := s.cronService.ListJobs(includeDisabled)
+		jobs := s.cronService.ListJobsForUser(userID, includeDisabled)
 		status := s.cronService.Status()
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{"jobs": jobs, "status": status})
 
@@ -355,7 +460,7 @@ func (s *Server) handleCron(w http.ResponseWriter, r *http.Request) {
 		// Import cron schedule type
 		schedule := cronScheduleFromBody(body.Schedule.Kind, body.Schedule.AtMS, body.Schedule.EveryMS, body.Schedule.Expr, body.Schedule.TZ)
 
-		job, err := s.cronService.AddJob(body.Name, schedule, body.Message, body.Deliver, body.Channel, body.To)
+		job, err := s.cronService.AddJob(userID, body.Name, schedule, body.Message, body.Deliver, body.Channel, body.To)
 		if err != nil {
 			// Validation errors from AddJob return 400
 			http.Error(w, "failed to create job: "+err.Error(), http.StatusBadRequest)
@@ -377,6 +482,13 @@ func (s *Server) handleCronAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get user from JWT claims
+	userID, ok := s.getUserIDFromClaims(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	switch {
 	case r.Method == http.MethodDelete:
 		// DELETE /api/v1/cron/{id}
@@ -385,7 +497,7 @@ func (s *Server) handleCronAction(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "job id required", http.StatusBadRequest)
 			return
 		}
-		if !s.cronService.RemoveJob(jobID) {
+		if !s.cronService.RemoveJobForUser(userID, jobID) {
 			http.Error(w, "job not found", http.StatusNotFound)
 			return
 		}
@@ -405,7 +517,7 @@ func (s *Server) handleCronAction(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "enabled field required", http.StatusBadRequest)
 			return
 		}
-		job := s.cronService.EnableJob(jobID, *body.Enabled)
+		job := s.cronService.EnableJobForUser(userID, jobID, *body.Enabled)
 		if job == nil {
 			http.Error(w, "job not found", http.StatusNotFound)
 			return
@@ -444,7 +556,7 @@ func (s *Server) handleCronAction(w http.ResponseWriter, r *http.Request) {
 
 		schedule := cronScheduleFromBody(body.Schedule.Kind, body.Schedule.AtMS, body.Schedule.EveryMS, body.Schedule.Expr, body.Schedule.TZ)
 
-		job, err := s.cronService.UpdateJob(jobID, body.Name, schedule, body.Message, body.Deliver, body.Channel, body.To)
+		job, err := s.cronService.UpdateJobForUser(userID, jobID, body.Name, schedule, body.Message, body.Deliver, body.Channel, body.To)
 		if err != nil {
 			http.Error(w, "invalid job: "+err.Error(), http.StatusBadRequest)
 			return
@@ -461,7 +573,7 @@ func (s *Server) handleCronAction(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "job id required", http.StatusBadRequest)
 			return
 		}
-		if err := s.cronService.RunJob(jobID); err != nil {
+		if err := s.cronService.RunJobForUser(userID, jobID); err != nil {
 			statusCode := http.StatusInternalServerError
 			if strings.Contains(err.Error(), "not found") {
 				statusCode = http.StatusNotFound
@@ -513,6 +625,12 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodPost {
+		claims, ok := r.Context().Value(userClaimsKey).(*jwtClaims)
+		if !ok || claims == nil || claims.Role != "admin" {
+			http.Error(w, "forbidden: admin role required", http.StatusForbidden)
+			return
+		}
+
 		var newConfig map[string]interface{}
 		if err := json.NewDecoder(r.Body).Decode(&newConfig); err != nil {
 			http.Error(w, "invalid request body", http.StatusBadRequest)
@@ -642,13 +760,34 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get user from claims
+	userID, ok := s.getUserIDFromClaims(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Get user to obtain UUID
+	user, err := s.store.GetUserByID(userID)
+	if err != nil {
+		http.Error(w, "user not found", http.StatusNotFound)
+		return
+	}
+
+	// Get user-specific workspace
+	userWorkspace, err := config.EnsureUserWorkspace(user.UUID)
+	if err != nil {
+		http.Error(w, "failed to access workspace", http.StatusInternalServerError)
+		return
+	}
+
 	// Get relative path from URL
 	relPath := strings.TrimPrefix(r.URL.Path, "/api/v1/files")
 	relPath = strings.TrimPrefix(relPath, "/")
 
-	// Security: resolve and verify path is within workspace
-	fullPath := filepath.Clean(filepath.Join(s.workspace, relPath))
-	absWorkspace, _ := filepath.Abs(s.workspace)
+	// Security: resolve and verify path is within user workspace
+	fullPath := filepath.Clean(filepath.Join(userWorkspace, relPath))
+	absWorkspace, _ := filepath.Abs(userWorkspace)
 	absPath, _ := filepath.Abs(fullPath)
 	if !strings.HasPrefix(absPath, absWorkspace) {
 		http.Error(w, "access denied", http.StatusForbidden)
@@ -698,7 +837,7 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]string{
 			"status": "uploaded",
 			"name":   header.Filename,
-			"path":   filepath.ToSlash(strings.TrimPrefix(targetPath, s.workspace)),
+			"path":   filepath.ToSlash(strings.TrimPrefix(targetPath, userWorkspace)),
 		})
 		return
 	}
@@ -719,7 +858,7 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 			}
 			w.Header().Set("Content-Type", "application/zip")
 			w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.zip\"", zipName))
-			
+
 			zw := zip.NewWriter(w)
 			defer zw.Close()
 
@@ -730,7 +869,7 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 				if walkInfo.IsDir() {
 					return nil
 				}
-				
+
 				relP, err := filepath.Rel(fullPath, path)
 				if err != nil {
 					return err
@@ -1014,9 +1153,9 @@ func redactChannels(cfg *config.Config) map[string]interface{} {
 			"app_id":     cfg.Channels.QQ.AppID,
 		},
 		"maixcam": map[string]interface{}{
-			"enabled":    cfg.Channels.MaixCam.Enabled,
-			"host":       cfg.Channels.MaixCam.Host,
-			"port":       cfg.Channels.MaixCam.Port,
+			"enabled": cfg.Channels.MaixCam.Enabled,
+			"host":    cfg.Channels.MaixCam.Host,
+			"port":    cfg.Channels.MaixCam.Port,
 		},
 		"signal": map[string]interface{}{
 			"enabled":      cfg.Channels.Signal.Enabled,
@@ -1070,6 +1209,13 @@ func (s *Server) handleKnowledgeAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userID, ok := s.getUserIDFromClaims(r)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+		return
+	}
+
 	// Extract ID from path: /api/v1/knowledge/{id}
 	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/v1/knowledge/"), "/")
 	if len(pathParts) == 0 || pathParts[0] == "" {
@@ -1086,7 +1232,7 @@ func (s *Server) handleKnowledgeAction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodDelete {
-		if err := s.store.DeleteKnowledgeDocument(docID); err != nil {
+		if err := s.store.DeleteKnowledgeDocument(userID, docID); err != nil {
 			w.WriteHeader(http.StatusNotFound)
 			_ = json.NewEncoder(w).Encode(map[string]string{"error": "document not found"})
 			return
@@ -1096,7 +1242,7 @@ func (s *Server) handleKnowledgeAction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(pathParts) > 1 && pathParts[1] == "chunks" && r.Method == http.MethodGet {
-		chunks, err := s.store.GetKnowledgeDocumentChunks(docID)
+		chunks, err := s.store.GetKnowledgeDocumentChunks(userID, docID)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			_ = json.NewEncoder(w).Encode(map[string]string{"error": "failed to get chunks: " + err.Error()})
@@ -1117,6 +1263,13 @@ func (s *Server) handleKnowledgeChunkAction(w http.ResponseWriter, r *http.Reque
 	if s.store == nil {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "storage not configured"})
+		return
+	}
+
+	userID, ok := s.getUserIDFromClaims(r)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
 		return
 	}
 
@@ -1144,7 +1297,7 @@ func (s *Server) handleKnowledgeChunkAction(w http.ResponseWriter, r *http.Reque
 			return
 		}
 
-		if err := s.store.UpdateKnowledgeChunk(chunkID, req.Content); err != nil {
+		if err := s.store.UpdateKnowledgeChunk(userID, chunkID, req.Content); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			_ = json.NewEncoder(w).Encode(map[string]string{"error": "failed to update chunk: " + err.Error()})
 			return
@@ -1167,6 +1320,13 @@ func (s *Server) handleKnowledgeSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userID, ok := s.getUserIDFromClaims(r)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+		return
+	}
+
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
 	if query == "" {
 		w.WriteHeader(http.StatusBadRequest)
@@ -1174,7 +1334,7 @@ func (s *Server) handleKnowledgeSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	results, err := s.store.SearchKnowledge(query, 10)
+	results, err := s.store.SearchKnowledge(userID, query, 10)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
@@ -1189,7 +1349,14 @@ func (s *Server) handleKnowledgeSearch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleKnowledgeList(w http.ResponseWriter, r *http.Request) {
-	docs, err := s.store.ListKnowledgeDocuments()
+	userID, ok := s.getUserIDFromClaims(r)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	docs, err := s.store.ListKnowledgeDocuments(userID)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
@@ -1202,6 +1369,13 @@ func (s *Server) handleKnowledgeList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleKnowledgeUpload(w http.ResponseWriter, r *http.Request) {
+	userID, ok := s.getUserIDFromClaims(r)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+		return
+	}
+
 	// Limit upload to 25MB
 	r.Body = http.MaxBytesReader(w, r.Body, 25<<20)
 	if err := r.ParseMultipartForm(25 << 20); err != nil {
@@ -1258,7 +1432,7 @@ func (s *Server) handleKnowledgeUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	doc, err := s.store.SaveKnowledgeDocument(header.Filename, mimeType, header.Size, chunks)
+	doc, err := s.store.SaveKnowledgeDocument(userID, header.Filename, mimeType, header.Size, chunks)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "failed to save document: " + err.Error()})
@@ -1699,18 +1873,27 @@ func updateChannelConfig(cfg *config.Config, updates map[string]interface{}) {
 		// Only update fields if they are provided
 		if enabled, ok := data["enabled"].(bool); ok {
 			switch name {
-			case "telegram": cfg.Channels.Telegram.Enabled = enabled
-			case "discord": cfg.Channels.Discord.Enabled = enabled
-			case "whatsapp": cfg.Channels.WhatsApp.Enabled = enabled
-			case "slack": cfg.Channels.Slack.Enabled = enabled
-			case "feishu": cfg.Channels.Feishu.Enabled = enabled
-			case "dingtalk": cfg.Channels.DingTalk.Enabled = enabled
-			case "qq": cfg.Channels.QQ.Enabled = enabled
-			case "signal": cfg.Channels.Signal.Enabled = enabled
-			case "maixcam": cfg.Channels.MaixCam.Enabled = enabled
+			case "telegram":
+				cfg.Channels.Telegram.Enabled = enabled
+			case "discord":
+				cfg.Channels.Discord.Enabled = enabled
+			case "whatsapp":
+				cfg.Channels.WhatsApp.Enabled = enabled
+			case "slack":
+				cfg.Channels.Slack.Enabled = enabled
+			case "feishu":
+				cfg.Channels.Feishu.Enabled = enabled
+			case "dingtalk":
+				cfg.Channels.DingTalk.Enabled = enabled
+			case "qq":
+				cfg.Channels.QQ.Enabled = enabled
+			case "signal":
+				cfg.Channels.Signal.Enabled = enabled
+			case "maixcam":
+				cfg.Channels.MaixCam.Enabled = enabled
 			}
 		}
-		
+
 		switch name {
 		case "telegram":
 			if token, ok := data["token"].(string); ok && token != "" {
@@ -2003,6 +2186,7 @@ func (s *Server) handleWorkflows(w http.ResponseWriter, r *http.Request) {
 			Name        string          `json:"name"`
 			Description string          `json:"description"`
 			Steps       json.RawMessage `json:"steps"`
+			Parameters  json.RawMessage `json:"parameters"`
 			Schedule    json.RawMessage `json:"schedule,omitempty"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -2013,7 +2197,7 @@ func (s *Server) handleWorkflows(w http.ResponseWriter, r *http.Request) {
 			writeJSONError(w, "name is required", http.StatusBadRequest)
 			return
 		}
-		id, err := s.store.CreateWorkflow(body.Name, body.Description, body.Steps, body.Schedule)
+		id, err := s.store.CreateWorkflow(body.Name, body.Description, body.Steps, body.Parameters, body.Schedule)
 		if err != nil {
 			writeJSONError(w, "failed to create workflow: "+err.Error(), http.StatusInternalServerError)
 			return
@@ -2084,6 +2268,7 @@ func (s *Server) handleWorkflowAction(w http.ResponseWriter, r *http.Request) {
 			Description string          `json:"description"`
 			Enabled     *bool           `json:"enabled"`
 			Steps       json.RawMessage `json:"steps"`
+			Parameters  json.RawMessage `json:"parameters"`
 			Schedule    json.RawMessage `json:"schedule,omitempty"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -2104,7 +2289,7 @@ func (s *Server) handleWorkflowAction(w http.ResponseWriter, r *http.Request) {
 				enabled = existing.Enabled
 			}
 		}
-		wf, err := s.store.UpdateWorkflow(workflowID, body.Name, body.Description, enabled, body.Steps, body.Schedule)
+		wf, err := s.store.UpdateWorkflow(workflowID, body.Name, body.Description, enabled, body.Steps, body.Parameters, body.Schedule)
 		if err != nil {
 			writeJSONError(w, "failed to update workflow: "+err.Error(), http.StatusInternalServerError)
 			return
@@ -2132,6 +2317,14 @@ func (s *Server) handleWorkflowRun(w http.ResponseWriter, r *http.Request, workf
 		return
 	}
 
+	// Parse runtime parameters from request body
+	var reqBody struct {
+		Parameters map[string]string `json:"parameters"`
+	}
+	if r.Body != nil {
+		_ = json.NewDecoder(r.Body).Decode(&reqBody)
+	}
+
 	wf, err := s.store.GetWorkflow(workflowID)
 	if err != nil {
 		writeJSONError(w, "workflow not found", http.StatusNotFound)
@@ -2141,7 +2334,7 @@ func (s *Server) handleWorkflowRun(w http.ResponseWriter, r *http.Request, workf
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
 	defer cancel()
 
-	results, err := s.workflowEngine.Run(ctx, wf)
+	results, err := s.workflowEngine.RunWithParams(ctx, wf, reqBody.Parameters)
 	if err != nil {
 		writeJSONError(w, "execution failed: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -2162,16 +2355,26 @@ func updateProvidersConfig(cfg *config.Config, updates map[string]interface{}) {
 
 		var p *config.ProviderConfig
 		switch name {
-		case "anthropic": p = &cfg.Providers.Anthropic
-		case "openai": p = &cfg.Providers.OpenAI
-		case "openrouter": p = &cfg.Providers.OpenRouter
-		case "groq": p = &cfg.Providers.Groq
-		case "zhipu": p = &cfg.Providers.Zhipu
-		case "vllm": p = &cfg.Providers.VLLM
-		case "gemini": p = &cfg.Providers.Gemini
-		case "nvidia": p = &cfg.Providers.Nvidia
-		case "moonshot": p = &cfg.Providers.Moonshot
-		case "ollama": p = &cfg.Providers.Ollama
+		case "anthropic":
+			p = &cfg.Providers.Anthropic
+		case "openai":
+			p = &cfg.Providers.OpenAI
+		case "openrouter":
+			p = &cfg.Providers.OpenRouter
+		case "groq":
+			p = &cfg.Providers.Groq
+		case "zhipu":
+			p = &cfg.Providers.Zhipu
+		case "vllm":
+			p = &cfg.Providers.VLLM
+		case "gemini":
+			p = &cfg.Providers.Gemini
+		case "nvidia":
+			p = &cfg.Providers.Nvidia
+		case "moonshot":
+			p = &cfg.Providers.Moonshot
+		case "ollama":
+			p = &cfg.Providers.Ollama
 		}
 
 		if p != nil {

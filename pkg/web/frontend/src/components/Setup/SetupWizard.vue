@@ -261,19 +261,15 @@ const finishSetup = async () => {
 
     // Save provider config
     if (config.value.provider.type) {
-      const providerResponse = await fetch('/api/v1/users/me/config', {
+      const providerResponse = await fetch(`/api/v1/me/providers/update?provider=${config.value.provider.type}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${authStore.token}`
         },
         body: JSON.stringify({
-          providers: {
-            [config.value.provider.type]: {
-              apiKey: config.value.provider.apiKey,
-              model: config.value.provider.model || undefined
-            }
-          }
+          api_key: config.value.provider.apiKey,
+          api_base: config.value.provider.apiBase || ''
         })
       })
 
@@ -284,7 +280,7 @@ const finishSetup = async () => {
 
     // Save channel config
     if (config.value.channel.type) {
-      const channelResponse = await fetch('/api/v1/users/me/config', {
+      const channelResponse = await fetch('/api/v1/me/config/update', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

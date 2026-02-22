@@ -22,6 +22,12 @@ type WorkspaceTool interface {
 	SetWorkspace(workspace string)
 }
 
+// UserAwareTool is an optional interface for tools that need to filter data by user.
+type UserAwareTool interface {
+	Tool
+	SetUserID(userID int64)
+}
+
 func ToolToSchema(tool Tool) map[string]interface{} {
 	return map[string]interface{}{
 		"type": "function",

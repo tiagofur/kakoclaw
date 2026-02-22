@@ -180,11 +180,43 @@ func (s *Server) Start(ctx context.Context) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/health", s.handleHealth)
 	mux.HandleFunc("/api/v1/auth/login", s.handleLogin)
+	mux.HandleFunc("/api/v1/auth/register", s.handleRegister)
 	mux.HandleFunc("/api/v1/auth/change-password", s.handleChangePassword)
 	mux.HandleFunc("/api/v1/auth/profile", s.handleProfile)
 	mux.HandleFunc("/api/v1/auth/me", s.handleMe)
-	mux.HandleFunc("/api/v1/users", s.handleUsers)       // User management (Admin only)
-	mux.HandleFunc("/api/v1/users/", s.handleUserAction) // User actions
+
+	// User-specific config management (use /api/v1/me/* to avoid /api/v1/users/ conflict)
+	mux.HandleFunc("/api/v1/me/config", s.handleGetUserConfig)                 // Get user's merged config
+	mux.HandleFunc("/api/v1/me/config/update", s.handleUpdateUserConfig)       // Update user config
+	mux.HandleFunc("/api/v1/me/config/reset", s.handleDeleteUserConfigSection) // Reset section to global
+	mux.HandleFunc("/api/v1/me/providers", s.handleGetUserProviders)           // Get user's providers
+	mux.HandleFunc("/api/v1/me/providers/update", s.handleUpdateUserProvider)  // Update specific provider
+	mux.HandleFunc("/api/v1/me/channels", s.handleGetUserChannels)             // Get user's channels
+	// Backwards-compatible aliases
+	mux.HandleFunc("/api/v1/users/me/config", s.handleGetUserConfig)
+	mux.HandleFunc("/api/v1/users/me/config/update", s.handleUpdateUserConfig)
+	mux.HandleFunc("/api/v1/users/me/config/reset", s.handleDeleteUserConfigSection)
+	mux.HandleFunc("/api/v1/users/me/providers", s.handleGetUserProviders)
+	mux.HandleFunc("/api/v1/users/me/providers/update", s.handleUpdateUserProvider)
+	mux.HandleFunc("/api/v1/users/me/channels", s.handleGetUserChannels)
+
+	// General user routes (must come after specific /users/me/* routes)
+	mux.HandleFunc("/api/v1/users", s.handleUsers) // User management (Admin only)
+	// Custom handler for user actions, block, and unblock
+	mux.HandleFunc("/api/v1/users/", func(w http.ResponseWriter, r *http.Request) {
+		// Check if path matches /users/:id/block or /users/:id/unblock
+		path := r.URL.Path
+		if strings.HasSuffix(path, "/block") && r.Method == http.MethodPost {
+			s.handleBlockUser(w, r)
+			return
+		}
+		if strings.HasSuffix(path, "/unblock") && r.Method == http.MethodPost {
+			s.handleUnblockUser(w, r)
+			return
+		}
+		// Otherwise, handle as regular user action
+		s.handleUserAction(w, r)
+	})
 	mux.HandleFunc("/api/v1/tasks", s.handleTasks)
 	mux.HandleFunc("/api/v1/tasks/search", s.handleTaskSearch) // Search tasks
 	mux.HandleFunc("/api/v1/tasks/", s.handleTasks)
@@ -202,13 +234,6 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/cron/", s.handleCronAction)                   // Cron job actions
 	mux.HandleFunc("/api/v1/channels", s.handleChannels)                  // Channels status
 	mux.HandleFunc("/api/v1/config", s.handleConfig)                      // Config (read-only, redacted)
-
-	// User-specific config management (new)
-	mux.HandleFunc("/api/v1/users/me/config", s.handleGetUserConfig)                 // Get user's merged config
-	mux.HandleFunc("/api/v1/users/me/config/update", s.handleUpdateUserConfig)       // Update user config
-	mux.HandleFunc("/api/v1/users/me/config/reset", s.handleDeleteUserConfigSection) // Reset section to global
-	mux.HandleFunc("/api/v1/users/me/providers", s.handleGetUserProviders)           // Get active providers
-	mux.HandleFunc("/api/v1/users/me/channels", s.handleGetUserChannels)             // Get active channels
 
 	// Setup/Onboarding flow (Phase 4)
 	mux.HandleFunc("/api/v1/setup/initialize", s.handleSetupInitialize) // Create setup session
@@ -376,6 +401,10 @@ func (s *Server) authMiddleware(next http.Handler) http.HandlerFunc {
 			next.ServeHTTP(w, r)
 			return
 		}
+		if strings.HasPrefix(r.URL.Path, "/api/v1/auth/register") {
+			next.ServeHTTP(w, r)
+			return
+		}
 		if strings.HasPrefix(r.URL.Path, "/api/v1/health") {
 			next.ServeHTTP(w, r)
 			return
@@ -394,6 +423,17 @@ func (s *Server) authMiddleware(next http.Handler) http.HandlerFunc {
 				w.WriteHeader(http.StatusUnauthorized)
 				_ = json.NewEncoder(w).Encode(map[string]string{
 					"error": "unauthorized",
+				})
+				return
+			}
+			// Check if user is blocked
+			user, err := s.store.GetUserByUsername(claims.Sub)
+			if err == nil && user.Blocked {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusForbidden)
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+					"error":   fmt.Sprintf("Usuario bloqueado. Motivo: %s. Contacte soporte.", user.BlockedReason),
+					"blocked": true,
 				})
 				return
 			}
@@ -1194,19 +1234,132 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	var in struct {
 		Username string `json:"username"`
+		Email    string `json:"email"`
 		Password string `json:"password"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
 		http.Error(w, "invalid json", http.StatusBadRequest)
 		return
 	}
-	token, err := s.authManager.login(in.Username, in.Password)
+	identifier := strings.TrimSpace(in.Username)
+	if identifier == "" {
+		identifier = strings.TrimSpace(in.Email)
+	}
+	if identifier == "" || in.Password == "" {
+		http.Error(w, "username or email and password are required", http.StatusBadRequest)
+		return
+	}
+
+	token, err := s.authManager.login(identifier, in.Password)
 	if err != nil {
+		// Check if it's a blocked user error
+		if strings.Contains(err.Error(), "bloqueado") || strings.Contains(err.Error(), "blocked") {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"error":   err.Error(),
+				"blocked": true,
+			})
+			return
+		}
+		// Generic error for invalid credentials
 		http.Error(w, "invalid credentials", http.StatusUnauthorized)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]string{"token": token})
+}
+
+func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if s.authManager == nil || s.store == nil {
+		http.Error(w, "service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	ip := clientIP(r)
+	key := "register:" + ip
+	s.loginLimit.SetLimit(key, 3, time.Hour) // Max 3 registrations per hour per IP
+	if !s.loginLimit.Allow(key) {
+		http.Error(w, "too many registration attempts", http.StatusTooManyRequests)
+		return
+	}
+
+	var in struct {
+		Username string `json:"username"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		http.Error(w, "invalid json", http.StatusBadRequest)
+		return
+	}
+
+	// Basic validation
+	in.Username = strings.TrimSpace(in.Username)
+	in.Email = strings.TrimSpace(in.Email)
+
+	if in.Username == "" {
+		http.Error(w, "username is required", http.StatusBadRequest)
+		return
+	}
+	if in.Email == "" {
+		http.Error(w, "email is required", http.StatusBadRequest)
+		return
+	}
+	if len(in.Password) < 8 {
+		http.Error(w, "password must be at least 8 characters", http.StatusBadRequest)
+		return
+	}
+
+	// Basic email validation
+	if !strings.Contains(in.Email, "@") || !strings.Contains(in.Email, ".") {
+		http.Error(w, "invalid email format", http.StatusBadRequest)
+		return
+	}
+
+	// Check if email is blocked
+	if blocked, err := s.store.IsEmailBlocked(in.Email); err == nil && blocked {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"error":   "No se puede registrar. Contacte soporte.",
+			"blocked": true,
+		})
+		return
+	}
+
+	// Create user with "user" role (not admin)
+	user, err := s.store.CreateUserWithEmail(in.Username, in.Email, in.Password, "user")
+	if err != nil {
+		if err == storage.ErrUserExists {
+			http.Error(w, "username or email already exists", http.StatusConflict)
+			return
+		}
+		http.Error(w, "failed to create user", http.StatusInternalServerError)
+		return
+	}
+
+	// Auto-login: generate token
+	token, err := s.authManager.signToken(user.Username, user.Role)
+	if err != nil {
+		http.Error(w, "user created but login failed", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"token": token,
+		"user": map[string]interface{}{
+			"username": user.Username,
+			"email":    user.Email,
+			"role":     user.Role,
+		},
+	})
 }
 
 func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
@@ -1897,14 +2050,33 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleLongTermMemory(w http.ResponseWriter, r *http.Request) {
-	if s.memory == nil {
-		http.Error(w, "memory store unavailable", http.StatusServiceUnavailable)
+	// Get user from claims
+	userID, ok := s.getUserIDFromClaims(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
+	// Get user to obtain UUID
+	user, err := s.store.GetUserByID(userID)
+	if err != nil {
+		http.Error(w, "user not found", http.StatusNotFound)
+		return
+	}
+
+	// Get user-specific workspace
+	userWorkspace, err := config.EnsureUserWorkspace(user.UUID)
+	if err != nil {
+		http.Error(w, "failed to access workspace", http.StatusInternalServerError)
+		return
+	}
+
+	// Create user-specific memory store
+	userMemory := agent.NewMemoryStore(userWorkspace)
+
 	switch r.Method {
 	case http.MethodGet:
-		content := s.memory.ReadLongTerm()
+		content := userMemory.ReadLongTerm()
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]string{"content": content})
 	case http.MethodPost:
@@ -1915,7 +2087,7 @@ func (s *Server) handleLongTermMemory(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "invalid json", http.StatusBadRequest)
 			return
 		}
-		if err := s.memory.WriteLongTerm(in.Content); err != nil {
+		if err := userMemory.WriteLongTerm(in.Content); err != nil {
 			http.Error(w, "failed to write memory", http.StatusInternalServerError)
 			return
 		}
@@ -1927,15 +2099,34 @@ func (s *Server) handleLongTermMemory(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleDailyNotes(w http.ResponseWriter, r *http.Request) {
-	if s.memory == nil {
-		http.Error(w, "memory store unavailable", http.StatusServiceUnavailable)
-		return
-	}
-
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+
+	// Get user from claims
+	userID, ok := s.getUserIDFromClaims(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Get user to obtain UUID
+	user, err := s.store.GetUserByID(userID)
+	if err != nil {
+		http.Error(w, "user not found", http.StatusNotFound)
+		return
+	}
+
+	// Get user-specific workspace
+	userWorkspace, err := config.EnsureUserWorkspace(user.UUID)
+	if err != nil {
+		http.Error(w, "failed to access workspace", http.StatusInternalServerError)
+		return
+	}
+
+	// Create user-specific memory store
+	userMemory := agent.NewMemoryStore(userWorkspace)
 
 	daysStr := r.URL.Query().Get("days")
 	days := 7
@@ -1945,7 +2136,7 @@ func (s *Server) handleDailyNotes(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	content := s.memory.GetRecentDailyNotes(days)
+	content := userMemory.GetRecentDailyNotes(days)
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]string{"content": content})
 }

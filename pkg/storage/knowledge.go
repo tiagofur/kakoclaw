@@ -10,6 +10,7 @@ import (
 // KnowledgeDocument represents an uploaded document in the knowledge base.
 type KnowledgeDocument struct {
 	ID         int64     `json:"id"`
+	UserID     int64     `json:"user_id"`
 	Name       string    `json:"name"`
 	MimeType   string    `json:"mime_type"`
 	Size       int64     `json:"size"`
@@ -39,6 +40,7 @@ func (s *Storage) migrateKnowledge() error {
 	queries := []string{
 		`CREATE TABLE IF NOT EXISTS knowledge_documents (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL DEFAULT 1,
 			name TEXT NOT NULL,
 			mime_type TEXT NOT NULL DEFAULT 'text/plain',
 			size INTEGER NOT NULL DEFAULT 0,
@@ -55,6 +57,7 @@ func (s *Storage) migrateKnowledge() error {
 			FOREIGN KEY (document_id) REFERENCES knowledge_documents(id) ON DELETE CASCADE
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_doc ON knowledge_chunks(document_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_knowledge_docs_user ON knowledge_documents(user_id);`,
 		// FTS5 virtual table for full-text search across chunks
 		`CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_fts USING fts5(
 			content,
@@ -78,7 +81,7 @@ func (s *Storage) migrateKnowledge() error {
 
 // SaveKnowledgeDocument stores a document record and its text chunks.
 // Chunks are inserted into both the regular table and the FTS5 index.
-func (s *Storage) SaveKnowledgeDocument(name, mimeType string, size int64, chunks []string) (*KnowledgeDocument, error) {
+func (s *Storage) SaveKnowledgeDocument(userID int64, name, mimeType string, size int64, chunks []string) (*KnowledgeDocument, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, fmt.Errorf("begin tx: %w", err)
@@ -86,8 +89,8 @@ func (s *Storage) SaveKnowledgeDocument(name, mimeType string, size int64, chunk
 	defer tx.Rollback()
 
 	res, err := tx.Exec(
-		`INSERT INTO knowledge_documents (name, mime_type, size, chunk_count) VALUES (?, ?, ?, ?)`,
-		name, mimeType, size, len(chunks),
+		`INSERT INTO knowledge_documents (user_id, name, mime_type, size, chunk_count) VALUES (?, ?, ?, ?, ?)`,
+		userID, name, mimeType, size, len(chunks),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("insert document: %w", err)
@@ -119,6 +122,7 @@ func (s *Storage) SaveKnowledgeDocument(name, mimeType string, size int64, chunk
 
 	return &KnowledgeDocument{
 		ID:         docID,
+		UserID:     userID,
 		Name:       name,
 		MimeType:   mimeType,
 		Size:       size,
@@ -127,10 +131,11 @@ func (s *Storage) SaveKnowledgeDocument(name, mimeType string, size int64, chunk
 	}, nil
 }
 
-// ListKnowledgeDocuments returns all documents in the knowledge base.
-func (s *Storage) ListKnowledgeDocuments() ([]KnowledgeDocument, error) {
+// ListKnowledgeDocuments returns all documents in the knowledge base for a specific user.
+func (s *Storage) ListKnowledgeDocuments(userID int64) ([]KnowledgeDocument, error) {
 	rows, err := s.db.Query(
-		`SELECT id, name, mime_type, size, chunk_count, created_at FROM knowledge_documents ORDER BY created_at DESC`,
+		`SELECT id, user_id, name, mime_type, size, chunk_count, created_at FROM knowledge_documents WHERE user_id = ? ORDER BY created_at DESC`,
+		userID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list documents: %w", err)
@@ -140,7 +145,7 @@ func (s *Storage) ListKnowledgeDocuments() ([]KnowledgeDocument, error) {
 	var docs []KnowledgeDocument
 	for rows.Next() {
 		var d KnowledgeDocument
-		if err := rows.Scan(&d.ID, &d.Name, &d.MimeType, &d.Size, &d.ChunkCount, &d.CreatedAt); err != nil {
+		if err := rows.Scan(&d.ID, &d.UserID, &d.Name, &d.MimeType, &d.Size, &d.ChunkCount, &d.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan document: %w", err)
 		}
 		docs = append(docs, d)
@@ -149,7 +154,7 @@ func (s *Storage) ListKnowledgeDocuments() ([]KnowledgeDocument, error) {
 }
 
 // DeleteKnowledgeDocument removes a document and all its chunks from the knowledge base.
-func (s *Storage) DeleteKnowledgeDocument(id int64) error {
+func (s *Storage) DeleteKnowledgeDocument(userID, id int64) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
@@ -168,8 +173,8 @@ func (s *Storage) DeleteKnowledgeDocument(id int64) error {
 		return fmt.Errorf("delete chunks: %w", err)
 	}
 
-	// Delete document
-	res, err := tx.Exec(`DELETE FROM knowledge_documents WHERE id = ?`, id)
+	// Delete document (verify ownership)
+	res, err := tx.Exec(`DELETE FROM knowledge_documents WHERE id = ? AND user_id = ?`, id, userID)
 	if err != nil {
 		return fmt.Errorf("delete document: %w", err)
 	}
@@ -181,9 +186,9 @@ func (s *Storage) DeleteKnowledgeDocument(id int64) error {
 	return tx.Commit()
 }
 
-// SearchKnowledge performs a full-text search across the knowledge base.
+// SearchKnowledge performs a full-text search across the knowledge base for a specific user.
 // Returns matching chunks ranked by relevance (BM25).
-func (s *Storage) SearchKnowledge(query string, limit int) ([]KnowledgeSearchResult, error) {
+func (s *Storage) SearchKnowledge(userID int64, query string, limit int) ([]KnowledgeSearchResult, error) {
 	if limit <= 0 || limit > 20 {
 		limit = 5
 	}
@@ -193,10 +198,10 @@ func (s *Storage) SearchKnowledge(query string, limit int) ([]KnowledgeSearchRes
 		FROM knowledge_fts
 		JOIN knowledge_chunks kc ON kc.id = knowledge_fts.rowid
 		JOIN knowledge_documents kd ON kd.id = kc.document_id
-		WHERE knowledge_fts MATCH ?
+		WHERE knowledge_fts MATCH ? AND kd.user_id = ?
 		ORDER BY rank
 		LIMIT ?
-	`, query, limit)
+	`, query, userID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("search knowledge: %w", err)
 	}
@@ -213,8 +218,17 @@ func (s *Storage) SearchKnowledge(query string, limit int) ([]KnowledgeSearchRes
 	return results, rows.Err()
 }
 
-// GetKnowledgeDocumentChunks retrieves all ordered chunks for a specific document.
-func (s *Storage) GetKnowledgeDocumentChunks(docID int64) ([]KnowledgeChunk, error) {
+// GetKnowledgeDocumentChunks retrieves all ordered chunks for a specific document (with user verification).
+func (s *Storage) GetKnowledgeDocumentChunks(userID, docID int64) ([]KnowledgeChunk, error) {
+	// First verify document belongs to user
+	var count int
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM knowledge_documents WHERE id = ? AND user_id = ?`, docID, userID).Scan(&count); err != nil {
+		return nil, fmt.Errorf("verify document: %w", err)
+	}
+	if count == 0 {
+		return nil, sql.ErrNoRows
+	}
+
 	rows, err := s.db.Query(`
 		SELECT id, document_id, content, position
 		FROM knowledge_chunks
@@ -237,8 +251,22 @@ func (s *Storage) GetKnowledgeDocumentChunks(docID int64) ([]KnowledgeChunk, err
 	return chunks, rows.Err()
 }
 
-// UpdateKnowledgeChunk updates the content of an existing document chunk and its search index.
-func (s *Storage) UpdateKnowledgeChunk(chunkID int64, newContent string) error {
+// UpdateKnowledgeChunk updates the content of an existing document chunk and its search index (with user verification).
+func (s *Storage) UpdateKnowledgeChunk(userID, chunkID int64, newContent string) error {
+	// First verify chunk belongs to user's document
+	var count int
+	if err := s.db.QueryRow(`
+		SELECT COUNT(*)
+		FROM knowledge_chunks kc
+		JOIN knowledge_documents kd ON kd.id = kc.document_id
+		WHERE kc.id = ? AND kd.user_id = ?
+	`, chunkID, userID).Scan(&count); err != nil {
+		return fmt.Errorf("verify chunk: %w", err)
+	}
+	if count == 0 {
+		return sql.ErrNoRows
+	}
+
 	tx, err := s.db.Begin()
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)

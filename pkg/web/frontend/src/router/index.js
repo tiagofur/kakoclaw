@@ -1,6 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
+import LandingPage from '../views/LandingPage.vue'
 import LoginPage from '../views/LoginPage.vue'
+import SignupPage from '../views/SignupPage.vue'
 import OnboardingView from '../views/OnboardingView.vue'
 import MainLayout from '../components/Layout/MainLayout.vue'
 import DashboardView from '../views/DashboardView.vue'
@@ -20,9 +22,21 @@ import WorkflowView from '../views/WorkflowView.vue'
 
 const routes = [
   {
+    path: '/landing',
+    name: 'landing',
+    component: LandingPage,
+    meta: { requiresAuth: false }
+  },
+  {
     path: '/login',
     name: 'login',
     component: LoginPage,
+    meta: { requiresAuth: false }
+  },
+  {
+    path: '/signup',
+    name: 'signup',
+    component: SignupPage,
     meta: { requiresAuth: false }
   },
   {
@@ -134,8 +148,8 @@ router.beforeEach((to, from, next) => {
   }
 
   if (requiresAuth && !authStore.isAuthenticated) {
-    next('/login')
-  } else if (to.name === 'login' && authStore.isAuthenticated) {
+    next('/landing')
+  } else if (!requiresAuth && authStore.isAuthenticated && ['login', 'signup', 'landing'].includes(to.name)) {
     next('/')
   } else {
     next()

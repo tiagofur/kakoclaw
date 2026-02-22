@@ -22,15 +22,32 @@
             <label for="current" class="block text-sm font-medium mb-2">
               Current Password
             </label>
-            <input
-              v-model="form.current"
-              id="current"
-              type="password"
-              placeholder="Enter current password"
-              class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded focus-ring text-sm"
-              required
-              :disabled="isLoading"
-            />
+            <div class="relative">
+              <input
+                v-model="form.current"
+                id="current"
+                :type="showCurrent ? 'text' : 'password'"
+                placeholder="Enter current password"
+                class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded focus-ring text-sm"
+                required
+                :disabled="isLoading"
+              />
+              <button
+                type="button"
+                @click="showCurrent = !showCurrent"
+                :disabled="isLoading"
+                class="absolute right-3 top-1/2 transform -translate-y-1/2 text-kakoclaw-text-secondary hover:text-kakoclaw-text disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                :title="showCurrent ? 'Hide password' : 'Show password'"
+              >
+                <svg v-if="showCurrent" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                </svg>
+                <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-4.803m5.596-3.856a3.375 3.375 0 11-4.753 4.753m4.753-4.753L9.172 9.172m5.656 5.656l1.414 1.414M9 9h.008v.008H9V9m12 0a10.05 10.05 0 01-9.458 15M3 9c-1.657 0-3 1.343-3 3s1.343 3 3 3"></path>
+                </svg>
+              </button>
+            </div>
           </div>
 
           <!-- New Password -->
@@ -38,16 +55,33 @@
             <label for="new" class="block text-sm font-medium mb-2">
               New Password
             </label>
-            <input
-              v-model="form.new"
-              id="new"
-              type="password"
-              placeholder="Enter new password (min 10 chars)"
-              class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded focus-ring text-sm"
-              required
-              minlength="10"
-              :disabled="isLoading"
-            />
+            <div class="relative">
+              <input
+                v-model="form.new"
+                id="new"
+                :type="showNew ? 'text' : 'password'"
+                placeholder="Enter new password (min 10 chars)"
+                class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded focus-ring text-sm"
+                required
+                minlength="10"
+                :disabled="isLoading"
+              />
+              <button
+                type="button"
+                @click="showNew = !showNew"
+                :disabled="isLoading"
+                class="absolute right-3 top-1/2 transform -translate-y-1/2 text-kakoclaw-text-secondary hover:text-kakoclaw-text disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                :title="showNew ? 'Hide password' : 'Show password'"
+              >
+                <svg v-if="showNew" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                </svg>
+                <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-4.803m5.596-3.856a3.375 3.375 0 11-4.753 4.753m4.753-4.753L9.172 9.172m5.656 5.656l1.414 1.414M9 9h.008v.008H9V9m12 0a10.05 10.05 0 01-9.458 15M3 9c-1.657 0-3 1.343-3 3s1.343 3 3 3"></path>
+                </svg>
+              </button>
+            </div>
             <p class="text-xs text-kakoclaw-text-secondary mt-1">Minimum 10 characters</p>
           </div>
 
@@ -56,15 +90,32 @@
             <label for="confirm" class="block text-sm font-medium mb-2">
               Confirm Password
             </label>
-            <input
-              v-model="form.confirm"
-              id="confirm"
-              type="password"
-              placeholder="Confirm new password"
-              class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded focus-ring text-sm"
-              required
-              :disabled="isLoading"
-            />
+            <div class="relative">
+              <input
+                v-model="form.confirm"
+                id="confirm"
+                :type="showConfirm ? 'text' : 'password'"
+                placeholder="Confirm new password"
+                class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded focus-ring text-sm"
+                required
+                :disabled="isLoading"
+              />
+              <button
+                type="button"
+                @click="showConfirm = !showConfirm"
+                :disabled="isLoading"
+                class="absolute right-3 top-1/2 transform -translate-y-1/2 text-kakoclaw-text-secondary hover:text-kakoclaw-text disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                :title="showConfirm ? 'Hide password' : 'Show password'"
+              >
+                <svg v-if="showConfirm" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                </svg>
+                <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-4.803m5.596-3.856a3.375 3.375 0 11-4.753 4.753m4.753-4.753L9.172 9.172m5.656 5.656l1.414 1.414M9 9h.008v.008H9V9m12 0a10.05 10.05 0 01-9.458 15M3 9c-1.657 0-3 1.343-3 3s1.343 3 3 3"></path>
+                </svg>
+              </button>
+            </div>
           </div>
 
           <!-- Error Message -->
@@ -115,6 +166,9 @@ const form = ref({
 const isLoading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
+const showCurrent = ref(false)
+const showNew = ref(false)
+const showConfirm = ref(false)
 
 const handleChangePassword = async () => {
   errorMessage.value = ''

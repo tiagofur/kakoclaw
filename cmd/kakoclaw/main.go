@@ -738,13 +738,17 @@ func gatewayCmd() {
 
 	// Setup cron tool and service (uses global config for now)
 	// TODO: Make cron service per-user in future phase
+	var cronService *cron.CronService
+	var defaultAgentLoop *agent.AgentLoop
 	defaultProvider, err := providers.CreateProvider(cfg)
 	if err != nil {
-		fmt.Printf("Error creating default provider for cron: %v\n", err)
-		os.Exit(1)
+		fmt.Printf("Warning: Could not create default provider for cron: %v\n", err)
+		fmt.Printf("Cron service will be disabled\n")
+		cronService = nil
+	} else {
+		defaultAgentLoop = agent.NewAgentLoop(cfg, msgBus, defaultProvider)
+		cronService = setupCronTool(defaultAgentLoop, msgBus, cfg.WorkspacePath())
 	}
-	defaultAgentLoop := agent.NewAgentLoop(cfg, msgBus, defaultProvider)
-	cronService := setupCronTool(defaultAgentLoop, msgBus, cfg.WorkspacePath())
 
 	heartbeatService := heartbeat.NewHeartbeatService(
 		cfg.WorkspacePath(),
@@ -769,10 +773,12 @@ func gatewayCmd() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := cronService.Start(); err != nil {
-		fmt.Printf("Error starting cron service: %v\n", err)
+	if cronService != nil {
+		if err := cronService.Start(); err != nil {
+			fmt.Printf("Error starting cron service: %v\n", err)
+		}
+		fmt.Println("✓ Cron service started")
 	}
-	fmt.Println("✓ Cron service started")
 
 	if err := heartbeatService.Start(); err != nil {
 		fmt.Printf("Error starting heartbeat service: %v\n", err)
@@ -808,41 +814,48 @@ func gatewayCmd() {
 	if cfg.Web.Enabled {
 		// Use default agent loop for web panel (backward compatibility)
 		// Individual users will use their own agent loops via MultiUserChannelManager
-		webServer = web.NewServerWithWorkspace(cfg.Web, defaultAgentLoop, cfg.WorkspacePath())
-
-		// Initialize storage for tasks, chat history, etc.
-		if channelStore != nil {
-			webServer.SetStorage(channelStore)
-		}
-
-		// Wire additional services for advanced REST endpoints
-		webServer.SetCronService(cronService)
-		webServer.SetMultiUserChannelManager(multiChannelManager)
-		webServer.SetFullConfig(cfg)
-		if transcriber != nil {
-			webServer.SetTranscriber(transcriber)
-		}
-		if mcpManager != nil {
-			webServer.SetMCPManager(mcpManager)
-		}
-		home, _ := os.UserHomeDir()
-		skillsLoader := skills.NewSkillsLoader(
-			cfg.WorkspacePath(),
-			filepath.Join(home, ".KakoClaw", "skills"),
-			"",
-		)
-		skillInstaller := skills.NewSkillInstaller(cfg.WorkspacePath())
-		webServer.SetSkills(skillsLoader, skillInstaller)
-		// Wire workflow engine (uses default agent for now)
-		// TODO: Make workflow engine per-user
-		if channelStore != nil {
-			wfEngine := workflow.NewEngine(defaultAgentLoop, defaultAgentLoop.ToolRegistry(), channelStore)
-			webServer.SetWorkflowEngine(wfEngine)
-		}
-		if err := webServer.Start(ctx); err != nil {
-			fmt.Printf("Error starting web server: %v\n", err)
+		if defaultAgentLoop == nil {
+			fmt.Printf("Error: Cannot create web server without a valid agent loop\n")
+			fmt.Printf("Please configure a valid LLM provider or agent model\n")
 		} else {
-			fmt.Printf("✓ Web panel started on %s:%d\n", cfg.Web.Host, cfg.Web.Port)
+			webServer = web.NewServerWithWorkspace(cfg.Web, defaultAgentLoop, cfg.WorkspacePath())
+
+			// Initialize storage for tasks, chat history, etc.
+			if channelStore != nil {
+				webServer.SetStorage(channelStore)
+			}
+
+			// Wire additional services for advanced REST endpoints
+			if cronService != nil {
+				webServer.SetCronService(cronService)
+			}
+			webServer.SetMultiUserChannelManager(multiChannelManager)
+			webServer.SetFullConfig(cfg)
+			if transcriber != nil {
+				webServer.SetTranscriber(transcriber)
+			}
+			if mcpManager != nil {
+				webServer.SetMCPManager(mcpManager)
+			}
+			home, _ := os.UserHomeDir()
+			skillsLoader := skills.NewSkillsLoader(
+				cfg.WorkspacePath(),
+				filepath.Join(home, ".KakoClaw", "skills"),
+				"",
+			)
+			skillInstaller := skills.NewSkillInstaller(cfg.WorkspacePath())
+			webServer.SetSkills(skillsLoader, skillInstaller)
+			// Wire workflow engine (uses default agent for now)
+			// TODO: Make workflow engine per-user
+			if channelStore != nil {
+				wfEngine := workflow.NewEngine(defaultAgentLoop, defaultAgentLoop.ToolRegistry(), channelStore)
+				webServer.SetWorkflowEngine(wfEngine)
+			}
+			if err := webServer.Start(ctx); err != nil {
+				fmt.Printf("Error starting web server: %v\n", err)
+			} else {
+				fmt.Printf("✓ Web panel started on %s:%d\n", cfg.Web.Host, cfg.Web.Port)
+			}
 		}
 	}
 
@@ -853,7 +866,9 @@ func gatewayCmd() {
 	fmt.Println("\nShutting down...")
 	cancel()
 	heartbeatService.Stop()
-	cronService.Stop()
+	if cronService != nil {
+		cronService.Stop()
+	}
 	if mcpManager != nil {
 		mcpManager.Stop()
 	}
@@ -861,7 +876,9 @@ func gatewayCmd() {
 		_ = webServer.Stop(context.Background())
 	}
 	// Stop default agent loop
-	defaultAgentLoop.Stop()
+	if defaultAgentLoop != nil {
+		defaultAgentLoop.Stop()
+	}
 	// Stop all user channel managers and agents
 	multiChannelManager.StopAll(ctx)
 	fmt.Println("✓ Gateway stopped")
@@ -889,9 +906,12 @@ func webCmd() {
 	agentLoop := agent.NewAgentLoop(cfg, msgBus, provider)
 
 	// Setup cron tool and service
-	cronService := setupCronTool(agentLoop, msgBus, cfg.WorkspacePath())
-	if err := cronService.Start(); err != nil {
-		fmt.Printf("Error starting cron service: %v\n", err)
+	var cronService *cron.CronService
+	cronService = setupCronTool(agentLoop, msgBus, cfg.WorkspacePath())
+	if cronService != nil {
+		if err := cronService.Start(); err != nil {
+			fmt.Printf("Error starting cron service: %v\n", err)
+		}
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -912,7 +932,9 @@ func webCmd() {
 
 	// Wire additional services for advanced REST endpoints
 	webServer.SetFullConfig(cfg)
-	webServer.SetCronService(cronService)
+	if cronService != nil {
+		webServer.SetCronService(cronService)
+	}
 	// Wire voice transcriber if Groq API key is available
 	if cfg.Providers.Groq.APIKey != "" {
 		webTranscriber := voice.NewGroqTranscriber(cfg.Providers.Groq.APIKey)
@@ -987,7 +1009,9 @@ func webCmd() {
 		mcpManagerWeb.Stop()
 	}
 	_ = webServer.Stop(context.Background())
-	cronService.Stop()
+	if cronService != nil {
+		cronService.Stop()
+	}
 	agentLoop.Stop()
 	fmt.Println("✓ Web stopped")
 }
@@ -1568,7 +1592,7 @@ func cronAddCmd(storePath string) {
 	}
 
 	cs := cron.NewCronService(storePath, nil)
-	job, err := cs.AddJob(name, schedule, message, deliver, channel, to)
+	job, err := cs.AddJob(1, name, schedule, message, deliver, channel, to)
 	if err != nil {
 		fmt.Printf("Error adding job: %v\n", err)
 		return

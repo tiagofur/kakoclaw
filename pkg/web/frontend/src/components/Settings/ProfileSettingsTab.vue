@@ -196,8 +196,13 @@ const saveProfile = async () => {
 
     // If new token is provided (username changed), update it
     if (data.token) {
-      authStore.setToken(data.token)
-      authStore.user.username = profile.value.username
+      const updatedUser = {
+        ...(authStore.user || {}),
+        username: profile.value.username || (authStore.user?.username || ''),
+        email: profile.value.email || (authStore.user?.email || ''),
+        role: profile.value.role || (authStore.user?.role || '')
+      }
+      authStore.setCredentials(updatedUser, data.token)
       setTimeout(() => {
         window.location.reload()
       }, 1500)

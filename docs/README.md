@@ -51,6 +51,7 @@ Documentación para contribuidores y desarrolladores.
 Documentación de referencia de interfaces y APIs.
 
 - [Tools API](./api-reference/tools.md)
+- **[Workflows API](./api-reference/workflows.md)** — REST API para automatización
 - [Providers API](./api-reference/providers.md)
 - [Channels API](./api-reference/channels.md)
 - [Config API](./api-reference/config.md)
@@ -73,14 +74,16 @@ Guías para desplegar KakoClaw en diferentes entornos.
 Ejemplos prácticos y casos de uso.
 
 - [Ejemplos Básicos](./examples/basic-examples.md)
+- **[Workflows Completos](./examples/workflows.md)** — Guía completa de automatización multi-paso
+- **[Templates de Workflows](./examples/workflow-templates.json)** — Workflows listos para importar
 - [Automatización de Tareas](./examples/automation.md)
 - [Integraciones](./examples/integrations.md)
-- [Workflows Completos](./examples/workflows.md)
 
 ### 🔧 [Solución de Problemas](./troubleshooting/)
 
 Ayuda para resolver problemas comunes.
 
+- **[Workflows Troubleshooting](./troubleshooting/workflows.md)** — Problemas específicos de workflows
 - [Problemas Comunes](./troubleshooting/common-issues.md)
 - [Errores de Configuración](./troubleshooting/config-errors.md)
 - [Problemas de Canales](./troubleshooting/channel-issues.md)

@@ -12,6 +12,7 @@ import (
 
 type TaskTool struct {
 	storage *storage.Storage
+	userID  int64
 }
 
 func (t *TaskTool) Close() error {
@@ -22,7 +23,17 @@ func NewTaskTool(s *storage.Storage) (*TaskTool, error) {
 	if s == nil {
 		return nil, fmt.Errorf("storage is nil")
 	}
-	return &TaskTool{storage: s}, nil
+	return &TaskTool{
+		storage: s,
+		userID:  1, // Default to user 1 for backward compatibility
+	}, nil
+}
+
+// SetUserID implements the UserAwareTool interface.
+func (t *TaskTool) SetUserID(userID int64) {
+	if userID > 0 {
+		t.userID = userID
+	}
 }
 
 func (t *TaskTool) Name() string { return "task_manager" }
@@ -62,14 +73,14 @@ func (t *TaskTool) Execute(ctx context.Context, args map[string]interface{}) (st
 		if status == "" {
 			status = "todo"
 		}
-		id, err := t.storage.CreateTask(title, description, status)
+		id, err := t.storage.CreateTaskForUser(t.userID, title, description, status)
 		if err != nil {
 			return "", err
 		}
 		return fmt.Sprintf("Task created: %s (ID: %d)", title, id), nil
 	case "list":
 		includeArchived, _ := args["include_archived"].(bool)
-		tasks, err := t.storage.ListTasks(includeArchived)
+		tasks, err := t.storage.ListTasksForUser(t.userID, includeArchived)
 		if err != nil {
 			return "", err
 		}
@@ -77,7 +88,7 @@ func (t *TaskTool) Execute(ctx context.Context, args map[string]interface{}) (st
 		return string(b), nil
 	case "search":
 		query, _ := args["query"].(string)
-		tasks, err := t.storage.SearchTasks(query)
+		tasks, err := t.storage.SearchTasksForUser(t.userID, query)
 		if err != nil {
 			return "", err
 		}
@@ -101,7 +112,7 @@ func (t *TaskTool) Execute(ctx context.Context, args map[string]interface{}) (st
 		if strings.TrimSpace(status) == "" {
 			return "Error: status is required", nil
 		}
-		_, err := t.storage.UpdateTaskStatus(id, status)
+		_, err := t.storage.UpdateTaskStatusForUser(t.userID, id, status)
 		if err != nil {
 			return "", err
 		}
@@ -119,7 +130,7 @@ func (t *TaskTool) Execute(ctx context.Context, args map[string]interface{}) (st
 		} else {
 			return "Error: id is required", nil
 		}
-		err := t.storage.ArchiveTask(id)
+		err := t.storage.ArchiveTaskForUser(t.userID, id)
 		if err != nil {
 			return "", err
 		}
@@ -137,7 +148,7 @@ func (t *TaskTool) Execute(ctx context.Context, args map[string]interface{}) (st
 		} else {
 			return "Error: id is required", nil
 		}
-		err := t.storage.UnarchiveTask(id)
+		err := t.storage.UnarchiveTaskForUser(t.userID, id)
 		if err != nil {
 			return "", err
 		}
@@ -146,5 +157,3 @@ func (t *TaskTool) Execute(ctx context.Context, args map[string]interface{}) (st
 		return "Error: unsupported action", nil
 	}
 }
-
-

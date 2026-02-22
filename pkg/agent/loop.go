@@ -251,6 +251,7 @@ func (al *AgentLoop) SetUserForAgent(userUUID string, userID int64) {
 	}
 
 	al.contextBuilder.WithUser(userUUID, userID)
+	al.updateToolsUser(userID)
 }
 
 // updateToolsWorkspace updates workspace paths for tools that depend on a workspace directory.
@@ -261,6 +262,18 @@ func (al *AgentLoop) updateToolsWorkspace(workspace string) {
 	al.tools.ForEach(func(t tools.Tool) {
 		if wt, ok := t.(tools.WorkspaceTool); ok {
 			wt.SetWorkspace(workspace)
+		}
+	})
+}
+
+// updateToolsUser updates user ID for tools that need to filter data by user.
+func (al *AgentLoop) updateToolsUser(userID int64) {
+	if al.tools == nil {
+		return
+	}
+	al.tools.ForEach(func(t tools.Tool) {
+		if ut, ok := t.(tools.UserAwareTool); ok {
+			ut.SetUserID(userID)
 		}
 	})
 }
