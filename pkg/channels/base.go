@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/sipeed/kakoclaw/pkg/bus"
+	"github.com/sipeed/kakoclaw/pkg/storage"
 )
 
 type Channel interface {
@@ -16,11 +17,13 @@ type Channel interface {
 	IsRunning() bool
 	IsAllowed(senderID string) bool
 	GetUserIDForSender(senderID string) (int64, error) // Extract userID from senderID
+	SetCommandHandler(*CommandHandler)                 // Set command handler for this channel
 }
 
 type BaseChannel struct {
 	config       interface{}
 	bus          *bus.MessageBus
+	storage      *storage.Storage
 	running      bool
 	name         string
 	allowList    []string
@@ -31,6 +34,7 @@ func NewBaseChannel(name string, config interface{}, bus *bus.MessageBus, allowL
 	return &BaseChannel{
 		config:    config,
 		bus:       bus,
+		storage:   nil, // Will be set by calling SetStorage
 		name:      name,
 		allowList: allowList,
 		running:   false,
@@ -48,6 +52,11 @@ func (c *BaseChannel) IsRunning() bool {
 // SetUserResolver sets a resolver for senderID -> userID mappings.
 func (c *BaseChannel) SetUserResolver(resolver func(senderID string) (int64, error)) {
 	c.userResolver = resolver
+}
+
+// SetStorage sets the storage instance for blocked user checks.
+func (c *BaseChannel) SetStorage(store *storage.Storage) {
+	c.storage = store
 }
 
 // GetUserIDForSender is a default implementation that returns 0.
@@ -107,6 +116,23 @@ func (c *BaseChannel) HandleMessage(senderID, chatID, content string, media []st
 		userID = 0
 	}
 
+	// Check if user is blocked
+	if userID > 0 && c.storage != nil {
+		blocked, user, err := c.storage.IsUserBlocked(userID)
+		if err == nil && blocked {
+			// Send blocked message back to user
+			response := fmt.Sprintf("⛔ Usuario bloqueado. Motivo: %s. Contacte soporte.", user.BlockedReason)
+			outMsg := bus.OutboundMessage{
+				UserID:  userID,
+				Channel: c.name,
+				ChatID:  chatID,
+				Content: response,
+			}
+			c.bus.PublishOutbound(outMsg)
+			return nil // Don't process the message further
+		}
+	}
+
 	// Build session key: channel:chatID (will be namespaced by SessionManager if userID > 0)
 	sessionKey := fmt.Sprintf("%s:%s", c.name, chatID)
 
@@ -127,4 +153,10 @@ func (c *BaseChannel) HandleMessage(senderID, chatID, content string, media []st
 
 func (c *BaseChannel) setRunning(running bool) {
 	c.running = running
+}
+
+// SetCommandHandler is a default no-op implementation
+// Concrete channel types can override this to actually use command handlers
+func (c *BaseChannel) SetCommandHandler(handler *CommandHandler) {
+	// Default: no-op
 }

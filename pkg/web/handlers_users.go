@@ -155,3 +155,120 @@ func (s *Server) handleUserAction(w http.ResponseWriter, r *http.Request) {
 
 	http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 }
+
+func (s *Server) handleBlockUser(w http.ResponseWriter, r *http.Request) {
+	// Require admin privileges
+	claims, ok := r.Context().Value(userClaimsKey).(*jwtClaims)
+	if !ok || claims == nil || claims.Role != "admin" {
+		http.Error(w, "forbidden: admin role required", http.StatusForbidden)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/v1/users/"), "/")
+	if len(pathParts) < 2 || pathParts[0] == "" {
+		http.Error(w, "invalid user id", http.StatusBadRequest)
+		return
+	}
+
+	userID, err := strconv.ParseInt(pathParts[0], 10, 64)
+	if err != nil {
+		http.Error(w, "invalid user id", http.StatusBadRequest)
+		return
+	}
+
+	var in struct {
+		Reason string `json:"reason"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		http.Error(w, "invalid json", http.StatusBadRequest)
+		return
+	}
+
+	// Validate reason
+	in.Reason = strings.TrimSpace(in.Reason)
+	if len(in.Reason) < 10 {
+		http.Error(w, "block reason must be at least 10 characters", http.StatusBadRequest)
+		return
+	}
+
+	// Get admin user ID
+	adminUser, err := s.store.GetUserByUsername(claims.Sub)
+	if err != nil {
+		http.Error(w, "admin user not found", http.StatusInternalServerError)
+		return
+	}
+
+	// Block the user
+	err = s.store.BlockUser(userID, adminUser.ID, in.Reason)
+	if err != nil {
+		if err == storage.ErrCannotBlockSelf {
+			http.Error(w, "cannot block yourself", http.StatusConflict)
+			return
+		}
+		if err == storage.ErrCannotBlockLastAdmin {
+			http.Error(w, "cannot block the last admin user", http.StatusConflict)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Return updated user
+	user, err := s.store.GetUserByID(userID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	user.PasswordHash = ""
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(user)
+}
+
+func (s *Server) handleUnblockUser(w http.ResponseWriter, r *http.Request) {
+	// Require admin privileges
+	claims, ok := r.Context().Value(userClaimsKey).(*jwtClaims)
+	if !ok || claims == nil || claims.Role != "admin" {
+		http.Error(w, "forbidden: admin role required", http.StatusForbidden)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/v1/users/"), "/")
+	if len(pathParts) < 2 || pathParts[0] == "" {
+		http.Error(w, "invalid user id", http.StatusBadRequest)
+		return
+	}
+
+	userID, err := strconv.ParseInt(pathParts[0], 10, 64)
+	if err != nil {
+		http.Error(w, "invalid user id", http.StatusBadRequest)
+		return
+	}
+
+	// Unblock the user
+	if err := s.store.UnblockUser(userID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Return updated user
+	user, err := s.store.GetUserByID(userID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	user.PasswordHash = ""
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(user)
+}

@@ -21,6 +21,7 @@ type CronTool struct {
 	cronService *cron.CronService
 	executor    JobExecutor
 	msgBus      *bus.MessageBus
+	userID      int64
 	channel     string
 	chatID      string
 	mu          sync.RWMutex
@@ -32,6 +33,16 @@ func NewCronTool(cronService *cron.CronService, executor JobExecutor, msgBus *bu
 		cronService: cronService,
 		executor:    executor,
 		msgBus:      msgBus,
+		userID:      1, // Default to user 1 for backward compatibility
+	}
+}
+
+// SetUserID implements the UserAwareTool interface.
+func (t *CronTool) SetUserID(userID int64) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if userID > 0 {
+		t.userID = userID
 	}
 }
 
@@ -119,6 +130,7 @@ func (t *CronTool) addJob(args map[string]interface{}) (string, error) {
 	t.mu.RLock()
 	channel := t.channel
 	chatID := t.chatID
+	userID := t.userID
 	t.mu.RUnlock()
 
 	if channel == "" || chatID == "" {
@@ -169,6 +181,7 @@ func (t *CronTool) addJob(args map[string]interface{}) (string, error) {
 	messagePreview := utils.Truncate(message, 30)
 
 	job, err := t.cronService.AddJob(
+		userID,
 		messagePreview,
 		schedule,
 		message,
@@ -184,7 +197,11 @@ func (t *CronTool) addJob(args map[string]interface{}) (string, error) {
 }
 
 func (t *CronTool) listJobs() (string, error) {
-	jobs := t.cronService.ListJobs(false)
+	t.mu.RLock()
+	userID := t.userID
+	t.mu.RUnlock()
+
+	jobs := t.cronService.ListJobsForUser(userID, false)
 
 	if len(jobs) == 0 {
 		return "No scheduled jobs.", nil
@@ -209,24 +226,32 @@ func (t *CronTool) listJobs() (string, error) {
 }
 
 func (t *CronTool) removeJob(args map[string]interface{}) (string, error) {
+	t.mu.RLock()
+	userID := t.userID
+	t.mu.RUnlock()
+
 	jobID, ok := args["job_id"].(string)
 	if !ok || jobID == "" {
 		return "Error: job_id is required for remove", nil
 	}
 
-	if t.cronService.RemoveJob(jobID) {
+	if t.cronService.RemoveJobForUser(userID, jobID) {
 		return fmt.Sprintf("Removed job %s", jobID), nil
 	}
 	return fmt.Sprintf("Job %s not found", jobID), nil
 }
 
 func (t *CronTool) enableJob(args map[string]interface{}, enable bool) (string, error) {
+	t.mu.RLock()
+	userID := t.userID
+	t.mu.RUnlock()
+
 	jobID, ok := args["job_id"].(string)
 	if !ok || jobID == "" {
 		return "Error: job_id is required for enable/disable", nil
 	}
 
-	job := t.cronService.EnableJob(jobID, enable)
+	job := t.cronService.EnableJobForUser(userID, jobID, enable)
 	if job == nil {
 		return fmt.Sprintf("Job %s not found", jobID), nil
 	}

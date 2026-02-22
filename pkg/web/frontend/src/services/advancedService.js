@@ -79,6 +79,12 @@ export default {
     return response.data
   },
 
+  // Update user-specific config (not global)
+  updateUserConfig: async (config) => {
+    const response = await client.post('/me/config/update', config)
+    return response.data
+  },
+
   // Channels
   fetchChannels: async () => {
     const response = await client.get('/channels')
@@ -88,6 +94,12 @@ export default {
   // Config
   fetchConfig: async () => {
     const response = await client.get('/config')
+    return response.data
+  },
+
+  // Fetch user-specific config (merged with global)
+  fetchUserConfig: async () => {
+    const response = await client.get('/me/config')
     return response.data
   },
 

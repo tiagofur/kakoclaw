@@ -25,6 +25,8 @@
 
       <template v-else-if="configData">
         <!-- Component Tabs -->
+        <ProfileSettingsTab v-if="activeTab === 'profile'" />
+
         <AgentSettingsTab 
           v-if="activeTab === 'agents'"
           :agents="configData.agents"
@@ -74,6 +76,7 @@
                     <th scope="col" class="px-4 py-3">ID</th>
                     <th scope="col" class="px-4 py-3">Username</th>
                     <th scope="col" class="px-4 py-3">Role</th>
+                    <th scope="col" class="px-4 py-3">Status</th>
                     <th scope="col" class="px-4 py-3">Created</th>
                     <th scope="col" class="px-4 py-3 text-right">Actions</th>
                   </tr>
@@ -88,11 +91,29 @@
                         {{ u.role }}
                       </span>
                     </td>
+                    <td class="px-4 py-3">
+                      <span v-if="u.blocked" class="px-2 py-0.5 text-[10px] font-bold uppercase rounded-full bg-red-500/10 text-red-400 cursor-help" :title="'Motivo: ' + u.blocked_reason">
+                        🔴 Bloqueado
+                      </span>
+                      <span v-else class="px-2 py-0.5 text-[10px] font-bold uppercase rounded-full bg-green-500/10 text-green-400">
+                        🟢 Activo
+                      </span>
+                    </td>
                     <td class="px-4 py-3 text-xs text-kakoclaw-text-secondary">{{ formatDate(u.created_at) }}</td>
                     <td class="px-4 py-3 text-right">
                       <button @click="openUserModal(u)" class="text-kakoclaw-text-secondary hover:text-kakoclaw-accent p-1 transition-colors">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                      </button>
+                      <button v-if="!u.blocked" @click="openBlockModal(u)" :disabled="authStore.user?.username === u.username || isLastAdmin(u)" class="text-kakoclaw-text-secondary hover:text-orange-400 p-1 transition-colors ml-1 disabled:opacity-30 disabled:hover:text-kakoclaw-text-secondary" title="Bloquear usuario">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                        </svg>
+                      </button>
+                      <button v-if="u.blocked" @click="openUnblockModal(u)" class="text-kakoclaw-text-secondary hover:text-green-400 p-1 transition-colors ml-1" title="Desbloquear usuario">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       </button>
                       <button @click="deleteUserLocal(u)" :disabled="authStore.user?.username === u.username" class="text-kakoclaw-text-secondary hover:text-red-400 p-1 transition-colors ml-1 disabled:opacity-30 disabled:hover:text-kakoclaw-text-secondary">
@@ -103,7 +124,7 @@
                     </td>
                   </tr>
                   <tr v-if="usersList.length === 0">
-                    <td colspan="5" class="px-4 py-8 text-center text-kakoclaw-text-secondary text-sm">No users found.</td>
+                    <td colspan="6" class="px-4 py-8 text-center text-kakoclaw-text-secondary text-sm">No users found.</td>
                   </tr>
                 </tbody>
               </table>
@@ -408,7 +429,27 @@
           </div>
           <div>
             <label class="block text-xs font-bold text-kakoclaw-text-secondary mb-1 uppercase">{{ userForm.id ? 'New Password (Optional)' : 'Password' }}</label>
-            <input v-model="userForm.password" type="password" class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm outline-none focus:ring-1 focus:ring-kakoclaw-accent text-kakoclaw-text">
+            <div class="relative">
+              <input 
+                v-model="userForm.password" 
+                :type="showPassword ? 'text' : 'password'" 
+                class="w-full px-3 py-2 pr-10 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm outline-none focus:ring-1 focus:ring-kakoclaw-accent text-kakoclaw-text"
+              >
+              <button 
+                type="button" 
+                @click="showPassword = !showPassword" 
+                class="absolute right-2 top-1/2 -translate-y-1/2 text-kakoclaw-text-secondary hover:text-kakoclaw-text transition-colors"
+                tabindex="-1"
+              >
+                <svg v-if="!showPassword" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                </svg>
+              </button>
+            </div>
           </div>
           <div>
             <label class="block text-xs font-bold text-kakoclaw-text-secondary mb-1 uppercase">Role</label>
@@ -427,6 +468,66 @@
         </div>
       </div>
     </div>
+
+    <!-- Block User Modal -->
+    <div v-if="showBlockModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div class="bg-kakoclaw-surface rounded-2xl shadow-2xl w-full max-w-md border border-kakoclaw-border overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div class="flex justify-between items-center p-5 border-b border-kakoclaw-border bg-red-500/10">
+          <h3 class="text-md font-bold text-red-400">🚫 Bloquear Usuario</h3>
+          <button @click="showBlockModal = false" class="text-kakoclaw-text-secondary hover:text-kakoclaw-text">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+        <div class="p-5 space-y-4">
+          <p class="text-sm text-kakoclaw-text">¿Está seguro de que desea bloquear a <strong>{{ blockForm.user?.username }}</strong>?</p>
+          <p class="text-xs text-kakoclaw-text-secondary">El usuario no podrá iniciar sesión ni usar canales (Telegram, Discord, etc.) hasta ser desbloqueado.</p>
+          <div>
+            <label class="block text-xs font-bold text-kakoclaw-text-secondary mb-1 uppercase">Motivo del bloqueo *</label>
+            <textarea 
+              v-model="blockForm.reason" 
+              rows="3" 
+              placeholder="Ej: Spam, comportamiento inapropiado, violación de términos..."
+              class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm outline-none focus:ring-1 focus:ring-red-400 text-kakoclaw-text resize-none"
+            ></textarea>
+            <p class="text-xs text-kakoclaw-text-secondary mt-1">Mínimo 10 caracteres. El usuario verá este motivo.</p>
+          </div>
+        </div>
+        <div class="flex justify-end space-x-2 p-5 border-t border-kakoclaw-border bg-kakoclaw-bg/20">
+          <button @click="showBlockModal = false" class="px-4 py-2 text-sm font-medium text-kakoclaw-text-secondary hover:text-kakoclaw-text">Cancelar</button>
+          <button @click="blockUser" :disabled="savingUser || blockForm.reason.trim().length < 10" class="px-4 py-2 text-sm font-bold bg-red-500 text-white rounded-lg hover:bg-red-600 flex items-center disabled:opacity-50">
+            <span v-if="savingUser" class="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin mr-2"></span>
+            Bloquear
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Unblock User Modal -->
+    <div v-if="showUnblockModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div class="bg-kakoclaw-surface rounded-2xl shadow-2xl w-full max-w-md border border-kakoclaw-border overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div class="flex justify-between items-center p-5 border-b border-kakoclaw-border bg-green-500/10">
+          <h3 class="text-md font-bold text-green-400">🔓 Desbloquear Usuario</h3>
+          <button @click="showUnblockModal = false" class="text-kakoclaw-text-secondary hover:text-kakoclaw-text">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+        <div class="p-5 space-y-4">
+          <p class="text-sm text-kakoclaw-text">¿Está seguro de que desea desbloquear a <strong>{{ unblockForm.user?.username }}</strong>?</p>
+          <div v-if="unblockForm.user?.blocked_reason" class="p-3 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg">
+            <p class="text-xs font-bold text-kakoclaw-text-secondary mb-1">MOTIVO ORIGINAL:</p>
+            <p class="text-sm text-kakoclaw-text">{{ unblockForm.user.blocked_reason }}</p>
+          </div>
+          <p class="text-xs text-kakoclaw-text-secondary">El usuario recuperará acceso completo al sistema.</p>
+        </div>
+        <div class="flex justify-end space-x-2 p-5 border-t border-kakoclaw-border bg-kakoclaw-bg/20">
+          <button @click="showUnblockModal = false" class="px-4 py-2 text-sm font-medium text-kakoclaw-text-secondary hover:text-kakoclaw-text">Cancelar</button>
+          <button @click="unblockUser" :disabled="savingUser" class="px-4 py-2 text-sm font-bold bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center disabled:opacity-50">
+            <span v-if="savingUser" class="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin mr-2"></span>
+            Desbloquear
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -439,6 +540,7 @@ import { useAuthStore } from '../stores/authStore'
 import AgentSettingsTab from '../components/Settings/AgentSettingsTab.vue'
 import ProvidersSettingsTab from '../components/Settings/ProvidersSettingsTab.vue'
 import ChannelsSettingsTab from '../components/Settings/ChannelsSettingsTab.vue'
+import ProfileSettingsTab from '../components/Settings/ProfileSettingsTab.vue'
 
 const toast = useToast()
 const authStore = useAuthStore()
@@ -446,9 +548,10 @@ const loading = ref(true)
 const saving = ref(false)
 const configData = ref(null)
 const providersList = ref([])
-const activeTab = ref('agents')
+const activeTab = ref('profile')
 
 const tabs = [
+  { key: 'profile', label: 'Profile' },
   { key: 'agents', label: 'General' },
   { key: 'providers', label: 'Providers' },
   { key: 'channels', label: 'Channels' },
@@ -456,7 +559,7 @@ const tabs = [
 ]
 // Dynamically add users tab if admin
 if (authStore.user?.role === 'admin') {
-  tabs.splice(1, 0, { key: 'users', label: 'Users' })
+  tabs.splice(2, 0, { key: 'users', label: 'Users' })
 }
 
 const chatIcon = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 text-current"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" /></svg>'
@@ -481,6 +584,11 @@ const usersList = ref([])
 const showUserModal = ref(false)
 const userForm = ref({})
 const savingUser = ref(false)
+const showPassword = ref(false)
+const showBlockModal = ref(false)
+const showUnblockModal = ref(false)
+const blockForm = ref({ user: null, reason: '' })
+const unblockForm = ref({ user: null })
 
 // Backup stuff
 const exporting = ref(false)
@@ -661,7 +769,8 @@ const loadData = async () => {
   loading.value = true
   try {
     const promises = [
-      advancedService.fetchConfig(),
+      // Users always get their merged config (personal + global defaults)
+      advancedService.fetchUserConfig(),
       advancedService.fetchModels()
     ]
     if (authStore.user?.role === 'admin') {
@@ -684,7 +793,20 @@ const loadData = async () => {
 const saveConfig = async (payload) => {
   saving.value = true
   try {
-    await advancedService.updateConfig(payload)
+    // Determine which endpoint to use:
+    // - System settings (web, gateway, storage) → global config (admin only)
+    // - User settings (agents, providers, channels, tools) → user config
+    const isSystemConfig = payload.web || payload.gateway || payload.storage
+    const isAdminSystemUpdate = isSystemConfig && authStore.user?.role === 'admin'
+    
+    if (isAdminSystemUpdate) {
+      // Admin updating global system config
+      await advancedService.updateConfig(payload)
+    } else {
+      // User updating personal config (agents, providers, channels, tools)
+      await advancedService.updateUserConfig(payload)
+    }
+    
     toast.success('Configuration updated successfully')
     // Wait for server to restart channels/processes if needed
     setTimeout(loadData, 500)
@@ -783,6 +905,54 @@ const deleteUserLocal = async (u) => {
   } catch(err) {
     toast.error(err.response?.data?.error || err.message || 'Error deleting user')
   }
+}
+
+const openBlockModal = (u) => {
+  blockForm.value = { user: u, reason: '' }
+  showBlockModal.value = true
+}
+
+const blockUser = async () => {
+  savingUser.value = true
+  try {
+    await usersService.blockUser(blockForm.value.user.id, blockForm.value.reason)
+    toast.success('Usuario bloqueado exitosamente')
+    showBlockModal.value = false
+    blockForm.value = { user: null, reason: '' }
+    const updatedUsers = await usersService.listUsers()
+    usersList.value = updatedUsers
+  } catch (err) {
+    toast.error(err.response?.data?.error || err.message || 'Error bloqueando usuario')
+  } finally {
+    savingUser.value = false
+  }
+}
+
+const openUnblockModal = (u) => {
+  unblockForm.value = { user: u }
+  showUnblockModal.value = true
+}
+
+const unblockUser = async () => {
+  savingUser.value = true
+  try {
+    await usersService.unblockUser(unblockForm.value.user.id)
+    toast.success('Usuario desbloqueado exitosamente')
+    showUnblockModal.value = false
+    unblockForm.value = { user: null }
+    const updatedUsers = await usersService.listUsers()
+    usersList.value = updatedUsers
+  } catch (err) {
+    toast.error(err.response?.data?.error || err.message || 'Error desbloqueando usuario')
+  } finally {
+    savingUser.value = false
+  }
+}
+
+const isLastAdmin = (u) => {
+  if (u.role !== 'admin') return false
+  const activeAdmins = usersList.value.filter(usr => usr.role === 'admin' && !usr.blocked)
+  return activeAdmins.length <= 1
 }
 
 onMounted(loadData)

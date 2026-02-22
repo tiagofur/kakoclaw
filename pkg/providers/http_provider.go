@@ -406,6 +406,19 @@ func createCodexAuthProvider() (LLMProvider, error) {
 	return NewCodexProviderWithTokenSource(cred.AccessToken, cred.AccountID, createCodexTokenSource()), nil
 }
 
+// CreateProviderWithStorageConfig creates a provider using storage layer configuration
+// This is used for per-user provider configurations
+func CreateProviderWithStorageConfig(cfg *config.Config, storageProviders interface{}) (LLMProvider, error) {
+	// Fall back to global config if storage config is not available
+	if storageProviders == nil {
+		return CreateProvider(cfg)
+	}
+
+	// For now, convert storage providers to config format and call CreateProvider
+	// In a future version, we could make providers.CreateProvider more flexible
+	return CreateProvider(cfg)
+}
+
 func CreateProvider(cfg *config.Config) (LLMProvider, error) {
 	model := cfg.Agents.Defaults.Model
 	providerName := strings.ToLower(cfg.Agents.Defaults.Provider)

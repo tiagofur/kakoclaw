@@ -186,6 +186,60 @@ KakoClaw cron add -n "reunion" -m "Tienes una reunión en 10 minutos" -e 600
 KakoClaw cron list
 ```
 
+### 5. Workflows (Automatización Multi-Paso)
+
+Los **workflows** te permiten crear pipelines de automatización combinando prompts, herramientas y lógica condicional.
+
+**Acceso:** Panel Web → http://localhost:18880 → Workflows
+
+#### Tu Primer Workflow
+
+1. **Iniciar servidor web:**
+```bash
+KakoClaw web
+# o
+KakoClaw gateway
+```
+
+2. **Acceder al panel:**
+   - Abre http://localhost:18880 en tu navegador
+   - Inicia sesión con tus credenciales
+
+3. **Crear workflow:**
+   - Click en "Workflows" en el menú
+   - Click "New Workflow"
+   - Nombre: "Quick Research"
+   - Descripción: "Busca y resume información"
+
+4. **Agregar pasos:**
+   
+   **Paso 1 - Búsqueda Web:**
+   - Tipo: Tool
+   - Label: "Search web"
+   - Tool Name: `web_search`
+   - Args: `{"query": "Go programming best practices 2026"}`
+   
+   **Paso 2 - Resumen con IA:**
+   - Tipo: Prompt
+   - Label: "Summarize"
+   - Message: `Resumir en 3 puntos: {{step.1.output}}`
+
+5. **Guardar y ejecutar:**
+   - Click "Save"
+   - Click "Run"
+   - Ver resultados en tiempo real
+
+#### Ejemplos Útiles
+
+- **Code Review Bot**: Analiza código → Crea tarea si hay issues
+- **Test Analyzer**: Corre tests → Analiza fallas → Guarda reporte
+- **Research Assistant**: Busca → Sintetiza → Guarda notas
+- **SEO Optimizer**: Lee artículo → Analiza → Genera mejoras
+
+📚 **Más información:** [Guía completa de Workflows](../examples/workflows.md)
+
+🎯 **Templates listos:** [workflow-templates.json](../examples/workflow-templates.json)
+
 ## 🤖 Uso Avanzado
 
 ### Configurar Canales (Telegram Bot)

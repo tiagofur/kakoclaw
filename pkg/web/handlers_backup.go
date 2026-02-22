@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sipeed/kakoclaw/pkg/config"
 	"github.com/sipeed/kakoclaw/pkg/logger"
 )
 
@@ -62,6 +63,27 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get user from claims
+	userID, ok := s.getUserIDFromClaims(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Get user to obtain UUID
+	user, err := s.store.GetUserByID(userID)
+	if err != nil {
+		http.Error(w, "user not found", http.StatusNotFound)
+		return
+	}
+
+	// Get user-specific workspace
+	userWorkspace, err := config.EnsureUserWorkspace(user.UUID)
+	if err != nil {
+		http.Error(w, "failed to access workspace", http.StatusInternalServerError)
+		return
+	}
+
 	var options BackupOptions
 	if includeDB := r.URL.Query().Get("include_database"); includeDB != "" {
 		options.IncludeDatabase = includeDB == "true"
@@ -85,11 +107,11 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	workspacePath := filepath.Join(s.workspace, "..")
+	workspacePath := filepath.Join(userWorkspace, "..")
 	dataDir := workspacePath
 
 	logger.InfoCF("backup", "Starting backup", map[string]interface{}{
-		"workspace":         s.workspace,
+		"workspace":         userWorkspace,
 		"workspacePath":     workspacePath,
 		"dataDir":           dataDir,
 		"include_database":  options.IncludeDatabase,
@@ -299,6 +321,27 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get user from claims
+	userID, ok := s.getUserIDFromClaims(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Get user to obtain UUID
+	user, err := s.store.GetUserByID(userID)
+	if err != nil {
+		http.Error(w, "user not found", http.StatusNotFound)
+		return
+	}
+
+	// Get user-specific workspace
+	userWorkspace, err := config.EnsureUserWorkspace(user.UUID)
+	if err != nil {
+		http.Error(w, "failed to access workspace", http.StatusInternalServerError)
+		return
+	}
+
 	r.Body = http.MaxBytesReader(w, r.Body, maxBackupSize)
 	reader, err := r.MultipartReader()
 	if err != nil {
@@ -372,7 +415,7 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	workspacePath := filepath.Join(s.workspace, "..")
+	workspacePath := filepath.Join(userWorkspace, "..")
 	dataDir := filepath.Join(workspacePath, ".KakoClaw")
 
 	var importOptions ImportOptions

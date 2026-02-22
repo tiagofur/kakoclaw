@@ -12,7 +12,8 @@ type Workflow struct {
 	Name        string          `json:"name"`
 	Description string          `json:"description"`
 	Enabled     bool            `json:"enabled"`
-	Steps       json.RawMessage `json:"steps"` // JSON array of WorkflowStep
+	Steps       json.RawMessage `json:"steps"`      // JSON array of WorkflowStep
+	Parameters  json.RawMessage `json:"parameters"` // JSON array of WorkflowParameter
 	Schedule    json.RawMessage `json:"schedule,omitempty"`
 	CreatedAt   time.Time       `json:"created_at"`
 	UpdatedAt   time.Time       `json:"updated_at"`
@@ -36,6 +37,7 @@ func (s *Storage) migrateWorkflows() error {
 			description TEXT NOT NULL DEFAULT '',
 			enabled BOOLEAN NOT NULL DEFAULT 1,
 			steps TEXT NOT NULL DEFAULT '[]',
+			parameters TEXT NOT NULL DEFAULT '[]',
 			schedule TEXT,
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -56,21 +58,33 @@ func (s *Storage) migrateWorkflows() error {
 			return fmt.Errorf("workflow migration: %w", err)
 		}
 	}
+
+	// Add parameters column if it doesn't exist (for existing databases)
+	var columnExists int
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('workflows') WHERE name='parameters'`).Scan(&columnExists)
+	if err == nil && columnExists == 0 {
+		if _, err := s.db.Exec(`ALTER TABLE workflows ADD COLUMN parameters TEXT NOT NULL DEFAULT '[]'`); err != nil {
+			return fmt.Errorf("adding parameters column: %w", err)
+		}
+	}
 	return nil
 }
 
 // CreateWorkflow inserts a new workflow and returns its ID.
-func (s *Storage) CreateWorkflow(name, description string, steps, schedule json.RawMessage) (int64, error) {
+func (s *Storage) CreateWorkflow(name, description string, steps, parameters, schedule json.RawMessage) (int64, error) {
 	if steps == nil {
 		steps = json.RawMessage("[]")
 	}
-	query := `INSERT INTO workflows (name, description, steps, schedule) VALUES (?, ?, ?, ?)`
+	if parameters == nil {
+		parameters = json.RawMessage("[]")
+	}
+	query := `INSERT INTO workflows (name, description, steps, parameters, schedule) VALUES (?, ?, ?, ?, ?)`
 	var scheduleStr *string
 	if schedule != nil && string(schedule) != "null" {
 		sv := string(schedule)
 		scheduleStr = &sv
 	}
-	result, err := s.db.Exec(query, name, description, string(steps), scheduleStr)
+	result, err := s.db.Exec(query, name, description, string(steps), string(parameters), scheduleStr)
 	if err != nil {
 		return 0, fmt.Errorf("creating workflow: %w", err)
 	}
@@ -79,15 +93,16 @@ func (s *Storage) CreateWorkflow(name, description string, steps, schedule json.
 
 // GetWorkflow returns a single workflow by ID.
 func (s *Storage) GetWorkflow(id int64) (*Workflow, error) {
-	query := `SELECT id, name, COALESCE(description, ''), enabled, COALESCE(steps, '[]'), schedule, created_at, updated_at FROM workflows WHERE id = ?`
+	query := `SELECT id, name, COALESCE(description, ''), enabled, COALESCE(steps, '[]'), COALESCE(parameters, '[]'), schedule, created_at, updated_at FROM workflows WHERE id = ?`
 	var w Workflow
-	var stepsStr, scheduleStr string
+	var stepsStr, parametersStr, scheduleStr string
 	var schedulePtr *string
-	err := s.db.QueryRow(query, id).Scan(&w.ID, &w.Name, &w.Description, &w.Enabled, &stepsStr, &schedulePtr, &w.CreatedAt, &w.UpdatedAt)
+	err := s.db.QueryRow(query, id).Scan(&w.ID, &w.Name, &w.Description, &w.Enabled, &stepsStr, &parametersStr, &schedulePtr, &w.CreatedAt, &w.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("getting workflow: %w", err)
 	}
 	w.Steps = json.RawMessage(stepsStr)
+	w.Parameters = json.RawMessage(parametersStr)
 	if schedulePtr != nil {
 		scheduleStr = *schedulePtr
 		w.Schedule = json.RawMessage(scheduleStr)
@@ -97,7 +112,7 @@ func (s *Storage) GetWorkflow(id int64) (*Workflow, error) {
 
 // ListWorkflows returns all workflows.
 func (s *Storage) ListWorkflows() ([]Workflow, error) {
-	query := `SELECT id, name, COALESCE(description, ''), enabled, COALESCE(steps, '[]'), schedule, created_at, updated_at FROM workflows ORDER BY updated_at DESC`
+	query := `SELECT id, name, COALESCE(description, ''), enabled, COALESCE(steps, '[]'), COALESCE(parameters, '[]'), schedule, created_at, updated_at FROM workflows ORDER BY updated_at DESC`
 	rows, err := s.db.Query(query)
 	if err != nil {
 		return nil, fmt.Errorf("listing workflows: %w", err)
@@ -107,12 +122,13 @@ func (s *Storage) ListWorkflows() ([]Workflow, error) {
 	workflows := make([]Workflow, 0)
 	for rows.Next() {
 		var w Workflow
-		var stepsStr string
+		var stepsStr, parametersStr string
 		var schedulePtr *string
-		if err := rows.Scan(&w.ID, &w.Name, &w.Description, &w.Enabled, &stepsStr, &schedulePtr, &w.CreatedAt, &w.UpdatedAt); err != nil {
+		if err := rows.Scan(&w.ID, &w.Name, &w.Description, &w.Enabled, &stepsStr, &parametersStr, &schedulePtr, &w.CreatedAt, &w.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scanning workflow: %w", err)
 		}
 		w.Steps = json.RawMessage(stepsStr)
+		w.Parameters = json.RawMessage(parametersStr)
 		if schedulePtr != nil {
 			w.Schedule = json.RawMessage(*schedulePtr)
 		}
@@ -125,17 +141,20 @@ func (s *Storage) ListWorkflows() ([]Workflow, error) {
 }
 
 // UpdateWorkflow updates a workflow's fields.
-func (s *Storage) UpdateWorkflow(id int64, name, description string, enabled bool, steps, schedule json.RawMessage) (*Workflow, error) {
+func (s *Storage) UpdateWorkflow(id int64, name, description string, enabled bool, steps, parameters, schedule json.RawMessage) (*Workflow, error) {
 	if steps == nil {
 		steps = json.RawMessage("[]")
+	}
+	if parameters == nil {
+		parameters = json.RawMessage("[]")
 	}
 	var scheduleStr *string
 	if schedule != nil && string(schedule) != "null" {
 		sv := string(schedule)
 		scheduleStr = &sv
 	}
-	query := `UPDATE workflows SET name = ?, description = ?, enabled = ?, steps = ?, schedule = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
-	result, err := s.db.Exec(query, name, description, enabled, string(steps), scheduleStr, id)
+	query := `UPDATE workflows SET name = ?, description = ?, enabled = ?, steps = ?, parameters = ?, schedule = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+	result, err := s.db.Exec(query, name, description, enabled, string(steps), string(parameters), scheduleStr, id)
 	if err != nil {
 		return nil, fmt.Errorf("updating workflow: %w", err)
 	}

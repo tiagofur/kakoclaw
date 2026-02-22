@@ -1,0 +1,675 @@
+{
+  "version": "1.0.0",
+  "generated": "2026-02-21",
+  "description": "Ready-to-use workflow templates for KakoClaw",
+  "templates": [
+    {
+      "category": "development",
+      "difficulty": "beginner",
+      "name": "Code Review Bot",
+      "description": "Analyzes code files for quality issues and creates tasks for critical findings",
+      "tags": ["code-review", "quality", "tasks"],
+      "workflow": {
+        "name": "Code Review Bot",
+        "description": "Analyzes code files and flags issues",
+        "enabled": true,
+        "steps": [
+          {
+            "id": "step_1",
+            "type": "tool",
+            "label": "Read source file",
+            "on_error": "stop",
+            "config": {
+              "tool_name": "read_file",
+              "args": {
+                "path": "pkg/agent/loop.go"
+              }
+            }
+          },
+          {
+            "id": "step_2",
+            "type": "prompt",
+            "label": "Analyze code quality",
+            "on_error": "stop",
+            "config": {
+              "message": "Review this Go code for:\n- Potential bugs\n- Performance issues\n- Security vulnerabilities\n- Code smells\n\nCode:\n```go\n{{step.1.output}}\n```\n\nRespond with 'CRITICAL' if bugs/security issues found, otherwise 'OK'.",
+              "model": ""
+            }
+          },
+          {
+            "id": "step_3",
+            "type": "condition",
+            "label": "Check if issues found",
+            "on_error": "stop",
+            "config": {
+              "operator": "contains",
+              "reference": "{{step.2.output}}",
+              "value": "CRITICAL"
+            }
+          },
+          {
+            "id": "step_4",
+            "type": "tool",
+            "label": "Create task for issues",
+            "on_error": "continue",
+            "config": {
+              "tool_name": "create_task",
+              "args": {
+                "title": "Code Review - Critical Issues Found",
+                "description": "{{step.2.output}}",
+                "status": "todo",
+                "priority": "high"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "category": "development",
+      "difficulty": "intermediate",
+      "name": "Test Failure Analyzer",
+      "description": "Runs test suite, analyzes failures with AI, and saves detailed report",
+      "tags": ["testing", "analysis", "reporting"],
+      "workflow": {
+        "name": "Test Failure Analyzer",
+        "description": "Runs tests and analyzes failures",
+        "enabled": true,
+        "steps": [
+          {
+            "id": "step_1",
+            "type": "tool",
+            "label": "Run test suite",
+            "on_error": "continue",
+            "config": {
+              "tool_name": "shell_exec",
+              "args": {
+                "command": "go test ./... -v",
+                "timeout": 120
+              }
+            }
+          },
+          {
+            "id": "step_2",
+            "type": "condition",
+            "label": "Check if tests failed",
+            "on_error": "stop",
+            "config": {
+              "operator": "contains",
+              "reference": "{{step.1.output}}",
+              "value": "FAIL"
+            }
+          },
+          {
+            "id": "step_3",
+            "type": "prompt",
+            "label": "Analyze failures",
+            "on_error": "stop",
+            "config": {
+              "message": "Analyze these test failures and suggest fixes:\n\n{{step.1.output}}\n\nProvide:\n1. Root cause\n2. Suggested fix\n3. Priority level",
+              "model": ""
+            }
+          },
+          {
+            "id": "step_4",
+            "type": "tool",
+            "label": "Save analysis report",
+            "on_error": "continue",
+            "config": {
+              "tool_name": "write_file",
+              "args": {
+                "path": "test-analysis-report.md",
+                "content": "# Test Failure Analysis\n\n## Test Output\n\n{{step.1.output}}\n\n## AI Analysis\n\n{{step.3.output}}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "category": "development",
+      "difficulty": "intermediate",
+      "name": "Documentation Generator",
+      "description": "Reads source code and generates comprehensive markdown documentation",
+      "tags": ["documentation", "automation"],
+      "workflow": {
+        "name": "Auto Documentation",
+        "description": "Generates markdown docs from source code",
+        "enabled": true,
+        "steps": [
+          {
+            "id": "step_1",
+            "type": "tool",
+            "label": "Read source file",
+            "on_error": "stop",
+            "config": {
+              "tool_name": "read_file",
+              "args": {
+                "path": "pkg/workflow/engine.go"
+              }
+            }
+          },
+          {
+            "id": "step_2",
+            "type": "prompt",
+            "label": "Generate documentation",
+            "on_error": "stop",
+            "config": {
+              "message": "Create comprehensive documentation for this Go code:\n\n```go\n{{step.1.output}}\n```\n\nInclude:\n- Overview\n- Public API (functions/types)\n- Usage examples\n- Notes/caveats\n\nFormat as markdown.",
+              "model": ""
+            }
+          },
+          {
+            "id": "step_3",
+            "type": "tool",
+            "label": "Save documentation",
+            "on_error": "stop",
+            "config": {
+              "tool_name": "write_file",
+              "args": {
+                "path": "docs/api-reference/workflow-engine.md",
+                "content": "{{step.2.output}}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "category": "development",
+      "difficulty": "advanced",
+      "name": "Dependency Security Check",
+      "description": "Scans for vulnerable dependencies and alerts team if found",
+      "tags": ["security", "dependencies", "alerts"],
+      "workflow": {
+        "name": "Dependency Security Check",
+        "description": "Scans for vulnerable dependencies",
+        "enabled": true,
+        "steps": [
+          {
+            "id": "step_1",
+            "type": "tool",
+            "label": "List Go dependencies",
+            "on_error": "stop",
+            "config": {
+              "tool_name": "shell_exec",
+              "args": {
+                "command": "go list -m all",
+                "timeout": 30
+              }
+            }
+          },
+          {
+            "id": "step_2",
+            "type": "tool",
+            "label": "Check for vulnerabilities",
+            "on_error": "continue",
+            "config": {
+              "tool_name": "shell_exec",
+              "args": {
+                "command": "govulncheck ./...",
+                "timeout": 60
+              }
+            }
+          },
+          {
+            "id": "step_3",
+            "type": "prompt",
+            "label": "Generate security report",
+            "on_error": "stop",
+            "config": {
+              "message": "Create a security report from this vulnerability scan:\n\n{{step.2.output}}\n\nInclude:\n- Critical vulnerabilities (if any)\n- Recommended actions\n- Priority order",
+              "model": ""
+            }
+          },
+          {
+            "id": "step_4",
+            "type": "condition",
+            "label": "Check if vulnerabilities found",
+            "on_error": "stop",
+            "config": {
+              "operator": "contains",
+              "reference": "{{step.2.output}}",
+              "value": "vulnerability"
+            }
+          },
+          {
+            "id": "step_5",
+            "type": "tool",
+            "label": "Alert team",
+            "on_error": "continue",
+            "config": {
+              "tool_name": "send_message",
+              "args": {
+                "channel": "telegram:default",
+                "message": "⚠️ Security vulnerabilities detected!\n\n{{step.3.output}}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "category": "development",
+      "difficulty": "beginner",
+      "name": "PR Description Generator",
+      "description": "Generates detailed PR description from git diff",
+      "tags": ["git", "pr", "automation"],
+      "workflow": {
+        "name": "PR Description Generator",
+        "description": "Creates PR descriptions from git changes",
+        "enabled": true,
+        "steps": [
+          {
+            "id": "step_1",
+            "type": "tool",
+            "label": "Get git diff",
+            "on_error": "stop",
+            "config": {
+              "tool_name": "shell_exec",
+              "args": {
+                "command": "git diff main..HEAD",
+                "timeout": 10
+              }
+            }
+          },
+          {
+            "id": "step_2",
+            "type": "prompt",
+            "label": "Generate PR description",
+            "on_error": "stop",
+            "config": {
+              "message": "Create a PR description from this diff:\n\n{{step.1.output}}\n\nFormat:\n## Summary\n\n## Changes\n\n## Testing\n\n## Notes",
+              "model": ""
+            }
+          },
+          {
+            "id": "step_3",
+            "type": "tool",
+            "label": "Save to file",
+            "on_error": "continue",
+            "config": {
+              "tool_name": "write_file",
+              "args": {
+                "path": "PR_DESCRIPTION.md",
+                "content": "{{step.2.output}}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "category": "writing",
+      "difficulty": "intermediate",
+      "name": "Research Assistant",
+      "description": "Multi-source research workflow with synthesis and note-taking",
+      "tags": ["research", "web-search", "synthesis"],
+      "workflow": {
+        "name": "Research Assistant",
+        "description": "Comprehensive research workflow",
+        "enabled": true,
+        "steps": [
+          {
+            "id": "step_1",
+            "type": "prompt",
+            "label": "Generate search queries",
+            "on_error": "stop",
+            "config": {
+              "message": "Generate 3 targeted search queries to research: 'AI-powered code review tools 2026'\n\nReturn only the queries, one per line.",
+              "model": ""
+            }
+          },
+          {
+            "id": "step_2",
+            "type": "tool",
+            "label": "Search query 1",
+            "on_error": "continue",
+            "config": {
+              "tool_name": "web_search",
+              "args": {
+                "query": "{{step.1.output}}",
+                "max_results": 5
+              }
+            }
+          },
+          {
+            "id": "step_3",
+            "type": "prompt",
+            "label": "Synthesize findings",
+            "on_error": "stop",
+            "config": {
+              "message": "Create a research summary from these sources:\n\n{{step.2.output}}\n\nFormat:\n## Key Findings\n## Trends\n## Sources",
+              "model": ""
+            }
+          },
+          {
+            "id": "step_4",
+            "type": "tool",
+            "label": "Save research notes",
+            "on_error": "continue",
+            "config": {
+              "tool_name": "append_file",
+              "args": {
+                "path": "research-notes.md",
+                "content": "\n\n---\n\n# Research: AI Code Review Tools\n\nDate: {{step.3.output}}\n\n{{step.3.output}}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "category": "writing",
+      "difficulty": "intermediate",
+      "name": "Article Fact Checker",
+      "description": "Verifies claims in article drafts against web sources",
+      "tags": ["fact-checking", "verification", "quality"],
+      "workflow": {
+        "name": "Fact Checker",
+        "description": "Verifies claims in articles",
+        "enabled": true,
+        "steps": [
+          {
+            "id": "step_1",
+            "type": "tool",
+            "label": "Read article draft",
+            "on_error": "stop",
+            "config": {
+              "tool_name": "read_file",
+              "args": {
+                "path": "drafts/my-article.md"
+              }
+            }
+          },
+          {
+            "id": "step_2",
+            "type": "prompt",
+            "label": "Extract factual claims",
+            "on_error": "stop",
+            "config": {
+              "message": "Extract all factual claims from this article that should be verified:\n\n{{step.1.output}}\n\nReturn as numbered list.",
+              "model": ""
+            }
+          },
+          {
+            "id": "step_3",
+            "type": "tool",
+            "label": "Search for verification",
+            "on_error": "continue",
+            "config": {
+              "tool_name": "web_search",
+              "args": {
+                "query": "verify: {{step.2.output}}",
+                "max_results": 10
+              }
+            }
+          },
+          {
+            "id": "step_4",
+            "type": "prompt",
+            "label": "Generate verification report",
+            "on_error": "stop",
+            "config": {
+              "message": "Compare claims with sources:\n\nClaims:\n{{step.2.output}}\n\nSources:\n{{step.3.output}}\n\nMark each claim as:\n✓ Verified\n? Needs review\n✗ Disputed",
+              "model": ""
+            }
+          },
+          {
+            "id": "step_5",
+            "type": "tool",
+            "label": "Save verification report",
+            "on_error": "continue",
+            "config": {
+              "tool_name": "write_file",
+              "args": {
+                "path": "fact-check-report.md",
+                "content": "# Fact Check Report\n\n{{step.4.output}}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "category": "writing",
+      "difficulty": "intermediate",
+      "name": "SEO Optimizer",
+      "description": "Analyzes article for SEO and generates improvement recommendations",
+      "tags": ["seo", "optimization", "content"],
+      "workflow": {
+        "name": "SEO Optimizer",
+        "description": "Optimizes articles for search engines",
+        "enabled": true,
+        "steps": [
+          {
+            "id": "step_1",
+            "type": "tool",
+            "label": "Read article",
+            "on_error": "stop",
+            "config": {
+              "tool_name": "read_file",
+              "args": {
+                "path": "blog/my-post.md"
+              }
+            }
+          },
+          {
+            "id": "step_2",
+            "type": "prompt",
+            "label": "Analyze SEO",
+            "on_error": "stop",
+            "config": {
+              "message": "Analyze this article for SEO:\n\n{{step.1.output}}\n\nProvide:\n1. Primary keyword suggestions\n2. Title improvements\n3. Meta description (150-160 chars)\n4. Header structure review\n5. Internal linking opportunities",
+              "model": ""
+            }
+          },
+          {
+            "id": "step_3",
+            "type": "tool",
+            "label": "Search competitor content",
+            "on_error": "continue",
+            "config": {
+              "tool_name": "web_search",
+              "args": {
+                "query": "top ranking articles about {{step.1.output}}",
+                "max_results": 5
+              }
+            }
+          },
+          {
+            "id": "step_4",
+            "type": "prompt",
+            "label": "Generate recommendations",
+            "on_error": "stop",
+            "config": {
+              "message": "Create SEO improvement plan:\n\nCurrent: {{step.2.output}}\n\nCompetitors: {{step.3.output}}\n\nProvide prioritized action items.",
+              "model": ""
+            }
+          },
+          {
+            "id": "step_5",
+            "type": "tool",
+            "label": "Save SEO report",
+            "on_error": "continue",
+            "config": {
+              "tool_name": "write_file",
+              "args": {
+                "path": "seo-recommendations.md",
+                "content": "{{step.4.output}}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "category": "writing",
+      "difficulty": "beginner",
+      "name": "Content Outline Generator",
+      "description": "Generates detailed article outline with research and title suggestions",
+      "tags": ["outline", "planning", "research"],
+      "workflow": {
+        "name": "Outline Generator",
+        "description": "Creates article outlines with research",
+        "enabled": true,
+        "steps": [
+          {
+            "id": "step_1",
+            "type": "tool",
+            "label": "Research topic",
+            "on_error": "continue",
+            "config": {
+              "tool_name": "web_search",
+              "args": {
+                "query": "comprehensive guide to Go concurrency patterns",
+                "max_results": 10
+              }
+            }
+          },
+          {
+            "id": "step_2",
+            "type": "prompt",
+            "label": "Generate outline",
+            "on_error": "stop",
+            "config": {
+              "message": "Create a detailed article outline for 'Go Concurrency Patterns Guide' using this research:\n\n{{step.1.output}}\n\nInclude:\n- Introduction\n- 5-7 main sections\n- Subsections\n- Key points to cover\n- Estimated word count per section",
+              "model": ""
+            }
+          },
+          {
+            "id": "step_3",
+            "type": "prompt",
+            "label": "Generate title suggestions",
+            "on_error": "continue",
+            "config": {
+              "message": "Generate 5 compelling titles for this outline:\n\n{{step.2.output}}\n\nMake them:\n- SEO-friendly\n- Engaging\n- Clear about value",
+              "model": ""
+            }
+          },
+          {
+            "id": "step_4",
+            "type": "tool",
+            "label": "Save outline",
+            "on_error": "stop",
+            "config": {
+              "tool_name": "write_file",
+              "args": {
+                "path": "outlines/go-concurrency-guide.md",
+                "content": "# Article Outline\n\n## Title Options\n\n{{step.3.output}}\n\n## Outline\n\n{{step.2.output}}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "category": "writing",
+      "difficulty": "advanced",
+      "name": "Multi-language Publisher",
+      "description": "Translates and localizes content for multiple regions",
+      "tags": ["translation", "localization", "publishing"],
+      "workflow": {
+        "name": "Multi-language Publisher",
+        "description": "Translates and localizes content",
+        "enabled": true,
+        "steps": [
+          {
+            "id": "step_1",
+            "type": "tool",
+            "label": "Read English article",
+            "on_error": "stop",
+            "config": {
+              "tool_name": "read_file",
+              "args": {
+                "path": "blog/en/my-article.md"
+              }
+            }
+          },
+          {
+            "id": "step_2",
+            "type": "prompt",
+            "label": "Translate to Spanish",
+            "on_error": "stop",
+            "config": {
+              "message": "Translate this article to Spanish, adapting cultural references:\n\n{{step.1.output}}",
+              "model": ""
+            }
+          },
+          {
+            "id": "step_3",
+            "type": "tool",
+            "label": "Save Spanish version",
+            "on_error": "continue",
+            "config": {
+              "tool_name": "write_file",
+              "args": {
+                "path": "blog/es/my-article.md",
+                "content": "{{step.2.output}}"
+              }
+            }
+          },
+          {
+            "id": "step_4",
+            "type": "prompt",
+            "label": "Translate to French",
+            "on_error": "stop",
+            "config": {
+              "message": "Translate this article to French, adapting cultural references:\n\n{{step.1.output}}",
+              "model": ""
+            }
+          },
+          {
+            "id": "step_5",
+            "type": "tool",
+            "label": "Save French version",
+            "on_error": "continue",
+            "config": {
+              "tool_name": "write_file",
+              "args": {
+                "path": "blog/fr/my-article.md",
+                "content": "{{step.4.output}}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "category": "automation",
+      "difficulty": "beginner",
+      "name": "Quick Research",
+      "description": "Simple web search and summarization workflow",
+      "tags": ["research", "simple", "quick-start"],
+      "workflow": {
+        "name": "Quick Research",
+        "description": "Search and summarize a topic",
+        "enabled": true,
+        "steps": [
+          {
+            "id": "step_1",
+            "type": "tool",
+            "label": "Search web",
+            "on_error": "stop",
+            "config": {
+              "tool_name": "web_search",
+              "args": {
+                "query": "latest advances in Go programming language 2026"
+              }
+            }
+          },
+          {
+            "id": "step_2",
+            "type": "prompt",
+            "label": "Summarize results",
+            "on_error": "stop",
+            "config": {
+              "message": "Please summarize these search results in 3 key points:\n\n{{step.1.output}}",
+              "model": ""
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

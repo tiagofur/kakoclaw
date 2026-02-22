@@ -24,5 +24,15 @@ export default {
   deleteUser: async (id) => {
     const response = await client.delete(`/users/${id}`)
     return response.data
+  },
+
+  blockUser: async (id, reason) => {
+    const response = await client.post(`/users/${id}/block`, { reason })
+    return response.data
+  },
+
+  unblockUser: async (id) => {
+    const response = await client.post(`/users/${id}/unblock`)
+    return response.data
   }
 }

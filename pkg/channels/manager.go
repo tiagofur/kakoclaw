@@ -217,6 +217,14 @@ func (m *Manager) applyUserResolver(channelName string, channel Channel) {
 	if m.storage == nil {
 		return
 	}
+
+	// Set storage on channels that support it
+	if setter, ok := channel.(interface {
+		SetStorage(*storage.Storage)
+	}); ok {
+		setter.SetStorage(m.storage)
+	}
+
 	if setter, ok := channel.(interface {
 		SetUserResolver(func(string) (int64, error))
 	}); ok {

@@ -135,7 +135,7 @@
       <template v-else>
         <!-- Workflow Meta -->
         <div class="bg-kakoclaw-surface border border-kakoclaw-border rounded-xl p-5 mb-6">
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
               <label class="block text-xs font-semibold text-kakoclaw-text-secondary mb-1">Name</label>
               <input v-model="editingWorkflow.name" type="text" placeholder="My Workflow"
@@ -147,139 +147,171 @@
                 class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm focus:outline-none focus:border-kakoclaw-accent" />
             </div>
           </div>
+          
+          <!-- Parameters Section -->
+          <div class="border-t border-kakoclaw-border pt-4">
+            <div class="flex items-center justify-between mb-3">
+              <label class="block text-xs font-semibold text-kakoclaw-text-secondary">Input Parameters</label>
+              <button @click="addParameter" class="text-xs px-2 py-1 bg-kakoclaw-accent/10 text-kakoclaw-accent rounded hover:bg-kakoclaw-accent/20 transition-colors">
+                + Add Parameter
+              </button>
+            </div>
+            <div v-if="editingWorkflow.parameters.length === 0" class="text-xs text-kakoclaw-text-secondary/60 italic">
+              No parameters defined yet. Add parameters to make your workflow reusable.
+            </div>
+            <div v-else class="space-y-2">
+              <div v-for="(param, idx) in editingWorkflow.parameters" :key="idx" class="flex items-center gap-2">
+                <input v-model="param.name" type="text" placeholder="parameter_name"
+                  class="w-32 px-2 py-1 bg-kakoclaw-bg border border-kakoclaw-border rounded text-xs focus:outline-none focus:border-kakoclaw-accent font-mono" />
+                <input v-model="param.label" type="text" placeholder="Display label"
+                  class="flex-1 px-2 py-1 bg-kakoclaw-bg border border-kakoclaw-border rounded text-xs focus:outline-none focus:border-kakoclaw-accent" />
+                <input v-model="param.default_value" type="text" placeholder="Default value (optional)"
+                  class="flex-1 px-2 py-1 bg-kakoclaw-bg border border-kakoclaw-border rounded text-xs focus:outline-none focus:border-kakoclaw-accent" />
+                <button @click="removeParameter(idx)" class="p-1 text-kakoclaw-text-secondary hover:text-red-400 transition-colors">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Pipeline Steps -->
         <div class="mb-4">
           <h3 class="text-sm font-semibold text-kakoclaw-text-secondary mb-3">Pipeline Steps</h3>
 
-          <!-- Only mount Draggable when we have steps to avoid "Root element not found" on mount -->
-          <div v-if="editingWorkflow.steps.length > 0" class="space-y-3">
-            <VueDraggable v-model="editingWorkflow.steps" :animation="200" handle=".drag-handle">
-              <template #item="{ element: step, index }">
-                <div :key="step.id" class="bg-kakoclaw-surface border border-kakoclaw-border rounded-xl overflow-hidden mb-3"
-                  :class="expandedStep === step.id ? 'ring-1 ring-kakoclaw-accent/50' : ''">
-                <!-- Step Header -->
-                <div class="flex items-center gap-3 px-4 py-3 cursor-pointer" @click="toggleStep(step.id)">
-                  <div class="drag-handle cursor-grab text-kakoclaw-text-secondary hover:text-kakoclaw-text">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16" />
-                    </svg>
-                  </div>
-                  <div class="flex items-center gap-2 flex-1 min-w-0">
-                    <span class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
-                      :class="stepTypeClass(step.type)">
-                      {{ index + 1 }}
-                    </span>
-                    <span class="px-2 py-0.5 text-[10px] rounded font-semibold uppercase tracking-wider"
-                      :class="stepTypeClass(step.type)">
-                      {{ step.type }}
-                    </span>
-                    <span class="text-sm truncate">{{ step.label || 'Untitled step' }}</span>
-                  </div>
-                  <button @click.stop="removeStep(index, step.id)"
-                    class="p-1 text-kakoclaw-text-secondary hover:text-red-400 transition-colors">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                  <svg class="w-4 h-4 text-kakoclaw-text-secondary transition-transform" :class="expandedStep === step.id ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          <!-- Empty state when no steps -->
+          <div v-show="editingWorkflow.steps.length === 0" class="text-center py-8 border-2 border-dashed border-kakoclaw-border rounded-xl text-kakoclaw-text-secondary mb-4">
+            No steps yet. Add a step below to start building your pipeline.
+          </div>
+          
+          <!-- Steps list with VueDraggable -->
+          <VueDraggable
+            v-model="editingWorkflow.steps"
+            :animation="200"
+            handle=".drag-handle"
+            class="space-y-3"
+          >
+            <div v-for="(step, index) in editingWorkflow.steps" :key="step.id"
+              class="bg-kakoclaw-surface border border-kakoclaw-border rounded-xl overflow-hidden"
+              :class="expandedStep === step.id ? 'ring-1 ring-kakoclaw-accent/50' : ''">
+              <!-- Step Header -->
+              <div class="flex items-center gap-3 px-4 py-3 cursor-pointer" @click="toggleStep(step.id)">
+                <div class="drag-handle cursor-grab text-kakoclaw-text-secondary hover:text-kakoclaw-text">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16" />
                   </svg>
                 </div>
+                <div class="flex items-center gap-2 flex-1 min-w-0">
+                  <span class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
+                    :class="stepTypeClass(step.type)">
+                    {{ index + 1 }}
+                  </span>
+                  <span class="px-2 py-0.5 text-[10px] rounded font-semibold uppercase tracking-wider"
+                    :class="stepTypeClass(step.type)">
+                    {{ step.type }}
+                  </span>
+                  <span class="text-sm truncate">{{ step.label || 'Untitled step' }}</span>
+                </div>
+                <button @click.stop="removeStep(index, step.id)"
+                  class="p-1 text-kakoclaw-text-secondary hover:text-red-400 transition-colors">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+                <svg class="w-4 h-4 text-kakoclaw-text-secondary transition-transform" :class="expandedStep === step.id ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
 
-                <!-- Step Config (expanded) -->
-                <div v-if="expandedStep === step.id" class="px-4 pb-4 border-t border-kakoclaw-border pt-3 space-y-3">
+              <!-- Step Config (expanded) -->
+              <div v-if="expandedStep === step.id" class="px-4 pb-4 border-t border-kakoclaw-border pt-3 space-y-3">
+                <div>
+                  <label class="block text-xs font-semibold text-kakoclaw-text-secondary mb-1">Label</label>
+                  <input v-model="step.label" type="text" placeholder="Step label"
+                    class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm focus:outline-none focus:border-kakoclaw-accent" />
+                </div>
+
+                <div>
+                  <label class="block text-xs font-semibold text-kakoclaw-text-secondary mb-1">On Error</label>
+                  <select v-model="step.on_error"
+                    class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm focus:outline-none focus:border-kakoclaw-accent">
+                    <option value="stop">Stop workflow</option>
+                    <option value="continue">Continue to next step</option>
+                  </select>
+                </div>
+
+                <!-- Prompt Config -->
+                <template v-if="step.type === 'prompt'">
                   <div>
-                    <label class="block text-xs font-semibold text-kakoclaw-text-secondary mb-1">Label</label>
-                    <input v-model="step.label" type="text" placeholder="Step label"
+                    <label class="block text-xs font-semibold text-kakoclaw-text-secondary mb-1">
+                      Message
+                      <span class="font-normal opacity-60">(supports {{ templateHint }} templates)</span>
+                    </label>
+                    <textarea v-model="step._config.message" rows="4" placeholder="Enter prompt message..."
+                      class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm focus:outline-none focus:border-kakoclaw-accent font-mono resize-y"></textarea>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-kakoclaw-text-secondary mb-1">Model Override (optional)</label>
+                    <input v-model="step._config.model" type="text" placeholder="Leave empty for default"
                       class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm focus:outline-none focus:border-kakoclaw-accent" />
                   </div>
+                </template>
 
+                <!-- Tool Config -->
+                <template v-if="step.type === 'tool'">
                   <div>
-                    <label class="block text-xs font-semibold text-kakoclaw-text-secondary mb-1">On Error</label>
-                    <select v-model="step.on_error"
+                    <label class="block text-xs font-semibold text-kakoclaw-text-secondary mb-1">Tool Name</label>
+                    <select v-if="availableTools.length > 0" v-model="step._config.tool_name"
                       class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm focus:outline-none focus:border-kakoclaw-accent">
-                      <option value="stop">Stop workflow</option>
-                      <option value="continue">Continue to next step</option>
+                      <option value="">Select a tool...</option>
+                      <option v-for="t in availableTools" :key="t" :value="t">{{ t }}</option>
+                    </select>
+                    <input v-else v-model="step._config.tool_name" type="text" placeholder="tool_name"
+                      class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm focus:outline-none focus:border-kakoclaw-accent" />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-kakoclaw-text-secondary mb-1">
+                      Arguments (JSON)
+                      <span class="font-normal opacity-60">(string values support {{ templateHint }} templates)</span>
+                    </label>
+                    <textarea v-model="step._config._argsJson" rows="4" placeholder='{"key": "value"}'
+                      class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm focus:outline-none focus:border-kakoclaw-accent font-mono resize-y"
+                      :class="step._config._argsError ? 'border-red-500' : ''"></textarea>
+                    <p v-if="step._config._argsError" class="text-xs text-red-400 mt-1">{{ step._config._argsError }}</p>
+                  </div>
+                </template>
+
+                <!-- Condition Config -->
+                <template v-if="step.type === 'condition'">
+                  <div>
+                    <label class="block text-xs font-semibold text-kakoclaw-text-secondary mb-1">
+                      Reference
+                      <span class="font-normal opacity-60">(e.g. {{ templateExample }})</span>
+                    </label>
+                    <input v-model="step._config.reference" type="text" placeholder="{{step.1.output}}"
+                      class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm focus:outline-none focus:border-kakoclaw-accent font-mono" />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-kakoclaw-text-secondary mb-1">Operator</label>
+                    <select v-model="step._config.operator"
+                      class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm focus:outline-none focus:border-kakoclaw-accent">
+                      <option value="contains">Contains</option>
+                      <option value="equals">Equals</option>
+                      <option value="not_empty">Not Empty</option>
+                      <option value="regex">Regex Match</option>
                     </select>
                   </div>
-
-                  <!-- Prompt Config -->
-                  <template v-if="step.type === 'prompt'">
-                    <div>
-                      <label class="block text-xs font-semibold text-kakoclaw-text-secondary mb-1">
-                        Message
-                        <span class="font-normal opacity-60">(supports {{ templateHint }} templates)</span>
-                      </label>
-                      <textarea v-model="step._config.message" rows="4" placeholder="Enter prompt message..."
-                        class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm focus:outline-none focus:border-kakoclaw-accent font-mono resize-y"></textarea>
-                    </div>
-                    <div>
-                      <label class="block text-xs font-semibold text-kakoclaw-text-secondary mb-1">Model Override (optional)</label>
-                      <input v-model="step._config.model" type="text" placeholder="Leave empty for default"
-                        class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm focus:outline-none focus:border-kakoclaw-accent" />
-                    </div>
-                  </template>
-
-                  <!-- Tool Config -->
-                  <template v-if="step.type === 'tool'">
-                    <div>
-                      <label class="block text-xs font-semibold text-kakoclaw-text-secondary mb-1">Tool Name</label>
-                      <select v-if="availableTools.length > 0" v-model="step._config.tool_name"
-                        class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm focus:outline-none focus:border-kakoclaw-accent">
-                        <option value="">Select a tool...</option>
-                        <option v-for="t in availableTools" :key="t" :value="t">{{ t }}</option>
-                      </select>
-                      <input v-else v-model="step._config.tool_name" type="text" placeholder="tool_name"
-                        class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm focus:outline-none focus:border-kakoclaw-accent" />
-                    </div>
-                    <div>
-                      <label class="block text-xs font-semibold text-kakoclaw-text-secondary mb-1">
-                        Arguments (JSON)
-                        <span class="font-normal opacity-60">(string values support {{ templateHint }} templates)</span>
-                      </label>
-                      <textarea v-model="step._config._argsJson" rows="4" placeholder='{"key": "value"}'
-                        class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm focus:outline-none focus:border-kakoclaw-accent font-mono resize-y"
-                        :class="step._config._argsError ? 'border-red-500' : ''"></textarea>
-                      <p v-if="step._config._argsError" class="text-xs text-red-400 mt-1">{{ step._config._argsError }}</p>
-                    </div>
-                  </template>
-
-                  <!-- Condition Config -->
-                  <template v-if="step.type === 'condition'">
-                    <div>
-                      <label class="block text-xs font-semibold text-kakoclaw-text-secondary mb-1">
-                        Reference
-                        <span class="font-normal opacity-60">(e.g. {{ templateExample }})</span>
-                      </label>
-                      <input v-model="step._config.reference" type="text" placeholder="{{step.1.output}}"
-                        class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm focus:outline-none focus:border-kakoclaw-accent font-mono" />
-                    </div>
-                    <div>
-                      <label class="block text-xs font-semibold text-kakoclaw-text-secondary mb-1">Operator</label>
-                      <select v-model="step._config.operator"
-                        class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm focus:outline-none focus:border-kakoclaw-accent">
-                        <option value="contains">Contains</option>
-                        <option value="equals">Equals</option>
-                        <option value="not_empty">Not Empty</option>
-                        <option value="regex">Regex Match</option>
-                      </select>
-                    </div>
-                    <div v-if="step._config.operator !== 'not_empty'">
-                      <label class="block text-xs font-semibold text-kakoclaw-text-secondary mb-1">Value</label>
-                      <input v-model="step._config.value" type="text" placeholder="Compare value"
-                        class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm focus:outline-none focus:border-kakoclaw-accent" />
-                    </div>
-                  </template>
-                </div>
+                  <div v-if="step._config.operator !== 'not_empty'">
+                    <label class="block text-xs font-semibold text-kakoclaw-text-secondary mb-1">Value</label>
+                    <input v-model="step._config.value" type="text" placeholder="Compare value"
+                      class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm focus:outline-none focus:border-kakoclaw-accent" />
+                  </div>
+                </template>
               </div>
-            </template>
-            </VueDraggable>
-          </div>
-          <div v-else class="text-center py-8 border-2 border-dashed border-kakoclaw-border rounded-xl text-kakoclaw-text-secondary">
-             No steps yet. Add a step below to start building your pipeline.
-          </div>
+            </div>
+          </VueDraggable>
         </div>
 
         <!-- Add Step Buttons -->
@@ -335,6 +367,37 @@
       </template>
     </div>
 
+    <!-- Parameter Input Modal -->
+    <div v-if="showParamModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50" @click.self="cancelParameters">
+      <div class="bg-kakoclaw-surface border border-kakoclaw-border rounded-xl p-6 w-full max-w-md max-h-[80vh] overflow-y-auto">
+        <h2 class="text-lg font-semibold mb-4">Workflow Parameters</h2>
+        <p class="text-sm text-kakoclaw-text-secondary mb-4">
+          Provide values for the workflow parameters:
+        </p>
+        
+        <div class="space-y-4 mb-6">
+          <div v-for="param in (paramModalWorkflow?.parameters || [])" :key="param.name">
+            <label class="block text-xs font-semibold text-kakoclaw-text-secondary mb-1">
+              {{ param.label || param.name }}
+            </label>
+            <input v-model="paramInputs[param.name]" type="text" :placeholder="param.default_value || 'Enter value...'"
+              class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm focus:outline-none focus:border-kakoclaw-accent" />
+          </div>
+        </div>
+        
+        <div class="flex items-center gap-3">
+          <button @click="submitParameters"
+            class="flex-1 px-4 py-2 bg-kakoclaw-accent text-white rounded-lg hover:bg-kakoclaw-accent/90 transition-colors text-sm font-medium">
+            Run Workflow
+          </button>
+          <button @click="cancelParameters"
+            class="px-4 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg hover:bg-kakoclaw-surface transition-colors text-sm">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -355,6 +418,12 @@ const runningId = ref(null)
 const testRunning = ref(false)
 const testResults = ref(null)
 
+// Parameter modal state
+const showParamModal = ref(false)
+const paramModalWorkflow = ref(null)
+const paramModalIsTest = ref(false)
+const paramInputs = reactive({})
+
 // Template syntax hint strings (cannot use literal {{ }} in Vue templates)
 const templateHint = '{{step.N.output}}'
 const templateExample = '{{step.1.output}}'
@@ -369,7 +438,8 @@ const editingWorkflow = reactive({
   name: '',
   description: '',
   enabled: true,
-  steps: []
+  steps: [],
+  parameters: []
 })
 
 onMounted(async () => {
@@ -398,7 +468,7 @@ async function loadTools() {
 }
 
 function startCreate() {
-  Object.assign(editingWorkflow, { id: null, name: '', description: '', enabled: true, steps: [] })
+  Object.assign(editingWorkflow, { id: null, name: '', description: '', enabled: true, steps: [], parameters: [] })
   testResults.value = null
   expandedStep.value = null
   editing.value = true
@@ -411,12 +481,19 @@ function startEdit(wf) {
     steps = (raw || []).map(s => deserializeStep(s))
   } catch { steps = [] }
 
+  let parameters = []
+  try {
+    const raw = typeof wf.parameters === 'string' ? JSON.parse(wf.parameters) : wf.parameters
+    parameters = raw || []
+  } catch { parameters = [] }
+
   Object.assign(editingWorkflow, {
     id: wf.id,
     name: wf.name,
     description: wf.description || '',
     enabled: wf.enabled,
-    steps
+    steps,
+    parameters
   })
   testResults.value = null
   expandedStep.value = steps.length > 0 ? steps[0].id : null
@@ -455,6 +532,19 @@ function addStep(type) {
 function removeStep(idx, stepId) {
   editingWorkflow.steps.splice(idx, 1)
   if (expandedStep.value === stepId) expandedStep.value = null
+}
+
+// Parameter helpers
+function addParameter() {
+  editingWorkflow.parameters.push({
+    name: '',
+    label: '',
+    default_value: ''
+  })
+}
+
+function removeParameter(idx) {
+  editingWorkflow.parameters.splice(idx, 1)
 }
 
 function defaultConfig(type) {
@@ -529,7 +619,8 @@ async function saveWorkflow() {
       name: editingWorkflow.name,
       description: editingWorkflow.description,
       enabled: editingWorkflow.enabled,
-      steps: serializeSteps(editingWorkflow.steps)
+      steps: serializeSteps(editingWorkflow.steps),
+      parameters: editingWorkflow.parameters || []
     }
 
     if (editingWorkflow.id) {
@@ -560,9 +651,33 @@ async function deleteWorkflow(wf) {
 }
 
 async function runWorkflow(wf) {
+  // Check if workflow has parameters
+  let params = []
+  try {
+    const raw = typeof wf.parameters === 'string' ? JSON.parse(wf.parameters) : wf.parameters
+    params = raw || []
+  } catch { params = [] }
+
+  if (params.length > 0) {
+    // Show parameter input modal
+    paramModalWorkflow.value = wf
+    paramModalIsTest.value = false
+    // Initialize param inputs with default values
+    params.forEach(p => {
+      paramInputs[p.name] = p.default_value || ''
+    })
+    showParamModal.value = true
+    return
+  }
+
+  // No parameters, run directly
+  await executeWorkflow(wf, {})
+}
+
+async function executeWorkflow(wf, parameters) {
   runningId.value = wf.id
   try {
-    const data = await workflowService.runWorkflow(wf.id)
+    const data = await workflowService.runWorkflow(wf.id, parameters)
     wf._lastResults = data.results || []
     toast.success('Workflow executed successfully')
   } catch (e) {
@@ -577,9 +692,29 @@ async function testRun() {
   // Auto-save before running
   await saveWorkflow()
   if (saving.value || error.value) return
+
+  // Check if workflow has parameters
+  const params = editingWorkflow.parameters || []
+  if (params.length > 0) {
+    // Show parameter input modal
+    paramModalWorkflow.value = { id: editingWorkflow.id, parameters: params }
+    paramModalIsTest.value = true
+    // Initialize param inputs with default values
+    params.forEach(p => {
+      paramInputs[p.name] = p.default_value || ''
+    })
+    showParamModal.value = true
+    return
+  }
+
+  // No parameters, run directly
+  await executeTestRun({})
+}
+
+async function executeTestRun(parameters) {
   testRunning.value = true
   try {
-    const data = await workflowService.runWorkflow(editingWorkflow.id)
+    const data = await workflowService.runWorkflow(editingWorkflow.id, parameters)
     testResults.value = data.results || []
     toast.success('Test run completed')
   } catch (e) {
@@ -587,6 +722,43 @@ async function testRun() {
   } finally {
     testRunning.value = false
   }
+}
+
+function submitParameters() {
+  // Collect parameter values
+  const params = {}
+  const wf = paramModalWorkflow.value
+  let paramDefs = []
+  try {
+    const raw = typeof wf.parameters === 'string' ? JSON.parse(wf.parameters) : wf.parameters
+    paramDefs = raw || []
+  } catch { paramDefs = [] }
+
+  paramDefs.forEach(p => {
+    params[p.name] = paramInputs[p.name] || ''
+  })
+
+  showParamModal.value = false
+
+  // Execute workflow with parameters
+  if (paramModalIsTest.value) {
+    executeTestRun(params)
+  } else {
+    const fullWf = workflows.value.find(w => w.id === wf.id)
+    if (fullWf) {
+      executeWorkflow(fullWf, params)
+    }
+  }
+
+  // Clear modal state
+  paramModalWorkflow.value = null
+  Object.keys(paramInputs).forEach(k => delete paramInputs[k])
+}
+
+function cancelParameters() {
+  showParamModal.value = false
+  paramModalWorkflow.value = null
+  Object.keys(paramInputs).forEach(k => delete paramInputs[k])
 }
 
 async function showRuns(wf) {

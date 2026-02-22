@@ -80,6 +80,51 @@ type ToolEvent struct {
 // ToolCallback is called when a tool is about to be executed or starts/finishes.
 type ToolCallback func(ev ToolEvent) error
 
+// NewAgentLoopForUser creates an agent loop for a specific user with their merged configuration.
+// It loads the user's config and merges it with the global config, then initializes the agent loop.
+func NewAgentLoopForUser(userUUID string, globalCfg *config.Config, msgBus *bus.MessageBus, storage *storage.Storage) (*AgentLoop, error) {
+	if userUUID == "" {
+		return nil, fmt.Errorf("userUUID is required")
+	}
+
+	// Load user config and merge with global
+	userCfg, err := config.LoadConfigForUser(userUUID)
+	if err != nil {
+		logger.WarnCF("agent", "Failed to load user config, using global", map[string]interface{}{
+			"user_uuid": userUUID,
+			"error":     err.Error(),
+		})
+		userCfg = globalCfg
+	}
+
+	// Merge user config over global config
+	mergedCfg := config.MergeConfigs(globalCfg, userCfg)
+
+	// Create provider with merged config
+	provider, err := providers.CreateProvider(mergedCfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create provider for user %s: %w", userUUID, err)
+	}
+
+	// Create agent loop with merged config
+	al := NewAgentLoop(mergedCfg, msgBus, provider)
+
+	// Set user context
+	if storage != nil {
+		user, err := storage.GetUserByUUID(userUUID)
+		if err == nil {
+			al.SetUserForAgent(userUUID, user.ID)
+		} else {
+			logger.WarnCF("agent", "Failed to get user from storage", map[string]interface{}{
+				"user_uuid": userUUID,
+				"error":     err.Error(),
+			})
+		}
+	}
+
+	return al, nil
+}
+
 func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers.LLMProvider) *AgentLoop {
 	workspace := cfg.WorkspacePath()
 	os.MkdirAll(workspace, 0755)
@@ -206,6 +251,7 @@ func (al *AgentLoop) SetUserForAgent(userUUID string, userID int64) {
 	}
 
 	al.contextBuilder.WithUser(userUUID, userID)
+	al.updateToolsUser(userID)
 }
 
 // updateToolsWorkspace updates workspace paths for tools that depend on a workspace directory.
@@ -216,6 +262,18 @@ func (al *AgentLoop) updateToolsWorkspace(workspace string) {
 	al.tools.ForEach(func(t tools.Tool) {
 		if wt, ok := t.(tools.WorkspaceTool); ok {
 			wt.SetWorkspace(workspace)
+		}
+	})
+}
+
+// updateToolsUser updates user ID for tools that need to filter data by user.
+func (al *AgentLoop) updateToolsUser(userID int64) {
+	if al.tools == nil {
+		return
+	}
+	al.tools.ForEach(func(t tools.Tool) {
+		if ut, ok := t.(tools.UserAwareTool); ok {
+			ut.SetUserID(userID)
 		}
 	})
 }

@@ -226,7 +226,7 @@ func DefaultConfig() *Config {
 				Workspace:           "~/.kakoclaw/workspace",
 				RestrictToWorkspace: true,
 				Provider:            "",
-				Model:               "glm-4.7",
+				Model:               "openrouter",
 				MaxTokens:           8192,
 				Temperature:         0.7,
 				MaxToolIterations:   20,
@@ -535,4 +535,264 @@ func expandHome(path string) string {
 		return home
 	}
 	return path
+}
+
+// GetUserConfigPath returns the path to a user's config file
+func GetUserConfigPath(userUUID string) string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".kakoclaw", "users", userUUID, "config.json")
+}
+
+// SaveConfigForUser saves a user-specific config to their config file
+func SaveConfigForUser(userUUID string, cfg *Config) error {
+	if userUUID == "" {
+		return fmt.Errorf("user UUID is required")
+	}
+
+	path := GetUserConfigPath(userUUID)
+
+	// Use the package-level SaveConfig function
+	return SaveConfig(path, cfg)
+}
+
+// MergeConfigs merges user config over global config at section level.
+// Non-empty sections in userCfg override the corresponding sections in globalCfg.
+// Empty/zero-value sections in userCfg fall back to globalCfg.
+func MergeConfigs(global, user *Config) *Config {
+	if global == nil {
+		return user
+	}
+	if user == nil {
+		return global
+	}
+
+	merged := &Config{}
+
+	// Merge Agents section
+	if !isAgentsConfigEmpty(&user.Agents) {
+		merged.Agents = user.Agents
+	} else {
+		merged.Agents = global.Agents
+	}
+
+	// Merge Providers section (field-by-field for each provider)
+	merged.Providers = mergeProvidersConfig(&global.Providers, &user.Providers)
+
+	// Merge Channels section
+	if !isChannelsConfigEmpty(&user.Channels) {
+		merged.Channels = user.Channels
+	} else {
+		merged.Channels = global.Channels
+	}
+
+	// Merge Tools section
+	merged.Tools = mergeToolsConfig(&global.Tools, &user.Tools)
+
+	// Merge Gateway section
+	if !isGatewayConfigEmpty(&user.Gateway) {
+		merged.Gateway = user.Gateway
+	} else {
+		merged.Gateway = global.Gateway
+	}
+
+	// Merge Web section
+	if !isWebConfigEmpty(&user.Web) {
+		merged.Web = user.Web
+	} else {
+		merged.Web = global.Web
+	}
+
+	// Merge Storage section
+	if user.Storage.Path != "" {
+		merged.Storage = user.Storage
+	} else {
+		merged.Storage = global.Storage
+	}
+
+	return merged
+}
+
+// Helper functions to check if config sections are empty
+
+func isAgentsConfigEmpty(a *AgentsConfig) bool {
+	return a == nil || (a.Defaults.Workspace == "" && a.Defaults.Provider == "" && a.Defaults.Model == "")
+}
+
+func isChannelsConfigEmpty(c *ChannelsConfig) bool {
+	return c == nil || (!c.WhatsApp.Enabled && !c.Telegram.Enabled && !c.Feishu.Enabled &&
+		!c.Discord.Enabled && !c.MaixCam.Enabled && !c.QQ.Enabled && !c.DingTalk.Enabled &&
+		!c.Slack.Enabled && !c.Signal.Enabled)
+}
+
+func isGatewayConfigEmpty(g *GatewayConfig) bool {
+	return g == nil || (g.Host == "" && g.Port == 0)
+}
+
+func isWebConfigEmpty(w *WebConfig) bool {
+	return w == nil || (!w.Enabled && w.Host == "" && w.Port == 0)
+}
+
+func mergeProvidersConfig(global, user *ProvidersConfig) ProvidersConfig {
+	merged := ProvidersConfig{}
+
+	// Helper to merge individual provider
+	mergeProvider := func(g, u ProviderConfig) ProviderConfig {
+		if u.APIKey != "" || u.APIBase != "" {
+			return u
+		}
+		return g
+	}
+
+	merged.Anthropic = mergeProvider(global.Anthropic, user.Anthropic)
+	merged.OpenAI = mergeProvider(global.OpenAI, user.OpenAI)
+	merged.OpenRouter = mergeProvider(global.OpenRouter, user.OpenRouter)
+	merged.Groq = mergeProvider(global.Groq, user.Groq)
+	merged.Zhipu = mergeProvider(global.Zhipu, user.Zhipu)
+	merged.VLLM = mergeProvider(global.VLLM, user.VLLM)
+	merged.Gemini = mergeProvider(global.Gemini, user.Gemini)
+	merged.Nvidia = mergeProvider(global.Nvidia, user.Nvidia)
+	merged.Moonshot = mergeProvider(global.Moonshot, user.Moonshot)
+	merged.Ollama = mergeProvider(global.Ollama, user.Ollama)
+
+	return merged
+}
+
+func mergeToolsConfig(global, user *ToolsConfig) ToolsConfig {
+	merged := ToolsConfig{}
+
+	// Merge Web tools
+	if user.Web.Search.APIKey != "" {
+		merged.Web.Search = user.Web.Search
+	} else {
+		merged.Web.Search = global.Web.Search
+	}
+
+	// Merge Email tools
+	if user.Email.Enabled || user.Email.Host != "" {
+		merged.Email = user.Email
+	} else {
+		merged.Email = global.Email
+	}
+
+	// Merge MCP tools
+	if len(user.MCP.Servers) > 0 {
+		merged.MCP = user.MCP
+	} else {
+		merged.MCP = global.MCP
+	}
+
+	return merged
+}
+
+// ValidateProviderConfig checks if a specific provider has minimum required configuration
+func (c *Config) ValidateProviderConfig(providerName string) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	var provider ProviderConfig
+	switch providerName {
+	case "anthropic":
+		provider = c.Providers.Anthropic
+	case "openai":
+		provider = c.Providers.OpenAI
+	case "openrouter":
+		provider = c.Providers.OpenRouter
+	case "groq":
+		provider = c.Providers.Groq
+	case "zhipu":
+		provider = c.Providers.Zhipu
+	case "vllm":
+		provider = c.Providers.VLLM
+	case "gemini":
+		provider = c.Providers.Gemini
+	case "nvidia":
+		provider = c.Providers.Nvidia
+	case "moonshot":
+		provider = c.Providers.Moonshot
+	case "ollama":
+		provider = c.Providers.Ollama
+	default:
+		return fmt.Errorf("unknown provider: %s", providerName)
+	}
+
+	// Ollama doesn't require API key
+	if providerName == "ollama" {
+		if provider.APIBase == "" {
+			return fmt.Errorf("ollama requires api_base")
+		}
+		return nil
+	}
+
+	// All other providers require API key
+	if provider.APIKey == "" {
+		return fmt.Errorf("provider %s requires api_key", providerName)
+	}
+
+	return nil
+}
+
+// GetActiveProviders returns list of providers with valid configurations
+func (c *Config) GetActiveProviders() []string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	active := []string{}
+	providers := map[string]ProviderConfig{
+		"anthropic":  c.Providers.Anthropic,
+		"openai":     c.Providers.OpenAI,
+		"openrouter": c.Providers.OpenRouter,
+		"groq":       c.Providers.Groq,
+		"zhipu":      c.Providers.Zhipu,
+		"vllm":       c.Providers.VLLM,
+		"gemini":     c.Providers.Gemini,
+		"nvidia":     c.Providers.Nvidia,
+		"moonshot":   c.Providers.Moonshot,
+		"ollama":     c.Providers.Ollama,
+	}
+
+	for name := range providers {
+		if c.ValidateProviderConfig(name) == nil {
+			active = append(active, name)
+		}
+	}
+
+	return active
+}
+
+// GetActiveChannels returns list of channels with valid configurations
+func (c *Config) GetActiveChannels() []string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	active := []string{}
+
+	if c.Channels.Telegram.Enabled && c.Channels.Telegram.Token != "" {
+		active = append(active, "telegram")
+	}
+	if c.Channels.Discord.Enabled && c.Channels.Discord.Token != "" {
+		active = append(active, "discord")
+	}
+	if c.Channels.WhatsApp.Enabled && c.Channels.WhatsApp.BridgeURL != "" {
+		active = append(active, "whatsapp")
+	}
+	if c.Channels.Slack.Enabled && c.Channels.Slack.BotToken != "" {
+		active = append(active, "slack")
+	}
+	if c.Channels.Feishu.Enabled && c.Channels.Feishu.AppID != "" {
+		active = append(active, "feishu")
+	}
+	if c.Channels.QQ.Enabled && c.Channels.QQ.AppID != "" {
+		active = append(active, "qq")
+	}
+	if c.Channels.DingTalk.Enabled && c.Channels.DingTalk.ClientID != "" {
+		active = append(active, "dingtalk")
+	}
+	if c.Channels.Signal.Enabled && c.Channels.Signal.PhoneNumber != "" {
+		active = append(active, "signal")
+	}
+	if c.Channels.MaixCam.Enabled {
+		active = append(active, "maixcam")
+	}
+
+	return active
 }

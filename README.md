@@ -56,9 +56,10 @@ We believe in the democratization of AI. By taking the work of PicoClaw and opti
 - 🪶 **Stateless & Portable**: Single binary, zero dependencies.
 - 📡 **Multi-Channel**: Telegram, Discord, QQ, DingTalk, and more.
 - 🛠️ **Powerful Tools**: File management, Web Search (Brave), Shell execution, Subagents.
+- ⚡ **Visual Workflows**: Drag-and-drop automation pipelines with prompts, tools, and conditions.
 - 📅 **Smart Cron**: Automated tasks and reminders.
 - 🎙️ **Voice Ready**: Free transcription via Groq/Whisper.
-- 💻 **Experimental Web UI**: A modern Kanban-style dashboard for task management.
+- 💻 **Modern Web UI**: Kanban task board + workflow builder with real-time updates.
 
 ---
 
@@ -88,6 +89,21 @@ KakoClaw agent -m "Calculate the potential of a $10 RISC-V board"
 # Interactive mode
 KakoClaw agent
 ```
+
+### 4. Create Your First Workflow
+
+```bash
+# Start web server
+KakoClaw web
+
+# Open http://localhost:18880 in browser
+# ⚡ **[Workflows Guide](./docs/examples/workflows.md)** — Multi-step automation
+- 🔌 [API Reference](./docs/api-reference/workflows.md) — REST API for workflows
+- 🚀 [Deployment Guides](./docs/deployment/docker.md)
+- 💻 [Developer Setup](./docs/development/setup.md)
+- 🔧 [Troubleshooting](./docs/troubleshooting/workflow
+
+📖 **Learn more**: [Workflows Guide](./docs/examples/workflows.md) | [Quick Start](./docs/guides/quickstart.md)
 
 ---
 
