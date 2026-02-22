@@ -7,6 +7,90 @@
       "max_tokens": 8192,
       "temperature": 0.7,
       "max_tool_iterations": 20
+    },
+    "orchestrator": {
+      "enabled": false,
+      "provider": "anthropic",
+      "model": "claude-opus",
+      "max_tokens": 12000,
+      "temperature": 0.7,
+      "max_delegation_retries": 2,
+      "fallback_to_default": true,
+      "description": "Project Manager: Analyzes tasks and delegates to appropriate specialists"
+    },
+    "specialists": {
+      "developer": {
+        "name": "developer",
+        "description": "Software Developer: Handles coding tasks, refactoring, debugging, architecture decisions",
+        "prompt": "You are an expert software developer. Focus on code quality, performance, and best practices.",
+        "provider": "anthropic",
+        "model": "claude-opus",
+        "max_tokens": 12000,
+        "temperature": 0.3,
+        "max_tool_iterations": 20,
+        "tools": ["file_read", "file_write", "execute_shell", "list_dir"],
+        "keywords": ["code", "programming", "debug", "refactor", "architecture"]
+      },
+      "documentation": {
+        "name": "documentation",
+        "description": "Technical Writer: Creates documentation, READMEs, API docs, guides",
+        "prompt": "You are an expert technical writer. Write clear, well-structured documentation with examples.",
+        "provider": "openrouter",
+        "model": "meta-llama/llama-2-70b",
+        "max_tokens": 8192,
+        "temperature": 0.5,
+        "max_tool_iterations": 10,
+        "tools": ["file_read", "file_write", "list_dir"],
+        "keywords": ["documentation", "readme", "guide", "tutorial", "api", "write"]
+      },
+      "testing": {
+        "name": "testing",
+        "description": "QA Engineer: Creates tests, validates code, defines test strategies",
+        "prompt": "You are an expert QA engineer. Write comprehensive tests and validate code quality.",
+        "provider": "anthropic",
+        "model": "claude-sonnet",
+        "max_tokens": 8192,
+        "temperature": 0.4,
+        "max_tool_iterations": 15,
+        "tools": ["file_read", "file_write", "execute_shell", "list_dir"],
+        "keywords": ["test", "testing", "unit", "validation", "qa", "coverage"]
+      },
+      "devops": {
+        "name": "devops",
+        "description": "DevOps Engineer: Handles deployment, CI/CD, infrastructure, containerization",
+        "prompt": "You are an expert DevOps engineer. Focus on reliability, scalability, and automation.",
+        "provider": "openrouter",
+        "model": "meta-llama/llama-2-70b",
+        "max_tokens": 8192,
+        "temperature": 0.4,
+        "max_tool_iterations": 15,
+        "tools": ["file_read", "file_write", "execute_shell", "list_dir"],
+        "keywords": ["deployment", "docker", "kubernetes", "ci/cd", "devops", "infrastructure"]
+      },
+      "analyst": {
+        "name": "analyst",
+        "description": "Data Analyst: Analyzes data, generates reports, creates visualizations",
+        "prompt": "You are an expert data analyst. Provide insights and analysis with evidence.",
+        "provider": "openrouter",
+        "model": "meta-llama/llama-2-70b",
+        "max_tokens": 8192,
+        "temperature": 0.5,
+        "max_tool_iterations": 10,
+        "tools": ["file_read", "file_write", "list_dir"],
+        "keywords": ["analysis", "data", "report", "analytics", "insights", "statistics"]
+      },
+      "researcher": {
+        "name": "researcher",
+        "description": "Research Specialist: Gathers information, performs web research, synthesizes findings",
+        "prompt": "You are an expert researcher. Gather comprehensive information and synthesize findings.",
+        "provider": "openrouter",
+        "model": "meta-llama/llama-2-70b",
+        "max_tokens": 8192,
+        "temperature": 0.6,
+        "max_tool_iterations": 15,
+        "tools": ["web_search", "file_read"],
+        "keywords": ["research", "search", "investigate", "find", "gather", "information"]
+      }
     }
   },
   "channels": {

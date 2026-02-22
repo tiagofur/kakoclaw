@@ -167,6 +167,7 @@ func (s *Storage) migrate() error {
 		`ALTER TABLE chats ADD COLUMN user_id INTEGER DEFAULT 1;`,
 		`ALTER TABLE tasks ADD COLUMN user_id INTEGER DEFAULT 1;`,
 		`ALTER TABLE sessions ADD COLUMN user_id INTEGER DEFAULT 1;`,
+		`ALTER TABLE knowledge_documents ADD COLUMN user_id INTEGER DEFAULT 1;`,
 	}
 
 	for _, query := range queries {

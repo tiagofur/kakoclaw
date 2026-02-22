@@ -189,6 +189,65 @@
              </div>
            </div>
 
+          <!-- Email Tool Configuration -->
+          <div class="glass-panel rounded-2xl p-8">
+            <div class="flex justify-between items-center mb-8">
+              <div>
+                <h3 class="text-[10px] font-bold uppercase tracking-widest text-kakoclaw-text-secondary opacity-60">Email Tool</h3>
+                <p class="text-xs text-kakoclaw-text-secondary mt-1">Configure SMTP settings for sending email reports</p>
+              </div>
+              <button 
+                @click="saveConfig({tools: configData.tools})" 
+                :disabled="saving"
+                class="text-kakoclaw-accent hover:text-kakoclaw-accent-hover text-xs font-bold uppercase tracking-widest disabled:opacity-50 transition-all active:scale-95"
+              >
+                {{ saving ? 'Updating...' : 'Save Updates' }}
+              </button>
+            </div>
+
+            <div class="space-y-4 mb-6">
+              <label class="flex items-center space-x-3">
+                <input v-model="configData.tools.email.enabled" type="checkbox" class="rounded border-kakoclaw-border text-kakoclaw-accent focus:ring-kakoclaw-accent">
+                <span class="text-sm text-kakoclaw-text font-medium">Enable Email Tool</span>
+              </label>
+            </div>
+
+            <div v-if="configData.tools.email.enabled" class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+               <div>
+                  <label class="block text-[10px] font-bold uppercase tracking-widest text-kakoclaw-text-secondary mb-2 opacity-70">SMTP Host</label>
+                  <input v-model="configData.tools.email.host" type="text" placeholder="smtp.gmail.com" class="w-full bg-kakoclaw-bg/40 border border-kakoclaw-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-kakoclaw-accent text-kakoclaw-text backdrop-blur-sm transition-all">
+               </div>
+               <div>
+                  <label class="block text-[10px] font-bold uppercase tracking-widest text-kakoclaw-text-secondary mb-2 opacity-70">SMTP Port</label>
+                  <input v-model.number="configData.tools.email.port" type="number" placeholder="587" class="w-full bg-kakoclaw-bg/40 border border-kakoclaw-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-kakoclaw-accent text-kakoclaw-text backdrop-blur-sm transition-all">
+               </div>
+               <div>
+                  <label class="block text-[10px] font-bold uppercase tracking-widest text-kakoclaw-text-secondary mb-2 opacity-70">Email Username</label>
+                  <input v-model="configData.tools.email.username" type="email" placeholder="your-email@gmail.com" class="w-full bg-kakoclaw-bg/40 border border-kakoclaw-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-kakoclaw-accent text-kakoclaw-text backdrop-blur-sm transition-all">
+               </div>
+               <div>
+                  <label class="block text-[10px] font-bold uppercase tracking-widest text-kakoclaw-text-secondary mb-2 opacity-70">Email Password / App Password</label>
+                  <input v-model="configData.tools.email.password" type="password" placeholder="••••••••••••••••" class="w-full bg-kakoclaw-bg/40 border border-kakoclaw-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-kakoclaw-accent text-kakoclaw-text backdrop-blur-sm transition-all">
+                  <p class="text-[10px] text-kakoclaw-text-secondary mt-1.5">For Gmail, use an App Password (not your regular password)</p>
+               </div>
+               <div>
+                  <label class="block text-[10px] font-bold uppercase tracking-widest text-kakoclaw-text-secondary mb-2 opacity-70">From Address</label>
+                  <input v-model="configData.tools.email.from" type="text" placeholder="KakoClaw <your-email@gmail.com>" class="w-full bg-kakoclaw-bg/40 border border-kakoclaw-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-kakoclaw-accent text-kakoclaw-text backdrop-blur-sm transition-all">
+               </div>
+               <div>
+                  <label class="block text-[10px] font-bold uppercase tracking-widest text-kakoclaw-text-secondary mb-2 opacity-70">Default Recipient Email</label>
+                  <input v-model="configData.tools.email.to" type="email" placeholder="recipient@example.com" class="w-full bg-kakoclaw-bg/40 border border-kakoclaw-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-kakoclaw-accent text-kakoclaw-text backdrop-blur-sm transition-all">
+               </div>
+             </div>
+
+             <div v-if="!configData.tools.email.enabled" class="py-8 text-center opacity-60">
+               <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-kakoclaw-text-secondary mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+               </svg>
+               <p class="text-sm text-kakoclaw-text-secondary">Email tool is disabled. Enable it above to configure SMTP settings.</p>
+             </div>
+           </div>
+
           <!-- Backup Section -->
           <div class="glass-panel rounded-2xl p-8">
              <div class="flex justify-between items-center mb-8">
@@ -297,22 +356,31 @@
                        <div><span class="text-kakoclaw-text-secondary">Created:</span> <span class="text-kakoclaw-text">{{ formatDate(validationResult.created_at) }}</span></div>
                      </div>
 
-                     <div class="space-y-2 pt-2 border-t border-kakoclaw-border">
+                     <div v-if="!validationResult.has_any_content" class="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                       <p class="text-sm text-red-300 flex items-center">
+                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                         </svg>
+                         ⚠️ This backup file doesn't contain any importable data
+                       </p>
+                     </div>
+
+                     <div v-else class="space-y-2 pt-2 border-t border-kakoclaw-border">
                        <label class="flex items-center space-x-2">
                          <input type="checkbox" v-model="importOptions.replace_database" class="rounded border-kakoclaw-border text-kakoclaw-accent focus:ring-kakoclaw-accent" :disabled="!validationResult.includes_database">
-                         <span class="text-sm text-kakoclaw-text" :class="{'opacity-50': !validationResult.includes_database}">Replace Database & Sessions</span>
+                         <span class="text-sm text-kakoclaw-text" :class="{'opacity-50': !validationResult.includes_database}">Replace Database & Sessions ({{ validationResult.database_file_count }} files)</span>
                        </label>
                        <label class="flex items-center space-x-2">
                          <input type="checkbox" v-model="importOptions.replace_workspace" class="rounded border-kakoclaw-border text-kakoclaw-accent focus:ring-kakoclaw-accent" :disabled="!validationResult.includes_workspace">
-                         <span class="text-sm text-kakoclaw-text" :class="{'opacity-50': !validationResult.includes_workspace}">Replace Workspace & Skills</span>
+                         <span class="text-sm text-kakoclaw-text" :class="{'opacity-50': !validationResult.includes_workspace}">Replace Workspace & Skills ({{ validationResult.workspace_file_count }} files)</span>
                        </label>
                        <label class="flex items-center space-x-2">
                          <input type="checkbox" v-model="importOptions.replace_config" class="rounded border-kakoclaw-border text-kakoclaw-accent focus:ring-kakoclaw-accent" :disabled="!validationResult.includes_config">
-                         <span class="text-sm text-kakoclaw-text" :class="{'opacity-50': !validationResult.includes_config}">Replace Configuration</span>
+                         <span class="text-sm text-kakoclaw-text" :class="{'opacity-50': !validationResult.includes_config}">Replace Configuration ({{ validationResult.config_file_count }} files)</span>
                        </label>
                        <label class="flex items-center space-x-2">
                          <input type="checkbox" v-model="importOptions.replace_env" class="rounded border-kakoclaw-border text-kakoclaw-accent focus:ring-kakoclaw-accent" :disabled="!validationResult.includes_env">
-                         <span class="text-sm text-kakoclaw-text" :class="{'opacity-50': !validationResult.includes_env}">Replace Environment Variables</span>
+                         <span class="text-sm text-kakoclaw-text" :class="{'opacity-50': !validationResult.includes_env}">Replace Environment Variables ({{ validationResult.env_file_count }} files)</span>
                        </label>
                      </div>
 
@@ -326,7 +394,7 @@
 
                     <button
                       @click="importBackup"
-                      :disabled="importing || !validationResult || (!importOptions.replace_database && !importOptions.replace_workspace && !importOptions.replace_config && !importOptions.replace_env)"
+                      :disabled="importing || !validationResult || !validationResult.has_any_content || (!importOptions.replace_database && !importOptions.replace_workspace && !importOptions.replace_config && !importOptions.replace_env)"
                       class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
                     >
                       <svg v-if="importing" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -752,10 +820,13 @@ const importBackup = async () => {
 
     const result = await response.json()
     if (result.ok) {
-      toast.success('Backup imported successfully')
+      const userInfo = result.imported_by ? ` to user @${result.imported_by.username}` : ''
+      toast.success(`✅ Backup imported successfully${userInfo}`)
       clearSelectedFile()
+      // Reload config after import
+      setTimeout(loadData, 1000)
     } else {
-      toast.error('Failed to import backup')
+      toast.error('Failed to import backup: ' + (result.message || 'Unknown error'))
     }
   } catch (err) {
     console.error(err)
