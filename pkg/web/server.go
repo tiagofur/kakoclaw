@@ -48,6 +48,7 @@ type Server struct {
 	fullConfig              *config.Config
 	workspace               string
 	agentLoop               *agent.AgentLoop
+	agentManager            *agent.AgentManager
 	server                  *http.Server
 	authManager             *authManager
 	store                   *storage.Storage
@@ -234,6 +235,8 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/cron/", s.handleCronAction)                   // Cron job actions
 	mux.HandleFunc("/api/v1/channels", s.handleChannels)                  // Channels status
 	mux.HandleFunc("/api/v1/config", s.handleConfig)                      // Config (read-only, redacted)
+	mux.HandleFunc("/api/v1/agents", s.handleAgents)                      // Agents list
+	mux.HandleFunc("/api/v1/agents/", s.handleAgentAction)                // Agent details, sessions, config
 
 	// Setup/Onboarding flow (Phase 4)
 	mux.HandleFunc("/api/v1/setup/initialize", s.handleSetupInitialize) // Create setup session
@@ -2228,4 +2231,167 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	snapshot := observability.Global().Snapshot()
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(snapshot)
+}
+
+// handleAgents returns information about configured specialist agents
+func (s *Server) handleAgents(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get agent manager from gateway if available
+	if s.agentManager == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "agent manager not available",
+		})
+		return
+	}
+
+	registry := s.agentManager.GetSpecialistRegistry()
+	specialists := registry.ListSpecialists()
+
+	response := map[string]interface{}{
+		"orchestrated": s.agentManager.IsOrchestrated(),
+		"specialists":  make([]map[string]interface{}, 0),
+	}
+
+	agentsList := response["specialists"].([]map[string]interface{})
+	for name, specialist := range specialists {
+		if name == "orchestrator" {
+			continue
+		}
+		agentsList = append(agentsList, map[string]interface{}{
+			"name":        specialist.GetName(),
+			"description": specialist.GetDescription(),
+			"tools":       specialist.GetAllowedTools(),
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(response)
+}
+
+// handleAgentAction handles GET/POST for individual agents
+func (s *Server) handleAgentAction(w http.ResponseWriter, r *http.Request) {
+	path := strings.TrimPrefix(r.URL.Path, "/api/v1/agents/")
+	parts := strings.Split(path, "/")
+
+	if len(parts) < 1 || parts[0] == "" {
+		http.Error(w, "agent name required", http.StatusBadRequest)
+		return
+	}
+
+	agentName := parts[0]
+
+	// Route to appropriate handler
+	if len(parts) > 1 {
+		if parts[1] == "sessions" {
+			s.handleAgentSessions(w, r, agentName)
+			return
+		} else if parts[1] == "config" && len(parts) > 2 && parts[2] == "update" {
+			s.handleAgentConfigUpdate(w, r, agentName)
+			return
+		}
+	}
+
+	// Default: get agent details
+	s.handleAgentDetails(w, r, agentName)
+}
+
+// handleAgentDetails returns information about a specific agent
+func (s *Server) handleAgentDetails(w http.ResponseWriter, r *http.Request, agentName string) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if s.agentManager == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "agent manager not available",
+		})
+		return
+	}
+
+	registry := s.agentManager.GetSpecialistRegistry()
+	info, err := registry.GetSpecialistInfo(agentName)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(info)
+}
+
+// handleAgentSessions returns sessions handled by a specific agent
+func (s *Server) handleAgentSessions(w http.ResponseWriter, r *http.Request, agentName string) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if s.agentManager == nil || s.store == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "agent manager or storage not available",
+		})
+		return
+	}
+
+	// Placeholder implementation
+	// In a full implementation, would query sessions filtered by agent_profile
+	response := map[string]interface{}{
+		"agent":    agentName,
+		"sessions": []map[string]interface{}{},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(response)
+}
+
+// handleAgentConfigUpdate updates an agent's configuration
+func (s *Server) handleAgentConfigUpdate(w http.ResponseWriter, r *http.Request, agentName string) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if s.agentManager == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "agent manager not available",
+		})
+		return
+	}
+
+	var updateReq map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&updateReq); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "invalid request body",
+		})
+		return
+	}
+
+	// Placeholder implementation
+	// In a full implementation, would update specialist config
+	response := map[string]interface{}{
+		"agent":  agentName,
+		"status": "updated",
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(response)
 }

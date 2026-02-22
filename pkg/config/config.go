@@ -61,7 +61,9 @@ type StorageConfig struct {
 }
 
 type AgentsConfig struct {
-	Defaults AgentDefaults `json:"defaults"`
+	Defaults     AgentDefaults               `json:"defaults"`
+	Orchestrator OrchestratorConfig          `json:"orchestrator"`
+	Specialists  map[string]SpecialistConfig `json:"specialists"`
 }
 
 type AgentDefaults struct {
@@ -72,6 +74,30 @@ type AgentDefaults struct {
 	MaxTokens           int     `json:"max_tokens" env:"KAKOCLAW_AGENTS_DEFAULTS_MAX_TOKENS"`
 	Temperature         float64 `json:"temperature" env:"KAKOCLAW_AGENTS_DEFAULTS_TEMPERATURE"`
 	MaxToolIterations   int     `json:"max_tool_iterations" env:"KAKOCLAW_AGENTS_DEFAULTS_MAX_TOOL_ITERATIONS"`
+}
+
+type OrchestratorConfig struct {
+	Enabled              bool    `json:"enabled"`
+	Provider             string  `json:"provider"`
+	Model                string  `json:"model"`
+	MaxTokens            int     `json:"max_tokens"`
+	Temperature          float64 `json:"temperature"`
+	MaxDelegationRetries int     `json:"max_delegation_retries"`
+	FallbackToDefault    bool    `json:"fallback_to_default"`
+	Description          string  `json:"description"`
+}
+
+type SpecialistConfig struct {
+	Name              string   `json:"name"`
+	Description       string   `json:"description"`
+	Prompt            string   `json:"prompt"`
+	Provider          string   `json:"provider"`
+	Model             string   `json:"model"`
+	MaxTokens         int      `json:"max_tokens"`
+	Temperature       float64  `json:"temperature"`
+	MaxToolIterations int      `json:"max_tool_iterations"`
+	Tools             []string `json:"tools"`
+	Keywords          []string `json:"keywords"`
 }
 
 type ChannelsConfig struct {
@@ -231,6 +257,17 @@ func DefaultConfig() *Config {
 				Temperature:         0.7,
 				MaxToolIterations:   20,
 			},
+			Orchestrator: OrchestratorConfig{
+				Enabled:              false,
+				Provider:             "",
+				Model:                "",
+				MaxTokens:            12000,
+				Temperature:          0.7,
+				MaxDelegationRetries: 2,
+				FallbackToDefault:    true,
+				Description:          "Project Manager: Analyzes tasks and delegates to appropriate specialists",
+			},
+			Specialists: map[string]SpecialistConfig{},
 		},
 		Channels: ChannelsConfig{
 			WhatsApp: WhatsAppConfig{

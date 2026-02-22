@@ -17,6 +17,12 @@ type Session struct {
 	Summary  string              `json:"summary,omitempty"`
 	Created  time.Time           `json:"created"`
 	Updated  time.Time           `json:"updated"`
+	// AgentProfile tracks which agent/specialist handled this session
+	AgentProfile string `json:"agent_profile,omitempty"`
+	// ParentSessionKey links to parent session for hierarchical sessions (e.g., orchestrator delegations)
+	ParentSessionKey string `json:"parent_session_key,omitempty"`
+	// SpecialistMetadata stores stats about specialist execution
+	SpecialistMetadata map[string]interface{} `json:"specialist_metadata,omitempty"`
 }
 
 type SessionManager struct {
@@ -86,6 +92,25 @@ func (sm *SessionManager) GetOrCreateForUser(userID int64, key string) *Session 
 	}
 
 	return session
+}
+
+// GetOrCreateForSpecialist creates a session for a specialist agent
+func (sm *SessionManager) GetOrCreateForSpecialist(userID int64, sessionKey, agentProfile string) *Session {
+	session := sm.GetOrCreateForUser(userID, sessionKey)
+	session.AgentProfile = agentProfile
+	if session.SpecialistMetadata == nil {
+		session.SpecialistMetadata = make(map[string]interface{})
+	}
+	return session
+}
+
+// LinkParentSession sets the parent session for hierarchical tracking (e.g., orchestrator delegations)
+func (sm *SessionManager) LinkParentSession(userID int64, childSessionKey, parentSessionKey string) {
+	session := sm.GetOrCreateForUser(userID, childSessionKey)
+	session.ParentSessionKey = parentSessionKey
+	sm.mu.Lock()
+	sm.sessions[sm.namespaceKey(userID, childSessionKey)] = session
+	sm.mu.Unlock()
 }
 
 func (sm *SessionManager) AddMessage(sessionKey, role, content string) {

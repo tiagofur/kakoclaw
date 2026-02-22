@@ -526,6 +526,8 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 		"replace_workspace": importOptions.ReplaceWorkspace,
 		"replace_config":    importOptions.ReplaceConfig,
 		"replace_env":       importOptions.ReplaceEnv,
+		"imported_by_user":  user.Username,
+		"imported_to_uuid":  user.UUID,
 	})
 
 	w.Header().Set("Content-Type", "application/json")
@@ -534,6 +536,12 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 		"message":    "Backup imported successfully",
 		"backup_dir": backupDir,
 		"manifest":   manifest,
+		"imported_by": map[string]interface{}{
+			"username":  user.Username,
+			"user_id":   user.ID,
+			"user_uuid": user.UUID,
+			"workspace": userWorkspace,
+		},
 	})
 }
 
@@ -628,6 +636,11 @@ func (s *Server) handleBackupValidate(w http.ResponseWriter, r *http.Request) {
 		"exported_files":       manifest.ExportedFiles,
 		"failed_files":         manifest.FailedFiles,
 		"manifest":             string(manifestJSON),
+		"includes_database":    manifest.DatabaseFileCount > 0,
+		"includes_workspace":   manifest.WorkspaceFileCount > 0,
+		"includes_config":      manifest.ConfigFileCount > 0,
+		"includes_env":         manifest.EnvFileCount > 0,
+		"has_any_content":      manifest.DatabaseFileCount > 0 || manifest.WorkspaceFileCount > 0 || manifest.ConfigFileCount > 0 || manifest.EnvFileCount > 0,
 	})
 }
 
