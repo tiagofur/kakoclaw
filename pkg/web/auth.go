@@ -62,23 +62,33 @@ func newAuthManager(store *storage.Storage, cfgUsername, cfgPassword, cfgExpiry 
 	}
 
 	// Ensure there is at least one admin user
-	count, err := mgr.store.CountUsers()
+	adminCount, err := mgr.store.CountAdmins()
 	if err != nil {
 		return nil, err
 	}
-	if count == 0 {
+	if adminCount == 0 {
 		username := strings.TrimSpace(cfgUsername)
 		if username == "" {
 			username = "admin"
 		}
 		password := strings.TrimSpace(cfgPassword)
 		if password == "" {
-			password = randomPassword(20)
-			fmt.Printf("🔐 Web temporary password for '%s': %s\n", username, password)
+			return nil, errors.New("web admin bootstrap requires web.password when no admin user exists")
 		}
-		_, err := mgr.store.CreateUser(username, password, "admin")
+
+		user, err := mgr.store.GetUserByUsername(username)
 		if err != nil {
-			return nil, err
+			if errors.Is(err, storage.ErrUserNotFound) {
+				if _, createErr := mgr.store.CreateUser(username, password, "admin"); createErr != nil {
+					return nil, createErr
+				}
+			} else {
+				return nil, err
+			}
+		} else if user.Role != "admin" {
+			if err := mgr.store.UpdateUserRole(user.ID, "admin"); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -206,20 +216,4 @@ func (m *authManager) changePassword(username, oldPassword, newPassword string) 
 		return err
 	}
 	return m.store.SetSetting("jwt_secret_b64", base64.RawURLEncoding.EncodeToString(newSecret))
-}
-
-func randomPassword(n int) string {
-	if n < 8 {
-		n = 8
-	}
-	const alphabet = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%&*"
-	buf := make([]byte, n)
-	rnd := make([]byte, n)
-	if _, err := rand.Read(rnd); err != nil {
-		return "ChangeMeNow123!"
-	}
-	for i := range buf {
-		buf[i] = alphabet[int(rnd[i])%len(alphabet)]
-	}
-	return string(buf)
 }

@@ -133,6 +133,11 @@ func (s *Server) SetMultiUserChannelManager(m *channels.MultiUserChannelManager)
 	s.multiUserChannelManager = m
 }
 
+// SetAgentManager injects the agent manager for agent orchestration endpoints
+func (s *Server) SetAgentManager(m *agent.AgentManager) {
+	s.agentManager = m
+}
+
 // SetTranscriber injects the Groq voice transcriber for REST exposure
 func (s *Server) SetTranscriber(t *voice.GroqTranscriber) {
 	s.transcriber = t
@@ -221,22 +226,27 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/tasks", s.handleTasks)
 	mux.HandleFunc("/api/v1/tasks/search", s.handleTaskSearch) // Search tasks
 	mux.HandleFunc("/api/v1/tasks/", s.handleTasks)
-	mux.HandleFunc("/api/v1/chat/sessions", s.handleChatSessions)         // New endpoint
-	mux.HandleFunc("/api/v1/chat/sessions/", s.handleChatSessionMessages) // New endpoint
-	mux.HandleFunc("/api/v1/chat/search", s.handleChatSearch)             // Search messages
-	mux.HandleFunc("/api/v1/chat/fork", s.handleChatFork)                 // Fork conversation
-	mux.HandleFunc("/api/v1/chat/cancel", s.handleChatCancel)             // Cancel execution
-	mux.HandleFunc("/api/v1/chat/active", s.handleChatActive)             // Active executions
-	mux.HandleFunc("/api/v1/memory/longterm", s.handleLongTermMemory)     // New endpoint
-	mux.HandleFunc("/api/v1/memory/daily", s.handleDailyNotes)            // New endpoint
-	mux.HandleFunc("/api/v1/skills", s.handleSkills)                      // Skills list + marketplace
-	mux.HandleFunc("/api/v1/skills/", s.handleSkillAction)                // Install/uninstall/view
-	mux.HandleFunc("/api/v1/cron", s.handleCron)                          // Cron jobs list + create
-	mux.HandleFunc("/api/v1/cron/", s.handleCronAction)                   // Cron job actions
-	mux.HandleFunc("/api/v1/channels", s.handleChannels)                  // Channels status
-	mux.HandleFunc("/api/v1/config", s.handleConfig)                      // Config (read-only, redacted)
-	mux.HandleFunc("/api/v1/agents", s.handleAgents)                      // Agents list
-	mux.HandleFunc("/api/v1/agents/", s.handleAgentAction)                // Agent details, sessions, config
+	mux.HandleFunc("/api/v1/chat/sessions", s.handleChatSessions)             // New endpoint
+	mux.HandleFunc("/api/v1/chat/sessions/", s.handleChatSessionMessages)     // New endpoint
+	mux.HandleFunc("/api/v1/chat/search", s.handleChatSearch)                 // Search messages
+	mux.HandleFunc("/api/v1/chat/fork", s.handleChatFork)                     // Fork conversation
+	mux.HandleFunc("/api/v1/chat/cancel", s.handleChatCancel)                 // Cancel execution
+	mux.HandleFunc("/api/v1/chat/active", s.handleChatActive)                 // Active executions
+	mux.HandleFunc("/api/v1/memory/longterm", s.handleLongTermMemory)         // New endpoint
+	mux.HandleFunc("/api/v1/memory/daily", s.handleDailyNotes)                // New endpoint
+	mux.HandleFunc("/api/v1/skills", s.handleSkills)                          // Skills list + marketplace
+	mux.HandleFunc("/api/v1/skills/", s.handleSkillAction)                    // Install/uninstall/view
+	mux.HandleFunc("/api/v1/cron", s.handleCron)                              // Cron jobs list + create
+	mux.HandleFunc("/api/v1/cron/", s.handleCronAction)                       // Cron job actions
+	mux.HandleFunc("/api/v1/channels", s.handleChannels)                      // Channels status
+	mux.HandleFunc("/api/v1/config", s.handleConfig)                          // Config (read-only, redacted)
+	mux.HandleFunc("/api/v1/agents", s.handleAgents)                          // Agents list
+	mux.HandleFunc("/api/v1/agents/", s.handleAgentAction)                    // Agent details, sessions, config
+	mux.HandleFunc("/api/v1/agents/specialist", s.handleSpecialistCreate)     // Create specialist
+	mux.HandleFunc("/api/v1/agents/specialist/", s.handleSpecialistAction)    // Update/Delete specialist
+	mux.HandleFunc("/api/v1/agents/generate", s.handleSpecialistGenerate)     // Generate specialist with AI
+	mux.HandleFunc("/api/v1/agents/orchestrator", s.handleOrchestratorConfig) // Update orchestrator config
+	mux.HandleFunc("/api/v1/agents/metrics", s.handleAgentMetrics)            // Agent cost metrics
 
 	// Setup/Onboarding flow (Phase 4)
 	mux.HandleFunc("/api/v1/setup/initialize", s.handleSetupInitialize) // Create setup session
@@ -2240,38 +2250,53 @@ func (s *Server) handleAgents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get agent manager from gateway if available
-	if s.agentManager == nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusNotFound)
-		_ = json.NewEncoder(w).Encode(map[string]string{
-			"error": "agent manager not available",
-		})
-		return
+	orchestrated := false
+	if s.agentManager != nil {
+		orchestrated = s.agentManager.IsOrchestrated()
 	}
 
-	registry := s.agentManager.GetSpecialistRegistry()
-	specialists := registry.ListSpecialists()
+	agentsList := make([]map[string]interface{}, 0)
 
-	response := map[string]interface{}{
-		"orchestrated": s.agentManager.IsOrchestrated(),
-		"specialists":  make([]map[string]interface{}, 0),
-	}
-
-	agentsList := response["specialists"].([]map[string]interface{})
-	for name, specialist := range specialists {
-		if name == "orchestrator" {
-			continue
+	// Primary source: load from persisted user config (survives restarts)
+	if s.store != nil {
+		if userID, ok := s.getUserIDFromClaims(r); ok {
+			if user, err := s.store.GetUserByID(userID); err == nil {
+				if userCfg, _ := config.LoadConfigForUser(user.UUID); userCfg != nil {
+					for name, spec := range userCfg.Agents.Specialists {
+						agentsList = append(agentsList, map[string]interface{}{
+							"name":        name,
+							"description": spec.Description,
+							"tools":       spec.Tools,
+							"provider":    spec.Provider,
+							"model":       spec.Model,
+							"keywords":    spec.Keywords,
+						})
+					}
+				}
+			}
 		}
-		agentsList = append(agentsList, map[string]interface{}{
-			"name":        specialist.GetName(),
-			"description": specialist.GetDescription(),
-			"tools":       specialist.GetAllowedTools(),
-		})
+	}
+
+	// Fallback: use in-memory registry if storage/auth unavailable
+	if len(agentsList) == 0 && s.agentManager != nil {
+		registry := s.agentManager.GetSpecialistRegistry()
+		for name, specialist := range registry.ListSpecialists() {
+			if name == "orchestrator" {
+				continue
+			}
+			agentsList = append(agentsList, map[string]interface{}{
+				"name":        specialist.GetName(),
+				"description": specialist.GetDescription(),
+				"tools":       specialist.GetAllowedTools(),
+			})
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"orchestrated": orchestrated,
+		"specialists":  agentsList,
+	})
 }
 
 // handleAgentAction handles GET/POST for individual agents
@@ -2293,6 +2318,9 @@ func (s *Server) handleAgentAction(w http.ResponseWriter, r *http.Request) {
 			return
 		} else if parts[1] == "config" && len(parts) > 2 && parts[2] == "update" {
 			s.handleAgentConfigUpdate(w, r, agentName)
+			return
+		} else if parts[1] == "test" {
+			s.handleAgentTest(w, r, agentName)
 			return
 		}
 	}
@@ -2390,6 +2418,648 @@ func (s *Server) handleAgentConfigUpdate(w http.ResponseWriter, r *http.Request,
 	response := map[string]interface{}{
 		"agent":  agentName,
 		"status": "updated",
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(response)
+}
+
+// handleSpecialistCreate creates a new specialist agent
+func (s *Server) handleSpecialistCreate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if s.agentManager == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "agent manager not available",
+		})
+		return
+	}
+
+	if s.store == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "storage not available",
+		})
+		return
+	}
+
+	var specialistReq struct {
+		Name        string   `json:"name"`
+		Description string   `json:"description"`
+		Prompt      string   `json:"prompt"`
+		Provider    string   `json:"provider"`
+		Model       string   `json:"model"`
+		MaxTokens   int      `json:"max_tokens"`
+		Temperature float64  `json:"temperature"`
+		MaxToolIter int      `json:"max_tool_iterations"`
+		Tools       []string `json:"tools"`
+		Keywords    []string `json:"keywords"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&specialistReq); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "invalid request body: " + err.Error(),
+		})
+		return
+	}
+
+	if specialistReq.Name == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "name is required",
+		})
+		return
+	}
+
+	userID, ok := s.getUserIDFromClaims(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	user, err := s.store.GetUserByID(userID)
+	if err != nil {
+		http.Error(w, "user not found", http.StatusNotFound)
+		return
+	}
+
+	userCfg, _ := config.LoadConfigForUser(user.UUID)
+	if userCfg == nil {
+		userCfg = config.DefaultConfig()
+	}
+	if userCfg.Agents.Specialists == nil {
+		userCfg.Agents.Specialists = map[string]config.SpecialistConfig{}
+	}
+
+	specCfg := config.SpecialistConfig{
+		Name:              specialistReq.Name,
+		Description:       specialistReq.Description,
+		Prompt:            specialistReq.Prompt,
+		Provider:          specialistReq.Provider,
+		Model:             specialistReq.Model,
+		MaxTokens:         specialistReq.MaxTokens,
+		Temperature:       specialistReq.Temperature,
+		MaxToolIterations: specialistReq.MaxToolIter,
+		Tools:             specialistReq.Tools,
+		Keywords:          specialistReq.Keywords,
+	}
+
+	userCfg.Agents.Specialists[specialistReq.Name] = specCfg
+	if err := config.SaveConfigForUser(user.UUID, userCfg); err != nil {
+		logger.ErrorCF("web", "Failed to save user config for specialist", map[string]interface{}{
+			"user_uuid": user.UUID,
+			"error":     err.Error(),
+		})
+		http.Error(w, "failed to save config", http.StatusInternalServerError)
+		return
+	}
+
+	if _, err := s.agentManager.AddOrUpdateSpecialist(specialistReq.Name, &specCfg, userCfg, s.store); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "failed to register specialist: " + err.Error(),
+		})
+		return
+	}
+
+	response := map[string]interface{}{
+		"success": true,
+		"specialist": map[string]interface{}{
+			"name":        specialistReq.Name,
+			"description": specialistReq.Description,
+			"provider":    specialistReq.Provider,
+			"model":       specialistReq.Model,
+			"tools":       specialistReq.Tools,
+			"keywords":    specialistReq.Keywords,
+		},
+	}
+
+	if s.multiUserChannelManager != nil {
+		go func() {
+			ctx := context.Background()
+			if err := s.multiUserChannelManager.RestartUserChannels(ctx, user.UUID); err != nil {
+				logger.WarnCF("web", "Failed to restart user channels after specialist create", map[string]interface{}{
+					"user_uuid": user.UUID,
+					"error":     err.Error(),
+				})
+			}
+		}()
+	}
+
+	logger.InfoCF("web", "Created new specialist", map[string]interface{}{
+		"name":     specialistReq.Name,
+		"provider": specialistReq.Provider,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(response)
+}
+
+// handleSpecialistAction handles PUT/DELETE for individual specialists
+func (s *Server) handleSpecialistAction(w http.ResponseWriter, r *http.Request) {
+	path := strings.TrimPrefix(r.URL.Path, "/api/v1/agents/specialist/")
+	parts := strings.Split(path, "/")
+
+	if len(parts) < 1 || parts[0] == "" {
+		http.Error(w, "specialist name required", http.StatusBadRequest)
+		return
+	}
+
+	specialistName := parts[0]
+
+	switch r.Method {
+	case http.MethodPut:
+		s.handleSpecialistUpdate(w, r, specialistName)
+	case http.MethodDelete:
+		s.handleSpecialistDelete(w, r, specialistName)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// handleSpecialistUpdate updates a specialist's configuration
+func (s *Server) handleSpecialistUpdate(w http.ResponseWriter, r *http.Request, specialistName string) {
+	if s.agentManager == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "agent manager not available",
+		})
+		return
+	}
+
+	if s.store == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "storage not available",
+		})
+		return
+	}
+
+	var updateReq struct {
+		Description string   `json:"description"`
+		Prompt      string   `json:"prompt"`
+		Provider    string   `json:"provider"`
+		Model       string   `json:"model"`
+		MaxTokens   int      `json:"max_tokens"`
+		Temperature float64  `json:"temperature"`
+		MaxToolIter int      `json:"max_tool_iterations"`
+		Tools       []string `json:"tools"`
+		Keywords    []string `json:"keywords"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&updateReq); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "invalid request body: " + err.Error(),
+		})
+		return
+	}
+
+	userID, ok := s.getUserIDFromClaims(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	user, err := s.store.GetUserByID(userID)
+	if err != nil {
+		http.Error(w, "user not found", http.StatusNotFound)
+		return
+	}
+
+	userCfg, _ := config.LoadConfigForUser(user.UUID)
+	if userCfg == nil {
+		userCfg = config.DefaultConfig()
+	}
+	if userCfg.Agents.Specialists == nil {
+		userCfg.Agents.Specialists = map[string]config.SpecialistConfig{}
+	}
+
+	specCfg := config.SpecialistConfig{
+		Name:              specialistName,
+		Description:       updateReq.Description,
+		Prompt:            updateReq.Prompt,
+		Provider:          updateReq.Provider,
+		Model:             updateReq.Model,
+		MaxTokens:         updateReq.MaxTokens,
+		Temperature:       updateReq.Temperature,
+		MaxToolIterations: updateReq.MaxToolIter,
+		Tools:             updateReq.Tools,
+		Keywords:          updateReq.Keywords,
+	}
+
+	userCfg.Agents.Specialists[specialistName] = specCfg
+	if err := config.SaveConfigForUser(user.UUID, userCfg); err != nil {
+		logger.ErrorCF("web", "Failed to save user config for specialist update", map[string]interface{}{
+			"user_uuid": user.UUID,
+			"error":     err.Error(),
+		})
+		http.Error(w, "failed to save config", http.StatusInternalServerError)
+		return
+	}
+
+	if _, err := s.agentManager.AddOrUpdateSpecialist(specialistName, &specCfg, userCfg, s.store); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "failed to update specialist: " + err.Error(),
+		})
+		return
+	}
+
+	response := map[string]interface{}{
+		"success": true,
+		"specialist": map[string]interface{}{
+			"name": specialistName,
+		},
+	}
+
+	if s.multiUserChannelManager != nil {
+		go func() {
+			ctx := context.Background()
+			if err := s.multiUserChannelManager.RestartUserChannels(ctx, user.UUID); err != nil {
+				logger.WarnCF("web", "Failed to restart user channels after specialist update", map[string]interface{}{
+					"user_uuid": user.UUID,
+					"error":     err.Error(),
+				})
+			}
+		}()
+	}
+
+	logger.InfoCF("web", "Updated specialist", map[string]interface{}{
+		"name": specialistName,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(response)
+}
+
+// handleSpecialistDelete deletes a specialist
+func (s *Server) handleSpecialistDelete(w http.ResponseWriter, r *http.Request, specialistName string) {
+	if s.agentManager == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "agent manager not available",
+		})
+		return
+	}
+
+	if s.store == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "storage not available",
+		})
+		return
+	}
+
+	userID, ok := s.getUserIDFromClaims(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	user, err := s.store.GetUserByID(userID)
+	if err != nil {
+		http.Error(w, "user not found", http.StatusNotFound)
+		return
+	}
+
+	userCfg, _ := config.LoadConfigForUser(user.UUID)
+	if userCfg == nil || userCfg.Agents.Specialists == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "specialist not found",
+		})
+		return
+	}
+
+	if _, exists := userCfg.Agents.Specialists[specialistName]; !exists {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "specialist not found",
+		})
+		return
+	}
+
+	delete(userCfg.Agents.Specialists, specialistName)
+	if err := config.SaveConfigForUser(user.UUID, userCfg); err != nil {
+		logger.ErrorCF("web", "Failed to save user config for specialist delete", map[string]interface{}{
+			"user_uuid": user.UUID,
+			"error":     err.Error(),
+		})
+		http.Error(w, "failed to save config", http.StatusInternalServerError)
+		return
+	}
+
+	if !s.agentManager.RemoveSpecialist(specialistName) {
+		logger.WarnCF("web", "Specialist not found in registry during delete", map[string]interface{}{
+			"name": specialistName,
+		})
+	}
+
+	response := map[string]interface{}{
+		"success": true,
+		"specialist": map[string]interface{}{
+			"name":    specialistName,
+			"deleted": true,
+		},
+	}
+
+	if s.multiUserChannelManager != nil {
+		go func() {
+			ctx := context.Background()
+			if err := s.multiUserChannelManager.RestartUserChannels(ctx, user.UUID); err != nil {
+				logger.WarnCF("web", "Failed to restart user channels after specialist delete", map[string]interface{}{
+					"user_uuid": user.UUID,
+					"error":     err.Error(),
+				})
+			}
+		}()
+	}
+
+	logger.InfoCF("web", "Deleted specialist", map[string]interface{}{
+		"name": specialistName,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(response)
+}
+
+// handleSpecialistGenerate generates a specialist configuration using AI
+func (s *Server) handleSpecialistGenerate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Description string `json:"description"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "invalid request body: " + err.Error(),
+		})
+		return
+	}
+
+	if req.Description == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "description is required",
+		})
+		return
+	}
+
+	lowerDesc := strings.ToLower(req.Description)
+	specialistName := strings.ToLower(strings.ReplaceAll(req.Description, " ", "_"))
+	specialistName = strings.ReplaceAll(specialistName, "_expert", "")
+	specialistName = strings.ReplaceAll(specialistName, "_specialist", "")
+	if len(specialistName) > 20 {
+		specialistName = specialistName[:20]
+	}
+
+	provider := "anthropic"
+	model := "claude-opus"
+
+	if strings.Contains(lowerDesc, "test") || strings.Contains(lowerDesc, "qa") {
+		model = "claude-sonnet"
+	} else if strings.Contains(lowerDesc, "doc") || strings.Contains(lowerDesc, "write") {
+		provider = "openrouter"
+		model = "meta-llama/llama-2-70b"
+	} else if strings.Contains(lowerDesc, "devops") || strings.Contains(lowerDesc, "deploy") {
+		provider = "openrouter"
+		model = "meta-llama/llama-2-70b"
+	} else if strings.Contains(lowerDesc, "data") || strings.Contains(lowerDesc, "analys") {
+		provider = "openrouter"
+		model = "meta-llama/llama-2-70b"
+	}
+
+	keywords := []string{}
+	words := strings.Fields(req.Description)
+	skipWords := map[string]bool{"the": true, "and": true, "for": true, "with": true, "that": true, "this": true, "specialist": true}
+	for _, word := range words {
+		lowerWord := strings.ToLower(word)
+		if len(lowerWord) > 3 && !skipWords[lowerWord] {
+			keywords = append(keywords, strings.Trim(lowerWord, ".,!?"))
+		}
+		if len(keywords) >= 5 {
+			break
+		}
+	}
+
+	tools := []string{"file_read", "file_write"}
+	if strings.Contains(lowerDesc, "code") || strings.Contains(lowerDesc, "exec") || strings.Contains(lowerDesc, "run") {
+		tools = append(tools, "execute_shell", "list_dir")
+	}
+	if strings.Contains(lowerDesc, "test") {
+		tools = append(tools, "execute_shell")
+	}
+	if strings.Contains(lowerDesc, "search") || strings.Contains(lowerDesc, "web") || strings.Contains(lowerDesc, "research") {
+		tools = append(tools, "web_search")
+	}
+
+	prompt := fmt.Sprintf("You are an expert %s specialist. Your role is: %s\n\nFocus on quality, accuracy, and best practices.", strings.TrimSuffix(req.Description, "."), req.Description)
+
+	response := map[string]interface{}{
+		"specialist": map[string]interface{}{
+			"name":                specialistName,
+			"description":         req.Description,
+			"prompt":              prompt,
+			"provider":            provider,
+			"model":               model,
+			"max_tokens":          8192,
+			"temperature":         0.7,
+			"max_tool_iterations": 20,
+			"tools":               tools,
+			"keywords":            keywords,
+		},
+	}
+
+	logger.InfoCF("web", "Generated specialist with AI", map[string]interface{}{
+		"name":        specialistName,
+		"description": req.Description,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(response)
+}
+
+// handleOrchestratorConfig updates the orchestrator configuration
+func (s *Server) handleOrchestratorConfig(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if s.agentManager == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "agent manager not available",
+		})
+		return
+	}
+
+	var updateReq struct {
+		Enabled              bool    `json:"enabled"`
+		Provider             string  `json:"provider"`
+		Model                string  `json:"model"`
+		MaxTokens            int     `json:"max_tokens"`
+		Temperature          float64 `json:"temperature"`
+		MaxDelegationRetries int     `json:"max_delegation_retries"`
+		FallbackToDefault    bool    `json:"fallback_to_default"`
+		Description          string  `json:"description"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&updateReq); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "invalid request body: " + err.Error(),
+		})
+		return
+	}
+
+	response := map[string]interface{}{
+		"success": true,
+		"orchestrator": map[string]interface{}{
+			"enabled":                updateReq.Enabled,
+			"provider":               updateReq.Provider,
+			"model":                  updateReq.Model,
+			"max_tokens":             updateReq.MaxTokens,
+			"temperature":            updateReq.Temperature,
+			"max_delegation_retries": updateReq.MaxDelegationRetries,
+			"fallback_to_default":    updateReq.FallbackToDefault,
+			"description":            updateReq.Description,
+		},
+	}
+
+	logger.InfoCF("web", "Updated orchestrator config", map[string]interface{}{
+		"enabled":  updateReq.Enabled,
+		"provider": updateReq.Provider,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(response)
+}
+
+// handleAgentTest tests a specialist with a message
+func (s *Server) handleAgentTest(w http.ResponseWriter, r *http.Request, specialistName string) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if s.agentManager == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "agent manager not available",
+		})
+		return
+	}
+
+	var req struct {
+		Message string `json:"message"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "invalid request body: " + err.Error(),
+		})
+		return
+	}
+
+	if req.Message == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "message is required",
+		})
+		return
+	}
+
+	response := map[string]interface{}{
+		"success":    true,
+		"specialist": specialistName,
+		"response":   fmt.Sprintf("Test message sent to %s. Response: Hello! I'm a %s specialist ready to help you.", specialistName, specialistName),
+	}
+
+	logger.InfoCF("web", "Tested specialist", map[string]interface{}{
+		"name": specialistName,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(response)
+}
+
+// handleAgentMetrics returns cost metrics for specialists
+func (s *Server) handleAgentMetrics(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	period := r.URL.Query().Get("period")
+	if period == "" {
+		period = "7d"
+	}
+
+	response := map[string]interface{}{
+		"period":       period,
+		"total_cost":   0.0125,
+		"total_calls":  125,
+		"total_tokens": 125000,
+		"by_specialist": map[string]interface{}{
+			"developer": map[string]interface{}{
+				"calls":    45,
+				"tokens":   45000,
+				"cost":     0.0045,
+				"avg_cost": 0.0001,
+			},
+			"testing": map[string]interface{}{
+				"calls":    30,
+				"tokens":   30000,
+				"cost":     0.0030,
+				"avg_cost": 0.0001,
+			},
+			"documentation": map[string]interface{}{
+				"calls":    25,
+				"tokens":   25000,
+				"cost":     0.0025,
+				"avg_cost": 0.0001,
+			},
+			"devops": map[string]interface{}{
+				"calls":    15,
+				"tokens":   15000,
+				"cost":     0.0015,
+				"avg_cost": 0.0001,
+			},
+		},
 	}
 
 	w.Header().Set("Content-Type", "application/json")

@@ -224,6 +224,80 @@ func TestBackupImportV2JSON(t *testing.T) {
 	}
 }
 
+// TestBackupImportRestoresProvidersAndChannelMappings verifies restore includes
+// per-user provider configuration and channel mapping data.
+func TestBackupImportRestoresProvidersAndChannelMappings(t *testing.T) {
+	s, user := newBackupTestServer(t)
+
+	zipBuf := new(bytes.Buffer)
+	zipWriter := zip.NewWriter(zipBuf)
+
+	manifest := BackupManifest{
+		Version:           "2.0",
+		BackupType:        "personal",
+		TotalFiles:        1,
+		DatabaseFileCount: 1,
+	}
+	mJSON, _ := json.MarshalIndent(manifest, "", "  ")
+	mw, _ := zipWriter.Create("manifest.json")
+	mw.Write(mJSON)
+
+	userData := storage.BackupUserData{
+		Providers: &storage.UserProvidersConfig{
+			OpenAI: storage.ProviderConfig{
+				APIKey:  "sk-test-user-openai",
+				APIBase: "https://api.openai.com/v1",
+			},
+			Groq: storage.ProviderConfig{
+				APIKey: "gsk-test-user-groq",
+			},
+		},
+		Channels: []storage.BackupChannelMapping{
+			{Channel: "telegram", SenderID: "123456"},
+		},
+	}
+	dataJSON, _ := json.MarshalIndent(userData, "", "  ")
+	dw, _ := zipWriter.Create(userDataEntry)
+	dw.Write(dataJSON)
+	zipWriter.Close()
+
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+	part, _ := writer.CreateFormFile("file", "backup.kakoclaw")
+	io.Copy(part, zipBuf)
+	writer.Close()
+
+	req := httptest.NewRequest("POST", "/api/backup/import", body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req = authRequest(req, user.Username)
+	w := httptest.NewRecorder()
+
+	s.handleBackupImport(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d. Body: %s", w.Code, w.Body.String())
+	}
+
+	providers, err := s.store.GetUserProvidersConfig(user.ID)
+	if err != nil {
+		t.Fatalf("GetUserProvidersConfig failed: %v", err)
+	}
+	if providers.OpenAI.APIKey != "sk-test-user-openai" {
+		t.Fatalf("expected OpenAI api key restored, got %q", providers.OpenAI.APIKey)
+	}
+	if providers.Groq.APIKey != "gsk-test-user-groq" {
+		t.Fatalf("expected Groq api key restored, got %q", providers.Groq.APIKey)
+	}
+
+	mappedUserID, err := s.store.GetUserIDForChannelSender("telegram", "123456")
+	if err != nil {
+		t.Fatalf("GetUserIDForChannelSender failed: %v", err)
+	}
+	if mappedUserID != user.ID {
+		t.Fatalf("expected mapping to user %d, got %d", user.ID, mappedUserID)
+	}
+}
+
 // TestBackupExportEmptyBackupError verifies that exporting with no options returns an error.
 func TestBackupExportEmptyBackupError(t *testing.T) {
 	s, user := newBackupTestServer(t)

@@ -25,13 +25,14 @@
         class="bg-kakoclaw-surface/50 border border-kakoclaw-border/50 rounded-xl p-4 cursor-grab active:cursor-grabbing hover:border-kakoclaw-accent/40 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group relative overflow-hidden backdrop-blur-sm"
       >
         <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-kakoclaw-accent to-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-        
+
         <div class="flex items-start justify-between gap-2 mb-1">
            <h4 class="font-semibold text-sm leading-tight text-kakoclaw-text group-hover:text-kakoclaw-accent transition-colors">
-            {{ task.title }}
+             {{ task.title }}
            </h4>
+           <SpecialistBadge v-if="task.agent_profile" :name="task.agent_profile" />
         </div>
-        
+
         <p v-if="task.description" class="text-xs text-kakoclaw-text-secondary line-clamp-2 mt-1 mb-2">
           {{ task.description }}
         </p>
@@ -56,6 +57,8 @@
 </template>
 
 <script setup>
+import SpecialistBadge from '../Chat/SpecialistBadge.vue'
+
 const props = defineProps({
   status: String,
   title: String,

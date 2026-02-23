@@ -600,7 +600,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import advancedService from '../services/advancedService'
 import usersService from '../services/usersService'
 import { useToast } from '../composables/useToast'
@@ -612,6 +613,7 @@ import ProfileSettingsTab from '../components/Settings/ProfileSettingsTab.vue'
 
 const toast = useToast()
 const authStore = useAuthStore()
+const route = useRoute()
 const loading = ref(true)
 const saving = ref(false)
 const configData = ref(null)
@@ -620,7 +622,7 @@ const activeTab = ref('profile')
 
 const tabs = [
   { key: 'profile', label: 'Profile' },
-  { key: 'agents', label: 'General' },
+  { key: 'agents', label: 'Agents' },
   { key: 'providers', label: 'Providers' },
   { key: 'channels', label: 'Channels' },
   { key: 'system', label: 'System' }
@@ -628,6 +630,13 @@ const tabs = [
 // Dynamically add users tab if admin
 if (authStore.user?.role === 'admin') {
   tabs.splice(2, 0, { key: 'users', label: 'Users' })
+}
+
+const setActiveTabFromRoute = () => {
+  const requestedTab = String(route.query.tab || '')
+  if (requestedTab && tabs.some((tab) => tab.key === requestedTab)) {
+    activeTab.value = requestedTab
+  }
 }
 
 const chatIcon = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 text-current"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" /></svg>'
@@ -1026,7 +1035,17 @@ const isLastAdmin = (u) => {
   return activeAdmins.length <= 1
 }
 
-onMounted(loadData)
+onMounted(() => {
+  setActiveTabFromRoute()
+  loadData()
+})
+
+watch(
+  () => route.query.tab,
+  () => {
+    setActiveTabFromRoute()
+  }
+)
 </script>
 
 <style scoped>

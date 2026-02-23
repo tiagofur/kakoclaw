@@ -747,6 +747,16 @@ func gatewayCmd() {
 		cronService = setupCronTool(defaultAgentLoop, msgBus, cfg.WorkspacePath())
 	}
 
+	var agentManager *agent.AgentManager
+	if defaultAgentLoop != nil {
+		agentManager = agent.NewAgentManager(defaultAgentLoop)
+		if err := agentManager.InitializeOrchestrator(cfg, msgBus, channelStore); err != nil {
+			logger.WarnCF("gateway", "Failed to initialize orchestrator", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}
+
 	heartbeatService := heartbeat.NewHeartbeatService(
 		cfg.WorkspacePath(),
 		nil,
@@ -825,6 +835,9 @@ func gatewayCmd() {
 			// Wire additional services for advanced REST endpoints
 			if cronService != nil {
 				webServer.SetCronService(cronService)
+			}
+			if agentManager != nil {
+				webServer.SetAgentManager(agentManager)
 			}
 			webServer.SetMultiUserChannelManager(multiChannelManager)
 			webServer.SetFullConfig(cfg)
@@ -931,6 +944,15 @@ func webCmd() {
 	} else {
 		fmt.Printf("Warning: Failed to initialize storage: %v\n", err)
 	}
+
+	// Create and wire agent manager so specialist CRUD works in web mode
+	webAgentManager := agent.NewAgentManager(agentLoop)
+	if store != nil {
+		if initErr := webAgentManager.InitializeOrchestrator(cfg, msgBus, store); initErr != nil {
+			fmt.Printf("Warning: Failed to initialize agent orchestrator: %v\n", initErr)
+		}
+	}
+	webServer.SetAgentManager(webAgentManager)
 
 	// Wire additional services for advanced REST endpoints
 	webServer.SetFullConfig(cfg)

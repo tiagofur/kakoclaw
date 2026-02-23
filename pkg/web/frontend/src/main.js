@@ -12,7 +12,11 @@ app.use(router)
 app.mount('#app')
 
 // Register PWA service worker
-if ('serviceWorker' in navigator) {
+const isLocalhost =
+  window.location.hostname === 'localhost' ||
+  window.location.hostname === '127.0.0.1'
+
+if ('serviceWorker' in navigator && !isLocalhost) {
   import('virtual:pwa-register').then(({ registerSW }) => {
     const updateSW = registerSW({
       onNeedRefresh() {

@@ -1,7 +1,9 @@
 package storage
 
 import (
+	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -9,12 +11,20 @@ import (
 
 // BackupUserData holds all exportable data for a single user.
 type BackupUserData struct {
-	ExportedAt time.Time       `json:"exported_at"`
-	UserID     int64           `json:"user_id"`
-	Sessions   []BackupSession `json:"sessions"`
-	Messages   []BackupMessage `json:"messages"`
-	Tasks      []BackupTask    `json:"tasks"`
-	TaskLogs   []BackupTaskLog `json:"task_logs,omitempty"`
+	ExportedAt time.Time              `json:"exported_at"`
+	UserID     int64                  `json:"user_id"`
+	Sessions   []BackupSession        `json:"sessions"`
+	Messages   []BackupMessage        `json:"messages"`
+	Tasks      []BackupTask           `json:"tasks"`
+	TaskLogs   []BackupTaskLog        `json:"task_logs,omitempty"`
+	Providers  *UserProvidersConfig   `json:"providers,omitempty"`
+	Channels   []BackupChannelMapping `json:"channels,omitempty"`
+}
+
+// BackupChannelMapping is a portable channel-to-user mapping record.
+type BackupChannelMapping struct {
+	Channel  string `json:"channel"`
+	SenderID string `json:"sender_id"`
 }
 
 // BackupSession is a portable session record (no internal DB id).
@@ -65,6 +75,7 @@ func (s *Storage) ExportUserData(userID int64) (*BackupUserData, error) {
 		Messages:   make([]BackupMessage, 0),
 		Tasks:      make([]BackupTask, 0),
 		TaskLogs:   make([]BackupTaskLog, 0),
+		Channels:   make([]BackupChannelMapping, 0),
 	}
 
 	// Export sessions
@@ -139,6 +150,27 @@ func (s *Storage) ExportUserData(userID int64) (*BackupUserData, error) {
 					data.TaskLogs = append(data.TaskLogs, log)
 				}
 			}
+		}
+	}
+
+	// Export per-user provider config
+	if providers, err := s.GetUserProvidersConfig(uid); err == nil && providers != nil {
+		data.Providers = providers
+	}
+
+	// Export channel mappings that point to this user
+	channelRows, err := s.db.Query(`SELECT channel, sender_id FROM channel_users WHERE user_id = ? ORDER BY channel, sender_id`, uid)
+	if err == nil {
+		defer channelRows.Close()
+		for channelRows.Next() {
+			var channel, senderID string
+			if err := channelRows.Scan(&channel, &senderID); err != nil {
+				continue
+			}
+			data.Channels = append(data.Channels, BackupChannelMapping{
+				Channel:  channel,
+				SenderID: senderID,
+			})
 		}
 	}
 
@@ -241,6 +273,37 @@ func (s *Storage) ImportUserData(userID int64, data *BackupUserData) (sessions, 
 					continue
 				}
 				stmtLog.Exec(taskID, log.Event, log.Message, log.CreatedAt)
+			}
+		}
+	}
+
+	// Import per-user provider config
+	if data.Providers != nil {
+		providers := *data.Providers
+		providers.UserID = uid
+		providersJSON, marshalErr := json.Marshal(&providers)
+		if marshalErr == nil {
+			if _, err := tx.Exec(`
+				INSERT INTO user_providers_config (user_id, config) VALUES (?, ?)
+				ON CONFLICT(user_id) DO UPDATE SET config = excluded.config
+			`, uid, string(providersJSON)); err != nil {
+				return 0, 0, 0, fmt.Errorf("import providers: %w", err)
+			}
+		}
+	}
+
+	// Import channel mappings remapped to target user
+	if len(data.Channels) > 0 {
+		for _, mapping := range data.Channels {
+			if strings.TrimSpace(mapping.Channel) == "" || strings.TrimSpace(mapping.SenderID) == "" {
+				continue
+			}
+			if _, err := tx.Exec(`
+				INSERT INTO channel_users (channel, sender_id, user_id)
+				VALUES (?, ?, ?)
+				ON CONFLICT(channel, sender_id) DO UPDATE SET user_id = excluded.user_id, updated_at = CURRENT_TIMESTAMP
+			`, mapping.Channel, mapping.SenderID, uid); err != nil {
+				return 0, 0, 0, fmt.Errorf("import channel mapping: %w", err)
 			}
 		}
 	}

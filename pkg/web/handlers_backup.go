@@ -115,6 +115,8 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 	}
 	if v := r.URL.Query().Get("include_config"); v != "" {
 		options.IncludeConfig = v == "true"
+	} else {
+		options.IncludeConfig = true
 	}
 	if v := r.URL.Query().Get("include_env"); v != "" {
 		options.IncludeEnv = v == "true"
@@ -410,9 +412,9 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 	} else {
 		importOptions.ReplaceDatabase = true
 		importOptions.ReplaceWorkspace = true
-		// Do NOT default config/env to true — overwriting server config can corrupt
-		// the running instance and require a container restart to recover.
-		importOptions.ReplaceConfig = false
+		// In multi-user mode config.json is user-scoped, so restoring it by default
+		// is expected to recover provider/model/channel/email settings.
+		importOptions.ReplaceConfig = true
 		importOptions.ReplaceEnv = false
 	}
 	if !importOptions.ReplaceDatabase && !importOptions.ReplaceWorkspace && !importOptions.ReplaceConfig && !importOptions.ReplaceEnv {

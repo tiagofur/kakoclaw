@@ -19,6 +19,7 @@ import KnowledgeView from '../views/KnowledgeView.vue'
 import MCPView from '../views/MCPView.vue'
 import MetricsView from '../views/MetricsView.vue'
 import WorkflowView from '../views/WorkflowView.vue'
+import AgentsView from '../views/AgentsView.vue'
 
 const routes = [
   {
@@ -123,6 +124,11 @@ const routes = [
         path: 'workflows',
         name: 'workflows',
         component: WorkflowView
+      },
+      {
+        path: 'agents',
+        name: 'agents',
+        component: AgentsView
       },
     ]
   },

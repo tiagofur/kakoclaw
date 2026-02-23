@@ -16,9 +16,9 @@ import (
 // SpecialistAgent represents a specialized agent with specific tools and LLM configuration
 type SpecialistAgent struct {
 	*AgentLoop
-	name        string
-	description string
-	prompt      string
+	name         string
+	description  string
+	prompt       string
 	allowedTools map[string]bool
 }
 
@@ -80,6 +80,23 @@ func (sr *SpecialistRegistry) ListSpecialists() map[string]*SpecialistAgent {
 		result[k] = v
 	}
 	return result
+}
+
+// RemoveSpecialist deletes a specialist from the registry
+func (sr *SpecialistRegistry) RemoveSpecialist(name string) bool {
+	if name == "" {
+		return false
+	}
+
+	sr.mu.Lock()
+	defer sr.mu.Unlock()
+
+	if _, exists := sr.specialists[name]; !exists {
+		return false
+	}
+
+	delete(sr.specialists, name)
+	return true
 }
 
 // GetSpecialistInfo returns metadata about a specialist
@@ -180,7 +197,7 @@ func NewSpecialistAgent(
 // ToolFilter returns a filtered tool registry containing only allowed tools for this specialist
 func (sa *SpecialistAgent) ToolFilter() *tools.ToolRegistry {
 	filteredRegistry := tools.NewToolRegistry()
-	
+
 	// Register only allowed tools from the original registry
 	if len(sa.allowedTools) == 0 {
 		// If no restrictions, register all tools
@@ -195,7 +212,7 @@ func (sa *SpecialistAgent) ToolFilter() *tools.ToolRegistry {
 			}
 		})
 	}
-	
+
 	return filteredRegistry
 }
 
