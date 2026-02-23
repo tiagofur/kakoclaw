@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { useAgentsStore } from './agentsStore'
 
 export const useChatStore = defineStore('chat', () => {
   const messages = ref([])
@@ -14,10 +15,14 @@ export const useChatStore = defineStore('chat', () => {
   const currentModel = ref('')        // Default model from server config
   const availableProviders = ref([])  // Providers list from /api/v1/models
   const isStreaming = ref(false)      // True while receiving streaming tokens
-  const streamingMessageId = ref(null) // ID of the message currently being streamed
-  const webSearchEnabled = ref(true)  // Whether web_search tool is available to the LLM (legacy/shortcut)
+  const streamingMessageId = ref(null) // ID of message currently being streamed
+  const webSearchEnabled = ref(true)  // Whether web_search tool is available to LLM (legacy/shortcut)
   const availableTools = ref([])      // All tools available from backend
   const enabledTools = ref([])        // Tools currently enabled by user
+
+  const orchestratorStatus = ref('idle') // idle, analyzing, delegating
+  const currentSpecialist = ref(null)    // Currently active specialist name
+  const isMultiAgent = ref(false)         // Whether multi-agent mode is active
 
   function addMessage(message) {
     messages.value.push({
@@ -224,6 +229,29 @@ export const useChatStore = defineStore('chat', () => {
     return models
   })
 
+  function setOrchestratorStatus(status) {
+    orchestratorStatus.value = status
+  }
+
+  function setCurrentSpecialist(specialistName) {
+    currentSpecialist.value = specialistName
+  }
+
+  function setIsMultiAgent(enabled) {
+    isMultiAgent.value = enabled
+  }
+
+  function getSpecialistDisplay(name) {
+    if (!name) return null
+    const agentsStore = useAgentsStore()
+    return {
+      name,
+      icon: agentsStore.getSpecialistIcon(name),
+      color: agentsStore.getSpecialistColor(name),
+      bgColor: agentsStore.getSpecialistBgColor(name)
+    }
+  }
+
   return {
     messages,
     isConnected,
@@ -240,6 +268,9 @@ export const useChatStore = defineStore('chat', () => {
     availableProviders,
     allModels,
     webSearchEnabled,
+    orchestratorStatus,
+    currentSpecialist,
+    isMultiAgent,
     addMessage,
     startStreamingMessage,
     appendStreamToken,
@@ -262,7 +293,11 @@ export const useChatStore = defineStore('chat', () => {
     toggleTool,
     availableTools,
     enabledTools,
-    setModelsData
+    setModelsData,
+    setOrchestratorStatus,
+    setCurrentSpecialist,
+    setIsMultiAgent,
+    getSpecialistDisplay
   }
 })
   const normalizeModelsData = (data) => {

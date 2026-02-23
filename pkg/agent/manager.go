@@ -93,3 +93,41 @@ func (am *AgentManager) GetSpecialistRegistry() *SpecialistRegistry {
 func (am *AgentManager) IsOrchestrated() bool {
 	return am.isOrchestarted
 }
+
+// AddOrUpdateSpecialist registers a specialist from config, replacing any existing entry.
+func (am *AgentManager) AddOrUpdateSpecialist(name string, cfg *config.SpecialistConfig, globalCfg *config.Config, store *storage.Storage) (*SpecialistAgent, error) {
+	if am == nil || am.defaultAgent == nil {
+		return nil, fmt.Errorf("agent manager not initialized")
+	}
+	if cfg == nil {
+		return nil, fmt.Errorf("specialist config is required")
+	}
+	if cfg.Name == "" {
+		cfg.Name = name
+	}
+	if cfg.Name == "" {
+		return nil, fmt.Errorf("specialist name is required")
+	}
+
+	baseProvider := am.defaultAgent.provider
+	msgBus := am.defaultAgent.bus
+
+	specialist, err := NewSpecialistAgent(cfg.Name, cfg, globalCfg, msgBus, baseProvider, store)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := am.specialistReg.RegisterSpecialist(specialist); err != nil {
+		return nil, err
+	}
+
+	return specialist, nil
+}
+
+// RemoveSpecialist removes a specialist from the registry.
+func (am *AgentManager) RemoveSpecialist(name string) bool {
+	if am == nil || am.specialistReg == nil {
+		return false
+	}
+	return am.specialistReg.RemoveSpecialist(name)
+}

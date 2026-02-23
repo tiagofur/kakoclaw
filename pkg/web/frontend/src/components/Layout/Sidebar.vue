@@ -176,6 +176,18 @@
         <span v-if="!uiStore.sidebarCollapsed" class="font-medium whitespace-nowrap text-sm">Workflows</span>
         <div v-if="uiStore.sidebarCollapsed" class="absolute left-full ml-4 px-2.5 py-1.5 bg-gray-900/95 text-white text-[11px] rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-300 translate-x-1 group-hover:translate-x-0 z-50 whitespace-nowrap backdrop-blur-sm border border-white/10">Workflows</div>
       </router-link>
+
+      <router-link
+        to="/agents"
+        class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative"
+        active-class="bg-kakoclaw-accent/15 text-kakoclaw-accent shadow-sm shadow-kakoclaw-accent/5"
+        inactive-class="text-kakoclaw-text-secondary hover:bg-kakoclaw-accent/5 hover:text-kakoclaw-text hover:translate-x-1"
+        @click="closeMobileSidebar"
+      >
+        <svg class="w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+        <span v-if="!uiStore.sidebarCollapsed" class="font-medium whitespace-nowrap text-sm">Agents</span>
+        <div v-if="uiStore.sidebarCollapsed" class="absolute left-full ml-4 px-2.5 py-1.5 bg-gray-900/95 text-white text-[11px] rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-300 translate-x-1 group-hover:translate-x-0 z-50 whitespace-nowrap backdrop-blur-sm border border-white/10">Agents</div>
+      </router-link>
       </nav>
 
       <div class="px-3 py-2">

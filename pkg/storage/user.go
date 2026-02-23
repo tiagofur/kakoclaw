@@ -38,6 +38,13 @@ func (s *Storage) CountUsers() (int, error) {
 	return count, err
 }
 
+// CountAdmins returns the total number of admin users.
+func (s *Storage) CountAdmins() (int, error) {
+	var count int
+	err := s.db.QueryRow("SELECT COUNT(*) FROM users WHERE role = 'admin'").Scan(&count)
+	return count, err
+}
+
 // CreateUser creates a new user with an automatically generated UUID.
 func (s *Storage) CreateUser(username, password, role string) (*User, error) {
 	username = strings.TrimSpace(username)
