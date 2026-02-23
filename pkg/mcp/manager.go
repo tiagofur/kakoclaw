@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/sipeed/kakoclaw/pkg/config"
-	"github.com/sipeed/kakoclaw/pkg/logger"
-	"github.com/sipeed/kakoclaw/pkg/tools"
+	"github.com/sipeed/makoclaw/pkg/config"
+	"github.com/sipeed/makoclaw/pkg/logger"
+	"github.com/sipeed/makoclaw/pkg/tools"
 )
 
 // Manager manages multiple MCP server connections and their tools

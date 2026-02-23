@@ -1,6 +1,6 @@
 # Configuración del Entorno de Desarrollo
 
-Guía completa para configurar tu entorno de desarrollo y contribuir a KakoClaw.
+Guía completa para configurar tu entorno de desarrollo y contribuir a MakoClaw.
 
 ## 📋 Requisitos
 
@@ -25,11 +25,11 @@ Guía completa para configurar tu entorno de desarrollo y contribuir a KakoClaw.
 ```bash
 # Fork el repositorio en GitHub
 # Luego clonar tu fork
-git clone https://github.com/TU_USUARIO/KakoClaw.git
-cd KakoClaw
+git clone https://github.com/TU_USUARIO/MakoClaw.git
+cd MakoClaw
 
 # Agregar upstream
-git remote add upstream https://github.com/sipeed/KakoClaw.git
+git remote add upstream https://github.com/sipeed/MakoClaw.git
 ```
 
 ### 2. Verificar Go
@@ -59,13 +59,13 @@ make deps
 
 ```bash
 # Compilar para desarrollo
-go build -o KakoClaw-dev ./cmd/KakoClaw
+go build -o MakoClaw-dev ./cmd/MakoClaw
 
 # O con make
 make build
 
 # Verificar que compila
-./KakoClaw-dev version
+./MakoClaw-dev version
 ```
 
 ## 🛠️ Configuración de IDE
@@ -148,7 +148,7 @@ Instala estas extensiones:
     {
       "label": "Run",
       "type": "shell",
-      "command": "./build/KakoClaw agent",
+      "command": "./build/MakoClaw agent",
       "dependsOn": ["Build"]
     }
   ]
@@ -166,10 +166,10 @@ Instala estas extensiones:
       "type": "go",
       "request": "launch",
       "mode": "auto",
-      "program": "${workspaceFolder}/cmd/KakoClaw",
+      "program": "${workspaceFolder}/cmd/MakoClaw",
       "args": ["agent", "-m", "Hola"],
       "env": {
-        "KakoClaw_DEBUG": "true"
+        "MakoClaw_DEBUG": "true"
       }
     },
     {
@@ -177,7 +177,7 @@ Instala estas extensiones:
       "type": "go",
       "request": "launch",
       "mode": "auto",
-      "program": "${workspaceFolder}/cmd/KakoClaw",
+      "program": "${workspaceFolder}/cmd/MakoClaw",
       "args": ["gateway", "--debug"]
     },
     {
@@ -196,7 +196,7 @@ Instala estas extensiones:
 
 #### Configuración
 
-1. **Abrir proyecto**: File → Open → Seleccionar carpeta KakoClaw
+1. **Abrir proyecto**: File → Open → Seleccionar carpeta MakoClaw
 2. **Go SDK**: Settings → Go → Go SDK → Seleccionar Go 1.21+
 3. **Go Modules**: Settings → Go → Go Modules → Enable
 4. **Linter**: Settings → Tools → Go Linter → Seleccionar golangci-lint
@@ -206,21 +206,21 @@ Instala estas extensiones:
 **Agent:**
 ```
 Type: Go Application
-Package: github.com/sipeed/KakoClaw/cmd/KakoClaw
+Package: github.com/sipeed/MakoClaw/cmd/MakoClaw
 Arguments: agent -m "Hola"
 ```
 
 **Gateway:**
 ```
 Type: Go Application
-Package: github.com/sipeed/KakoClaw/cmd/KakoClaw
+Package: github.com/sipeed/MakoClaw/cmd/MakoClaw
 Arguments: gateway --debug
 ```
 
 **Tests:**
 ```
 Type: Go Test
-Package: github.com/sipeed/KakoClaw/pkg/...
+Package: github.com/sipeed/MakoClaw/pkg/...
 ```
 
 ### Vim / Neovim
@@ -311,7 +311,7 @@ chmod +x .git/hooks/pre-commit
 
 ```bash
 # Crear config de desarrollo
-cp config.example.json ~/.KakoClaw/config.dev.json
+cp config.example.json ~/.MakoClaw/config.dev.json
 
 # Configurar para desarrollo
 ```
@@ -320,7 +320,7 @@ cp config.example.json ~/.KakoClaw/config.dev.json
 {
   "agents": {
     "defaults": {
-      "workspace": "~/KakoClaw-dev-workspace",
+      "workspace": "~/MakoClaw-dev-workspace",
       "model": "anthropic/claude-3.5-sonnet",
       "max_tokens": 4096,
       "temperature": 0.7,
@@ -343,17 +343,17 @@ Crea `scripts/dev.sh`:
 #!/bin/bash
 # Script de desarrollo
 
-export KakoClaw_CONFIG="$HOME/.KakoClaw/config.dev.json"
+export MakoClaw_CONFIG="$HOME/.MakoClaw/config.dev.json"
 
 case "$1" in
   "build")
-    go build -o KakoClaw-dev ./cmd/KakoClaw
+    go build -o MakoClaw-dev ./cmd/MakoClaw
     ;;
   "agent")
-    ./KakoClaw-dev agent --config "$KakoClaw_CONFIG"
+    ./MakoClaw-dev agent --config "$MakoClaw_CONFIG"
     ;;
   "gateway")
-    ./KakoClaw-dev gateway --config "$KakoClaw_CONFIG" --debug
+    ./MakoClaw-dev gateway --config "$MakoClaw_CONFIG" --debug
     ;;
   "test")
     go test -v -race ./...
@@ -382,8 +382,8 @@ tmp_dir = "tmp"
 
 [build]
   args_bin = ["agent"]
-  bin = "./tmp/KakoClaw"
-  cmd = "go build -o ./tmp/KakoClaw ./cmd/KakoClaw"
+  bin = "./tmp/MakoClaw"
+  cmd = "go build -o ./tmp/MakoClaw ./cmd/MakoClaw"
   delay = 1000
   exclude_dir = ["assets", "tmp", "testdata", "docs"]
   exclude_file = []
@@ -439,7 +439,7 @@ git checkout -b feature/mi-nueva-feature
 
 ```bash
 # Compilar frecuentemente
-go build ./cmd/KakoClaw
+go build ./cmd/MakoClaw
 
 # Ejecutar tests
 make test
@@ -497,10 +497,10 @@ git push origin feature/mi-nueva-feature
 
 ```bash
 # Debug modo agent
-dlv debug ./cmd/KakoClaw -- agent -m "test"
+dlv debug ./cmd/MakoClaw -- agent -m "test"
 
 # Debug modo gateway
-dlv debug ./cmd/KakoClaw -- gateway --debug
+dlv debug ./cmd/MakoClaw -- gateway --debug
 
 # En la consola de delve:
 (dlv) break main.main
@@ -524,10 +524,10 @@ dlv debug ./cmd/KakoClaw -- gateway --debug
 
 ```bash
 # Habilitar debug logging
-KakoClaw agent --debug
+MakoClaw agent --debug
 
 # O con variable de entorno
-KakoClaw_DEBUG=1 KakoClaw agent
+MakoClaw_DEBUG=1 MakoClaw agent
 ```
 
 ## 📊 Profiling
@@ -536,8 +536,8 @@ KakoClaw_DEBUG=1 KakoClaw agent
 
 ```bash
 # Generar perfil
-go build -o KakoClaw-profile ./cmd/KakoClaw
-./KakoClaw-profile agent -cpuprofile=cpu.prof -m "test"
+go build -o MakoClaw-profile ./cmd/MakoClaw
+./MakoClaw-profile agent -cpuprofile=cpu.prof -m "test"
 
 # Analizar
 go tool pprof cpu.prof
@@ -548,7 +548,7 @@ go tool pprof cpu.prof
 ### Memory Profile
 
 ```bash
-./KakoClaw-profile agent -memprofile=mem.prof -m "test"
+./MakoClaw-profile agent -memprofile=mem.prof -m "test"
 go tool pprof mem.prof
 ```
 

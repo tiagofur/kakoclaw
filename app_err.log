@@ -1,0 +1,6 @@
+2026/02/23 17:19:16 [2026-02-23T23:19:16Z] [WARN] agent: Orchestrator enabled but no specialists configured
+2026/02/23 17:19:16 [2026-02-23T23:19:16Z] [INFO] channels: Initializing channel manager
+2026/02/23 17:19:16 [2026-02-23T23:19:16Z] [INFO] channels: Channel initialization completed {enabled_channels=0}
+2026/02/23 17:19:16 [2026-02-23T23:19:16Z] [WARN] channels: No channels enabled
+2026/02/23 17:19:16 [2026-02-23T23:19:16Z] [INFO] web: Web server starting {addr=127.0.0.1:18880, enabled=true}
+2026/02/23 17:19:16 [2026-02-23T23:19:16Z] [ERROR] web: Web server error {error=listen tcp 127.0.0.1:18880: bind: Only one usage of each socket address (protocol/network address/port) is normally permitted.}

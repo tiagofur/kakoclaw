@@ -1,13 +1,13 @@
 <template>
   <Teleport to="body">
     <div class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div class="bg-kakoclaw-surface border border-kakoclaw-border rounded-lg max-w-md w-full shadow-lg">
+      <div class="bg-makoclaw-surface border border-makoclaw-border rounded-lg max-w-md w-full shadow-lg">
         <!-- Header -->
-        <div class="flex items-center justify-between p-4 border-b border-kakoclaw-border">
+        <div class="flex items-center justify-between p-4 border-b border-makoclaw-border">
           <h3 class="text-lg font-semibold">Change Password</h3>
           <button
             @click="$emit('close')"
-            class="p-1 hover:bg-kakoclaw-border rounded transition-smooth"
+            class="p-1 hover:bg-makoclaw-border rounded transition-smooth"
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -28,7 +28,7 @@
                 id="current"
                 :type="showCurrent ? 'text' : 'password'"
                 placeholder="Enter current password"
-                class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded focus-ring text-sm"
+                class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded focus-ring text-sm"
                 required
                 :disabled="isLoading"
               />
@@ -36,7 +36,7 @@
                 type="button"
                 @click="showCurrent = !showCurrent"
                 :disabled="isLoading"
-                class="absolute right-3 top-1/2 transform -translate-y-1/2 text-kakoclaw-text-secondary hover:text-kakoclaw-text disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                class="absolute right-3 top-1/2 transform -translate-y-1/2 text-makoclaw-text-secondary hover:text-makoclaw-text disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 :title="showCurrent ? 'Hide password' : 'Show password'"
               >
                 <svg v-if="showCurrent" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -61,7 +61,7 @@
                 id="new"
                 :type="showNew ? 'text' : 'password'"
                 placeholder="Enter new password (min 10 chars)"
-                class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded focus-ring text-sm"
+                class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded focus-ring text-sm"
                 required
                 minlength="10"
                 :disabled="isLoading"
@@ -70,7 +70,7 @@
                 type="button"
                 @click="showNew = !showNew"
                 :disabled="isLoading"
-                class="absolute right-3 top-1/2 transform -translate-y-1/2 text-kakoclaw-text-secondary hover:text-kakoclaw-text disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                class="absolute right-3 top-1/2 transform -translate-y-1/2 text-makoclaw-text-secondary hover:text-makoclaw-text disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 :title="showNew ? 'Hide password' : 'Show password'"
               >
                 <svg v-if="showNew" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -82,7 +82,7 @@
                 </svg>
               </button>
             </div>
-            <p class="text-xs text-kakoclaw-text-secondary mt-1">Minimum 10 characters</p>
+            <p class="text-xs text-makoclaw-text-secondary mt-1">Minimum 10 characters</p>
           </div>
 
           <!-- Confirm Password -->
@@ -96,7 +96,7 @@
                 id="confirm"
                 :type="showConfirm ? 'text' : 'password'"
                 placeholder="Confirm new password"
-                class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded focus-ring text-sm"
+                class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded focus-ring text-sm"
                 required
                 :disabled="isLoading"
               />
@@ -104,7 +104,7 @@
                 type="button"
                 @click="showConfirm = !showConfirm"
                 :disabled="isLoading"
-                class="absolute right-3 top-1/2 transform -translate-y-1/2 text-kakoclaw-text-secondary hover:text-kakoclaw-text disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                class="absolute right-3 top-1/2 transform -translate-y-1/2 text-makoclaw-text-secondary hover:text-makoclaw-text disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 :title="showConfirm ? 'Hide password' : 'Show password'"
               >
                 <svg v-if="showConfirm" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -119,28 +119,28 @@
           </div>
 
           <!-- Error Message -->
-          <div v-if="errorMessage" class="p-3 bg-kakoclaw-error/20 border border-kakoclaw-error rounded text-kakoclaw-error text-sm">
+          <div v-if="errorMessage" class="p-3 bg-makoclaw-error/20 border border-makoclaw-error rounded text-makoclaw-error text-sm">
             {{ errorMessage }}
           </div>
 
           <!-- Success Message -->
-          <div v-if="successMessage" class="p-3 bg-kakoclaw-success/20 border border-kakoclaw-success rounded text-kakoclaw-success text-sm">
+          <div v-if="successMessage" class="p-3 bg-makoclaw-success/20 border border-makoclaw-success rounded text-makoclaw-success text-sm">
             {{ successMessage }}
           </div>
 
           <!-- Actions -->
-          <div class="flex gap-3 pt-4 border-t border-kakoclaw-border">
+          <div class="flex gap-3 pt-4 border-t border-makoclaw-border">
             <button
               type="button"
               @click="$emit('close')"
-              class="flex-1 px-3 py-2 border border-kakoclaw-border rounded hover:bg-kakoclaw-border transition-smooth"
+              class="flex-1 px-3 py-2 border border-makoclaw-border rounded hover:bg-makoclaw-border transition-smooth"
               :disabled="isLoading"
             >
               Cancel
             </button>
             <button
               type="submit"
-              class="flex-1 px-3 py-2 bg-kakoclaw-accent hover:bg-kakoclaw-accent-hover text-white rounded transition-smooth disabled:opacity-50"
+              class="flex-1 px-3 py-2 bg-makoclaw-accent hover:bg-makoclaw-accent-hover text-white rounded transition-smooth disabled:opacity-50"
               :disabled="isLoading"
             >
               {{ isLoading ? 'Updating...' : 'Update Password' }}
@@ -210,3 +210,4 @@ const handleChangePassword = async () => {
 
 <style scoped>
 </style>
+

@@ -9,7 +9,7 @@ GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-echo "🔍 KakoClaw Cancel & Background Execution Feature Verification"
+echo "🔍 MakoClaw Cancel & Background Execution Feature Verification"
 echo "============================================================="
 echo ""
 
@@ -26,7 +26,7 @@ fi
 # Test 2: Web panel loads
 echo "2. Testing web panel..."
 WEB=$(curl -s "$BASE_URL/" | head -20)
-if echo "$WEB" | grep -q "KakoClaw"; then
+if echo "$WEB" | grep -q "MakoClaw"; then
     echo -e "${GREEN}✓${NC} Web panel loads"
 else
     echo -e "${RED}✗${NC} Web panel FAILED to load"
@@ -55,7 +55,7 @@ fi
 
 # Test 5: Container running
 echo "5. Checking Docker container..."
-if docker ps | grep -q kakoclaw; then
+if docker ps | grep -q makoclaw; then
     echo -e "${GREEN}✓${NC} Docker container is running"
 else
     echo -e "${RED}✗${NC} Docker container not running"
@@ -64,7 +64,7 @@ fi
 
 # Test 6: Check for compilation errors in logs
 echo "6. Checking container logs for errors..."
-LOGS=$(docker logs kakoclaw-kakoclaw-1 --tail 50 2>&1)
+LOGS=$(docker logs makoclaw-makoclaw-1 --tail 50 2>&1)
 if echo "$LOGS" | grep -qi "panic\|fatal\|compilation error"; then
     echo -e "${RED}✗${NC} Found errors in logs:"
     echo "$LOGS" | grep -i "panic\|fatal\|compilation error"

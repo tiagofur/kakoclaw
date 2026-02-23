@@ -1,6 +1,6 @@
-# Flujo de Datos en KakoClaw
+# Flujo de Datos en MakoClaw
 
-Este documento describe en detalle cómo fluye la información a través del sistema KakoClaw.
+Este documento describe en detalle cómo fluye la información a través del sistema MakoClaw.
 
 ## 🔄 Flujo General
 
@@ -344,7 +344,7 @@ Después de cada interacción:
 SessionManager.Save(session)
     │
     ▼
-JSON → ~/.KakoClaw/workspace/sessions/<session_key>.json
+JSON → ~/.MakoClaw/workspace/sessions/<session_key>.json
 ```
 
 **Estructura del archivo:**

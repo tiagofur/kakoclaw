@@ -182,7 +182,7 @@ List active executions.
 **Check:** Is WebSocket connected? Look for "Connected" indicator in bottom-right of chat.
 
 ### Cancel doesn't stop agent
-**Check:** Docker logs: `docker logs kakoclaw-kakoclaw-1 --tail 50`
+**Check:** Docker logs: `docker logs makoclaw-makoclaw-1 --tail 50`
 
 ### Background tasks interrupted
 **Check:** Browser console for WebSocket errors: `F12 → Console`
@@ -205,7 +205,7 @@ List active executions.
 
 **Logs:**
 ```bash
-docker logs kakoclaw-kakoclaw-1 -f
+docker logs makoclaw-makoclaw-1 -f
 ```
 
 **Status:**
@@ -215,7 +215,7 @@ curl http://localhost:18880/api/v1/health
 
 **Container:**
 ```bash
-docker ps | grep kakoclaw
+docker ps | grep makoclaw
 ```
 
 ## Summary

@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sipeed/kakoclaw/pkg/storage"
+	"github.com/sipeed/makoclaw/pkg/storage"
 )
 
 // ==================== PROMPTS (F7 - Prompt Templates Library) ====================

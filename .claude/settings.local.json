@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell:*)",
+      "Bash(make:*)",
+      "Bash(./makoclaw.exe:*)",
+      "Bash(env:*)",
+      "Bash(ANTHROPIC_API_KEY=182be2682ccd405cbc534fe55c96970c.hlvKWYd16xva37D7 ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic ./makoclaw.exe:*)",
+      "Bash(MAKOCLAW_PROVIDERS_ANTHROPIC_API_KEY=182be2682ccd405cbc534fe55c96970c.hlvKWYd16xva37D7 MAKOCLAW_PROVIDERS_ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic ./makoclaw.exe:*)",
+      "Bash(netstat:*)",
+      "Bash(taskkill:*)",
+      "Bash(sqlite3:*)",
+      "Bash(npm run build)",
+      "Bash(npm install:*)",
+      "Bash(ss:*)",
+      "Bash(python3:*)"
+    ]
+  }
+}

@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -67,7 +68,9 @@ type BackupTaskLog struct {
 
 // ExportUserData extracts all data belonging to a user for backup purposes.
 func (s *Storage) ExportUserData(userID int64) (*BackupUserData, error) {
-	uid := normalizeUserID(userID)
+	// Use userID as-is — callers that pass 0 mean "owner of this isolated per-user DB".
+	// Do NOT normalise 0 → 1 here, because per-user DBs use 0 as the owner key.
+	uid := userID
 	data := &BackupUserData{
 		ExportedAt: time.Now().UTC(),
 		UserID:     uid,
@@ -78,10 +81,29 @@ func (s *Storage) ExportUserData(userID int64) (*BackupUserData, error) {
 		Channels:   make([]BackupChannelMapping, 0),
 	}
 
+	// Detect if tables have user_id columns (for multi-user isolation support)
+	hasSessUID := s.hasColumn("sessions", "user_id")
+	hasChatUID := s.hasColumn("chats", "user_id")
+	hasTaskUID := s.hasColumn("tasks", "user_id")
+	hasChanTable := s.hasTable("channel_users")
+	hasChanUID := hasChanTable && s.hasColumn("channel_users", "user_id")
+
 	// Export sessions
-	rows, err := s.db.Query(`SELECT session_id, COALESCE(title,''), archived, created_at, updated_at FROM sessions WHERE user_id = ? ORDER BY created_at ASC`, uid)
+	querySess := `SELECT session_id, COALESCE(title,''), archived, created_at, updated_at FROM sessions`
+	if hasSessUID {
+		querySess += ` WHERE user_id = ?`
+	}
+	querySess += ` ORDER BY created_at ASC`
+
+	var rows *sql.Rows
+	var err error
+	if hasSessUID {
+		rows, err = s.db.Query(querySess, uid)
+	} else {
+		rows, err = s.db.Query(querySess)
+	}
+
 	if err == nil {
-		defer rows.Close()
 		for rows.Next() {
 			var sess BackupSession
 			if err := rows.Scan(&sess.SessionID, &sess.Title, &sess.Archived, &sess.CreatedAt, &sess.UpdatedAt); err != nil {
@@ -89,35 +111,58 @@ func (s *Storage) ExportUserData(userID int64) (*BackupUserData, error) {
 			}
 			data.Sessions = append(data.Sessions, sess)
 		}
+		rows.Close()
 	}
 
 	// Export messages
-	msgRows, err := s.db.Query(`SELECT session_id, role, content, created_at FROM chats WHERE user_id = ? ORDER BY created_at ASC`, uid)
+	queryChat := `SELECT session_id, role, content, created_at FROM chats`
+	if hasChatUID {
+		queryChat += ` WHERE user_id = ?`
+	}
+	queryChat += ` ORDER BY created_at ASC`
+
+	if hasChatUID {
+		rows, err = s.db.Query(queryChat, uid)
+	} else {
+		rows, err = s.db.Query(queryChat)
+	}
+
 	if err == nil {
-		defer msgRows.Close()
-		for msgRows.Next() {
+		for rows.Next() { // Note: variable was msgRows in original, changing to rows for consistency
 			var msg BackupMessage
-			if err := msgRows.Scan(&msg.SessionID, &msg.Role, &msg.Content, &msg.CreatedAt); err != nil {
+			if err := rows.Scan(&msg.SessionID, &msg.Role, &msg.Content, &msg.CreatedAt); err != nil {
 				continue
 			}
 			data.Messages = append(data.Messages, msg)
 		}
+		rows.Close()
 	}
 
 	// Export tasks
-	taskRows, err := s.db.Query(`SELECT id, title, COALESCE(description,''), status, COALESCE(result,''), archived, created_at, updated_at FROM tasks WHERE user_id = ? ORDER BY created_at ASC`, uid)
+	queryTask := `SELECT id, title, COALESCE(description,''), status, COALESCE(result,''), archived, created_at, updated_at FROM tasks`
+	if hasTaskUID {
+		queryTask += ` WHERE user_id = ?`
+	}
+	queryTask += ` ORDER BY created_at ASC`
+
+	if hasTaskUID {
+		rows, err = s.db.Query(queryTask, uid)
+	} else {
+		rows, err = s.db.Query(queryTask)
+	}
+
 	if err == nil {
-		defer taskRows.Close()
 		taskIDs := make(map[int64]string) // map task DB id -> title for log linking
-		for taskRows.Next() {
+		for rows.Next() {
 			var t BackupTask
 			var dbID int64
-			if err := taskRows.Scan(&dbID, &t.Title, &t.Description, &t.Status, &t.Result, &t.Archived, &t.CreatedAt, &t.UpdatedAt); err != nil {
+			if err := rows.Scan(&dbID, &t.Title, &t.Description, &t.Status, &t.Result, &t.Archived, &t.CreatedAt, &t.UpdatedAt); err != nil {
 				continue
 			}
 			data.Tasks = append(data.Tasks, t)
 			taskIDs[dbID] = t.Title
 		}
+		rows.Close()
 
 		// Export task logs for user's tasks
 		if len(taskIDs) > 0 {
@@ -158,19 +203,28 @@ func (s *Storage) ExportUserData(userID int64) (*BackupUserData, error) {
 		data.Providers = providers
 	}
 
-	// Export channel mappings that point to this user
-	channelRows, err := s.db.Query(`SELECT channel, sender_id FROM channel_users WHERE user_id = ? ORDER BY channel, sender_id`, uid)
-	if err == nil {
-		defer channelRows.Close()
-		for channelRows.Next() {
-			var channel, senderID string
-			if err := channelRows.Scan(&channel, &senderID); err != nil {
-				continue
+	// Export channel mappings that point to this user (only if table exists)
+	if hasChanTable {
+		queryChan := `SELECT channel, sender_id FROM channel_users`
+		var chanRows *sql.Rows
+		if hasChanUID {
+			chanRows, err = s.db.Query(queryChan+` WHERE user_id = ? ORDER BY channel, sender_id`, uid)
+		} else {
+			chanRows, err = s.db.Query(queryChan + ` ORDER BY channel, sender_id`)
+		}
+
+		if err == nil {
+			defer chanRows.Close()
+			for chanRows.Next() {
+				var channel, senderID string
+				if err := chanRows.Scan(&channel, &senderID); err != nil {
+					continue
+				}
+				data.Channels = append(data.Channels, BackupChannelMapping{
+					Channel:  channel,
+					SenderID: senderID,
+				})
 			}
-			data.Channels = append(data.Channels, BackupChannelMapping{
-				Channel:  channel,
-				SenderID: senderID,
-			})
 		}
 	}
 
@@ -182,11 +236,23 @@ func (s *Storage) ExportUserData(userID int64) (*BackupUserData, error) {
 // ImportUserData inserts backup data into the database for the given user.
 // It uses INSERT OR IGNORE for sessions to avoid duplicates, and always appends messages/tasks.
 // Returns counts of imported items.
+// ImportUserData inserts backup data into the database for the given user.
+// It uses INSERT OR IGNORE for sessions to avoid duplicates, and always appends messages/tasks.
+// Returns counts of imported items.
 func (s *Storage) ImportUserData(userID int64, data *BackupUserData) (sessions, messages, tasks int, err error) {
 	if data == nil {
 		return 0, 0, 0, nil
 	}
-	uid := normalizeUserID(userID)
+	// Use userID as-is — callers that pass 0 mean "owner of this isolated per-user DB".
+	// Do NOT normalise 0 → 1 here, because per-user DBs use 0 as the owner key.
+	uid := userID
+
+	// Detect table properties BEFORE opening the transaction to avoid deadlock with MaxOpenConns=1
+	hasSessUID := s.hasColumn("sessions", "user_id")
+	hasChatUID := s.hasColumn("chats", "user_id")
+	hasTaskUID := s.hasColumn("tasks", "user_id")
+	hasChanTable := s.hasTable("channel_users")
+	hasChanUID := hasChanTable && s.hasColumn("channel_users", "user_id")
 
 	tx, errTx := s.db.Begin()
 	if errTx != nil {
@@ -195,13 +261,32 @@ func (s *Storage) ImportUserData(userID int64, data *BackupUserData) (sessions, 
 	defer tx.Rollback()
 
 	// Import sessions (skip duplicates)
-	stmtSess, err := tx.Prepare(`INSERT OR IGNORE INTO sessions (session_id, user_id, title, archived, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`)
+	querySess := `INSERT OR IGNORE INTO sessions (session_id`
+	if hasSessUID {
+		querySess += `, user_id`
+	}
+	querySess += `, title, archived, created_at, updated_at) VALUES (?, `
+	if hasSessUID {
+		querySess += `?, `
+	}
+	querySess += `?, ?, ?, ?)`
+
+	stmtSess, err := tx.Prepare(querySess)
 	if err != nil {
+		fmt.Printf("DEBUG: ImportUserData prepare sess FAILED: %v\n", err)
 		return 0, 0, 0, fmt.Errorf("prepare sessions: %w", err)
 	}
 	defer stmtSess.Close()
+
 	for _, sess := range data.Sessions {
-		res, err := stmtSess.Exec(sess.SessionID, uid, sess.Title, sess.Archived, sess.CreatedAt, sess.UpdatedAt)
+		var args []interface{}
+		args = append(args, sess.SessionID)
+		if hasSessUID {
+			args = append(args, uid)
+		}
+		args = append(args, sess.Title, sess.Archived, sess.CreatedAt, sess.UpdatedAt)
+
+		res, err := stmtSess.Exec(args...)
 		if err != nil {
 			continue
 		}
@@ -213,7 +298,18 @@ func (s *Storage) ImportUserData(userID int64, data *BackupUserData) (sessions, 
 	// Import messages
 	// First, collect existing message fingerprints to avoid exact duplicates
 	existingMsgs := make(map[string]bool)
-	existRows, err := tx.Query(`SELECT session_id, role, created_at FROM chats WHERE user_id = ?`, uid)
+	queryExist := `SELECT session_id, role, created_at FROM chats`
+	if hasChatUID {
+		queryExist += ` WHERE user_id = ?`
+	}
+
+	var existRows *sql.Rows
+	if hasChatUID {
+		existRows, err = tx.Query(queryExist, uid)
+	} else {
+		existRows, err = tx.Query(queryExist)
+	}
+
 	if err == nil {
 		for existRows.Next() {
 			var sid, role string
@@ -226,33 +322,79 @@ func (s *Storage) ImportUserData(userID int64, data *BackupUserData) (sessions, 
 		existRows.Close()
 	}
 
-	stmtMsg, err := tx.Prepare(`INSERT INTO chats (session_id, user_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)`)
+	queryMsg := `INSERT INTO chats (session_id`
+	if hasChatUID {
+		queryMsg += `, user_id`
+	}
+	queryMsg += `, role, content, created_at) VALUES (?, `
+	if hasChatUID {
+		queryMsg += `?, `
+	}
+	queryMsg += `?, ?, ?)`
+
+	stmtMsg, err := tx.Prepare(queryMsg)
 	if err != nil {
+		fmt.Printf("DEBUG: ImportUserData prepare msg FAILED: %v\n", err)
 		return sessions, 0, 0, fmt.Errorf("prepare messages: %w", err)
 	}
 	defer stmtMsg.Close()
+
 	for _, msg := range data.Messages {
 		key := fmt.Sprintf("%s|%s|%d", msg.SessionID, msg.Role, msg.CreatedAt.Unix())
 		if existingMsgs[key] {
 			continue // skip duplicate
 		}
+
 		// Ensure session exists
-		stmtSess.Exec(msg.SessionID, uid, "", false, msg.CreatedAt, msg.CreatedAt)
-		if _, err := stmtMsg.Exec(msg.SessionID, uid, msg.Role, msg.Content, msg.CreatedAt); err != nil {
+		var sessArgs []interface{}
+		sessArgs = append(sessArgs, msg.SessionID)
+		if hasSessUID {
+			sessArgs = append(sessArgs, uid)
+		}
+		sessArgs = append(sessArgs, "", false, msg.CreatedAt, msg.CreatedAt)
+		stmtSess.Exec(sessArgs...)
+
+		// Insert message
+		var msgArgs []interface{}
+		msgArgs = append(msgArgs, msg.SessionID)
+		if hasChatUID {
+			msgArgs = append(msgArgs, uid)
+		}
+		msgArgs = append(msgArgs, msg.Role, msg.Content, msg.CreatedAt)
+
+		if _, err := stmtMsg.Exec(msgArgs...); err != nil {
 			continue
 		}
 		messages++
 	}
 
 	// Import tasks
-	stmtTask, err := tx.Prepare(`INSERT INTO tasks (user_id, title, description, status, result, archived, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+	queryTask := `INSERT INTO tasks (`
+	if hasTaskUID {
+		queryTask += `user_id, `
+	}
+	queryTask += `title, description, status, result, archived, created_at, updated_at) VALUES (`
+	if hasTaskUID {
+		queryTask += `?, `
+	}
+	queryTask += `?, ?, ?, ?, ?, ?, ?)`
+
+	stmtTask, err := tx.Prepare(queryTask)
 	if err != nil {
+		fmt.Printf("DEBUG: ImportUserData prepare task FAILED: %v\n", err)
 		return sessions, messages, 0, fmt.Errorf("prepare tasks: %w", err)
 	}
 	defer stmtTask.Close()
+
 	taskTitleToID := make(map[string]int64) // for linking logs
 	for _, t := range data.Tasks {
-		res, err := stmtTask.Exec(uid, t.Title, t.Description, t.Status, t.Result, t.Archived, t.CreatedAt, t.UpdatedAt)
+		var taskArgs []interface{}
+		if hasTaskUID {
+			taskArgs = append(taskArgs, uid)
+		}
+		taskArgs = append(taskArgs, t.Title, t.Description, t.Status, t.Result, t.Archived, t.CreatedAt, t.UpdatedAt)
+
+		res, err := stmtTask.Exec(taskArgs...)
 		if err != nil {
 			continue
 		}
@@ -283,6 +425,8 @@ func (s *Storage) ImportUserData(userID int64, data *BackupUserData) (sessions, 
 		providers.UserID = uid
 		providersJSON, marshalErr := json.Marshal(&providers)
 		if marshalErr == nil {
+			// user_providers_config always has user_id as PK, even in isolated DB.
+			// (Though in isolated DB there's only one row with user_id=0 or similar)
 			if _, err := tx.Exec(`
 				INSERT INTO user_providers_config (user_id, config) VALUES (?, ?)
 				ON CONFLICT(user_id) DO UPDATE SET config = excluded.config
@@ -293,16 +437,32 @@ func (s *Storage) ImportUserData(userID int64, data *BackupUserData) (sessions, 
 	}
 
 	// Import channel mappings remapped to target user
-	if len(data.Channels) > 0 {
+	if hasChanTable && len(data.Channels) > 0 {
 		for _, mapping := range data.Channels {
 			if strings.TrimSpace(mapping.Channel) == "" || strings.TrimSpace(mapping.SenderID) == "" {
 				continue
 			}
-			if _, err := tx.Exec(`
-				INSERT INTO channel_users (channel, sender_id, user_id)
-				VALUES (?, ?, ?)
-				ON CONFLICT(channel, sender_id) DO UPDATE SET user_id = excluded.user_id, updated_at = CURRENT_TIMESTAMP
-			`, mapping.Channel, mapping.SenderID, uid); err != nil {
+
+			insertChan := `INSERT INTO channel_users (channel, sender_id`
+			if hasChanUID {
+				insertChan += `, user_id`
+			}
+			insertChan += `) VALUES (?, ?`
+			if hasChanUID {
+				insertChan += `, ?`
+			}
+			insertChan += `) ON CONFLICT(channel, sender_id) DO UPDATE SET updated_at = CURRENT_TIMESTAMP`
+			if hasChanUID {
+				insertChan += `, user_id = excluded.user_id`
+			}
+
+			var chanArgs []interface{}
+			chanArgs = append(chanArgs, mapping.Channel, mapping.SenderID)
+			if hasChanUID {
+				chanArgs = append(chanArgs, uid)
+			}
+
+			if _, err := tx.Exec(insertChan, chanArgs...); err != nil {
 				return 0, 0, 0, fmt.Errorf("import channel mapping: %w", err)
 			}
 		}
@@ -313,4 +473,37 @@ func (s *Storage) ImportUserData(userID int64, data *BackupUserData) (sessions, 
 	}
 
 	return sessions, messages, tasks, nil
+}
+
+// hasTable checks if a table exists in the database.
+func (s *Storage) hasTable(table string) bool {
+	var count int
+	err := s.db.QueryRow(
+		`SELECT count(*) FROM sqlite_master WHERE type='table' AND name=?`, table,
+	).Scan(&count)
+	return err == nil && count > 0
+}
+
+// hasColumn checks if a table has a specific column.
+func (s *Storage) hasColumn(table, column string) bool {
+	query := fmt.Sprintf("PRAGMA table_info(%s)", table)
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return false
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var cid int
+		var name, dtype string
+		var notnull, pk int
+		var dfltValue interface{}
+		if err := rows.Scan(&cid, &name, &dtype, &notnull, &dfltValue, &pk); err != nil {
+			continue
+		}
+		if strings.EqualFold(name, column) {
+			return true
+		}
+	}
+	return false
 }

@@ -1,5 +1,5 @@
 <template>
-  <div class="flex h-screen bg-kakoclaw-bg text-kakoclaw-text overflow-hidden">
+  <div class="flex h-screen bg-makoclaw-bg text-makoclaw-text overflow-hidden">
     <!-- Sidebar -->
     <Sidebar />
 
@@ -10,9 +10,9 @@
     <div class="flex-1 flex flex-col min-w-0 overflow-hidden relative">
       
       <!-- Mobile Header -->
-      <header class="md:hidden h-14 bg-kakoclaw-surface border-b border-kakoclaw-border flex items-center justify-between px-4 flex-shrink-0 z-20">
-         <div class="font-bold text-lg text-kakoclaw-accent">KakoClaw</div>
-         <button @click="uiStore.toggleSidebar()" class="p-2 text-kakoclaw-text hover:bg-kakoclaw-border rounded">
+      <header class="md:hidden h-14 bg-makoclaw-surface border-b border-makoclaw-border flex items-center justify-between px-4 flex-shrink-0 z-20">
+         <div class="font-bold text-lg text-makoclaw-accent">makoclaw</div>
+         <button @click="uiStore.toggleSidebar()" class="p-2 text-makoclaw-text hover:bg-makoclaw-border rounded">
            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
            </svg>
@@ -46,7 +46,7 @@ let chatViewActive = false
 const setChatViewActive = (active) => { chatViewActive = active }
 
 // Expose globally so ChatView can signal its mount/unmount status
-window.__kakoclaw_setChatViewActive = setChatViewActive
+window.__makoclaw_setChatViewActive = setChatViewActive
 
 // Background handler: runs when ChatView is NOT mounted.
 // Captures WS messages into the chatStore so they aren't lost.
@@ -96,3 +96,4 @@ main::-webkit-scrollbar-thumb:hover {
   background-color: rgba(156, 163, 175, 0.8);
 }
 </style>
+

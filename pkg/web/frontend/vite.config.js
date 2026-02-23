@@ -10,10 +10,10 @@ export default defineConfig({
       injectRegister: 'auto',
       includeAssets: ['favicon.svg', 'pwa-192x192.png', 'pwa-512x512.png'],
       manifest: {
-        name: 'KakoClaw',
-        short_name: 'KakoClaw',
+        name: 'makoclaw',
+        short_name: 'makoclaw',
         description: 'AI Agent Dashboard — Chat, Tasks, Knowledge Base, MCP & more',
-        theme_color: '#10b981',
+        theme_color: '#3b82f6',
         background_color: '#0f172a',
         display: 'standalone',
         orientation: 'any',
@@ -97,3 +97,4 @@ export default defineConfig({
     }
   }
 })
+

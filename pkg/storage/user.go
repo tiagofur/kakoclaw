@@ -11,18 +11,23 @@ import (
 )
 
 type User struct {
-	ID            int64      `json:"id"`
-	UUID          string     `json:"uuid"` // Unique identifier for filesystem/workspace paths
-	Username      string     `json:"username"`
-	Email         string     `json:"email,omitempty"`
-	PasswordHash  string     `json:"-"`
-	Role          string     `json:"role"` // 'admin' or 'user'
-	Blocked       bool       `json:"blocked"`
-	BlockedReason string     `json:"blocked_reason,omitempty"`
-	BlockedBy     *int64     `json:"blocked_by,omitempty"`
-	BlockedAt     *time.Time `json:"blocked_at,omitempty"`
-	CreatedAt     time.Time  `json:"created_at"`
-	UpdatedAt     time.Time  `json:"updated_at"`
+	ID                int64      `json:"id"`
+	UUID              string     `json:"uuid"` // Unique identifier for filesystem/workspace paths
+	Username          string     `json:"username"`
+	Email             string     `json:"email,omitempty"`
+	PasswordHash      string     `json:"-"`
+	Role              string     `json:"role"` // 'admin' or 'user'
+	FullName          string     `json:"full_name,omitempty"`
+	DateOfBirth       *time.Time `json:"date_of_birth,omitempty"`
+	Timezone          string     `json:"timezone,omitempty"`
+	PreferredLanguage string     `json:"preferred_language,omitempty"`
+	AvatarURL         string     `json:"avatar_url,omitempty"`
+	Blocked           bool       `json:"blocked"`
+	BlockedReason     string     `json:"blocked_reason,omitempty"`
+	BlockedBy         *int64     `json:"blocked_by,omitempty"`
+	BlockedAt         *time.Time `json:"blocked_at,omitempty"`
+	CreatedAt         time.Time  `json:"created_at"`
+	UpdatedAt         time.Time  `json:"updated_at"`
 }
 
 var ErrUserNotFound = errors.New("user not found")
@@ -121,21 +126,30 @@ func (s *Storage) CreateUserWithEmail(username, email, password, role string) (*
 	return s.GetUserByID(id)
 }
 
-func (s *Storage) GetUserByID(id int64) (*User, error) {
+// legacyUserSelectCols is the SELECT column list for the legacy (non-central) users table.
+const legacyUserSelectCols = `id, COALESCE(uuid, ''), username, COALESCE(email, ''), password_hash, role,
+	COALESCE(full_name, ''), date_of_birth, COALESCE(timezone, ''), COALESCE(preferred_language, ''), COALESCE(avatar_url, ''),
+	COALESCE(blocked, 0), COALESCE(blocked_reason, ''), blocked_by, blocked_at,
+	created_at, updated_at`
+
+func (s *Storage) scanUser(scanner interface {
+	Scan(dest ...interface{}) error
+}) (*User, error) {
 	u := &User{}
 	var email sql.NullString
+	var fullName sql.NullString
+	var dob sql.NullTime
+	var tz sql.NullString
+	var lang sql.NullString
+	var avatar sql.NullString
 	var blocked sql.NullBool
 	var blockedReason sql.NullString
 	var blockedBy sql.NullInt64
 	var blockedAt sql.NullTime
-	err := s.db.QueryRow(`
-		SELECT id, uuid, username, COALESCE(email, ''), password_hash, role, 
-		       COALESCE(blocked, 0), COALESCE(blocked_reason, ''), blocked_by, blocked_at,
-		       created_at, updated_at
-		FROM users WHERE id = ?`, id).
-		Scan(&u.ID, &u.UUID, &u.Username, &email, &u.PasswordHash, &u.Role,
-			&blocked, &blockedReason, &blockedBy, &blockedAt,
-			&u.CreatedAt, &u.UpdatedAt)
+	err := scanner.Scan(&u.ID, &u.UUID, &u.Username, &email, &u.PasswordHash, &u.Role,
+		&fullName, &dob, &tz, &lang, &avatar,
+		&blocked, &blockedReason, &blockedBy, &blockedAt,
+		&u.CreatedAt, &u.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, ErrUserNotFound
 	}
@@ -144,6 +158,21 @@ func (s *Storage) GetUserByID(id int64) (*User, error) {
 	}
 	if email.Valid {
 		u.Email = email.String
+	}
+	if fullName.Valid {
+		u.FullName = fullName.String
+	}
+	if dob.Valid {
+		u.DateOfBirth = &dob.Time
+	}
+	if tz.Valid {
+		u.Timezone = tz.String
+	}
+	if lang.Valid {
+		u.PreferredLanguage = lang.String
+	}
+	if avatar.Valid {
+		u.AvatarURL = avatar.String
 	}
 	if blocked.Valid {
 		u.Blocked = blocked.Bool
@@ -159,134 +188,30 @@ func (s *Storage) GetUserByID(id int64) (*User, error) {
 		u.BlockedAt = &blockedAt.Time
 	}
 	return u, nil
+}
+
+func (s *Storage) GetUserByID(id int64) (*User, error) {
+	row := s.db.QueryRow(`SELECT `+legacyUserSelectCols+` FROM users WHERE id = ?`, id)
+	return s.scanUser(row)
 }
 
 func (s *Storage) GetUserByUUID(userUUID string) (*User, error) {
-	u := &User{}
-	var email sql.NullString
-	var blocked sql.NullBool
-	var blockedReason sql.NullString
-	var blockedBy sql.NullInt64
-	var blockedAt sql.NullTime
-	err := s.db.QueryRow(`
-		SELECT id, uuid, username, COALESCE(email, ''), password_hash, role,
-		       COALESCE(blocked, 0), COALESCE(blocked_reason, ''), blocked_by, blocked_at,
-		       created_at, updated_at
-		FROM users WHERE uuid = ?`, userUUID).
-		Scan(&u.ID, &u.UUID, &u.Username, &email, &u.PasswordHash, &u.Role,
-			&blocked, &blockedReason, &blockedBy, &blockedAt,
-			&u.CreatedAt, &u.UpdatedAt)
-	if err == sql.ErrNoRows {
-		return nil, ErrUserNotFound
-	}
-	if err != nil {
-		return nil, err
-	}
-	if email.Valid {
-		u.Email = email.String
-	}
-	if blocked.Valid {
-		u.Blocked = blocked.Bool
-	}
-	if blockedReason.Valid {
-		u.BlockedReason = blockedReason.String
-	}
-	if blockedBy.Valid {
-		val := blockedBy.Int64
-		u.BlockedBy = &val
-	}
-	if blockedAt.Valid {
-		u.BlockedAt = &blockedAt.Time
-	}
-	return u, nil
+	row := s.db.QueryRow(`SELECT `+legacyUserSelectCols+` FROM users WHERE uuid = ?`, userUUID)
+	return s.scanUser(row)
 }
 
 func (s *Storage) GetUserByUsername(username string) (*User, error) {
-	u := &User{}
-	var email sql.NullString
-	var blocked sql.NullBool
-	var blockedReason sql.NullString
-	var blockedBy sql.NullInt64
-	var blockedAt sql.NullTime
-	err := s.db.QueryRow(`
-		SELECT id, uuid, username, COALESCE(email, ''), password_hash, role,
-		       COALESCE(blocked, 0), COALESCE(blocked_reason, ''), blocked_by, blocked_at,
-		       created_at, updated_at
-		FROM users WHERE username = ? COLLATE NOCASE`, username).
-		Scan(&u.ID, &u.UUID, &u.Username, &email, &u.PasswordHash, &u.Role,
-			&blocked, &blockedReason, &blockedBy, &blockedAt,
-			&u.CreatedAt, &u.UpdatedAt)
-	if err == sql.ErrNoRows {
-		return nil, ErrUserNotFound
-	}
-	if err != nil {
-		return nil, err
-	}
-	if email.Valid {
-		u.Email = email.String
-	}
-	if blocked.Valid {
-		u.Blocked = blocked.Bool
-	}
-	if blockedReason.Valid {
-		u.BlockedReason = blockedReason.String
-	}
-	if blockedBy.Valid {
-		val := blockedBy.Int64
-		u.BlockedBy = &val
-	}
-	if blockedAt.Valid {
-		u.BlockedAt = &blockedAt.Time
-	}
-	return u, nil
+	row := s.db.QueryRow(`SELECT `+legacyUserSelectCols+` FROM users WHERE username = ? COLLATE NOCASE`, username)
+	return s.scanUser(row)
 }
 
 func (s *Storage) GetUserByEmail(email string) (*User, error) {
-	u := &User{}
-	var emailValue sql.NullString
-	var blocked sql.NullBool
-	var blockedReason sql.NullString
-	var blockedBy sql.NullInt64
-	var blockedAt sql.NullTime
-	err := s.db.QueryRow(`
-		SELECT id, uuid, username, COALESCE(email, ''), password_hash, role,
-		       COALESCE(blocked, 0), COALESCE(blocked_reason, ''), blocked_by, blocked_at,
-		       created_at, updated_at
-		FROM users WHERE email = ? COLLATE NOCASE`, email).
-		Scan(&u.ID, &u.UUID, &u.Username, &emailValue, &u.PasswordHash, &u.Role,
-			&blocked, &blockedReason, &blockedBy, &blockedAt,
-			&u.CreatedAt, &u.UpdatedAt)
-	if err == sql.ErrNoRows {
-		return nil, ErrUserNotFound
-	}
-	if err != nil {
-		return nil, err
-	}
-	if emailValue.Valid {
-		u.Email = emailValue.String
-	}
-	if blocked.Valid {
-		u.Blocked = blocked.Bool
-	}
-	if blockedReason.Valid {
-		u.BlockedReason = blockedReason.String
-	}
-	if blockedBy.Valid {
-		val := blockedBy.Int64
-		u.BlockedBy = &val
-	}
-	if blockedAt.Valid {
-		u.BlockedAt = &blockedAt.Time
-	}
-	return u, nil
+	row := s.db.QueryRow(`SELECT `+legacyUserSelectCols+` FROM users WHERE email = ? COLLATE NOCASE`, email)
+	return s.scanUser(row)
 }
 
 func (s *Storage) ListUsers() ([]*User, error) {
-	rows, err := s.db.Query(`
-		SELECT id, uuid, username, COALESCE(email, ''), password_hash, role,
-		       COALESCE(blocked, 0), COALESCE(blocked_reason, ''), blocked_by, blocked_at,
-		       created_at, updated_at
-		FROM users ORDER BY created_at ASC`)
+	rows, err := s.db.Query(`SELECT ` + legacyUserSelectCols + ` FROM users ORDER BY created_at ASC`)
 	if err != nil {
 		return nil, err
 	}
@@ -294,32 +219,9 @@ func (s *Storage) ListUsers() ([]*User, error) {
 
 	var users []*User
 	for rows.Next() {
-		u := &User{}
-		var email sql.NullString
-		var blocked sql.NullBool
-		var blockedReason sql.NullString
-		var blockedBy sql.NullInt64
-		var blockedAt sql.NullTime
-		if err := rows.Scan(&u.ID, &u.UUID, &u.Username, &email, &u.PasswordHash, &u.Role,
-			&blocked, &blockedReason, &blockedBy, &blockedAt,
-			&u.CreatedAt, &u.UpdatedAt); err != nil {
+		u, err := s.scanUser(rows)
+		if err != nil {
 			return nil, err
-		}
-		if email.Valid {
-			u.Email = email.String
-		}
-		if blocked.Valid {
-			u.Blocked = blocked.Bool
-		}
-		if blockedReason.Valid {
-			u.BlockedReason = blockedReason.String
-		}
-		if blockedBy.Valid {
-			val := blockedBy.Int64
-			u.BlockedBy = &val
-		}
-		if blockedAt.Valid {
-			u.BlockedAt = &blockedAt.Time
 		}
 		users = append(users, u)
 	}
@@ -345,8 +247,8 @@ func (s *Storage) DeleteUser(id int64) error {
 	return err
 }
 
-// UpdateUserProfile updates username and/or email for a user.
-func (s *Storage) UpdateUserProfile(id int64, username, email string) error {
+// UpdateUserProfile updates profile fields for a user.
+func (s *Storage) UpdateUserProfile(id int64, username, email, fullName string, dateOfBirth *time.Time, timezone, preferredLanguage, avatarURL string) error {
 	username = strings.TrimSpace(username)
 	email = strings.TrimSpace(email)
 
@@ -356,9 +258,9 @@ func (s *Storage) UpdateUserProfile(id int64, username, email string) error {
 
 	_, err := s.db.Exec(`
 		UPDATE users 
-		SET username = ?, email = ?, updated_at = CURRENT_TIMESTAMP 
+		SET username = ?, email = ?, full_name = ?, date_of_birth = ?, timezone = ?, preferred_language = ?, avatar_url = ?, updated_at = CURRENT_TIMESTAMP 
 		WHERE id = ?`,
-		username, email, id)
+		username, email, fullName, dateOfBirth, timezone, preferredLanguage, avatarURL, id)
 
 	if err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed") {
 		return ErrUserExists

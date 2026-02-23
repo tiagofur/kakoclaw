@@ -39,7 +39,7 @@ func authFilePath() string {
 	if home == "" {
 		home, _ = os.UserHomeDir()
 	}
-	return filepath.Join(home, ".KakoClaw", "auth.json")
+	return filepath.Join(home, ".makoclaw", "auth.json")
 }
 
 func LoadStore() (*AuthStore, error) {
@@ -113,3 +113,4 @@ func DeleteAllCredentials() error {
 	}
 	return nil
 }
+

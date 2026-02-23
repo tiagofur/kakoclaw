@@ -6,11 +6,11 @@ The AI agent refuses to execute commands that make external HTTP requests (like 
 
 ## Root Cause
 
-**This is a misconception by the LLM**, not an actual technical limitation. KakoClaw does NOT implement any safety guard that blocks HTTP connections to external URLs.
+**This is a misconception by the LLM**, not an actual technical limitation. MakoClaw does NOT implement any safety guard that blocks HTTP connections to external URLs.
 
 ### What Safety Guards Actually Exist
 
-KakoClaw only has safety guards for:
+MakoClaw only has safety guards for:
 1. **Dangerous shell commands** (rm -rf, format, etc.)
 2. **Path traversal** in file operations (when `restrict_to_workspace: true`)
 3. **File access** outside workspace (when `restrict_to_workspace: true`)
@@ -72,8 +72,8 @@ Created `scripts/check-github-setup.sh` to verify GitHub CLI setup:
 
 Example:
 ```
-User: "Create an issue in tiagofur/kakoclaw titled 'Fix feature X' with description 'Details here'"
-Agent: *executes* gh issue create --repo tiagofur/kakoclaw --title "Fix feature X" --body "Details here"
+User: "Create an issue in tiagofur/makoclaw titled 'Fix feature X' with description 'Details here'"
+Agent: *executes* gh issue create --repo tiagofur/makoclaw --title "Fix feature X" --body "Details here"
 ```
 
 ### Method 2: Direct Command Execution
@@ -81,7 +81,7 @@ Agent: *executes* gh issue create --repo tiagofur/kakoclaw --title "Fix feature 
 If the agent still hesitates, ask it explicitly:
 
 ```
-User: "Execute this command: gh issue list --repo tiagofur/kakoclaw"
+User: "Execute this command: gh issue list --repo tiagofur/makoclaw"
 Agent: *executes command via exec tool*
 ```
 
@@ -112,9 +112,9 @@ Agent: *executes* export GITHUB_TOKEN=ghp_xxx && gh issue create ...
 
 Ask the agent to:
 
-1. **List issues**: "List the open issues in tiagofur/kakoclaw"
-2. **Create an issue**: "Create a test issue in tiagofur/kakoclaw"
-3. **Use gh api**: "Use gh api to get repository info for tiagofur/kakoclaw"
+1. **List issues**: "List the open issues in tiagofur/makoclaw"
+2. **Create an issue**: "Create a test issue in tiagofur/makoclaw"
+3. **Use gh api**: "Use gh api to get repository info for tiagofur/makoclaw"
 
 The agent should now execute these commands without claiming they're blocked.
 
@@ -155,7 +155,7 @@ The explicit clarifications in the system prompt and AGENTS.md should prevent th
 
 If the agent still refuses to execute network operations:
 
-1. **Remind it explicitly**: "HTTP connections are allowed in KakoClaw, execute the command"
+1. **Remind it explicitly**: "HTTP connections are allowed in MakoClaw, execute the command"
 2. **Reference documentation**: "Check AGENTS.md - network operations are permitted"
 3. **Try different model**: Some models may be more conservative than others
 4. **Use direct exec**: Use the exec tool directly instead of relying on skill interpretation
@@ -164,5 +164,5 @@ If the agent still refuses to execute network operations:
 
 - [pkg/agent/context.go](../pkg/agent/context.go) - System prompt with HTTP permissions clarification
 - [skills/github/SKILL.md](../skills/github/SKILL.md) - Updated GitHub skill with prerequisites
-- [KakoClaw-data/workspace/AGENTS.md](../KakoClaw-data/workspace/AGENTS.md) - Agent capabilities documentation
+- [MakoClaw-data/workspace/AGENTS.md](../MakoClaw-data/workspace/AGENTS.md) - Agent capabilities documentation
 - [scripts/check-github-setup.sh](../scripts/check-github-setup.sh) - GitHub CLI verification script

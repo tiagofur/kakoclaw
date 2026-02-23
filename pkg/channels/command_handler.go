@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/sipeed/kakoclaw/pkg/logger"
-	"github.com/sipeed/kakoclaw/pkg/storage"
+	"github.com/sipeed/makoclaw/pkg/logger"
+	"github.com/sipeed/makoclaw/pkg/storage"
 )
 
 // CommandHandler processes special commands like /setup
@@ -53,9 +53,9 @@ func (ch *CommandHandler) handleSetupCommand(ctx context.Context, channel, sende
 	}
 
 	// Generate setup URL (this will be customized per channel)
-	setupURL := fmt.Sprintf("https://kakoclaw.app/onboarding?token=%s", session.Token)
+	setupURL := fmt.Sprintf("https://makoclaw.app/onboarding?token=%s", session.Token)
 
-	response := fmt.Sprintf("🚀 Welcome to KakoClaw Setup!\n\nPlease visit this link to complete your configuration:\n%s\n\n⏱️ This link expires in 1 hour.", setupURL)
+	response := fmt.Sprintf("🚀 Welcome to makoclaw Setup!\n\nPlease visit this link to complete your configuration:\n%s\n\n⏱️ This link expires in 1 hour.", setupURL)
 
 	logger.InfoCF("channels", "Setup session created", map[string]interface{}{
 		"channel":   channel,
@@ -68,7 +68,7 @@ func (ch *CommandHandler) handleSetupCommand(ctx context.Context, channel, sende
 
 // handleStatusCommand returns current status
 func (ch *CommandHandler) handleStatusCommand(ctx context.Context) (bool, string, error) {
-	response := "✅ KakoClaw is up and running!\n\nUse /setup to begin the onboarding process."
+	response := "✅ makoclaw is up and running!\n\nUse /setup to begin the onboarding process."
 	return true, response, nil
 }
 
@@ -98,3 +98,4 @@ func ParseCommand(content string) (cmd, args string) {
 
 	return content, ""
 }
+

@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sipeed/kakoclaw/pkg/bus"
-	"github.com/sipeed/kakoclaw/pkg/config"
-	"github.com/sipeed/kakoclaw/pkg/logger"
+	"github.com/sipeed/makoclaw/pkg/bus"
+	"github.com/sipeed/makoclaw/pkg/config"
+	"github.com/sipeed/makoclaw/pkg/logger"
 )
 
 // SignalChannel implements Channel interface for Signal messenger
@@ -259,7 +259,7 @@ type Attachment struct {
 // downloadAttachment downloads an attachment to a temporary file
 func (c *SignalChannel) downloadAttachment(attachmentID string) (string, error) {
 	// Create temp directory
-	tmpDir := filepath.Join(os.TempDir(), "KakoClaw-signal")
+	tmpDir := filepath.Join(os.TempDir(), "makoclaw-signal")
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create temp dir: %w", err)
 	}
@@ -281,3 +281,4 @@ func truncate(s string, maxLen int) string {
 	}
 	return s[:maxLen] + "..."
 }
+

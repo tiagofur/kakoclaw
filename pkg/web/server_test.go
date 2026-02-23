@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sipeed/kakoclaw/pkg/config"
-	"github.com/sipeed/kakoclaw/pkg/skills"
-	"github.com/sipeed/kakoclaw/pkg/storage"
+	"github.com/sipeed/makoclaw/pkg/config"
+	"github.com/sipeed/makoclaw/pkg/skills"
+	"github.com/sipeed/makoclaw/pkg/storage"
 )
 
 func newTestServer(t *testing.T) *Server {
@@ -25,19 +25,79 @@ func newTestServer(t *testing.T) *Server {
 	}
 	t.Cleanup(func() { _ = store.Close() })
 
+	// Create central storage for auth operations
+	cs, err := storage.NewCentral(filepath.Join(dir, "central.db"))
+	if err != nil {
+		t.Fatalf("NewCentral failed: %v", err)
+	}
+	t.Cleanup(func() { _ = cs.Close() })
+
 	s := NewServerWithWorkspace(config.WebConfig{
 		Username:  "admin",
 		Password:  "StrongPassword123!",
 		JWTExpiry: "24h",
 	}, nil, dir)
 	s.store = store
+	s.centralStore = cs
 
-	s.authManager, err = newAuthManager(s.store, s.cfg.Username, s.cfg.Password, s.cfg.JWTExpiry)
+	s.authManager, err = newAuthManager(cs, s.cfg.Username, s.cfg.Password, s.cfg.JWTExpiry)
 	if err != nil {
 		t.Fatalf("newAuthManager failed: %v", err)
 	}
 
+	// Wire per-user storage manager so getUserStorage returns isolated per-user DBs
+	userMgr := storage.NewUserStorageManager(cs, dir)
+	s.userMgr = userMgr
+	t.Cleanup(func() { userMgr.Close() })
+
+	s.skillInstaller = skills.NewSkillInstaller(dir)
+
 	return s
+}
+
+func getTestToken(t *testing.T, s *Server) string {
+	t.Helper()
+	token, err := s.authManager.login("admin", "StrongPassword123!")
+	if err != nil {
+		t.Fatalf("failed to get test token: %v", err)
+	}
+	return token
+}
+
+func withTestUserContext(t *testing.T, s *Server, req *http.Request) *http.Request {
+	t.Helper()
+	// Ensure admin user exists in central store (or fallback to legacy store)
+	var userUUID string
+	if s.centralStore != nil {
+		user, err := s.centralStore.GetUserByUsername("admin")
+		if err != nil {
+			user, err = s.centralStore.CreateUser("admin", "StrongPassword123!", "admin")
+			if err != nil && err != storage.ErrUserExists {
+				t.Fatalf("failed to create test user: %v", err)
+			}
+			if user == nil {
+				user, _ = s.centralStore.GetUserByUsername("admin")
+			}
+		}
+		if user != nil {
+			userUUID = user.UUID
+		}
+	} else {
+		_, err := s.store.GetUserByUsername("admin")
+		if err != nil {
+			_, err = s.store.CreateUserWithEmail("admin", "admin@test.com", "StrongPassword123!", "admin")
+			if err != nil {
+				t.Fatalf("failed to create test user: %v", err)
+			}
+		}
+	}
+	claims := &jwtClaims{
+		Sub:  "admin",
+		UUID: userUUID,
+		Role: "admin",
+	}
+	ctx := context.WithValue(req.Context(), userClaimsKey, claims)
+	return req.WithContext(ctx)
 }
 
 func TestAuthMiddlewareBlocksUnauthorizedAPI(t *testing.T) {
@@ -78,12 +138,14 @@ func TestLoginAndBearerAuthorization(t *testing.T) {
 func TestHandleTasksCreateAndListSQLite(t *testing.T) {
 	s := newTestServer(t)
 	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/tasks", strings.NewReader(`{"title":"task a"}`))
+	createReq = withTestUserContext(t, s, createReq)
 	createRR := httptest.NewRecorder()
 	s.handleTasks(createRR, createReq)
 	if createRR.Code != http.StatusCreated {
 		t.Fatalf("expected 201, got %d", createRR.Code)
 	}
 	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/tasks", nil)
+	listReq = withTestUserContext(t, s, listReq)
 	listRR := httptest.NewRecorder()
 	s.handleTasks(listRR, listReq)
 	if listRR.Code != http.StatusOK {
@@ -97,6 +159,7 @@ func TestHandleTasksCreateAndListSQLite(t *testing.T) {
 func TestHandleTasksUpdateStatusAndDelete(t *testing.T) {
 	s := newTestServer(t)
 	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/tasks", strings.NewReader(`{"title":"task b","status":"todo"}`))
+	createReq = withTestUserContext(t, s, createReq)
 	createRR := httptest.NewRecorder()
 	s.handleTasks(createRR, createReq)
 	if createRR.Code != http.StatusCreated {
@@ -108,6 +171,7 @@ func TestHandleTasksUpdateStatusAndDelete(t *testing.T) {
 	}
 
 	putReq := httptest.NewRequest(http.MethodPut, "/api/v1/tasks/"+created.ID, strings.NewReader(`{"title":"task b updated","description":"updated","status":"review","result":"done soon"}`))
+	putReq = withTestUserContext(t, s, putReq)
 	putRR := httptest.NewRecorder()
 	s.handleTasks(putRR, putReq)
 	if putRR.Code != http.StatusOK {
@@ -115,6 +179,7 @@ func TestHandleTasksUpdateStatusAndDelete(t *testing.T) {
 	}
 
 	patchReq := httptest.NewRequest(http.MethodPatch, "/api/v1/tasks/"+created.ID+"/status", strings.NewReader(`{"status":"in_progress"}`))
+	patchReq = withTestUserContext(t, s, patchReq)
 	patchRR := httptest.NewRecorder()
 	s.handleTasks(patchRR, patchReq)
 	if patchRR.Code != http.StatusOK {
@@ -122,6 +187,7 @@ func TestHandleTasksUpdateStatusAndDelete(t *testing.T) {
 	}
 
 	delReq := httptest.NewRequest(http.MethodDelete, "/api/v1/tasks/"+created.ID, nil)
+	delReq = withTestUserContext(t, s, delReq)
 	delRR := httptest.NewRecorder()
 	s.handleTasks(delRR, delReq)
 	if delRR.Code != http.StatusOK {
@@ -132,6 +198,7 @@ func TestHandleTasksUpdateStatusAndDelete(t *testing.T) {
 func TestHandleTaskLogsEndpoint(t *testing.T) {
 	s := newTestServer(t)
 	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/tasks", strings.NewReader(`{"title":"task logs"}`))
+	createReq = withTestUserContext(t, s, createReq)
 	createRR := httptest.NewRecorder()
 	s.handleTasks(createRR, createReq)
 	if createRR.Code != http.StatusCreated {
@@ -142,6 +209,7 @@ func TestHandleTaskLogsEndpoint(t *testing.T) {
 		t.Fatalf("invalid create response: %v", err)
 	}
 	logsReq := httptest.NewRequest(http.MethodGet, "/api/v1/tasks/"+created.ID+"/logs", nil)
+	logsReq = withTestUserContext(t, s, logsReq)
 	logsRR := httptest.NewRecorder()
 	s.handleTasks(logsRR, logsReq)
 	if logsRR.Code != http.StatusOK {
@@ -151,27 +219,26 @@ func TestHandleTaskLogsEndpoint(t *testing.T) {
 
 func TestTaskChatCommands(t *testing.T) {
 	s := newTestServer(t)
-	// Use user_id 0 for test (legacy/default user)
-	ok, msg := s.handleTaskChatCommand(0, "/task create revisar logs")
+	ok, msg := s.handleTaskChatCommand(1, "/task create revisar logs")
 	if !ok || !strings.Contains(msg, "Tarea creada") {
 		t.Fatalf("expected create command handled, got ok=%v msg=%q", ok, msg)
 	}
 
-	ok, msg = s.handleTaskChatCommand(0, "/task list")
+	ok, msg = s.handleTaskChatCommand(1, "/task list")
 	if !ok || !strings.Contains(msg, "revisar logs") {
 		t.Fatalf("expected list command output, got ok=%v msg=%q", ok, msg)
 	}
 
-	createdID, err := s.store.CreateTask("mover estado", "", "backlog")
+	createdID, err := s.store.CreateTaskForUser(1, "mover estado", "", "backlog")
 	if err != nil {
 		t.Fatalf("create task for move command failed: %v", err)
 	}
 	idStr := toString(createdID)
-	ok, msg = s.handleTaskChatCommand(0, "/task move "+idStr+" done")
+	ok, msg = s.handleTaskChatCommand(1, "/task move "+idStr+" done")
 	if !ok || !strings.Contains(msg, "movida a done") {
 		t.Fatalf("expected move command output, got ok=%v msg=%q", ok, msg)
 	}
-	got, err := s.store.GetTask(createdID)
+	got, err := s.store.GetTaskForUser(1, createdID)
 	if err != nil {
 		t.Fatalf("get moved task failed: %v", err)
 	}
@@ -183,6 +250,7 @@ func TestTaskChatCommands(t *testing.T) {
 func TestHandleTasksRejectsEmptyTitle(t *testing.T) {
 	s := newTestServer(t)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/tasks", strings.NewReader(`{"title":"  "}`))
+	req = withTestUserContext(t, s, req)
 	rr := httptest.NewRecorder()
 	s.handleTasks(rr, req)
 	if rr.Code != http.StatusBadRequest {
@@ -244,16 +312,28 @@ func TestHandleSkillGenerateRequiresAgentLoop(t *testing.T) {
 
 func TestHandleSkillCreateWritesSkillFile(t *testing.T) {
 	s := newTestServer(t)
+	s.skillInstaller = skills.NewSkillInstaller(s.workspace)
 	content := "---\nname: demo-skill\ndescription: Test skill\n---\n\n# Demo Skill\n\n## When to use\nUse this.\n"
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/skills/create", strings.NewReader(`{"name":"demo-skill","content":`+strconvQuote(content)+`}`))
+	req = withTestUserContext(t, s, req)
 	rr := httptest.NewRecorder()
 
 	s.handleSkillAction(rr, req)
 	if rr.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d", rr.Code)
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
 	}
 
-	skillPath := filepath.Join(s.workspace, "skills", "demo-skill", "SKILL.md")
+	var user *storage.User
+	if s.centralStore != nil {
+		user, _ = s.centralStore.GetUserByUsername("admin")
+	} else {
+		user, _ = s.store.GetUserByUsername("admin")
+	}
+	if user == nil {
+		t.Fatal("admin user not found")
+	}
+	userWorkspace, _ := config.EnsureUserWorkspace(user.UUID)
+	skillPath := filepath.Join(userWorkspace, "skills", "demo-skill", "SKILL.md")
 	if _, err := os.Stat(skillPath); err != nil {
 		t.Fatalf("expected skill file to exist: %v", err)
 	}
@@ -291,12 +371,11 @@ func TestIsAuthorizedAllowsJWTInWebSocketQuery(t *testing.T) {
 	}
 }
 
-// --- Chat session endpoints ---
-
 func TestHandleChatSessionsListEmpty(t *testing.T) {
 	s := newTestServer(t)
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/chat/sessions", nil)
+	req = withTestUserContext(t, s, req)
 	s.handleChatSessions(rr, req)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
@@ -311,11 +390,20 @@ func TestHandleChatSessionsListEmpty(t *testing.T) {
 
 func TestHandleChatSessionsListWithData(t *testing.T) {
 	s := newTestServer(t)
-	_ = s.store.SaveMessage("web:sess1", "user", "hello")
-	_ = s.store.SaveMessage("web:sess1", "assistant", "hi")
+
+	// Get the per-user store for admin (same path getUserStorage would resolve)
+	adminReq := httptest.NewRequest(http.MethodGet, "/api/v1/chat/sessions", nil)
+	adminReq = withTestUserContext(t, s, adminReq)
+	userStore, _, ok := s.getUserStorage(adminReq)
+	if !ok {
+		t.Fatal("could not get user store")
+	}
+	_ = userStore.SaveMessage("web:sess1", "user", "hello")
+	_ = userStore.SaveMessage("web:sess1", "assistant", "hi")
 
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/chat/sessions", nil)
+	req = withTestUserContext(t, s, req)
 	s.handleChatSessions(rr, req)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
@@ -327,14 +415,22 @@ func TestHandleChatSessionsListWithData(t *testing.T) {
 
 func TestHandleChatSessionsArchivedFilter(t *testing.T) {
 	s := newTestServer(t)
-	_ = s.store.SaveMessage("active:x", "user", "active")
-	_ = s.store.SaveMessage("archived:x", "user", "archived")
-	archivedTrue := true
-	_, _ = s.store.UpdateSession("archived:x", nil, &archivedTrue)
 
-	// Non-archived (default)
+	// Get per-user store for admin
+	setupReq := httptest.NewRequest(http.MethodGet, "/api/v1/chat/sessions", nil)
+	setupReq = withTestUserContext(t, s, setupReq)
+	userStore, _, ok := s.getUserStorage(setupReq)
+	if !ok {
+		t.Fatal("could not get user store")
+	}
+	_ = userStore.SaveMessage("active:x", "user", "active")
+	_ = userStore.SaveMessage("archived:x", "user", "archived")
+	archivedTrue := true
+	_, _ = userStore.UpdateSession("archived:x", nil, &archivedTrue)
+
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/chat/sessions?archived=false", nil)
+	req = withTestUserContext(t, s, req)
 	s.handleChatSessions(rr, req)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rr.Code)
@@ -343,9 +439,9 @@ func TestHandleChatSessionsArchivedFilter(t *testing.T) {
 		t.Fatalf("archived session should not appear: %s", rr.Body.String())
 	}
 
-	// Archived only
 	rr2 := httptest.NewRecorder()
 	req2 := httptest.NewRequest(http.MethodGet, "/api/v1/chat/sessions?archived=true", nil)
+	req2 = withTestUserContext(t, s, req2)
 	s.handleChatSessions(rr2, req2)
 	if !strings.Contains(rr2.Body.String(), "archived:x") {
 		t.Fatalf("expected archived session: %s", rr2.Body.String())
@@ -354,10 +450,18 @@ func TestHandleChatSessionsArchivedFilter(t *testing.T) {
 
 func TestHandleChatSessionMessagesGet(t *testing.T) {
 	s := newTestServer(t)
-	_ = s.store.SaveMessage("msgs:test", "user", "hello msg")
+
+	setupReq := httptest.NewRequest(http.MethodGet, "/api/v1/chat/sessions/msgs:test", nil)
+	setupReq = withTestUserContext(t, s, setupReq)
+	userStore, _, ok := s.getUserStorage(setupReq)
+	if !ok {
+		t.Fatal("could not get user store")
+	}
+	_ = userStore.SaveMessage("msgs:test", "user", "hello msg")
 
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/chat/sessions/msgs:test", nil)
+	req = withTestUserContext(t, s, req)
 	s.handleChatSessionMessages(rr, req)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
@@ -369,10 +473,18 @@ func TestHandleChatSessionMessagesGet(t *testing.T) {
 
 func TestHandleChatSessionMessagesPatch(t *testing.T) {
 	s := newTestServer(t)
-	_ = s.store.SaveMessage("patch:test", "user", "msg")
+
+	setupReq := httptest.NewRequest(http.MethodPatch, "/api/v1/chat/sessions/patch:test", nil)
+	setupReq = withTestUserContext(t, s, setupReq)
+	userStore, _, ok := s.getUserStorage(setupReq)
+	if !ok {
+		t.Fatal("could not get user store")
+	}
+	_ = userStore.SaveMessage("patch:test", "user", "msg")
 
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPatch, "/api/v1/chat/sessions/patch:test", strings.NewReader(`{"title":"My Title"}`))
+	req = withTestUserContext(t, s, req)
 	s.handleChatSessionMessages(rr, req)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
@@ -384,17 +496,24 @@ func TestHandleChatSessionMessagesPatch(t *testing.T) {
 
 func TestHandleChatSessionMessagesDelete(t *testing.T) {
 	s := newTestServer(t)
-	_ = s.store.SaveMessage("del:test", "user", "bye")
+
+	setupReq := httptest.NewRequest(http.MethodDelete, "/api/v1/chat/sessions/del:test", nil)
+	setupReq = withTestUserContext(t, s, setupReq)
+	userStore, _, ok := s.getUserStorage(setupReq)
+	if !ok {
+		t.Fatal("could not get user store")
+	}
+	_ = userStore.SaveMessage("del:test", "user", "bye")
 
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/chat/sessions/del:test", nil)
+	req = withTestUserContext(t, s, req)
 	s.handleChatSessionMessages(rr, req)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
 	}
 
-	// Verify deleted
-	msgs, _ := s.store.GetMessages("del:test")
+	msgs, _ := userStore.GetMessages("del:test")
 	if len(msgs) != 0 {
 		t.Fatalf("expected 0 messages after delete, got %d", len(msgs))
 	}
@@ -404,6 +523,7 @@ func TestHandleChatSessionMessagesNoID(t *testing.T) {
 	s := newTestServer(t)
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/chat/sessions/", nil)
+	req = withTestUserContext(t, s, req)
 	s.handleChatSessionMessages(rr, req)
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", rr.Code)

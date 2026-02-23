@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/sipeed/kakoclaw/pkg/config"
+	"github.com/sipeed/makoclaw/pkg/config"
 )
 
 func newTestStorage(t *testing.T) *Storage {
@@ -109,18 +109,18 @@ func TestGetMessagesEmptySession(t *testing.T) {
 
 func TestSearchMessages(t *testing.T) {
 	s := newTestStorage(t)
-	_ = s.SaveMessage("s1", "user", "find the KakoClaw docs")
+	_ = s.SaveMessage("s1", "user", "find the makoclaw docs")
 	_ = s.SaveMessage("s1", "assistant", "here are the results")
 	_ = s.SaveMessage("s2", "user", "unrelated message")
 
-	results, err := s.SearchMessages("KakoClaw")
+	results, err := s.SearchMessages("makoclaw")
 	if err != nil {
 		t.Fatalf("SearchMessages: %v", err)
 	}
 	if len(results) != 1 {
 		t.Fatalf("expected 1 result, got %d", len(results))
 	}
-	if results[0].Content != "find the KakoClaw docs" {
+	if results[0].Content != "find the makoclaw docs" {
 		t.Fatalf("unexpected result: %s", results[0].Content)
 	}
 }
@@ -485,3 +485,4 @@ func TestStoragePathIsolation(t *testing.T) {
 		t.Fatalf("expected isolated empty DB B, got %d messages", len(msgs))
 	}
 }
+

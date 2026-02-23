@@ -1,7 +1,7 @@
-# KakoClaw Multi-User System - Phases 1-3 Complete Summary
+# MakoClaw Multi-User System - Phases 1-3 Complete Summary
 
 ## 🎯 Project Objective
-Implementar un sistema 100% separado por usuario en KakoClaw, permitiendo que múltiples usuarios compartan un servidor pero con configuración, providers, y channels completamente independientes.
+Implementar un sistema 100% separado por usuario en MakoClaw, permitiendo que múltiples usuarios compartan un servidor pero con configuración, providers, y channels completamente independientes.
 
 ## ✅ Phase 1: Core Config Infrastructure (Commit 7abb37d)
 
@@ -10,9 +10,9 @@ Implementar un sistema 100% separado por usuario en KakoClaw, permitiendo que m�
 ```
 DefaultConfig (built-in)
     ↓ (merged by)
-GlobalConfig (~/.kakoclaw/config.json)
+GlobalConfig (~/.makoclaw/config.json)
     ↓ (merged by)
-UserConfig (~/.kakoclaw/users/{uuid}/config.json)
+UserConfig (~/.makoclaw/users/{uuid}/config.json)
 ```
 
 **Backend Components**:
@@ -63,7 +63,7 @@ UserConfig (~/.kakoclaw/users/{uuid}/config.json)
 **Integration of Multi-User System into Gateway**
 
 **Modified Components**:
-1. **Gateway Command** (`cmd/kakoclaw/main.go` gatewayCmd)
+1. **Gateway Command** (`cmd/makoclaw/main.go` gatewayCmd)
    - Replaced single `channels.Manager` with `MultiUserChannelManager`
    - Each user initialized with their own `Manager` + `AgentLoop`
    - Each loop loads user's merged config at startup
@@ -251,8 +251,8 @@ Gateway Process
 │  ┌────────────────────────────────────────────────────────────┐ │
 │  │ Config System (Inheritance)                                │ │
 │  │  ├─ DefaultConfig (built-in)                               │ │
-│  │  ├─ GlobalConfig (~/.kakoclaw/config.json)                │ │
-│  │  └─ UserConfigs (~/.kakoclaw/users/{uuid}/config.json)    │ │
+│  │  ├─ GlobalConfig (~/.makoclaw/config.json)                │ │
+│  │  └─ UserConfigs (~/.makoclaw/users/{uuid}/config.json)    │ │
 │  └────────────────────────────────────────────────────────────┘ │
 │  ┌────────────────────────────────────────────────────────────┐ │
 │  │ Cron Service (DefaultAgentLoop - for all users)            │ │
@@ -353,11 +353,11 @@ All documentation committed to branch:
    
 3. Browser: POST /api/v1/users/me/config
    Body: { providers: { openai: { apiKey: "sk-...", model: "gpt-4" } } }
-   ↓ Backend saves to ~/.kakoclaw/users/{uuid}/config.json
+   ↓ Backend saves to ~/.makoclaw/users/{uuid}/config.json
 
 4. Browser: POST /api/v1/users/me/config
    Body: { channels: { telegram: { botToken: "123:ABC", channelId: "-123" } } }
-   ↓ Backend saves to ~/.kakoclaw/users/{uuid}/config.json
+   ↓ Backend saves to ~/.makoclaw/users/{uuid}/config.json
 
 5. Backend triggers: multiChannelManager.RestartUserChannels(ctx, userUUID)
    ↓ Creates new Manager + AgentLoop with merged config

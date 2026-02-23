@@ -1,7 +1,7 @@
 # Configuration Permission System - Implementation Summary
 
 ## Overview
-Implemented a comprehensive role-based access control (RBAC) system for KakoClaw configuration management, ensuring proper isolation between global (admin-only) and per-user settings.
+Implemented a comprehensive role-based access control (RBAC) system for MakoClaw configuration management, ensuring proper isolation between global (admin-only) and per-user settings.
 
 ## Requirements Met
 
@@ -59,7 +59,7 @@ Sections modifiable via `/api/v1/config`:
 - **`web`** - Web server settings
 - **`storage`** - Database configuration
 
-**Storage**: `~/.KakoClaw/config.json` (or `$KAKOCLAW_CONFIG_PATH`)
+**Storage**: `~/.MakoClaw/config.json` (or `$MAKOCLAW_CONFIG_PATH`)
 
 #### Per-User Config (All Users)
 
@@ -75,7 +75,7 @@ Sections modifiable via `/api/v1/config`:
 - Moonshot
 - Ollama
 
-**File-Backed Overlays** (`~/.kakoclaw/users/<uuid>/config.json`):
+**File-Backed Overlays** (`~/.makoclaw/users/<uuid>/config.json`):
 - Personal agent settings (workspace, model preferences)
 - Personal channel configurations
 - Personal tool settings
@@ -83,8 +83,8 @@ Sections modifiable via `/api/v1/config`:
 ### 4. Configuration Merging
 
 Runtime behavior:
-1. Load global config from `~/.KakoClaw/config.json`
-2. Load user config from `~/.kakoclaw/users/<user_id>/config.json`
+1. Load global config from `~/.MakoClaw/config.json`
+2. Load user config from `~/.makoclaw/users/<user_id>/config.json`
 3. Merge user sections over global (via `config.MergeConfigs()`)
 4. Load user providers from `user_providers_config` DB
 5. Use merged config for agent execution
@@ -237,10 +237,10 @@ curl -X POST "http://localhost:18880/api/v1/auth/register" \
 ## Migration Notes
 
 ### For Existing Installations
-1. **Backup config**: `cp ~/.KakoClaw/config.json ~/.KakoClaw/config.json.backup`
+1. **Backup config**: `cp ~/.MakoClaw/config.json ~/.MakoClaw/config.json.backup`
 2. **Remove placeholder keys**: Edit `config.json`, set all `providers.*.api_key` to `""`
 3. **Users set personal keys**: Each user must configure their own API keys via Setup Wizard or `/api/v1/me/providers/update`
-4. **Admin-only global edits**: Only admins can modify `~/.KakoClaw/config.json` via web UI
+4. **Admin-only global edits**: Only admins can modify `~/.MakoClaw/config.json` via web UI
 
 ### Database Migration
 The `user_providers_config` table is created automatically on first startup (handled by `pkg/storage/storage.go` migration).
@@ -260,17 +260,17 @@ Potential improvements:
 ### User sees 403 on valid requests
 - Verify JWT token is valid: `jwt.io`
 - Check token includes `role` claim
-- Confirm user exists in DB: `sqlite3 ~/.KakoClaw/KakoClaw.db "SELECT * FROM users WHERE username='...';"`
+- Confirm user exists in DB: `sqlite3 ~/.MakoClaw/MakoClaw.db "SELECT * FROM users WHERE username='...';"`
 
 ### Admin cannot modify config
-- Verify role in DB: `sqlite3 ~/.KakoClaw/KakoClaw.db "SELECT role FROM users WHERE username='admin';"`
+- Verify role in DB: `sqlite3 ~/.MakoClaw/MakoClaw.db "SELECT role FROM users WHERE username='admin';"`
 - Must be exactly `"admin"` (case-sensitive)
 - Re-login after role change to get new token
 
 ### Provider updates not persisting
-- Check DB permissions: `ls -la ~/.KakoClaw/KakoClaw.db`
-- Verify table exists: `sqlite3 ~/.KakoClaw/KakoClaw.db ".schema user_providers_config"`
-- Check logs: `tail -f /tmp/kakoclaw.log`
+- Check DB permissions: `ls -la ~/.MakoClaw/MakoClaw.db`
+- Verify table exists: `sqlite3 ~/.MakoClaw/MakoClaw.db ".schema user_providers_config"`
+- Check logs: `tail -f /tmp/makoclaw.log`
 
 ## Conclusion
 

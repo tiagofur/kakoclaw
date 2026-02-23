@@ -2,7 +2,7 @@
 
 ## Overview
 
-KakoClaw now supports a **multi-agent specialist system** where an **Orchestrator Agent** analyzes incoming tasks and intelligently delegates them to specialized agents. This allows for:
+MakoClaw now supports a **multi-agent specialist system** where an **Orchestrator Agent** analyzes incoming tasks and intelligently delegates them to specialized agents. This allows for:
 
 - 🎯 **Task-specific optimization**: Each specialist has its own model, provider, and capability set
 - 💰 **Cost efficiency**: Use cheaper models for simple tasks, premium models for complex ones
@@ -173,13 +173,13 @@ OpenRouter offers:
 
 1. **Set up in config.json**:
 ```bash
-cp config.example.json ~/.KakoClaw/config.json
+cp config.example.json ~/.MakoClaw/config.json
 # Edit to enable orchestrator and add your API keys
 ```
 
-2. **Start KakoClaw**:
+2. **Start MakoClaw**:
 ```bash
-./kakoclaw gateway
+./makoclaw gateway
 ```
 
 3. **Access via web or client**:
@@ -305,7 +305,7 @@ Inject domain knowledge:
 ### Specialist failing
 - ✅ Check specialist has required `tools`
 - ✅ Verify provider config is correct
-- ✅ Check logs: `tail -f ~/.KakoClaw/kakoclaw.log`
+- ✅ Check logs: `tail -f ~/.MakoClaw/makoclaw.log`
 
 ### High costs
 - ✅ Use cheaper models for non-expert tasks
@@ -326,18 +326,18 @@ Lower cost/call = Better cost optimization ✓
 
 ## Next Steps
 
-1. **Copy config.example.json**: `cp config.example.json ~/.KakoClaw/config.json`
+1. **Copy config.example.json**: `cp config.example.json ~/.MakoClaw/config.json`
 2. **Enable orchestrator**: Set `"enabled": true`
 3. **Add API keys**: Fill in provider credentials
-4. **Start gateway**: `./kakoclaw gateway`
+4. **Start gateway**: `./makoclaw gateway`
 5. **Monitor costs**: Check `/api/v1/agents` for usage
 6. **Optimize**: Adjust models and tools based on metrics
 
 ## Questions?
 
-- Check logs: `~/.KakoClaw/kakoclaw.log`
+- Check logs: `~/.MakoClaw/makoclaw.log`
 - Test API: `curl http://localhost:18880/api/v1/agents`
-- Run doctor: `./kakoclaw doctor`
+- Run doctor: `./makoclaw doctor`
 
 ---
 

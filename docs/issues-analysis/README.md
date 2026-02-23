@@ -1,11 +1,11 @@
-# Análisis de Issues de KakoClaw
+# Análisis de Issues de MakoClaw
 
-Documento de análisis y clasificación de issues abiertas en el repositorio de KakoClaw.
+Documento de análisis y clasificación de issues abiertas en el repositorio de MakoClaw.
 
 **Fecha de análisis:** Febrero 2026  
 **Total Issues abiertas:** 23  
 **Total PRs abiertos:** 5  
-**Repositorio:** https://github.com/sipeed/KakoClaw
+**Repositorio:** https://github.com/sipeed/MakoClaw
 
 ---
 
@@ -52,7 +52,7 @@ Documento de análisis y clasificación de issues abiertas en el repositorio de 
 - **Descripción:** Solicita agregar "open code" y "antigravity" (servicios gratuitos)
 - **Análisis:** Vago, no especifica qué servicios exactos ni cómo integrarlos. Parece spam o solicitud sin investigación previa.
 
-#### #66 - KakoClaw_PROVIDERS_* env vars not applied
+#### #66 - MakoClaw_PROVIDERS_* env vars not applied
 - **Estado:** Open
 - **Autor:** binkbink168
 - **Útil:** ✅ SÍ
@@ -116,7 +116,7 @@ Documento de análisis y clasificación de issues abiertas en el repositorio de 
 - **Análisis:** Signal es popular en usuarios de privacidad. Buena adición pero no crítica.
 - **Implementación:** Ver [implementation-plans.md](./implementation-plans.md#issue-41)
 
-#### #37 - KakoClaw can't send messages on Telegram Gateway by itself
+#### #37 - MakoClaw can't send messages on Telegram Gateway by itself
 - **Estado:** Open
 - **Autor:** shuantsu
 - **Útil:** ✅ SÍ
@@ -160,7 +160,7 @@ Documento de análisis y clasificación de issues abiertas en el repositorio de 
 - **Análisis:** Feedback valioso de usuario. Puede incluir validación, mejor estructura, etc.
 - **Implementación:** Ver [implementation-plans.md](./implementation-plans.md#issue-46)
 
-#### #39 - Feature Request: Add `KakoClaw doctor` command
+#### #39 - Feature Request: Add `MakoClaw doctor` command
 - **Estado:** Open
 - **Autor:** vijaykarthiktk
 - **Útil:** ✅ SÍ
@@ -244,7 +244,7 @@ Documento de análisis y clasificación de issues abiertas en el repositorio de 
 - **Prioridad:** 🟢 Baja
 - **Tipo:** Feature Request
 - **Descripción:** Adaptar para ESP32
-- **Análisis:** ESP32 tiene recursos muy limitados (512KB RAM). KakoClaw requiere ~10MB. Imposible sin reescritura total.
+- **Análisis:** ESP32 tiene recursos muy limitados (512KB RAM). MakoClaw requiere ~10MB. Imposible sin reescritura total.
 
 #### #6 - Support for RISC-V
 - **Estado:** Open  
@@ -297,7 +297,7 @@ Documento de análisis y clasificación de issues abiertas en el repositorio de 
 
 ### Issues Recomendadas para Contribuir
 
-1. **#39** - `KakoClaw doctor` (fácil, buena primera contribución)
+1. **#39** - `MakoClaw doctor` (fácil, buena primera contribución)
 2. **#46** - Mejoras config (medio, mejora UX)
 3. **#63** - Cronjobs en session (medio, feature útil)
 4. **#75** - Soporte Ollama (difícil pero valioso)

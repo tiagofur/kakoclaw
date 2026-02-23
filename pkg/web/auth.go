@@ -12,24 +12,25 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sipeed/kakoclaw/pkg/storage"
+	"github.com/sipeed/makoclaw/pkg/storage"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type jwtClaims struct {
-	Sub  string `json:"sub"`
+	Sub  string `json:"sub"`            // username
+	UUID string `json:"uuid,omitempty"` // user UUID for per-user DB lookup
 	Role string `json:"role"`
 	Exp  int64  `json:"exp"`
 }
 
 type authManager struct {
-	store     *storage.Storage
+	store     *storage.CentralStorage
 	jwtExpiry time.Duration
 }
 
-func newAuthManager(store *storage.Storage, cfgUsername, cfgPassword, cfgExpiry string) (*authManager, error) {
+func newAuthManager(store *storage.CentralStorage, cfgUsername, cfgPassword, cfgExpiry string) (*authManager, error) {
 	if store == nil {
-		return nil, errors.New("storage is required for authManager")
+		return nil, errors.New("central storage is required for authManager")
 	}
 
 	mgr := &authManager{
@@ -90,6 +91,23 @@ func newAuthManager(store *storage.Storage, cfgUsername, cfgPassword, cfgExpiry 
 				return nil, err
 			}
 		}
+	} else if adminCount > 0 {
+		// Sync admin password from config if provided and user matches
+		username := strings.TrimSpace(cfgUsername)
+		if username == "" {
+			username = "admin"
+		}
+		password := strings.TrimSpace(cfgPassword)
+		if password != "" {
+			user, err := mgr.store.GetUserByUsername(username)
+			if err == nil && user.Role == "admin" {
+				// Update password to match config to ensure .env is source of truth
+				if err := mgr.store.UpdateUserPassword(user.ID, password); err != nil {
+					// Don't fail the whole startup if sync fails, just log it
+					fmt.Printf("Warning: Failed to sync admin password for %s: %v\n", username, err)
+				}
+			}
+		}
 	}
 
 	return mgr, nil
@@ -120,13 +138,14 @@ func (m *authManager) login(username, password string) (string, error) {
 		return "", fmt.Errorf("usuario bloqueado. Motivo: %s. Contacte soporte", user.BlockedReason)
 	}
 
-	return m.signToken(user.Username, user.Role)
+	return m.signToken(user.Username, user.UUID, user.Role)
 }
 
-func (m *authManager) signToken(username, role string) (string, error) {
+func (m *authManager) signToken(username, userUUID, role string) (string, error) {
 	headerRaw := `{"alg":"HS256","typ":"JWT"}`
 	claims := jwtClaims{
 		Sub:  username,
+		UUID: userUUID,
 		Role: role,
 		Exp:  time.Now().UTC().Add(m.jwtExpiry).Unix(),
 	}
@@ -217,3 +236,4 @@ func (m *authManager) changePassword(username, oldPassword, newPassword string) 
 	}
 	return m.store.SetSetting("jwt_secret_b64", base64.RawURLEncoding.EncodeToString(newSecret))
 }
+

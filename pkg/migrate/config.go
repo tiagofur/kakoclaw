@@ -8,7 +8,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/sipeed/kakoclaw/pkg/config"
+	"github.com/sipeed/makoclaw/pkg/config"
 )
 
 var supportedProviders = map[string]bool{
@@ -98,7 +98,7 @@ func ConvertConfig(data map[string]interface{}) (*config.Config, []string, error
 
 			if !supportedProviders[name] {
 				if apiKey != "" || apiBase != "" {
-					warnings = append(warnings, fmt.Sprintf("Provider '%s' not supported in KakoClaw, skipping", name))
+					warnings = append(warnings, fmt.Sprintf("Provider '%s' not supported in makoclaw, skipping", name))
 				}
 				continue
 			}
@@ -130,7 +130,7 @@ func ConvertConfig(data map[string]interface{}) (*config.Config, []string, error
 				continue
 			}
 			if !supportedChannels[name] {
-				warnings = append(warnings, fmt.Sprintf("Channel '%s' not supported in KakoClaw, skipping", name))
+				warnings = append(warnings, fmt.Sprintf("Channel '%s' not supported in makoclaw, skipping", name))
 				continue
 			}
 			enabled, _ := getBool(cMap, "enabled")
@@ -318,7 +318,7 @@ func convertKeysToSnake(data interface{}) interface{} {
 }
 
 func rewriteWorkspacePath(path string) string {
-	path = strings.Replace(path, ".openclaw", ".KakoClaw", 1)
+	path = strings.Replace(path, ".openclaw", ".makoclaw", 1)
 	return path
 }
 
@@ -375,3 +375,4 @@ func getStringSlice(data map[string]interface{}, key string) []string {
 	}
 	return result
 }
+

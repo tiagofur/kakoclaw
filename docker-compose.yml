@@ -1,29 +1,37 @@
 services:
-  kakoclaw:
+  makoclaw:
     build: .
     ports:
       - "127.0.0.1:18880:18880"
     environment:
-      KAKOCLAW_AGENTS_DEFAULTS_PROVIDER: zhipu
-      KAKOCLAW_AGENTS_DEFAULTS_MODEL: glm-4.7
-      KAKOCLAW_AGENTS_DEFAULTS_RESTRICT_TO_WORKSPACE: "true"
-      KAKOCLAW_AGENTS_DEFAULTS_WORKSPACE: "/home/kakoclaw/.KakoClaw/workspace"
-      KAKOCLAW_STORAGE_PATH: "/home/kakoclaw/.KakoClaw/KakoClaw.db"
-      KAKOCLAW_WEB_ENABLED: "true"
-      KAKOCLAW_WEB_HOST: 0.0.0.0
-      KAKOCLAW_WEB_PORT: "18880"
-      KAKOCLAW_WEB_USERNAME: admin
-      KAKOCLAW_WEB_PASSWORD: "${KAKOCLAW_WEB_PASSWORD}"
-      KAKOCLAW_PROVIDERS_ZHIPU_API_KEY: "${KAKOCLAW_PROVIDERS_ZHIPU_API_KEY}"
-      KAKOCLAW_PROVIDERS_ZHIPU_API_BASE: "https://api.z.ai/api/coding/paas/v4"
+      MAKOCLAW_AGENTS_DEFAULTS_PROVIDER: zhipu
+      MAKOCLAW_AGENTS_DEFAULTS_MODEL: glm-4.7
+      MAKOCLAW_AGENTS_DEFAULTS_RESTRICT_TO_WORKSPACE: "true"
+      MAKOCLAW_AGENTS_DEFAULTS_WORKSPACE: "/home/makoclaw/.MakoClaw/workspace"
+      MAKOCLAW_STORAGE_PATH: "/home/makoclaw/.MakoClaw/MakoClaw.db"
+      MAKOCLAW_WEB_ENABLED: "true"
+      MAKOCLAW_WEB_HOST: 0.0.0.0
+      MAKOCLAW_WEB_PORT: "18880"
+      MAKOCLAW_WEB_USERNAME: admin
+      MAKOCLAW_WEB_PASSWORD: "${MAKOCLAW_WEB_PASSWORD}"
+      MAKOCLAW_PROVIDERS_ZHIPU_API_KEY: "${MAKOCLAW_PROVIDERS_ZHIPU_API_KEY}"
+      MAKOCLAW_PROVIDERS_ZHIPU_API_BASE: "https://api.z.ai/api/coding/paas/v4"
       # Email Tools Configuration
-      KAKOCLAW_TOOLS_EMAIL_ENABLED: "true"
-      KAKOCLAW_TOOLS_EMAIL_HOST: "smtp.gmail.com"
-      KAKOCLAW_TOOLS_EMAIL_PORT: "587"
-      KAKOCLAW_TOOLS_EMAIL_USERNAME: "${KAKOCLAW_TOOLS_EMAIL_USERNAME}"
-      KAKOCLAW_TOOLS_EMAIL_PASSWORD: "${KAKOCLAW_TOOLS_EMAIL_PASSWORD}"
-      KAKOCLAW_TOOLS_EMAIL_FROM: "${KAKOCLAW_TOOLS_EMAIL_FROM}"
-      KAKOCLAW_TOOLS_EMAIL_TO: "${KAKOCLAW_TOOLS_EMAIL_TO}"
+      MAKOCLAW_TOOLS_EMAIL_ENABLED: "true"
+      MAKOCLAW_TOOLS_EMAIL_HOST: "smtp.gmail.com"
+      MAKOCLAW_TOOLS_EMAIL_PORT: "587"
+      MAKOCLAW_TOOLS_EMAIL_USERNAME: "${MAKOCLAW_TOOLS_EMAIL_USERNAME}"
+      MAKOCLAW_TOOLS_EMAIL_PASSWORD: "${MAKOCLAW_TOOLS_EMAIL_PASSWORD}"
+      MAKOCLAW_TOOLS_EMAIL_FROM: "${MAKOCLAW_TOOLS_EMAIL_FROM}"
+      MAKOCLAW_TOOLS_EMAIL_TO: "${MAKOCLAW_TOOLS_EMAIL_TO}"
     volumes:
-      - ./KakoClaw-data:/home/kakoclaw/.KakoClaw
+      # MakoClaw-data/ contains:
+      #   MakoClaw.db     - legacy shared database (backward compat)
+      #   central.db      - auth database (users, settings, JWT secrets)
+      #   users/{uuid}/   - per-user isolated data:
+      #     user.db       - per-user database (chats, tasks, knowledge)
+      #     workspace/    - per-user workspace files
+      #     config.json   - per-user config (providers, channels)
+      #   config.json     - server-level config
+      - ./MakoClaw-data:/home/makoclaw/.MakoClaw
     restart: unless-stopped

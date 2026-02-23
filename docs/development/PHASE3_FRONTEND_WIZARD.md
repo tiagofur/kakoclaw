@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Fase 3** completó la capa de presentación para la configuración de usuarios en KakoClaw. Se implementó un **Setup Wizard de 5 pasos** que guía a los usuarios nuevos a través de la configuración de su primer AI provider y canal de comunicación.
+**Fase 3** completó la capa de presentación para la configuración de usuarios en MakoClaw. Se implementó un **Setup Wizard de 5 pasos** que guía a los usuarios nuevos a través de la configuración de su primer AI provider y canal de comunicación.
 
 ## Architecture
 
@@ -302,7 +302,7 @@ onMounted(() => {
 **Fase 4**: Channel Auto-Onboarding
 - `/setup` command en channels para guided setup
 - QR codes para Telegram/Discord
-- Deep linking desde platforms a KakoClaw
+- Deep linking desde platforms a MakoClaw
 
 **Fase 5**: Advanced Features
 - Config templates compartibles

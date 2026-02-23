@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/sipeed/kakoclaw/pkg/bus"
-	"github.com/sipeed/kakoclaw/pkg/storage"
+	"github.com/sipeed/makoclaw/pkg/bus"
+	"github.com/sipeed/makoclaw/pkg/storage"
 )
 
 type Channel interface {

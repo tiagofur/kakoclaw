@@ -7,7 +7,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        'kakoclaw': {
+        'makoclaw': {
           'bg': 'rgb(var(--pc-bg) / <alpha-value>)',
           'surface': 'rgb(var(--pc-surface) / <alpha-value>)',
           'surface-hover': 'rgb(var(--pc-surface-hover) / <alpha-value>)',
@@ -33,3 +33,4 @@ export default {
   darkMode: 'class',
   plugins: [],
 }
+

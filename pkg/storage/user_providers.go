@@ -34,8 +34,7 @@ type ProviderConfig struct {
 func (s *Storage) migrateUserProviders() error {
 	query := `CREATE TABLE IF NOT EXISTS user_providers_config (
 		user_id INTEGER PRIMARY KEY,
-		config TEXT NOT NULL,
-		FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		config TEXT NOT NULL
 	);`
 
 	_, err := s.db.Exec(query)

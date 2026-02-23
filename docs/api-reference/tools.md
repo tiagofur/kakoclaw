@@ -1,6 +1,6 @@
 # Tools API Reference
 
-Documentación de referencia para el sistema de Tools de KakoClaw.
+Documentación de referencia para el sistema de Tools de MakoClaw.
 
 ## Índice
 

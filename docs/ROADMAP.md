@@ -1,8 +1,10 @@
-# KakoClaw/KakoClaw — Roadmap de Mejoras
+# MakoClaw — Roadmap de Mejoras
 
-> Documento generado a partir del análisis competitivo contra Open WebUI, Dify, LobeChat, Flowise, n8n, Langflow, BotPress, AutoGPT y otros.
+> **🦈 The Apex AI Agent** — Documento generado a partir del análisis competitivo contra Open WebUI, Dify, LobeChat, Flowise, n8n, Langflow, BotPress, AutoGPT y otros.
 
 ## Estado: Fase UX Completada — Fase 7 Pendiente
+
+> **Nota**: Este documento refleja el estado del proyecto durante su desarrollo como **MakoClaw**. La versión actual **MakoClaw** mantiene todas estas funcionalidades con nueva identidad visual (colores azules, mascota tiburón).
 
 ---
 
@@ -76,7 +78,7 @@
 
 ### 6.2 MCP (Model Context Protocol) Client (COMPLETADO ✅)
 **Estado**: COMPLETADO
-**Archivos**: `pkg/mcp/client.go`, `pkg/mcp/manager.go`, `pkg/mcp/tool.go`, `pkg/config/config.go`, `pkg/agent/loop.go`, `pkg/web/server.go`, `pkg/web/handlers_advanced.go`, `cmd/KakoClaw/main.go`, `pkg/web/frontend/src/views/MCPView.vue`, `pkg/web/frontend/src/services/advancedService.js`
+**Archivos**: `pkg/mcp/client.go`, `pkg/mcp/manager.go`, `pkg/mcp/tool.go`, `pkg/config/config.go`, `pkg/agent/loop.go`, `pkg/web/server.go`, `pkg/web/handlers_advanced.go`, `cmd/MakoClaw/main.go`, `pkg/web/frontend/src/views/MCPView.vue`, `pkg/web/frontend/src/services/advancedService.js`
 
 - MCP client implementado con JSON-RPC 2.0 sobre STDIO (protocolo version 2024-11-05)
 - `Client`: inicia proceso, handshake initialize/initialized, tools/list discovery, tools/call execution

@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sipeed/kakoclaw/pkg/config"
-	"github.com/sipeed/kakoclaw/pkg/logger"
-	"github.com/sipeed/kakoclaw/pkg/storage"
+	"github.com/sipeed/makoclaw/pkg/config"
+	"github.com/sipeed/makoclaw/pkg/logger"
+	"github.com/sipeed/makoclaw/pkg/storage"
 )
 
 // BackupManifest represents the metadata of a backup archive.
@@ -22,7 +22,7 @@ import (
 type BackupManifest struct {
 	Version            string    `json:"version"`
 	CreatedAt          time.Time `json:"created_at"`
-	KakoClawVersion    string    `json:"kakoclaw_version"`
+	MakoClawVersion    string    `json:"makoclaw_version"`
 	BackupType         string    `json:"backup_type"` // "personal" — scoped to the exporting user
 	DataSizeBytes      int64     `json:"data_size_bytes"`
 	TotalFiles         int       `json:"total_files"`
@@ -84,19 +84,21 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, ok := s.getUserIDFromClaims(r)
+	store, userUUID, ok := s.getUserStorage(r)
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	user, err := s.store.GetUserByID(userID)
+	// Resolve the full user record for username/ID (needed for logging and filename)
+	userIDInt, _ := s.getUserIDFromClaims(r)
+	user, err := s.resolveUserByID(userIDInt)
 	if err != nil {
 		http.Error(w, "user not found", http.StatusNotFound)
 		return
 	}
 
-	userWorkspace, err := config.EnsureUserWorkspace(user.UUID)
+	userWorkspace, err := config.EnsureUserWorkspace(userUUID)
 	if err != nil {
 		http.Error(w, "failed to access workspace", http.StatusInternalServerError)
 		return
@@ -137,9 +139,9 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 		"include_workspace": options.IncludeWorkspace,
 	})
 
-	filename := fmt.Sprintf("kakoclaw-%s-%s.kakoclaw", user.Username, time.Now().Format("2006-01-02"))
+	filename := fmt.Sprintf("makoclaw-%s-%s.makoclaw", user.Username, time.Now().Format("2006-01-02"))
 
-	tempFile, err := os.CreateTemp("", "kakoclaw-backup-*.zip")
+	tempFile, err := os.CreateTemp("", "makoclaw-backup-*.zip")
 	if err != nil {
 		logger.ErrorCF("backup", "Failed to create temp file", map[string]interface{}{"error": err.Error()})
 		http.Error(w, "failed to create backup", http.StatusInternalServerError)
@@ -155,9 +157,9 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 	defer zipWriter.Close()
 
 	manifest := BackupManifest{
-		Version:         backupVersion,
+		Version:         "2.0",
 		CreatedAt:       time.Now().UTC(),
-		KakoClawVersion: "1.0.0",
+		MakoClawVersion: "1.0.0",
 		BackupType:      "personal",
 		ExportedFiles:   make([]string, 0),
 		FailedFiles:     make([]string, 0),
@@ -167,8 +169,8 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 	totalSize := int64(0)
 
 	// ---- Database: export user data as JSON (not raw .db file) ----
-	if options.IncludeDatabase && s.store != nil {
-		userData, err := s.store.ExportUserData(user.ID)
+	if options.IncludeDatabase && store != nil {
+		userData, err := store.ExportUserData(0)
 		if err != nil {
 			logger.WarnCF("backup", "Failed to export user data from DB", map[string]interface{}{"error": err.Error()})
 			manifest.FailedFiles = append(manifest.FailedFiles, userDataEntry)
@@ -321,19 +323,21 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, ok := s.getUserIDFromClaims(r)
+	store, userUUID, ok := s.getUserStorage(r)
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	user, err := s.store.GetUserByID(userID)
+	// Resolve the full user record for username/ID (needed for logging)
+	userIDInt, _ := s.getUserIDFromClaims(r)
+	user, err := s.resolveUserByID(userIDInt)
 	if err != nil {
 		http.Error(w, "user not found", http.StatusNotFound)
 		return
 	}
 
-	userWorkspace, err := config.EnsureUserWorkspace(user.UUID)
+	userWorkspace, err := config.EnsureUserWorkspace(userUUID)
 	if err != nil {
 		http.Error(w, "failed to access workspace", http.StatusInternalServerError)
 		return
@@ -351,12 +355,12 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "no file uploaded", http.StatusBadRequest)
 		return
 	}
-	if file.FileName() == "" || !strings.HasSuffix(file.FileName(), ".kakoclaw") {
-		http.Error(w, "invalid file: must be .kakoclaw extension", http.StatusBadRequest)
+	if file.FileName() == "" || !strings.HasSuffix(file.FileName(), ".makoclaw") {
+		http.Error(w, "invalid file: must be .makoclaw extension", http.StatusBadRequest)
 		return
 	}
 
-	tempDir, err := os.MkdirTemp("", "kakoclaw-import-*")
+	tempDir, err := os.MkdirTemp("", "makoclaw-import-*")
 	if err != nil {
 		http.Error(w, "failed to import backup", http.StatusInternalServerError)
 		return
@@ -479,7 +483,7 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 			}
 			rc.Close()
 
-			sessions, messages, tasks, err := s.store.ImportUserData(user.ID, &userData)
+			sessions, messages, tasks, err := store.ImportUserData(0, &userData)
 			if err != nil {
 				importErrors = append(importErrors, "failed to import DB data: "+err.Error())
 			} else {
@@ -508,9 +512,9 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 				}
 				// Only process once we see the main .db file
 				lower := strings.ToLower(dbFileName)
-				if lower == "kakoclaw.db" {
+				if lower == "makoclaw.db" {
 					legacyDBHandled = true
-					if err := s.importLegacyDB(tempDBPath, user.ID); err != nil {
+					if err := s.importLegacyDB(tempDBPath, store); err != nil {
 						importErrors = append(importErrors, "legacy DB import: "+err.Error())
 					} else {
 						logger.InfoCF("backup", "Imported legacy DB data for user", map[string]interface{}{"user": user.Username})
@@ -638,8 +642,8 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 
 // importLegacyDB handles v1 backups that contain raw .db files.
 // It opens the DB in a temp location, reads user data from it (user_id=1),
-// and imports it into the current DB for the given user. No global DB replacement.
-func (s *Server) importLegacyDB(tempDBPath string, targetUserID int64) error {
+// and imports it into the target per-user storage. No global DB replacement.
+func (s *Server) importLegacyDB(tempDBPath string, targetStore *storage.Storage) error {
 	legacyStore, err := storage.New(config.StorageConfig{Path: tempDBPath})
 	if err != nil {
 		return fmt.Errorf("opening legacy DB: %w", err)
@@ -652,7 +656,7 @@ func (s *Server) importLegacyDB(tempDBPath string, targetUserID int64) error {
 		return fmt.Errorf("reading legacy data: %w", err)
 	}
 
-	sessions, messages, tasks, err := s.store.ImportUserData(targetUserID, userData)
+	sessions, messages, tasks, err := targetStore.ImportUserData(0, userData)
 	if err != nil {
 		return fmt.Errorf("importing legacy data: %w", err)
 	}
@@ -683,12 +687,12 @@ func (s *Server) handleBackupValidate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "no file uploaded", http.StatusBadRequest)
 		return
 	}
-	if file.FileName() == "" || !strings.HasSuffix(file.FileName(), ".kakoclaw") {
-		http.Error(w, "invalid file: must be .kakoclaw extension", http.StatusBadRequest)
+	if file.FileName() == "" || !strings.HasSuffix(file.FileName(), ".makoclaw") {
+		http.Error(w, "invalid file: must be .makoclaw extension", http.StatusBadRequest)
 		return
 	}
 
-	tempFile, err := os.CreateTemp("", "kakoclaw-validate-*.zip")
+	tempFile, err := os.CreateTemp("", "makoclaw-validate-*.zip")
 	if err != nil {
 		http.Error(w, "failed to validate backup", http.StatusInternalServerError)
 		return
@@ -760,7 +764,7 @@ func (s *Server) handleBackupValidate(w http.ResponseWriter, r *http.Request) {
 		"backup_type":          manifest.BackupType,
 		"backup_format":        backupFormat,
 		"created_at":           manifest.CreatedAt,
-		"kakoclaw_version":     manifest.KakoClawVersion,
+		"makoclaw_version":     manifest.MakoClawVersion,
 		"config_file_count":    manifest.ConfigFileCount,
 		"env_file_count":       manifest.EnvFileCount,
 		"database_file_count":  manifest.DatabaseFileCount,

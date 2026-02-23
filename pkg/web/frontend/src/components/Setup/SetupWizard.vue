@@ -3,7 +3,7 @@
     <div class="max-w-2xl mx-auto">
       <!-- Header -->
       <div class="mb-8">
-        <h1 class="text-4xl font-bold text-white mb-2">Welcome to KakoClaw</h1>
+        <h1 class="text-4xl font-bold text-white mb-2">Welcome to makoclaw</h1>
         <p class="text-slate-300">Let's set up your AI agent in just a few steps</p>
       </div>
 
@@ -19,7 +19,7 @@
               :class="[
                 'w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all',
                 currentStep > index
-                  ? 'bg-emerald-500 text-white'
+                  ? 'bg-blue-500 text-white'
                   : currentStep === index
                   ? 'bg-blue-500 text-white ring-4 ring-blue-300'
                   : 'bg-slate-700 text-slate-400'
@@ -39,7 +39,7 @@
               v-if="index < steps.length - 1"
               :class="[
                 'flex-1 h-1 mx-4 rounded-full transition-all',
-                currentStep > index ? 'bg-emerald-500' : 'bg-slate-700'
+                currentStep > index ? 'bg-blue-500' : 'bg-slate-700'
               ]"
             />
           </div>
@@ -60,21 +60,21 @@
 
           <div class="bg-slate-700/50 rounded-lg p-4 space-y-3">
             <div class="flex items-start">
-              <span class="text-emerald-400 mr-3">✓</span>
+              <span class="text-blue-400 mr-3">✓</span>
               <div>
                 <p class="text-white font-medium">AI Provider</p>
                 <p class="text-sm text-slate-400">OpenAI, Anthropic, or other LLM</p>
               </div>
             </div>
             <div class="flex items-start">
-              <span class="text-emerald-400 mr-3">✓</span>
+              <span class="text-blue-400 mr-3">✓</span>
               <div>
                 <p class="text-white font-medium">Communication Channel</p>
                 <p class="text-sm text-slate-400">Telegram, Discord, Slack, etc.</p>
               </div>
             </div>
             <div class="flex items-start">
-              <span class="text-emerald-400 mr-3">✓</span>
+              <span class="text-blue-400 mr-3">✓</span>
               <div>
                 <p class="text-white font-medium">Review & Deploy</p>
                 <p class="text-sm text-slate-400">Preview your setup before saving</p>
@@ -110,10 +110,10 @@
           <div class="text-6xl mb-4">🎉</div>
           <h2 class="text-2xl font-bold text-white">All Set!</h2>
           <p class="text-slate-300">
-            Your KakoClaw agent is configured and ready to use.
+            Your makoclaw agent is configured and ready to use.
           </p>
 
-          <div class="bg-emerald-900/20 border border-emerald-500/30 rounded-lg p-4 text-emerald-300 text-sm">
+          <div class="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4 text-blue-300 text-sm">
             <p class="font-medium mb-2">What's next?</p>
             <ul class="space-y-1 text-left">
               <li>• Open your configured channel and send a test message</li>
@@ -152,14 +152,14 @@
           v-else-if="currentStep === steps.length - 1"
           @click="finishSetup"
           :disabled="isSaving"
-          class="px-8 py-2 rounded-lg font-medium bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
+          class="px-8 py-2 rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
         >
           {{ isSaving ? 'Saving...' : 'Finish Setup' }}
         </button>
         <button
           v-else
           @click="goToDashboard"
-          class="px-8 py-2 rounded-lg font-medium bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+          class="px-8 py-2 rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
         >
           Go to Dashboard →
         </button>
@@ -332,3 +332,5 @@ const goToDashboard = () => {
   animation: fade-in 0.3s ease-out;
 }
 </style>
+
+

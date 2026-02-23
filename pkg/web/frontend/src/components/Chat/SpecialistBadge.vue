@@ -35,7 +35,7 @@ const icon = computed(() => {
 const colors = computed(() => {
   const colorMap = {
     developer: { color: 'text-blue-400', bg: 'bg-blue-500/10' },
-    documentation: { color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+    documentation: { color: 'text-blue-400', bg: 'bg-blue-500/10' },
     testing: { color: 'text-amber-400', bg: 'bg-amber-500/10' },
     devops: { color: 'text-purple-400', bg: 'bg-purple-500/10' },
     analyst: { color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
@@ -48,3 +48,4 @@ const textColor = computed(() => colors.value.color)
 const bgColor = computed(() => colors.value.bg)
 const tooltip = computed(() => `Specialist: ${props.name}`)
 </script>
+

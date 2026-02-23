@@ -93,7 +93,7 @@ func (si *SkillInstaller) Uninstall(skillName string) error {
 }
 
 func (si *SkillInstaller) ListAvailableSkills(ctx context.Context) ([]AvailableSkill, error) {
-	url := "https://raw.githubusercontent.com/sipeed/KakoClaw-skills/main/skills.json"
+	url := "https://raw.githubusercontent.com/sipeed/makoclaw-skills/main/skills.json"
 
 	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -125,7 +125,7 @@ func (si *SkillInstaller) ListAvailableSkills(ctx context.Context) ([]AvailableS
 }
 
 func (si *SkillInstaller) ListBuiltinSkills() []BuiltinSkill {
-	builtinSkillsDir := filepath.Join(filepath.Dir(si.workspace), "KakoClaw", "skills")
+	builtinSkillsDir := filepath.Join(filepath.Dir(si.workspace), "makoclaw", "skills")
 
 	entries, err := os.ReadDir(builtinSkillsDir)
 	if err != nil {
@@ -169,3 +169,4 @@ func (si *SkillInstaller) ListBuiltinSkills() []BuiltinSkill {
 	}
 	return skills
 }
+

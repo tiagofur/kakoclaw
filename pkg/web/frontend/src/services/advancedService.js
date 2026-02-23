@@ -137,7 +137,7 @@ export default {
     window.open(`/api/v1/export/chat?${params}token=${token}`, '_blank')
   },
 
-  // Import conversations (ChatGPT, Claude, KakoClaw formats)
+  // Import conversations (ChatGPT, Claude, MakoClaw formats)
   importChat: async (data, format = 'auto') => {
     const response = await client.post('/import/chat', { format, data }, {
       timeout: 120000 // 2 min for large imports

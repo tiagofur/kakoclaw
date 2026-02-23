@@ -1,9 +1,9 @@
 {
   "agents": {
     "defaults": {
-      "workspace": "~/.KakoClaw/workspace",
+      "workspace": "~/.MakoClaw/workspace",
       "restrict_to_workspace": true,
-      "model": "glm-4.7",
+      "model": "openrouter/free",
       "max_tokens": 8192,
       "temperature": 0.7,
       "max_tool_iterations": 20

@@ -1,7 +1,7 @@
 
 # Build script for Windows (PowerShell)
 
-Write-Host "Building Kakoclaw for Windows..." -ForegroundColor Green
+Write-Host "Building Makoclaw for Windows..." -ForegroundColor Green
 
 # 1. Build Frontend
 Write-Host "1. Building Frontend (Vue.js)..." -ForegroundColor Cyan
@@ -23,7 +23,7 @@ Pop-Location
 # 2. Build Backend
 Write-Host "2. Building Backend (Go)..." -ForegroundColor Cyan
 try {
-    go build -o kakoclaw.exe ./cmd/kakoclaw
+    go build -o makoclaw.exe ./cmd/makoclaw
     if ($LASTEXITCODE -ne 0) { throw "go build failed" }
 }
 catch {
@@ -31,4 +31,4 @@ catch {
     exit 1
 }
 
-Write-Host "Build Complete! Binary is at .\kakoclaw.exe" -ForegroundColor Green
+Write-Host "Build Complete! Binary is at .\makoclaw.exe" -ForegroundColor Green

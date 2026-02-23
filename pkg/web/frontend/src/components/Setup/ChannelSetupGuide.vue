@@ -24,7 +24,7 @@
               <div>
                 <p class="text-white font-medium">Send /newbot and follow the prompts</p>
                 <p class="text-sm text-slate-400 mt-1">
-                  Give your bot a name (e.g., "MyKakoClaw") and username
+                  Give your bot a name (e.g., "Mymakoclaw") and username
                 </p>
               </div>
             </li>
@@ -195,7 +195,7 @@
           <ul class="space-y-1">
             <li>• Scopes: chat:write, app_mentions:read, reactions:read, files:read</li>
             <li>• Socket Mode: Enable for webhooks and real-time events</li>
-            <li>• Slash commands: Add /kakoclaw command in Event Subscriptions</li>
+            <li>• Slash commands: Add /makoclaw command in Event Subscriptions</li>
           </ul>
         </div>
       </div>
@@ -211,7 +211,7 @@
         <li>✓ Regenerate tokens if accidentally exposed</li>
         <li>✓ Use separate bots for development and production</li>
         <li>✓ Regularly rotate API credentials</li>
-        <li>✓ KakoClaw never stores tokens in plain text</li>
+        <li>✓ makoclaw never stores tokens in plain text</li>
       </ul>
     </div>
   </div>
@@ -232,3 +232,4 @@ code {
   font-size: 0.85em;
 }
 </style>
+

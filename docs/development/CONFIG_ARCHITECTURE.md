@@ -4,18 +4,18 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        KakoClaw Config System                    │
+│                        MakoClaw Config System                    │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                   │
 │  ┌───────────────────────────┐  ┌──────────────────────────┐   │
 │  │   Global Config (Admin)   │  │   Per-User Config (All)  │   │
 │  │                           │  │                          │   │
-│  │  ~/.KakoClaw/config.json  │  │  Database + User Files   │   │
+│  │  ~/.MakoClaw/config.json  │  │  Database + User Files   │   │
 │  │                           │  │                          │   │
 │  │  • agents.defaults        │  │  • user_providers_config │   │
 │  │  • providers.defaults     │  │    (SQLite table)        │   │
 │  │  • channels.all           │  │                          │   │
-│  │  • tools.settings         │  │  • ~/.kakoclaw/users/    │   │
+│  │  • tools.settings         │  │  • ~/.makoclaw/users/    │   │
 │  │  • gateway.config         │  │    {uuid}/config.json    │   │
 │  │  • web.settings           │  │                          │   │
 │  │  • storage.config         │  │  Overlays: agents,       │   │
@@ -75,9 +75,9 @@
 ┌────────────────────┐
 │ handleGetUserConfig│
 └────┬───────────────┘
-     │ 1. Load global: ~/.KakoClaw/config.json
+     │ 1. Load global: ~/.MakoClaw/config.json
      │ 2. Load user DB: user_providers_config (user_id=X)
-     │ 3. Load user file: ~/.kakoclaw/users/X/config.json
+     │ 3. Load user file: ~/.makoclaw/users/X/config.json
      │ 4. config.MergeConfigs(global, user)
      │ 5. Redact API keys
      ↓
@@ -106,7 +106,7 @@
      │
      │ 1. Decode JSON body
      │ 2. updateAgentsConfig(fullConfig, body["agents"])
-     │ 3. config.SaveConfig(~/.KakoClaw/config.json)
+     │ 3. config.SaveConfig(~/.MakoClaw/config.json)
      │ 4. restart affected channels
      ↓
 ┌────────┐
@@ -166,9 +166,9 @@ CREATE TABLE user_providers_config (
 ## File System Layout
 
 ```
-~/.KakoClaw/
+~/.MakoClaw/
 ├── config.json                        # Global config (admin-managed)
-├── KakoClaw.db                        # SQLite (users, providers, sessions)
+├── MakoClaw.db                        # SQLite (users, providers, sessions)
 ├── workspace/                         # Shared workspace files
 └── users/
     ├── {user1-uuid}/
@@ -202,7 +202,7 @@ CREATE TABLE user_providers_config (
 │     ✅ Applied before all GET responses         │
 │                                                  │
 │  4. File Permissions                            │
-│     ✅ ~/.kakoclaw/users/{uuid}/ readable by    │
+│     ✅ ~/.makoclaw/users/{uuid}/ readable by    │
 │        process owner only                       │
 │     ✅ config.json mode 0600                     │
 │                                                  │

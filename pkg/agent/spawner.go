@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sipeed/kakoclaw/pkg/bus"
+	"github.com/sipeed/makoclaw/pkg/bus"
 )
 
 // SpecialistSpawnTask represents a task spawned for a specialist
@@ -61,7 +61,6 @@ func (ss *SpecialistSpawner) SpawnForSpecialist(
 	ss.mu.Lock()
 	taskID := fmt.Sprintf("spawn-%s-%d", specialistName, ss.nextID)
 	ss.nextID++
-	ss.mu.Unlock()
 
 	spawnTask := &SpecialistSpawnTask{
 		ID:             taskID,
@@ -74,7 +73,6 @@ func (ss *SpecialistSpawner) SpawnForSpecialist(
 		CreatedAt:      time.Now(),
 	}
 
-	ss.mu.Lock()
 	ss.tasks[taskID] = spawnTask
 	ss.mu.Unlock()
 

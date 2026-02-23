@@ -140,7 +140,7 @@ func CreateProvider(cfg *config.Config) (LLMProvider, error) {
 curl http://localhost:11434/api/tags
 
 # Probar provider
-KakoClaw agent -m "Hola desde Ollama"
+MakoClaw agent -m "Hola desde Ollama"
 ```
 
 ---
@@ -197,7 +197,7 @@ func parseProviderEnvVars(cfg *Config) error {
     }
 
     for name, provider := range providers {
-        prefix := fmt.Sprintf("KakoClaw_PROVIDERS_%s_", strings.ToUpper(name))
+        prefix := fmt.Sprintf("MakoClaw_PROVIDERS_%s_", strings.ToUpper(name))
         
         if apiKey := os.Getenv(prefix + "API_KEY"); apiKey != "" {
             provider.APIKey = apiKey
@@ -222,7 +222,7 @@ Cambiar:
 ```go
 // DE:
 type ProviderConfig struct {
-    APIKey     string `json:"api_key" env:"KakoClaw_PROVIDERS_{{.Name}}_API_KEY"`
+    APIKey     string `json:"api_key" env:"MakoClaw_PROVIDERS_{{.Name}}_API_KEY"`
 }
 
 // A:
@@ -235,16 +235,16 @@ type ProviderConfig struct {
 
 ```bash
 # Set environment variables
-export KakoClaw_PROVIDERS_ANTHROPIC_API_KEY="sk-ant-xxxxx"
-export KakoClaw_PROVIDERS_OPENAI_API_KEY="sk-xxxxx"
+export MakoClaw_PROVIDERS_ANTHROPIC_API_KEY="sk-ant-xxxxx"
+export MakoClaw_PROVIDERS_OPENAI_API_KEY="sk-xxxxx"
 
 # Verificar que se aplican
-KakoClaw status
+MakoClaw status
 ```
 
 ---
 
-## Issue #39 - Comando `KakoClaw doctor`
+## Issue #39 - Comando `MakoClaw doctor`
 
 ### Descripción
 Comando para diagnosticar problemas de configuración y entorno.
@@ -259,7 +259,7 @@ Comando para diagnosticar problemas de configuración y entorno.
 
 #### 1. Crear Comando
 
-**Archivo:** `cmd/KakoClaw/main.go`
+**Archivo:** `cmd/MakoClaw/main.go`
 
 Agregar case:
 ```go
@@ -316,7 +316,7 @@ func checkConfig() CheckResult {
             Name:    "Configuration File",
             Status:  StatusError,
             Message: fmt.Sprintf("Config file not found at %s", configPath),
-            Fix:     "Run 'KakoClaw onboard' to initialize",
+            Fix:     "Run 'MakoClaw onboard' to initialize",
         }
     }
     
@@ -381,11 +381,11 @@ func checkAPIKeys() CheckResult {
 
 #### 3. Integrar con CLI
 
-**Archivo:** `cmd/KakoClaw/main.go`
+**Archivo:** `cmd/MakoClaw/main.go`
 
 ```go
 func doctorCmd() {
-    fmt.Println("🐸 KakoClaw Doctor")
+    fmt.Println("🦈 MakoClaw Doctor")
     fmt.Println("==================")
     fmt.Println()
     
@@ -426,22 +426,22 @@ func doctorCmd() {
 ### Uso
 
 ```bash
-KakoClaw doctor
+MakoClaw doctor
 
 # Salida:
-🐸 KakoClaw Doctor
+🦈 MakoClaw Doctor
 ==================
 
-✓ Configuration File: Found at /home/user/.KakoClaw/config.json
+✓ Configuration File: Found at /home/user/.MakoClaw/config.json
 
-✓ Workspace: Found at /home/user/.KakoClaw/workspace
+✓ Workspace: Found at /home/user/.MakoClaw/workspace
 
 ✓ API Keys: At least one API key is configured
 
 ✓ Providers: 3 providers configured
 
 ⚠ Permissions: Workspace is readable by others
-   Fix: Run 'chmod 700 ~/.KakoClaw/workspace'
+   Fix: Run 'chmod 700 ~/.MakoClaw/workspace'
 
 ==================
 ✓ 4 OK, ⚠ 1 warnings, ✗ 0 errors
@@ -771,7 +771,7 @@ func (t *MessageTool) Execute(ctx context.Context, args map[string]interface{}) 
 
 ```bash
 # Desde cron o tool
-KakoClaw agent -m "Envía mensaje a Telegram: user123 'Recordatorio: reunión en 5 min'"
+MakoClaw agent -m "Envía mensaje a Telegram: user123 'Recordatorio: reunión en 5 min'"
 ```
 
 ---

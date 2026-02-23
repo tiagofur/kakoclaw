@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/sipeed/kakoclaw/pkg/config"
+	"github.com/sipeed/makoclaw/pkg/config"
 )
 
 // Status represents the health check result type
@@ -75,7 +75,7 @@ func checkConfigFile(configPath string) CheckResult {
 			Name:    "Configuration File",
 			Status:  StatusError,
 			Message: fmt.Sprintf("Config file not found at %s", configPath),
-			Fix:     "Run 'KakoClaw onboard' to initialize configuration",
+			Fix:     "Run 'makoclaw onboard' to initialize configuration",
 		}
 	}
 
@@ -85,7 +85,7 @@ func checkConfigFile(configPath string) CheckResult {
 			Name:    "Configuration File",
 			Status:  StatusError,
 			Message: "Cannot read config file",
-			Fix:     "Check file permissions with 'ls -la ~/.KakoClaw/'",
+			Fix:     "Check file permissions with 'ls -la ~/.makoclaw/'",
 		}
 	}
 
@@ -142,7 +142,7 @@ func checkWorkspace(configPath string) CheckResult {
 			Name:    "Workspace",
 			Status:  StatusError,
 			Message: fmt.Sprintf("Workspace directory does not exist: %s", workspace),
-			Fix:     "Run 'KakoClaw onboard' or create the directory manually",
+			Fix:     "Run 'makoclaw onboard' or create the directory manually",
 		}
 	}
 
@@ -190,7 +190,7 @@ func checkAPIKeys(configPath string) CheckResult {
 			Name:    "API Keys",
 			Status:  StatusError,
 			Message: "No API key configured for any provider",
-			Fix:     "Add API key to config.json or set environment variable (e.g., KakoClaw_PROVIDERS_OPENROUTER_API_KEY)",
+			Fix:     "Add API key to config.json or set environment variable (e.g., makoclaw_PROVIDERS_OPENROUTER_API_KEY)",
 		}
 	}
 
@@ -286,7 +286,7 @@ func checkPermissions(configPath string) CheckResult {
 			Name:    "Permissions",
 			Status:  StatusWarning,
 			Message: "Config file is readable by others (contains API keys)",
-			Fix:     "Run 'chmod 600 ~/.KakoClaw/config.json'",
+			Fix:     "Run 'chmod 600 ~/.makoclaw/config.json'",
 		}
 	}
 
@@ -308,8 +308,8 @@ func checkDirectories() CheckResult {
 	}
 
 	dirs := []string{
-		filepath.Join(homeDir, ".KakoClaw"),
-		filepath.Join(homeDir, ".KakoClaw", "workspace"),
+		filepath.Join(homeDir, ".makoclaw"),
+		filepath.Join(homeDir, ".makoclaw", "workspace"),
 	}
 
 	for _, dir := range dirs {
@@ -318,7 +318,7 @@ func checkDirectories() CheckResult {
 				Name:    "Directories",
 				Status:  StatusError,
 				Message: fmt.Sprintf("Required directory missing: %s", dir),
-				Fix:     "Run 'KakoClaw onboard' to create required directories",
+				Fix:     "Run 'makoclaw onboard' to create required directories",
 			}
 		}
 	}
@@ -332,7 +332,7 @@ func checkDirectories() CheckResult {
 
 func getDefaultConfigPath() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".KakoClaw", "config.json")
+	return filepath.Join(home, ".makoclaw", "config.json")
 }
 
 // PrintResults prints the check results in a formatted way
@@ -368,7 +368,7 @@ func PrintResults(results []CheckResult) {
 	} else if warningCount > 0 {
 		fmt.Println("⚠️  All checks passed with warnings. Consider addressing the warnings.")
 	} else {
-		fmt.Println("✅ All checks passed! KakoClaw is ready to use.")
+		fmt.Println("✅ All checks passed! makoclaw is ready to use.")
 	}
 }
 
@@ -381,3 +381,4 @@ func HasErrors(results []CheckResult) bool {
 	}
 	return false
 }
+

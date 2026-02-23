@@ -1,8 +1,8 @@
-// KakoClaw - Ultra-lightweight personal AI agent
+// makoclaw - Ultra-lightweight personal AI agent
 // Inspired by and based on nanobot: https://github.com/HKUDS/nanobot
 // License: MIT
 //
-// Copyright (c) 2026 KakoClaw contributors
+// Copyright (c) 2026 makoclaw contributors
 
 package providers
 
@@ -19,9 +19,9 @@ import (
 
 	"time"
 
-	"github.com/sipeed/kakoclaw/pkg/auth"
-	"github.com/sipeed/kakoclaw/pkg/config"
-	"github.com/sipeed/kakoclaw/pkg/logger"
+	"github.com/sipeed/makoclaw/pkg/auth"
+	"github.com/sipeed/makoclaw/pkg/config"
+	"github.com/sipeed/makoclaw/pkg/logger"
 )
 
 type HTTPProvider struct {
@@ -132,10 +132,6 @@ func (p *HTTPProvider) Chat(ctx context.Context, messages []Message, tools []Too
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API error: %s", string(body))
 	}
 
 	return p.parseResponse(body)
@@ -390,7 +386,7 @@ func createClaudeAuthProvider() (LLMProvider, error) {
 		return nil, fmt.Errorf("loading auth credentials: %w", err)
 	}
 	if cred == nil {
-		return nil, fmt.Errorf("no credentials for anthropic. Run: KakoClaw auth login --provider anthropic")
+		return nil, fmt.Errorf("no credentials for anthropic. Run: makoclaw auth login --provider anthropic")
 	}
 	return NewClaudeProviderWithTokenSource(cred.AccessToken, createClaudeTokenSource()), nil
 }
@@ -401,7 +397,7 @@ func createCodexAuthProvider() (LLMProvider, error) {
 		return nil, fmt.Errorf("loading auth credentials: %w", err)
 	}
 	if cred == nil {
-		return nil, fmt.Errorf("no credentials for openai. Run: KakoClaw auth login --provider openai")
+		return nil, fmt.Errorf("no credentials for openai. Run: makoclaw auth login --provider openai")
 	}
 	return NewCodexProviderWithTokenSource(cred.AccessToken, cred.AccountID, createCodexTokenSource()), nil
 }

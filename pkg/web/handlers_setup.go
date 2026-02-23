@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/sipeed/kakoclaw/pkg/logger"
+	"github.com/sipeed/makoclaw/pkg/logger"
 )
 
 // handleSetupInitialize creates a new setup session
@@ -126,7 +126,7 @@ func (s *Server) handleSetupComplete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user ID from username
-	user, err := s.store.GetUserByUsername(claims.Sub)
+	user, err := s.resolveUserByUsername(claims.Sub)
 	if err != nil {
 		logger.ErrorCF("web", "Failed to get user", map[string]interface{}{
 			"error": err.Error(),

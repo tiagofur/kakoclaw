@@ -14,18 +14,18 @@ import (
 	"github.com/mymmrac/telego"
 	tu "github.com/mymmrac/telego/telegoutil"
 
-	"github.com/sipeed/kakoclaw/pkg/bus"
-	"github.com/sipeed/kakoclaw/pkg/config"
-	"github.com/sipeed/kakoclaw/pkg/logger"
-	"github.com/sipeed/kakoclaw/pkg/utils"
-	"github.com/sipeed/kakoclaw/pkg/voice"
+	"github.com/sipeed/makoclaw/pkg/bus"
+	"github.com/sipeed/makoclaw/pkg/config"
+	"github.com/sipeed/makoclaw/pkg/logger"
+	"github.com/sipeed/makoclaw/pkg/utils"
+	"github.com/sipeed/makoclaw/pkg/voice"
 )
 
 type TelegramChannel struct {
 	*BaseChannel
 	bot            *telego.Bot
 	config         config.TelegramConfig
-	chatIDs        map[string]int64
+	chatIDs        sync.Map // senderID -> chatID (concurrent-safe)
 	transcriber    *voice.GroqTranscriber
 	placeholders   sync.Map // chatID -> messageID
 	stopThinking   sync.Map // chatID -> thinkingCancel
@@ -68,7 +68,7 @@ func NewTelegramChannel(cfg config.TelegramConfig, bus *bus.MessageBus) (*Telegr
 		BaseChannel:    base,
 		bot:            bot,
 		config:         cfg,
-		chatIDs:        make(map[string]int64),
+		chatIDs:        sync.Map{},
 		transcriber:    nil,
 		placeholders:   sync.Map{},
 		stopThinking:   sync.Map{},
@@ -205,7 +205,7 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, update telego.Updat
 	}
 
 	chatID := message.Chat.ID
-	c.chatIDs[senderID] = chatID
+	c.chatIDs.Store(senderID, chatID)
 
 	// Extract initial text content for command checking
 	initialContent := ""

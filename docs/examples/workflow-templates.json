@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
   "generated": "2026-02-21",
-  "description": "Ready-to-use workflow templates for KakoClaw",
+  "description": "Ready-to-use workflow templates for MakoClaw",
   "templates": [
     {
       "category": "development",

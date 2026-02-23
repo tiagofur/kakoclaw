@@ -1,15 +1,15 @@
 <template>
-  <div class="min-h-screen bg-kakoclaw-bg flex items-center justify-center p-4">
+  <div class="min-h-screen bg-makoclaw-bg flex items-center justify-center p-4">
     <div class="w-full max-w-md">
       <!-- Logo -->
       <div class="text-center mb-8">
-        <h1 class="text-4xl font-bold text-kakoclaw-accent mb-2">KakoClaw</h1>
-        <p class="text-kakoclaw-text-secondary">AI Agent Control Panel</p>
+        <h1 class="text-4xl font-bold text-makoclaw-accent mb-2">makoclaw</h1>
+        <p class="text-makoclaw-text-secondary">AI Agent Control Panel</p>
       </div>
 
       <!-- Form Card -->
-      <div class="bg-kakoclaw-surface border border-kakoclaw-border rounded-lg p-8 shadow-lg">
-        <h2 class="text-2xl font-bold mb-6 text-kakoclaw-text">Login</h2>
+      <div class="bg-makoclaw-surface border border-makoclaw-border rounded-lg p-8 shadow-lg">
+        <h2 class="text-2xl font-bold mb-6 text-makoclaw-text">Login</h2>
 
         <form @submit.prevent="handleLogin" class="space-y-4">
           <!-- Email or Username -->
@@ -22,7 +22,7 @@
               id="username"
               type="text"
               placeholder="Enter your email or username"
-              class="w-full px-4 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded focus-ring text-kakoclaw-text placeholder-kakoclaw-text-secondary"
+              class="w-full px-4 py-2 bg-makoclaw-bg border border-makoclaw-border rounded focus-ring text-makoclaw-text placeholder-makoclaw-text-secondary"
               required
               :disabled="isLoading"
             />
@@ -39,7 +39,7 @@
                 id="password"
                 :type="showPassword ? 'text' : 'password'"
                 placeholder="Enter your password"
-                class="w-full px-4 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded focus-ring text-kakoclaw-text placeholder-kakoclaw-text-secondary"
+                class="w-full px-4 py-2 bg-makoclaw-bg border border-makoclaw-border rounded focus-ring text-makoclaw-text placeholder-makoclaw-text-secondary"
                 required
                 :disabled="isLoading"
               />
@@ -47,7 +47,7 @@
                 type="button"
                 @click="showPassword = !showPassword"
                 :disabled="isLoading"
-                class="absolute right-3 top-1/2 transform -translate-y-1/2 text-kakoclaw-text-secondary hover:text-kakoclaw-text disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                class="absolute right-3 top-1/2 transform -translate-y-1/2 text-makoclaw-text-secondary hover:text-makoclaw-text disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 :title="showPassword ? 'Hide password' : 'Show password'"
               >
                 <svg v-if="showPassword" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -64,7 +64,7 @@
           <!-- Error Message -->
           <div v-if="errorMessage" :class="[
             'p-4 border rounded-lg text-sm transition-all duration-300',
-            isBlockedError ? 'bg-red-500/20 border-red-500 text-red-400 shadow-lg shadow-red-500/20' : 'bg-kakoclaw-error/20 border-kakoclaw-error text-kakoclaw-error'
+            isBlockedError ? 'bg-red-500/20 border-red-500 text-red-400 shadow-lg shadow-red-500/20' : 'bg-makoclaw-error/20 border-makoclaw-error text-makoclaw-error'
           ]">
             <div class="flex items-start gap-2">
               <svg v-if="isBlockedError" class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -87,16 +87,16 @@
           <button
             type="submit"
             :disabled="isLoading"
-            class="w-full px-4 py-2 bg-kakoclaw-accent hover:bg-kakoclaw-accent-hover text-white font-medium rounded transition-smooth disabled:opacity-50 disabled:cursor-not-allowed"
+            class="w-full px-4 py-2 bg-makoclaw-accent hover:bg-makoclaw-accent-hover text-white font-medium rounded transition-smooth disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {{ isLoading ? 'Signing in...' : 'Sign In' }}
           </button>
         </form>
 
         <!-- Signup Link -->
-        <p class="text-sm text-kakoclaw-text-secondary text-center mt-6">
+        <p class="text-sm text-makoclaw-text-secondary text-center mt-6">
           Don't have an account?
-          <router-link to="/signup" class="text-kakoclaw-accent hover:text-kakoclaw-accent-hover font-medium">
+          <router-link to="/signup" class="text-makoclaw-accent hover:text-makoclaw-accent-hover font-medium">
             Sign Up
           </router-link>
         </p>
@@ -171,3 +171,4 @@ const handleLogin = async () => {
   }
 }
 </script>
+

@@ -180,7 +180,7 @@ export const useAgentsStore = defineStore('agents', () => {
   function getSpecialistColor(name) {
     const colors = {
       developer: 'text-blue-400',
-      documentation: 'text-emerald-400',
+      documentation: 'text-blue-400',
       testing: 'text-amber-400',
       devops: 'text-purple-400',
       analyst: 'text-cyan-400',
@@ -192,7 +192,7 @@ export const useAgentsStore = defineStore('agents', () => {
   function getSpecialistBgColor(name) {
     const colors = {
       developer: 'bg-blue-500/10',
-      documentation: 'bg-emerald-500/10',
+      documentation: 'bg-blue-500/10',
       testing: 'bg-amber-500/10',
       devops: 'bg-purple-500/10',
       analyst: 'bg-cyan-500/10',
@@ -228,3 +228,4 @@ export const useAgentsStore = defineStore('agents', () => {
     getSpecialistBgColor
   }
 })
+

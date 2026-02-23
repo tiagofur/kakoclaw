@@ -9,9 +9,9 @@
   --pc-surface: 255 255 255;          /* White (#ffffff) */
   --pc-surface-hover: 241 245 249;    /* Slate 100 (#f1f5f9) */
   --pc-border: 226 232 240;           /* Slate 200 (#e2e8f0) */
-  --pc-accent: 16 185 129;            /* Emerald 500 (#10b981) */
-  --pc-accent-hover: 5 150 105;       /* Emerald 600 (#059669) */
-  --pc-success: 16 185 129;           /* Emerald 500 (#10b981) */
+  --pc-accent: 59 130 246;            /* Blue 500 (#3b82f6) */
+  --pc-accent-hover: 37 99 235;       /* Blue 600 (#2563eb) */
+  --pc-success: 16 185 129;           /* blue 500 (#3b82f6) */
   --pc-warning: 245 158 11;           /* Amber 500 (#f59e0b) */
   --pc-error: 239 68 68;              /* Red 500 (#ef4444) */
   --pc-text: 15 23 42;                /* Slate 900 (#0f172a) */
@@ -19,7 +19,7 @@
 
   --pc-scrollbar-track: #f1f5f9;
   --pc-scrollbar-thumb: #cbd5e1;
-  --pc-scrollbar-hover: #10b981;
+  --pc-scrollbar-hover: #3b82f6;
   color-scheme: light;
 }
 
@@ -29,9 +29,9 @@
   --pc-surface: 30 41 59;             /* Slate 800 (#1e293b) */
   --pc-surface-hover: 51 65 85;       /* Slate 700 (#334155) */
   --pc-border: 51 65 85;              /* Slate 700 (#334155) */
-  --pc-accent: 16 185 129;            /* Emerald 500 (#10b981) */
-  --pc-accent-hover: 5 150 105;       /* Emerald 600 (#059669) */
-  --pc-success: 16 185 129;           /* Emerald 500 (#10b981) */
+  --pc-accent: 59 130 246;            /* Blue 500 (#3b82f6) */
+  --pc-accent-hover: 37 99 235;       /* Blue 600 (#2563eb) */
+  --pc-success: 16 185 129;           /* blue 500 (#3b82f6) */
   --pc-warning: 245 158 11;           /* Amber 500 (#f59e0b) */
   --pc-error: 239 68 68;              /* Red 500 (#ef4444) */
   --pc-text: 248 250 252;             /* Slate 50 (#f8fafc) */
@@ -39,7 +39,7 @@
 
   --pc-scrollbar-track: #161b22;
   --pc-scrollbar-thumb: #30363d;
-  --pc-scrollbar-hover: #007acc;
+  --pc-scrollbar-hover: #3b82f6;
   color-scheme: dark;
 }
 
@@ -90,19 +90,19 @@ input, textarea, select, button {
   }
   
   .focus-ring {
-    @apply focus:outline-none focus:ring-2 focus:ring-kakoclaw-accent focus:ring-opacity-50;
+    @apply focus:outline-none focus:ring-2 focus:ring-makoclaw-accent focus:ring-opacity-50;
   }
 
   .glass {
-    @apply bg-kakoclaw-surface/40 backdrop-blur-md border border-kakoclaw-border/50;
+    @apply bg-makoclaw-surface/40 backdrop-blur-md border border-makoclaw-border/50;
   }
   
   .glass-panel {
-    @apply bg-kakoclaw-surface/40 backdrop-blur-xl border border-kakoclaw-border/30 shadow-xl;
+    @apply bg-makoclaw-surface/40 backdrop-blur-xl border border-makoclaw-border/30 shadow-xl;
   }
 
   .glass-sticky {
-    @apply sticky top-0 bg-kakoclaw-bg/60 backdrop-blur-xl border-b border-kakoclaw-border/30 z-20;
+    @apply sticky top-0 bg-makoclaw-bg/60 backdrop-blur-xl border-b border-makoclaw-border/30 z-20;
   }
 }
 
@@ -123,4 +123,5 @@ input, textarea, select, button {
 .animate-slideUp {
   animation: slideUp 0.3s ease-out forwards;
 }
+
 

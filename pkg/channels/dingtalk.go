@@ -1,4 +1,4 @@
-// KakoClaw - Ultra-lightweight personal AI agent
+// makoclaw - Ultra-lightweight personal AI agent
 // DingTalk channel implementation using Stream Mode
 
 package channels
@@ -10,10 +10,10 @@ import (
 
 	"github.com/open-dingtalk/dingtalk-stream-sdk-go/chatbot"
 	"github.com/open-dingtalk/dingtalk-stream-sdk-go/client"
-	"github.com/sipeed/kakoclaw/pkg/bus"
-	"github.com/sipeed/kakoclaw/pkg/config"
-	"github.com/sipeed/kakoclaw/pkg/logger"
-	"github.com/sipeed/kakoclaw/pkg/utils"
+	"github.com/sipeed/makoclaw/pkg/bus"
+	"github.com/sipeed/makoclaw/pkg/config"
+	"github.com/sipeed/makoclaw/pkg/logger"
+	"github.com/sipeed/makoclaw/pkg/utils"
 )
 
 // DingTalkChannel implements the Channel interface for DingTalk (钉钉)
@@ -175,7 +175,7 @@ func (c *DingTalkChannel) SendDirectReply(ctx context.Context, sessionWebhook, c
 
 	// Convert string content to []byte for the API
 	contentBytes := []byte(content)
-	titleBytes := []byte("KakoClaw")
+	titleBytes := []byte("makoclaw")
 
 	// Send markdown formatted reply
 	err := replier.SimpleReplyMarkdown(
@@ -191,3 +191,4 @@ func (c *DingTalkChannel) SendDirectReply(ctx context.Context, sessionWebhook, c
 
 	return nil
 }
+

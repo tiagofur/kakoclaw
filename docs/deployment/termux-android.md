@@ -1,6 +1,6 @@
-# KakoClaw en Termux (Android)
+# MakoClaw en Termux (Android)
 
-Guía completa para instalar y ejecutar KakoClaw en Android usando Termux.
+Guía completa para instalar y ejecutar MakoClaw en Android usando Termux.
 
 ## ✅ Compatibilidad
 
@@ -35,16 +35,16 @@ pkg install -y git golang make
 pkg install -y nano vim curl wget
 ```
 
-## 🚀 Instalación de KakoClaw
+## 🚀 Instalación de MakoClaw
 
 ### Opción 1: Script Automático (Recomendado)
 
 ```bash
 # Descargar e instalar
-curl -fsSL https://raw.githubusercontent.com/sipeed/KakoClaw/main/scripts/install-termux.sh | bash
+curl -fsSL https://raw.githubusercontent.com/sipeed/MakoClaw/main/scripts/install-termux.sh | bash
 
 # O usando wget
-wget -qO- https://raw.githubusercontent.com/sipeed/KakoClaw/main/scripts/install-termux.sh | bash
+wget -qO- https://raw.githubusercontent.com/sipeed/MakoClaw/main/scripts/install-termux.sh | bash
 ```
 
 ### Opción 2: Instalación Manual
@@ -52,8 +52,8 @@ wget -qO- https://raw.githubusercontent.com/sipeed/KakoClaw/main/scripts/install
 ```bash
 # 1. Clonar repositorio
 cd ~
-git clone https://github.com/sipeed/KakoClaw.git
-cd KakoClaw
+git clone https://github.com/sipeed/MakoClaw.git
+cd MakoClaw
 
 # 2. Compilar
 make build
@@ -62,15 +62,15 @@ make build
 make install
 
 # 4. Verificar
-KakoClaw version
+MakoClaw version
 ```
 
 ## ⚙️ Configuración
 
-### 1. Inicializar KakoClaw
+### 1. Inicializar MakoClaw
 
 ```bash
-KakoClaw onboard
+MakoClaw onboard
 ```
 
 ### 2. Configurar API Key
@@ -78,7 +78,7 @@ KakoClaw onboard
 Editar configuración:
 
 ```bash
-nano ~/.KakoClaw/config.json
+nano ~/.MakoClaw/config.json
 ```
 
 Configuración básica:
@@ -131,19 +131,19 @@ termux-setup-storage
 pkg install termux-services
 
 # Crear script de inicio
-mkdir -p ~/.config/KakoClaw
-cat > ~/.config/KakoClaw/start.sh << 'EOF'
+mkdir -p ~/.config/MakoClaw
+cat > ~/.config/MakoClaw/start.sh << 'EOF'
 #!/data/data/com.termux/files/usr/bin/bash
 export PATH="$HOME/.local/bin:$PATH"
 source ~/.bashrc
-KakoClaw gateway > ~/KakoClaw.log 2>&1 &
-echo "KakoClaw iniciado"
+MakoClaw gateway > ~/MakoClaw.log 2>&1 &
+echo "MakoClaw iniciado"
 EOF
 
-chmod +x ~/.config/KakoClaw/start.sh
+chmod +x ~/.config/MakoClaw/start.sh
 
 # Ejecutar
-~/.config/KakoClaw/start.sh
+~/.config/MakoClaw/start.sh
 ```
 
 ### 3. Widget de Inicio Rápido (Opcional)
@@ -152,12 +152,12 @@ chmod +x ~/.config/KakoClaw/start.sh
 # Instalar Termux:Widget desde F-Droid
 # Crear atajo
 mkdir -p ~/.shortcuts
-cat > ~/.shortcuts/KakoClaw << 'EOF'
+cat > ~/.shortcuts/MakoClaw << 'EOF'
 #!/data/data/com.termux/files/usr/bin/bash
-termux-notification --title "KakoClaw" --content "Iniciando..."
-KakoClaw agent -m "$1" 2>&1 | termux-notification --title "KakoClaw Respuesta" --content "-"
+termux-notification --title "MakoClaw" --content "Iniciando..."
+MakoClaw agent -m "$1" 2>&1 | termux-notification --title "MakoClaw Respuesta" --content "-"
 EOF
-chmod +x ~/.shortcuts/KakoClaw
+chmod +x ~/.shortcuts/MakoClaw
 ```
 
 ## 📲 Canales Recomendados para Android
@@ -165,7 +165,7 @@ chmod +x ~/.shortcuts/KakoClaw
 ### Telegram Bot (Más fácil)
 
 1. Crear bot con @BotFather
-2. Configurar en `~/.KakoClaw/config.json`:
+2. Configurar en `~/.MakoClaw/config.json`:
 
 ```json
 {
@@ -182,7 +182,7 @@ chmod +x ~/.shortcuts/KakoClaw
 3. Ejecutar:
 
 ```bash
-KakoClaw gateway
+MakoClaw gateway
 ```
 
 ### Ollama Local (Sin internet)
@@ -194,8 +194,8 @@ Ideal para usar completamente offline:
 ollama serve &
 ollama pull llama3.2
 
-# Configurar KakoClaw
-# En ~/.KakoClaw/config.json:
+# Configurar MakoClaw
+# En ~/.MakoClaw/config.json:
 {
   "agents": {
     "defaults": {
@@ -215,7 +215,7 @@ ollama pull llama3.2
 ### Modo Interactivo
 
 ```bash
-KakoClaw agent
+MakoClaw agent
 
 # Dentro del chat:
 # Hola, ¿qué puedes hacer?
@@ -227,16 +227,16 @@ KakoClaw agent
 
 ```bash
 # Ver estado
-KakoClaw status
+MakoClaw status
 
 # Verificar configuración
-KakoClaw doctor
+MakoClaw doctor
 
 # Usar sesión específica
-KakoClaw agent -s android-session
+MakoClaw agent -s android-session
 
 # Ejecutar comando directo
-KakoClaw agent -m "Lista archivos en Downloads"
+MakoClaw agent -m "Lista archivos en Downloads"
 ```
 
 ### Scripts de Automatización
@@ -246,7 +246,7 @@ KakoClaw agent -m "Lista archivos en Downloads"
 cat > ~/backup.sh << 'EOF'
 #!/bin/bash
 cd ~/storage/shared/Documents
-KakoClaw agent -m "Genera un resumen de los archivos modificados hoy" > ~/backup-report.txt
+MakoClaw agent -m "Genera un resumen de los archivos modificados hoy" > ~/backup-report.txt
 EOF
 chmod +x ~/backup.sh
 
@@ -274,7 +274,7 @@ chmod +x ~/backup.sh
 
 ```bash
 # Limpiar sesiones antiguas regularmente
-rm -rf ~/.KakoClaw/workspace/sessions/*.json
+rm -rf ~/.MakoClaw/workspace/sessions/*.json
 
 # O automáticamente con cron
 # (si está instalado en proot-distro)
@@ -285,10 +285,10 @@ rm -rf ~/.KakoClaw/workspace/sessions/*.json
 ```bash
 # Ver espacio usado
 
-du -sh ~/.KakoClaw/
+du -sh ~/.MakoClaw/
 
 # Limpiar logs antiguos
-rm -f ~/.KakoClaw/workspace/*.log
+rm -f ~/.MakoClaw/workspace/*.log
 ```
 
 ## 🐛 Troubleshooting
@@ -297,10 +297,10 @@ rm -f ~/.KakoClaw/workspace/*.log
 
 ```bash
 # Verificar permisos
-ls -la ~/.local/bin/KakoClaw
+ls -la ~/.local/bin/MakoClaw
 
 # Corregir
-chmod +x ~/.local/bin/KakoClaw
+chmod +x ~/.local/bin/MakoClaw
 ```
 
 ### "cannot find package"
@@ -331,12 +331,12 @@ make build
 
 ```bash
 # Ejecutar con nohup
-nohup KakoClaw gateway > ~/KakoClaw.log 2>&1 &
+nohup MakoClaw gateway > ~/MakoClaw.log 2>&1 &
 
 # O usar tmux
 pkg install tmux
-tmux new -s KakoClaw
-KakoClaw gateway
+tmux new -s MakoClaw
+MakoClaw gateway
 # Ctrl+B, D para desconectar
 ```
 
@@ -365,16 +365,16 @@ KakoClaw gateway
 ## 📚 Recursos Adicionales
 
 - **Termux Wiki**: https://wiki.termux.com
-- **KakoClaw Docs**: https://github.com/sipeed/KakoClaw/tree/main/docs
+- **MakoClaw Docs**: https://github.com/sipeed/MakoClaw/tree/main/docs
 - **Ollama en Termux**: https://github.com/ollama/ollama
 
 ## 🤝 Soporte
 
 Para problemas específicos de Termux:
-- GitHub Issues: https://github.com/sipeed/KakoClaw/issues
+- GitHub Issues: https://github.com/sipeed/MakoClaw/issues
 - Discord: https://discord.gg/V4sAZ9XWpN
 - Termux Reddit: r/termux
 
 ---
 
-**¡Listo para usar KakoClaw en tu Android! 🐸📱**
+**¡Listo para usar MakoClaw en tu Android! 🦈📱**

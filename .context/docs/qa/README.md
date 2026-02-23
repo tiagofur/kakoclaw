@@ -2,7 +2,7 @@
 
 Project type: **library**
 
-Generated: 2026-02-18T15:22:39.052Z
+Generated: 2026-02-23T15:50:10.901Z
 
 ## Getting-started
 
@@ -15,7 +15,6 @@ Generated: 2026-02-18T15:22:39.052Z
 ## Features
 
 - [How does authentication work?](./authentication.md)
-- [What API endpoints are available?](./api-endpoints.md)
 - [How do real-time features work?](./realtime.md)
 
 ## Operations

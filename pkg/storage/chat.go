@@ -63,24 +63,26 @@ func (s *Storage) migrateSessions() error {
 	return nil
 }
 
-// normalizeUserID maps zero/invalid user IDs to the default user ID (1) for backward compatibility.
-func normalizeUserID(userID int64) int64 {
-	if userID <= 0 {
-		return 1
-	}
-	return userID
-}
-
 // ensureSession creates a session record if one doesn't exist for the given sessionID.
 func (s *Storage) ensureSession(sessionID string) error {
 	return s.ensureSessionForUser(sessionID, 0)
 }
 
 // ensureSessionForUser creates a session record if one doesn't exist for the given sessionID and user.
-func (s *Storage) ensureSessionForUser(sessionID string, userID int64) error {
-	uid := normalizeUserID(userID)
-	query := `INSERT OR IGNORE INTO sessions (session_id, user_id) VALUES (?, ?)`
-	_, err := s.db.Exec(query, sessionID, uid)
+func (s *Storage) ensureSessionForUser(sessionID string, userKey interface{}) error {
+	var query string
+	var args []interface{}
+
+	if s.isUserDB {
+		query = `INSERT OR IGNORE INTO sessions (session_id) VALUES (?)`
+		args = []interface{}{sessionID}
+	} else {
+		uid := normalizeUserKey(userKey)
+		query = `INSERT OR IGNORE INTO sessions (session_id, user_id) VALUES (?, ?)`
+		args = []interface{}{sessionID, uid}
+	}
+
+	_, err := s.db.Exec(query, args...)
 	if err != nil {
 		return fmt.Errorf("ensuring session: %w", err)
 	}
@@ -93,18 +95,35 @@ func (s *Storage) SaveMessage(sessionID, role, content string) error {
 }
 
 // SaveMessageForUser saves a message scoped to a specific user.
-func (s *Storage) SaveMessageForUser(userID int64, sessionID, role, content string) error {
-	if err := s.ensureSessionForUser(sessionID, userID); err != nil {
+func (s *Storage) SaveMessageForUser(userKey interface{}, sessionID, role, content string) error {
+	if err := s.ensureSessionForUser(sessionID, userKey); err != nil {
 		return err
 	}
-	uid := normalizeUserID(userID)
-	query := `INSERT INTO chats (session_id, user_id, role, content) VALUES (?, ?, ?, ?)`
-	_, err := s.db.Exec(query, sessionID, uid, role, content)
+
+	var query string
+	var args []interface{}
+	var updateQuery string
+	var updateArgs []interface{}
+
+	if s.isUserDB {
+		query = `INSERT INTO chats (session_id, role, content) VALUES (?, ?, ?)`
+		args = []interface{}{sessionID, role, content}
+		updateQuery = `UPDATE sessions SET updated_at = CURRENT_TIMESTAMP WHERE session_id = ?`
+		updateArgs = []interface{}{sessionID}
+	} else {
+		uid := normalizeUserKey(userKey)
+		query = `INSERT INTO chats (session_id, user_id, role, content) VALUES (?, ?, ?, ?)`
+		args = []interface{}{sessionID, uid, role, content}
+		updateQuery = `UPDATE sessions SET updated_at = CURRENT_TIMESTAMP WHERE session_id = ? AND user_id = ?`
+		updateArgs = []interface{}{sessionID, uid}
+	}
+
+	_, err := s.db.Exec(query, args...)
 	if err != nil {
 		return fmt.Errorf("saving message: %w", err)
 	}
 	// Touch session updated_at
-	_, _ = s.db.Exec(`UPDATE sessions SET updated_at = CURRENT_TIMESTAMP WHERE session_id = ? AND user_id = ?`, sessionID, uid)
+	_, _ = s.db.Exec(updateQuery, updateArgs...)
 	return nil
 }
 
@@ -119,16 +138,21 @@ func (s *Storage) ImportMessages(sessionID string, msgs []ImportMessage) (int, e
 	}
 	defer tx.Rollback()
 
-	stmtWithTime, err := tx.Prepare(`INSERT INTO chats (session_id, role, content, created_at) VALUES (?, ?, ?, ?)`)
+	var stmtWithTime, stmtNoTime *sql.Stmt
+	if s.isUserDB {
+		stmtWithTime, err = tx.Prepare(`INSERT INTO chats (session_id, role, content, created_at) VALUES (?, ?, ?, ?)`)
+		stmtNoTime, err = tx.Prepare(`INSERT INTO chats (session_id, role, content) VALUES (?, ?, ?)`)
+	} else {
+		// This is used for migration where we don't necessarily have the userID here
+		// But ImportMessages signature currently doesn't take userID.
+		// For now assume userID=1 if not provided or handle it in a better way if needed.
+		stmtWithTime, err = tx.Prepare(`INSERT INTO chats (session_id, user_id, role, content, created_at) VALUES (?, 1, ?, ?, ?)`)
+		stmtNoTime, err = tx.Prepare(`INSERT INTO chats (session_id, user_id, role, content) VALUES (?, 1, ?, ?)`)
+	}
 	if err != nil {
-		return 0, fmt.Errorf("prepare with time: %w", err)
+		return 0, fmt.Errorf("prepare stmts: %w", err)
 	}
 	defer stmtWithTime.Close()
-
-	stmtNoTime, err := tx.Prepare(`INSERT INTO chats (session_id, role, content) VALUES (?, ?, ?)`)
-	if err != nil {
-		return 0, fmt.Errorf("prepare no time: %w", err)
-	}
 	defer stmtNoTime.Close()
 
 	count := 0
@@ -137,7 +161,13 @@ func (s *Storage) ImportMessages(sessionID string, msgs []ImportMessage) (int, e
 			continue
 		}
 		if !m.CreatedAt.IsZero() {
-			if _, err := stmtWithTime.Exec(sessionID, m.Role, m.Content, m.CreatedAt); err != nil {
+			var args []interface{}
+			if s.isUserDB {
+				args = []interface{}{sessionID, m.Role, m.Content, m.CreatedAt}
+			} else {
+				args = []interface{}{sessionID, m.Role, m.Content, m.CreatedAt}
+			}
+			if _, err := stmtWithTime.Exec(args...); err != nil {
 				return count, fmt.Errorf("insert message %d: %w", count, err)
 			}
 		} else {
@@ -160,10 +190,20 @@ func (s *Storage) GetMessages(sessionID string) ([]Message, error) {
 	return s.GetMessagesForUser(0, sessionID)
 }
 
-func (s *Storage) GetMessagesForUser(userID int64, sessionID string) ([]Message, error) {
-	uid := normalizeUserID(userID)
-	query := `SELECT id, session_id, role, content, created_at FROM chats WHERE session_id = ? AND user_id = ? ORDER BY created_at ASC`
-	rows, err := s.db.Query(query, sessionID, uid)
+func (s *Storage) GetMessagesForUser(userKey interface{}, sessionID string) ([]Message, error) {
+	var query string
+	var args []interface{}
+
+	if s.isUserDB {
+		query = `SELECT id, session_id, role, content, created_at FROM chats WHERE session_id = ? ORDER BY created_at ASC`
+		args = []interface{}{sessionID}
+	} else {
+		uid := normalizeUserKey(userKey)
+		query = `SELECT id, session_id, role, content, created_at FROM chats WHERE session_id = ? AND user_id = ? ORDER BY created_at ASC`
+		args = []interface{}{sessionID, uid}
+	}
+
+	rows, err := s.db.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("querying messages: %w", err)
 	}
@@ -177,9 +217,6 @@ func (s *Storage) GetMessagesForUser(userID int64, sessionID string) ([]Message,
 		}
 		messages = append(messages, msg)
 	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterating messages: %w", err)
-	}
 	return messages, nil
 }
 
@@ -187,10 +224,20 @@ func (s *Storage) SearchMessages(query string) ([]Message, error) {
 	return s.SearchMessagesForUser(0, query)
 }
 
-func (s *Storage) SearchMessagesForUser(userID int64, query string) ([]Message, error) {
-	uid := normalizeUserID(userID)
-	sqlQuery := `SELECT id, session_id, role, content, created_at FROM chats WHERE user_id = ? AND content LIKE ? ORDER BY created_at DESC LIMIT 50`
-	rows, err := s.db.Query(sqlQuery, uid, "%"+query+"%")
+func (s *Storage) SearchMessagesForUser(userKey interface{}, query string) ([]Message, error) {
+	var sqlQuery string
+	var args []interface{}
+
+	if s.isUserDB {
+		sqlQuery = `SELECT id, session_id, role, content, created_at FROM chats WHERE content LIKE ? ORDER BY created_at DESC LIMIT 50`
+		args = []interface{}{"%" + query + "%"}
+	} else {
+		uid := normalizeUserKey(userKey)
+		sqlQuery = `SELECT id, session_id, role, content, created_at FROM chats WHERE user_id = ? AND content LIKE ? ORDER BY created_at DESC LIMIT 50`
+		args = []interface{}{uid, "%" + query + "%"}
+	}
+
+	rows, err := s.db.Query(sqlQuery, args...)
 	if err != nil {
 		return nil, fmt.Errorf("searching messages: %w", err)
 	}
@@ -204,9 +251,6 @@ func (s *Storage) SearchMessagesForUser(userID int64, query string) ([]Message, 
 		}
 		messages = append(messages, msg)
 	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterating search results: %w", err)
-	}
 	return messages, nil
 }
 
@@ -217,7 +261,7 @@ func (s *Storage) ListSessions(archived *bool, limit, offset int) ([]SessionSumm
 	return s.ListSessionsForUser(0, archived, limit, offset)
 }
 
-func (s *Storage) ListSessionsForUser(userID int64, archived *bool, limit, offset int) ([]SessionSummary, error) {
+func (s *Storage) ListSessionsForUser(userKey interface{}, archived *bool, limit, offset int) ([]SessionSummary, error) {
 	if limit <= 0 {
 		limit = 50
 	}
@@ -227,29 +271,56 @@ func (s *Storage) ListSessionsForUser(userID int64, archived *bool, limit, offse
 		archivedFilter = *archived
 	}
 
-	uid := normalizeUserID(userID)
+	var query string
+	var args []interface{}
 
-	query := `
-		SELECT 
-			sess.session_id,
-			COALESCE(sess.title, ''),
-			sess.archived,
-			COALESCE(c.content, ''),
-			COALESCE(c.created_at, sess.updated_at),
-			COALESCE(counts.msg_count, 0)
-		FROM sessions sess
-		LEFT JOIN (
-			SELECT session_id, MAX(id) AS max_id, COUNT(*) AS msg_count
-			FROM chats
-			WHERE user_id = ?
-			GROUP BY session_id
-		) counts ON sess.session_id = counts.session_id
-		LEFT JOIN chats c ON c.session_id = counts.session_id AND c.id = counts.max_id
-		WHERE sess.user_id = ? AND sess.archived = ?
-		ORDER BY COALESCE(c.created_at, sess.updated_at) DESC
-		LIMIT ? OFFSET ?
-	`
-	rows, err := s.db.Query(query, uid, uid, archivedFilter, limit, offset)
+	if s.isUserDB {
+		query = `
+			SELECT 
+				sess.session_id,
+				COALESCE(sess.title, ''),
+				sess.archived,
+				COALESCE(c.content, ''),
+				COALESCE(c.created_at, sess.updated_at),
+				COALESCE(counts.msg_count, 0)
+			FROM sessions sess
+			LEFT JOIN (
+				SELECT session_id, MAX(id) AS max_id, COUNT(*) AS msg_count
+				FROM chats
+				GROUP BY session_id
+			) counts ON sess.session_id = counts.session_id
+			LEFT JOIN chats c ON c.session_id = counts.session_id AND c.id = counts.max_id
+			WHERE sess.archived = ?
+			ORDER BY COALESCE(c.created_at, sess.updated_at) DESC
+			LIMIT ? OFFSET ?
+		`
+		args = []interface{}{archivedFilter, limit, offset}
+	} else {
+		uid := normalizeUserKey(userKey)
+		query = `
+			SELECT 
+				sess.session_id,
+				COALESCE(sess.title, ''),
+				sess.archived,
+				COALESCE(c.content, ''),
+				COALESCE(c.created_at, sess.updated_at),
+				COALESCE(counts.msg_count, 0)
+			FROM sessions sess
+			LEFT JOIN (
+				SELECT session_id, MAX(id) AS max_id, COUNT(*) AS msg_count
+				FROM chats
+				WHERE user_id = ?
+				GROUP BY session_id
+			) counts ON sess.session_id = counts.session_id
+			LEFT JOIN chats c ON c.session_id = counts.session_id AND c.id = counts.max_id
+			WHERE sess.user_id = ? AND sess.archived = ?
+			ORDER BY COALESCE(c.created_at, sess.updated_at) DESC
+			LIMIT ? OFFSET ?
+		`
+		args = []interface{}{uid, uid, archivedFilter, limit, offset}
+	}
+
+	rows, err := s.db.Query(query, args...)
 	if err != nil {
 		if !isSessionSchemaCompatibilityError(err) {
 			return nil, fmt.Errorf("listing sessions: %w", err)
@@ -258,25 +329,50 @@ func (s *Storage) ListSessionsForUser(userID int64, archived *bool, limit, offse
 		if archivedFilter {
 			return []SessionSummary{}, nil
 		}
-		legacyQuery := `
-			SELECT
-				counts.session_id,
-				'' AS title,
-				0 AS archived,
-				COALESCE(c.content, ''),
-				COALESCE(c.created_at, counts.last_created_at),
-				COALESCE(counts.msg_count, 0)
-			FROM (
-				SELECT session_id, MAX(id) AS max_id, MAX(created_at) AS last_created_at, COUNT(*) AS msg_count
-				FROM chats
-				WHERE user_id = ?
-				GROUP BY session_id
-			) counts
-			LEFT JOIN chats c ON c.session_id = counts.session_id AND c.id = counts.max_id
-			ORDER BY COALESCE(c.created_at, counts.last_created_at) DESC
-			LIMIT ? OFFSET ?
-		`
-		rows, err = s.db.Query(legacyQuery, uid, limit, offset)
+		var legacyQuery string
+		var legacyArgs []interface{}
+		if s.isUserDB {
+			legacyQuery = `
+				SELECT
+					counts.session_id,
+					'' AS title,
+					0 AS archived,
+					COALESCE(c.content, ''),
+					COALESCE(c.created_at, counts.last_created_at),
+					COALESCE(counts.msg_count, 0)
+				FROM (
+					SELECT session_id, MAX(id) AS max_id, MAX(created_at) AS last_created_at, COUNT(*) AS msg_count
+					FROM chats
+					GROUP BY session_id
+				) counts
+				LEFT JOIN chats c ON c.session_id = counts.session_id AND c.id = counts.max_id
+				ORDER BY COALESCE(c.created_at, counts.last_created_at) DESC
+				LIMIT ? OFFSET ?
+			`
+			legacyArgs = []interface{}{limit, offset}
+		} else {
+			uid := normalizeUserKey(userKey)
+			legacyQuery = `
+				SELECT
+					counts.session_id,
+					'' AS title,
+					0 AS archived,
+					COALESCE(c.content, ''),
+					COALESCE(c.created_at, counts.last_created_at),
+					COALESCE(counts.msg_count, 0)
+				FROM (
+					SELECT session_id, MAX(id) AS max_id, MAX(created_at) AS last_created_at, COUNT(*) AS msg_count
+					FROM chats
+					WHERE user_id = ?
+					GROUP BY session_id
+				) counts
+				LEFT JOIN chats c ON c.session_id = counts.session_id AND c.id = counts.max_id
+				ORDER BY COALESCE(c.created_at, counts.last_created_at) DESC
+				LIMIT ? OFFSET ?
+			`
+			legacyArgs = []interface{}{uid, limit, offset}
+		}
+		rows, err = s.db.Query(legacyQuery, legacyArgs...)
 		if err != nil {
 			return nil, fmt.Errorf("listing sessions (legacy fallback): %w", err)
 		}
@@ -319,11 +415,21 @@ func (s *Storage) GetSession(sessionID string) (*Session, error) {
 	return s.GetSessionForUser(0, sessionID)
 }
 
-func (s *Storage) GetSessionForUser(userID int64, sessionID string) (*Session, error) {
-	uid := normalizeUserID(userID)
-	query := `SELECT id, session_id, COALESCE(title, ''), archived, created_at, updated_at FROM sessions WHERE session_id = ? AND user_id = ?`
+func (s *Storage) GetSessionForUser(userKey interface{}, sessionID string) (*Session, error) {
+	var query string
+	var args []interface{}
+
+	if s.isUserDB {
+		query = `SELECT id, session_id, COALESCE(title, ''), archived, created_at, updated_at FROM sessions WHERE session_id = ?`
+		args = []interface{}{sessionID}
+	} else {
+		uid := normalizeUserKey(userKey)
+		query = `SELECT id, session_id, COALESCE(title, ''), archived, created_at, updated_at FROM sessions WHERE session_id = ? AND user_id = ?`
+		args = []interface{}{sessionID, uid}
+	}
+
 	var sess Session
-	err := s.db.QueryRow(query, sessionID, uid).Scan(&sess.ID, &sess.SessionID, &sess.Title, &sess.Archived, &sess.CreatedAt, &sess.UpdatedAt)
+	err := s.db.QueryRow(query, args...).Scan(&sess.ID, &sess.SessionID, &sess.Title, &sess.Archived, &sess.CreatedAt, &sess.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("session not found")
@@ -338,19 +444,38 @@ func (s *Storage) UpdateSession(sessionID string, title *string, archived *bool)
 	return s.UpdateSessionForUser(0, sessionID, title, archived)
 }
 
-func (s *Storage) UpdateSessionForUser(userID int64, sessionID string, title *string, archived *bool) (*Session, error) {
-	uid := normalizeUserID(userID)
+func (s *Storage) UpdateSessionForUser(userKey interface{}, sessionID string, title *string, archived *bool) (*Session, error) {
 	if title != nil {
-		if _, err := s.db.Exec(`UPDATE sessions SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE session_id = ? AND user_id = ?`, *title, sessionID, uid); err != nil {
+		var query string
+		var args []interface{}
+		if s.isUserDB {
+			query = `UPDATE sessions SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE session_id = ?`
+			args = []interface{}{*title, sessionID}
+		} else {
+			uid := normalizeUserKey(userKey)
+			query = `UPDATE sessions SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE session_id = ? AND user_id = ?`
+			args = []interface{}{*title, sessionID, uid}
+		}
+		if _, err := s.db.Exec(query, args...); err != nil {
 			return nil, fmt.Errorf("updating session title: %w", err)
 		}
 	}
 	if archived != nil {
-		if _, err := s.db.Exec(`UPDATE sessions SET archived = ?, updated_at = CURRENT_TIMESTAMP WHERE session_id = ? AND user_id = ?`, *archived, sessionID, uid); err != nil {
+		var query string
+		var args []interface{}
+		if s.isUserDB {
+			query = `UPDATE sessions SET archived = ?, updated_at = CURRENT_TIMESTAMP WHERE session_id = ?`
+			args = []interface{}{*archived, sessionID}
+		} else {
+			uid := normalizeUserKey(userKey)
+			query = `UPDATE sessions SET archived = ?, updated_at = CURRENT_TIMESTAMP WHERE session_id = ? AND user_id = ?`
+			args = []interface{}{*archived, sessionID, uid}
+		}
+		if _, err := s.db.Exec(query, args...); err != nil {
 			return nil, fmt.Errorf("updating session archived: %w", err)
 		}
 	}
-	return s.GetSessionForUser(uid, sessionID)
+	return s.GetSessionForUser(userKey, sessionID)
 }
 
 // DeleteSession permanently removes a session and all its messages.
@@ -358,19 +483,28 @@ func (s *Storage) DeleteSession(sessionID string) error {
 	return s.DeleteSessionForUser(0, sessionID)
 }
 
-func (s *Storage) DeleteSessionForUser(userID int64, sessionID string) error {
-	uid := normalizeUserID(userID)
+func (s *Storage) DeleteSessionForUser(userKey interface{}, sessionID string) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return fmt.Errorf("beginning transaction: %w", err)
 	}
 	defer tx.Rollback()
 
-	if _, err := tx.Exec(`DELETE FROM chats WHERE session_id = ? AND user_id = ?`, sessionID, uid); err != nil {
-		return fmt.Errorf("deleting messages: %w", err)
-	}
-	if _, err := tx.Exec(`DELETE FROM sessions WHERE session_id = ? AND user_id = ?`, sessionID, uid); err != nil {
-		return fmt.Errorf("deleting session: %w", err)
+	if s.isUserDB {
+		if _, err := tx.Exec(`DELETE FROM chats WHERE session_id = ?`, sessionID); err != nil {
+			return fmt.Errorf("deleting messages: %w", err)
+		}
+		if _, err := tx.Exec(`DELETE FROM sessions WHERE session_id = ?`, sessionID); err != nil {
+			return fmt.Errorf("deleting session: %w", err)
+		}
+	} else {
+		uid := normalizeUserKey(userKey)
+		if _, err := tx.Exec(`DELETE FROM chats WHERE session_id = ? AND user_id = ?`, sessionID, uid); err != nil {
+			return fmt.Errorf("deleting messages: %w", err)
+		}
+		if _, err := tx.Exec(`DELETE FROM sessions WHERE session_id = ? AND user_id = ?`, sessionID, uid); err != nil {
+			return fmt.Errorf("deleting session: %w", err)
+		}
 	}
 	return tx.Commit()
 }
@@ -382,9 +516,8 @@ func (s *Storage) ForkSession(sourceSession, newSessionID string, messageID int6
 	return s.ForkSessionForUser(0, sourceSession, newSessionID, messageID)
 }
 
-func (s *Storage) ForkSessionForUser(userID int64, sourceSession, newSessionID string, messageID int64) (int, error) {
-	uid := normalizeUserID(userID)
-	messages, err := s.GetMessagesForUser(uid, sourceSession)
+func (s *Storage) ForkSessionForUser(userKey interface{}, sourceSession, newSessionID string, messageID int64) (int, error) {
+	messages, err := s.GetMessagesForUser(userKey, sourceSession)
 	if err != nil {
 		return 0, fmt.Errorf("get source messages: %w", err)
 	}
@@ -410,7 +543,7 @@ func (s *Storage) ForkSessionForUser(userID int64, sourceSession, newSessionID s
 	}
 
 	// Ensure session record exists for the new fork
-	if err := s.ensureSessionForUser(newSessionID, uid); err != nil {
+	if err := s.ensureSessionForUser(newSessionID, userKey); err != nil {
 		return 0, err
 	}
 
@@ -420,14 +553,28 @@ func (s *Storage) ForkSessionForUser(userID int64, sourceSession, newSessionID s
 	}
 	defer tx.Rollback()
 
-	stmt, err := tx.Prepare(`INSERT INTO chats (session_id, user_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)`)
+	var query string
+	if s.isUserDB {
+		query = `INSERT INTO chats (session_id, role, content, created_at) VALUES (?, ?, ?, ?)`
+	} else {
+		query = `INSERT INTO chats (session_id, user_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)`
+	}
+
+	stmt, err := tx.Prepare(query)
 	if err != nil {
 		return 0, fmt.Errorf("prepare: %w", err)
 	}
 	defer stmt.Close()
 
 	for _, m := range toFork {
-		if _, err := stmt.Exec(newSessionID, uid, m.Role, m.Content, m.CreatedAt); err != nil {
+		var args []interface{}
+		if s.isUserDB {
+			args = []interface{}{newSessionID, m.Role, m.Content, m.CreatedAt}
+		} else {
+			uid := normalizeUserKey(userKey)
+			args = []interface{}{newSessionID, uid, m.Role, m.Content, m.CreatedAt}
+		}
+		if _, err := stmt.Exec(args...); err != nil {
 			return 0, fmt.Errorf("insert: %w", err)
 		}
 	}

@@ -1,6 +1,6 @@
 # Ejemplos Prácticos
 
-Colección de ejemplos prácticos de uso de KakoClaw.
+Colección de ejemplos prácticos de uso de MakoClaw.
 
 ## Índice
 
@@ -15,10 +15,10 @@ Colección de ejemplos prácticos de uso de KakoClaw.
 
 ```bash
 # Ejecutar comando simple
-KakoClaw agent -m "¿Qué hora es?"
+MakoClaw agent -m "¿Qué hora es?"
 
 # Modo interactivo
-KakoClaw agent
+MakoClaw agent
 # Escribe: Hola, ¿cómo estás?
 ```
 
@@ -26,42 +26,42 @@ KakoClaw agent
 
 ```bash
 # Crear archivo
-KakoClaw agent -m "Crea un archivo notas.txt con ideas para el proyecto"
+MakoClaw agent -m "Crea un archivo notas.txt con ideas para el proyecto"
 
 # Leer archivo
-KakoClaw agent -m "Lee el archivo notas.txt"
+MakoClaw agent -m "Lee el archivo notas.txt"
 
 # Editar archivo
-KakoClaw agent -m "En el archivo notas.txt, cambia 'idea 1' por 'implementar API'"
+MakoClaw agent -m "En el archivo notas.txt, cambia 'idea 1' por 'implementar API'"
 
 # Listar directorio
-KakoClaw agent -m "Lista todos los archivos Go en el directorio actual"
+MakoClaw agent -m "Lista todos los archivos Go en el directorio actual"
 ```
 
 ### 3. Búsqueda Web
 
 ```bash
 # Buscar información
-KakoClaw agent -m "Busca información sobre Rust vs Go performance"
+MakoClaw agent -m "Busca información sobre Rust vs Go performance"
 
 # Obtener contenido de URL
-KakoClaw agent -m "Obtén el contenido de https://golang.org/doc/effective_go"
+MakoClaw agent -m "Obtén el contenido de https://golang.org/doc/effective_go"
 
 # Resumen de noticias
-KakoClaw agent -m "Busca noticias de tecnología de hoy y dame un resumen"
+MakoClaw agent -m "Busca noticias de tecnología de hoy y dame un resumen"
 ```
 
 ### 4. Ejecución de Comandos
 
 ```bash
 # Análisis de sistema
-KakoClaw agent -m "Muestra el uso de memoria con free -h"
+MakoClaw agent -m "Muestra el uso de memoria con free -h"
 
 # Procesos
-KakoClaw agent -m "Lista los 10 procesos que más CPU usan"
+MakoClaw agent -m "Lista los 10 procesos que más CPU usan"
 
 # Red
-KakoClaw agent -m "Muestra las interfaces de red con ip addr"
+MakoClaw agent -m "Muestra las interfaces de red con ip addr"
 ```
 
 ## Automatización
@@ -70,19 +70,19 @@ KakoClaw agent -m "Muestra las interfaces de red con ip addr"
 
 ```bash
 # Recordatorio diario
-KakoClaw cron add -n "daily-standup" -m "Es hora de la daily standup" -c "0 9 * * 1-5"
+MakoClaw cron add -n "daily-standup" -m "Es hora de la daily standup" -c "0 9 * * 1-5"
 
 # Backup semanal
-KakoClaw cron add -n "weekly-backup" -m "Realiza backup de /home/user/documents" -c "0 2 * * 0"
+MakoClaw cron add -n "weekly-backup" -m "Realiza backup de /home/user/documents" -c "0 2 * * 0"
 
 # Monitoreo cada hora
-KakoClaw cron add -n "monitor-disk" -m "Verifica uso de disco y alerta si > 80%" -e 3600
+MakoClaw cron add -n "monitor-disk" -m "Verifica uso de disco y alerta si > 80%" -e 3600
 
 # Ver tareas
-KakoClaw cron list
+MakoClaw cron list
 
 # Desactivar temporalmente
-KakoClaw cron disable daily-standup
+MakoClaw cron disable daily-standup
 ```
 
 ### 6. Script de Inicio Automático
@@ -94,13 +94,13 @@ Crea `scripts/daily-tasks.sh`:
 # Script de tareas diarias automatizadas
 
 # 1. Actualizar skills
-KakoClaw skills install-builtin
+MakoClaw skills install-builtin
 
 # 2. Verificar configuración
-KakoClaw status
+MakoClaw status
 
 # 3. Resumen del día
-KakoClaw agent -m "Genera un resumen de las tareas programadas para hoy"
+MakoClaw agent -m "Genera un resumen de las tareas programadas para hoy"
 ```
 
 ```bash
@@ -115,16 +115,16 @@ crontab -e
 
 ```bash
 # Inicializar proyecto
-KakoClaw agent -m "Crea la estructura de directorios para un proyecto Go: cmd/, pkg/, internal/, docs/"
+MakoClaw agent -m "Crea la estructura de directorios para un proyecto Go: cmd/, pkg/, internal/, docs/"
 
 # Generar código
-KakoClaw agent -m "Genera un archivo main.go básico para una API REST"
+MakoClaw agent -m "Genera un archivo main.go básico para una API REST"
 
 # Configurar CI/CD
-KakoClaw agent -m "Crea un archivo .github/workflows/ci.yml para Go"
+MakoClaw agent -m "Crea un archivo .github/workflows/ci.yml para Go"
 
 # Documentar
-KakoClaw agent -m "Crea un README.md con instrucciones de instalación"
+MakoClaw agent -m "Crea un README.md con instrucciones de instalación"
 ```
 
 ## Integraciones
@@ -147,7 +147,7 @@ KakoClaw agent -m "Crea un README.md con instrucciones de instalación"
 **Iniciar**:
 ```bash
 # Terminal 1
-KakoClaw gateway
+MakoClaw gateway
 
 # Ahora escribe a tu bot en Telegram
 ```
@@ -182,7 +182,7 @@ Bot: 14:30:00 up 5 days, 2:15, 1 user, load average: 0.52, 0.58, 0.59
 
 **Uso**:
 ```bash
-KakoClaw gateway
+MakoClaw gateway
 
 # En Discord
 !claw buscar información sobre Docker
@@ -207,8 +207,8 @@ KakoClaw gateway
 
 **Uso en Slack**:
 ```
-@KakoClaw analiza los logs en /var/log/app.log
-@KakoClaw genera un reporte del sistema
+@MakoClaw analiza los logs en /var/log/app.log
+@MakoClaw genera un reporte del sistema
 ```
 
 ## Workflows Completos
@@ -219,22 +219,22 @@ KakoClaw gateway
 
 ```bash
 # 1. Crear sesión de trabajo
-KakoClaw agent -s proyecto-x
+MakoClaw agent -s proyecto-x
 
 # 2. Entender codebase
-KakoClaw agent -m "Lee el archivo README.md y main.go y explica qué hace este proyecto"
+MakoClaw agent -m "Lee el archivo README.md y main.go y explica qué hace este proyecto"
 
 # 3. Analizar código
-KakoClaw agent -m "Encuentra bugs potenciales en pkg/tools/shell.go"
+MakoClaw agent -m "Encuentra bugs potenciales en pkg/tools/shell.go"
 
 # 4. Generar tests
-KakoClaw agent -m "Genera tests unitarios para pkg/utils/string.go"
+MakoClaw agent -m "Genera tests unitarios para pkg/utils/string.go"
 
 # 5. Documentar
-KakoClaw agent -m "Crea documentación API para la función ParseJSON"
+MakoClaw agent -m "Crea documentación API para la función ParseJSON"
 
 # 6. Commit message
-KakoClaw agent -m "Genera un buen mensaje de commit para estos cambios: [pegar git diff]"
+MakoClaw agent -m "Genera un buen mensaje de commit para estos cambios: [pegar git diff]"
 ```
 
 ### 12. Workflow de Investigación
@@ -243,22 +243,22 @@ KakoClaw agent -m "Genera un buen mensaje de commit para estos cambios: [pegar g
 
 ```bash
 # Sesión de investigación
-KakoClaw agent -s research-ia
+MakoClaw agent -s research-ia
 
 # 1. Buscar fuentes
-KakoClaw agent -m "Busca 5 fuentes sobre modelos de lenguaje grandes (LLMs)"
+MakoClaw agent -m "Busca 5 fuentes sobre modelos de lenguaje grandes (LLMs)"
 
 # 2. Obtener contenido
-KakoClaw agent -m "Obtén el contenido de estas URLs: [urls]"
+MakoClaw agent -m "Obtén el contenido de estas URLs: [urls]"
 
 # 3. Analizar y sintetizar
-KakoClaw agent -m "Resume los puntos clave de estos artículos"
+MakoClaw agent -m "Resume los puntos clave de estos artículos"
 
 # 4. Crear documento
-KakoClaw agent -m "Crea un documento research.md con la síntesis de la investigación"
+MakoClaw agent -m "Crea un documento research.md con la síntesis de la investigación"
 
 # 5. Generar bibliografía
-KakoClaw agent -m "Genera una lista de referencias en formato APA"
+MakoClaw agent -m "Genera una lista de referencias en formato APA"
 ```
 
 ### 13. Workflow de Sistema
@@ -267,22 +267,22 @@ KakoClaw agent -m "Genera una lista de referencias en formato APA"
 
 ```bash
 # Sesión de administrador
-KakoClaw agent -s sysadmin
+MakoClaw agent -s sysadmin
 
 # 1. Health check
-KakoClaw agent -m "Verifica el estado del sistema: disco, memoria, CPU, servicios"
+MakoClaw agent -m "Verifica el estado del sistema: disco, memoria, CPU, servicios"
 
 # 2. Análisis de logs
-KakoClaw agent -m "Analiza /var/log/syslog y encuentra errores de las últimas 24h"
+MakoClaw agent -m "Analiza /var/log/syslog y encuentra errores de las últimas 24h"
 
 # 3. Optimización
-KakoClaw agent -m "Encuentra archivos grandes (>100MB) que se pueden eliminar"
+MakoClaw agent -m "Encuentra archivos grandes (>100MB) que se pueden eliminar"
 
 # 4. Seguridad
-KakoClaw agent -m "Verifica los puertos abiertos y conexiones activas"
+MakoClaw agent -m "Verifica los puertos abiertos y conexiones activas"
 
 # 5. Reporte
-KakoClaw agent -m "Genera un reporte de salud del sistema en /tmp/system-report.md"
+MakoClaw agent -m "Genera un reporte de salud del sistema en /tmp/system-report.md"
 ```
 
 ### 14. Workflow de Contenido
@@ -291,22 +291,22 @@ KakoClaw agent -m "Genera un reporte de salud del sistema en /tmp/system-report.
 
 ```bash
 # Sesión de contenido
-KakoClaw agent -s content
+MakoClaw agent -s content
 
 # 1. Brainstorming
-KakoClaw agent -m "Genera 10 ideas de artículos sobre programación en Go"
+MakoClaw agent -m "Genera 10 ideas de artículos sobre programación en Go"
 
 # 2. Outline
-KakoClaw agent -m "Crea un outline para 'Introducción a Goroutines'"
+MakoClaw agent -m "Crea un outline para 'Introducción a Goroutines'"
 
 # 3. Escritura
-KakoClaw agent -m "Escribe el artículo completo basado en el outline"
+MakoClaw agent -m "Escribe el artículo completo basado en el outline"
 
 # 4. Revisión
-KakoClaw agent -m "Revisa este artículo y sugiere mejoras"
+MakoClaw agent -m "Revisa este artículo y sugiere mejoras"
 
 # 5. Publicación
-KakoClaw agent -m "Convierte el artículo a formato Markdown con frontmatter"
+MakoClaw agent -m "Convierte el artículo a formato Markdown con frontmatter"
 ```
 
 ### 15. Workflow de Aprendizaje
@@ -315,25 +315,25 @@ KakoClaw agent -m "Convierte el artículo a formato Markdown con frontmatter"
 
 ```bash
 # Sesión de aprendizaje
-KakoClaw agent -s learning-rust
+MakoClaw agent -s learning-rust
 
 # 1. Introducción
-KakoClaw agent -m "Dame una introducción a Rust para programadores de Go"
+MakoClaw agent -m "Dame una introducción a Rust para programadores de Go"
 
 # 2. Comparación
-KakoClaw agent -m "Compara el sistema de ownership de Rust con el garbage collector de Go"
+MakoClaw agent -m "Compara el sistema de ownership de Rust con el garbage collector de Go"
 
 # 3. Ejemplos
-KakoClaw agent -m "Muestra 5 ejemplos de código Rust equivalentes a Go"
+MakoClaw agent -m "Muestra 5 ejemplos de código Rust equivalentes a Go"
 
 # 4. Ejercicios
-KakoClaw agent -m "Crea 3 ejercicios prácticos para practicar Rust"
+MakoClaw agent -m "Crea 3 ejercicios prácticos para practicar Rust"
 
 # 5. Recursos
-KakoClaw agent -m "Busca los mejores recursos para aprender Rust"
+MakoClaw agent -m "Busca los mejores recursos para aprender Rust"
 
 # 6. Guardar progreso
-KakoClaw agent -m "Crea un archivo learning-rust.md con notas y recursos"
+MakoClaw agent -m "Crea un archivo learning-rust.md con notas y recursos"
 ```
 
 ## Scripts Avanzados
@@ -351,8 +351,8 @@ BACKUP_DIR="/backup/$(date +%Y%m%d)"
 # Crear directorio de backup
 mkdir -p "$BACKUP_DIR"
 
-# Usar KakoClaw para decidir qué respaldar
-KakoClaw agent -m "
+# Usar MakoClaw para decidir qué respaldar
+MakoClaw agent -m "
 Analiza $WORKSPACE y crea un script que:
 1. Encuentre archivos modificados en la última semana
 2. Excluya archivos temporales (*.tmp, .cache)
@@ -364,7 +364,7 @@ Analiza $WORKSPACE y crea un script que:
 bash /tmp/backup-script.sh
 
 # Notificar
-KakoClaw agent -m "Backup completado en $BACKUP_DIR" 2>/dev/null || true
+MakoClaw agent -m "Backup completado en $BACKUP_DIR" 2>/dev/null || true
 ```
 
 ### 17. Script de Generación de Proyecto
@@ -385,8 +385,8 @@ fi
 mkdir -p "$PROJECT_NAME"
 cd "$PROJECT_NAME"
 
-# Generar estructura con KakoClaw
-KakoClaw agent -m "
+# Generar estructura con MakoClaw
+MakoClaw agent -m "
 Genera una estructura de proyecto Go de tipo $PROJECT_TYPE llamado $PROJECT_NAME.
 Debe incluir:
 1. go.mod con el módulo github.com/user/$PROJECT_NAME
@@ -412,7 +412,7 @@ echo "Proyecto $PROJECT_NAME creado!"
 
 # Analizar resultado de tests
 if [ -f "test-output.txt" ]; then
-    KakoClaw agent -m "
+    MakoClaw agent -m "
     Analiza este output de tests y:
     1. Resume los fallos si los hay
     2. Identifica tests flaky
@@ -424,7 +424,7 @@ fi
 
 # Analizar coverage
 if [ -f "coverage.out" ]; then
-    KakoClaw agent -m "
+    MakoClaw agent -m "
     Analiza el coverage report y:
     1. Identifica paquetes con baja cobertura (<70%)
     2. Sugiere qué funciones necesitan tests
@@ -439,10 +439,10 @@ fi
 
 ```bash
 # Crear alias útiles en ~/.bashrc
-alias pc='KakoClaw agent'
-alias pc-work='KakoClaw agent -s work'
-alias pc-personal='KakoClaw agent -s personal'
-alias pc-debug='KakoClaw agent --debug'
+alias pc='MakoClaw agent'
+alias pc-work='MakoClaw agent -s work'
+alias pc-personal='MakoClaw agent -s personal'
+alias pc-debug='MakoClaw agent --debug'
 
 # Usar
 pc-work -m "Revisa el código del PR #123"
@@ -453,13 +453,13 @@ pc-personal -m "Organiza mis tareas del fin de semana"
 
 ```bash
 # Pipe de output
-cat error.log | KakoClaw agent -m "Analiza estos errores"
+cat error.log | MakoClaw agent -m "Analiza estos errores"
 
 # Procesar output
-KakoClaw agent -m "Resume el output" < large-file.txt
+MakoClaw agent -m "Resume el output" < large-file.txt
 
 # Usar en scripts
-STATUS=$(KakoClaw agent -m "Verifica si el servicio nginx está corriendo" 2>&1)
+STATUS=$(MakoClaw agent -m "Verifica si el servicio nginx está corriendo" 2>&1)
 ```
 
 ### 21. Templates de Prompts
@@ -467,8 +467,8 @@ STATUS=$(KakoClaw agent -m "Verifica si el servicio nginx está corriendo" 2>&1)
 Guarda prompts reutilizables:
 
 ```bash
-# En ~/.KakoClaw/prompts/
-cat > ~/.KakoClaw/prompts/code-review.txt << 'EOF'
+# En ~/.MakoClaw/prompts/
+cat > ~/.MakoClaw/prompts/code-review.txt << 'EOF'
 Realiza una revisión de código de los siguientes archivos:
 - Busca bugs potenciales
 - Identifica problemas de estilo
@@ -477,7 +477,7 @@ Realiza una revisión de código de los siguientes archivos:
 EOF
 
 # Usar
-KakoClaw agent -m "$(cat ~/.KakoClaw/prompts/code-review.txt)" -f archivo.go
+MakoClaw agent -m "$(cat ~/.MakoClaw/prompts/code-review.txt)" -f archivo.go
 ```
 
 ---

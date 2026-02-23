@@ -1,13 +1,18 @@
 {
-  "name": "KakoClaw-web",
+  "name": "MakoClaw-web",
   "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:report": "playwright show-report"
   },
   "dependencies": {
+    "@types/qrcode": "^1.5.6",
     "axios": "^1.6.0",
     "chart.js": "^4.5.1",
     "date-fns": "^4.1.0",
@@ -21,6 +26,7 @@
     "vue-router": "^4.3.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@vitejs/plugin-vue": "^5.0.0",
     "autoprefixer": "^10.4.17",
     "postcss": "^8.4.32",

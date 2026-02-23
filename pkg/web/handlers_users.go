@@ -6,7 +6,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sipeed/kakoclaw/pkg/storage"
+	"github.com/sipeed/makoclaw/pkg/config"
+	"github.com/sipeed/makoclaw/pkg/logger"
+	"github.com/sipeed/makoclaw/pkg/storage"
 )
 
 func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request) {
@@ -18,7 +20,13 @@ func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodGet {
-		users, err := s.store.ListUsers()
+		var users []*storage.User
+		var err error
+		if s.centralStore != nil {
+			users, err = s.centralStore.ListUsers()
+		} else {
+			users, err = s.store.ListUsers()
+		}
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -46,7 +54,13 @@ func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request) {
 			in.Role = "user"
 		}
 
-		user, err := s.store.CreateUser(in.Username, in.Password, in.Role)
+		var user *storage.User
+		var err error
+		if s.centralStore != nil {
+			user, err = s.centralStore.CreateUser(in.Username, in.Password, in.Role)
+		} else {
+			user, err = s.store.CreateUser(in.Username, in.Password, in.Role)
+		}
 		if err != nil {
 			if err == storage.ErrUserExists {
 				http.Error(w, "user already exists", http.StatusConflict)
@@ -54,6 +68,31 @@ func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request) {
 			}
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
+		}
+
+		// Initialize per-user workspace and database
+		if s.userMgr != nil && user.UUID != "" {
+			if err := s.userMgr.EnsureUserDirectory(user.UUID); err != nil {
+				logger.WarnCF("web", "Failed to create user workspace", map[string]interface{}{
+					"user": user.Username, "error": err.Error(),
+				})
+			}
+			// Open/create per-user database
+			if _, err := s.userMgr.GetOrCreate(user.UUID); err != nil {
+				logger.WarnCF("web", "Failed to create user database", map[string]interface{}{
+					"user": user.Username, "error": err.Error(),
+				})
+			}
+			// Seed a default config.json in the user's data directory so the
+			// user-specific config is present from the start (avoids falling back
+			// to the global config on first load).
+			if s.fullConfig != nil {
+				if err := config.SaveConfigForUser(user.UUID, s.fullConfig); err != nil {
+					logger.WarnCF("web", "Failed to seed user config.json", map[string]interface{}{
+						"user": user.Username, "error": err.Error(),
+					})
+				}
+			}
 		}
 
 		user.PasswordHash = ""
@@ -98,7 +137,13 @@ func (s *Server) handleUserAction(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if in.Password != "" {
-			if err := s.store.UpdateUserPassword(userID, in.Password); err != nil {
+			var err error
+			if s.centralStore != nil {
+				err = s.centralStore.UpdateUserPassword(userID, in.Password)
+			} else {
+				err = s.store.UpdateUserPassword(userID, in.Password)
+			}
+			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
@@ -108,7 +153,13 @@ func (s *Server) handleUserAction(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "invalid role", http.StatusBadRequest)
 				return
 			}
-			if err := s.store.UpdateUserRole(userID, in.Role); err != nil {
+			var err error
+			if s.centralStore != nil {
+				err = s.centralStore.UpdateUserRole(userID, in.Role)
+			} else {
+				err = s.store.UpdateUserRole(userID, in.Role)
+			}
+			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
@@ -120,7 +171,13 @@ func (s *Server) handleUserAction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodDelete {
-		user, err := s.store.GetUserByID(userID)
+		var user *storage.User
+		var err error
+		if s.centralStore != nil {
+			user, err = s.centralStore.GetUserByID(userID)
+		} else {
+			user, err = s.store.GetUserByID(userID)
+		}
 		if err != nil {
 			http.Error(w, "user not found", http.StatusNotFound)
 			return
@@ -128,7 +185,12 @@ func (s *Server) handleUserAction(w http.ResponseWriter, r *http.Request) {
 
 		// Prevent deleting the last admin
 		if user.Role == "admin" {
-			users, err := s.store.ListUsers()
+			var users []*storage.User
+			if s.centralStore != nil {
+				users, err = s.centralStore.ListUsers()
+			} else {
+				users, err = s.store.ListUsers()
+			}
 			if err == nil {
 				adminCount := 0
 				for _, u := range users {
@@ -143,9 +205,19 @@ func (s *Server) handleUserAction(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		if err := s.store.DeleteUser(userID); err != nil {
+		if s.centralStore != nil {
+			err = s.centralStore.DeleteUser(userID)
+		} else {
+			err = s.store.DeleteUser(userID)
+		}
+		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
+		}
+
+		// Archive per-user data (close connection if open)
+		if s.userMgr != nil && user.UUID != "" {
+			_ = s.userMgr.CloseUser(user.UUID)
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -197,14 +269,23 @@ func (s *Server) handleBlockUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get admin user ID
-	adminUser, err := s.store.GetUserByUsername(claims.Sub)
+	var adminUser *storage.User
+	if s.centralStore != nil {
+		adminUser, err = s.centralStore.GetUserByUsername(claims.Sub)
+	} else {
+		adminUser, err = s.store.GetUserByUsername(claims.Sub)
+	}
 	if err != nil {
 		http.Error(w, "admin user not found", http.StatusInternalServerError)
 		return
 	}
 
 	// Block the user
-	err = s.store.BlockUser(userID, adminUser.ID, in.Reason)
+	if s.centralStore != nil {
+		err = s.centralStore.BlockUser(userID, adminUser.ID, in.Reason)
+	} else {
+		err = s.store.BlockUser(userID, adminUser.ID, in.Reason)
+	}
 	if err != nil {
 		if err == storage.ErrCannotBlockSelf {
 			http.Error(w, "cannot block yourself", http.StatusConflict)
@@ -219,7 +300,12 @@ func (s *Server) handleBlockUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Return updated user
-	user, err := s.store.GetUserByID(userID)
+	var user *storage.User
+	if s.centralStore != nil {
+		user, err = s.centralStore.GetUserByID(userID)
+	} else {
+		user, err = s.store.GetUserByID(userID)
+	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -256,13 +342,23 @@ func (s *Server) handleUnblockUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Unblock the user
-	if err := s.store.UnblockUser(userID); err != nil {
+	if s.centralStore != nil {
+		err = s.centralStore.UnblockUser(userID)
+	} else {
+		err = s.store.UnblockUser(userID)
+	}
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	// Return updated user
-	user, err := s.store.GetUserByID(userID)
+	var user *storage.User
+	if s.centralStore != nil {
+		user, err = s.centralStore.GetUserByID(userID)
+	} else {
+		user, err = s.store.GetUserByID(userID)
+	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

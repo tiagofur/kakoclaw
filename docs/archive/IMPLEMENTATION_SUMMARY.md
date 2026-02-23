@@ -1,8 +1,8 @@
-# KakoClaw New UI/UX Implementation - Complete
+# MakoClaw New UI/UX Implementation - Complete
 
 ## ✅ Implementation Summary
 
-La interfaz web de KakoClaw ha sido completamente reestructurada con un diseño moderno, responsive y profesional basado en Vue 3 + Tailwind CSS.
+La interfaz web de MakoClaw ha sido completamente reestructurada con un diseño moderno, responsive y profesional basado en Vue 3 + Tailwind CSS.
 
 ### What Was Built
 
@@ -160,7 +160,7 @@ El binario compilado incluirá todo:
 ### First Run
 
 ```bash
-./build/KakoClaw web
+./build/MakoClaw web
 
 # Abre http://localhost:8080
 # Credenciales: admin / (password from config.json setup)
@@ -172,7 +172,7 @@ El binario compilado incluirá todo:
 
 ### Colors (`tailwind.config.js`)
 ```js
-KakoClaw: {
+MakoClaw: {
   'bg': '#0d1117',           // Main background
   'surface': '#161b22',      // Cards, surfaces
   'border': '#30363d',       // Inputs, dividers
@@ -242,7 +242,7 @@ pkg/web/frontend/                          (NEW)
 5. **Test**: `npm run dev` + browser
 
 ### Styling
-- Usar Tailwind classes: `class="bg-KakoClaw-bg text-KakoClaw-text"`
+- Usar Tailwind classes: `class="bg-MakoClaw-bg text-MakoClaw-text"`
 - Custom CSS en `<style scoped>` si es realmente necesario
 - Dark colors ya aplicadas globalmente (`globals.css`)
 
@@ -295,8 +295,8 @@ ws.send({ type: 'message', content: '...' })
 ### Frontend not loading after build
 ```bash
 # 1. Restart server
-pkill KakoClaw    # o Ctrl+C
-./build/KakoClaw web
+pkill MakoClaw    # o Ctrl+C
+./build/MakoClaw web
 
 # 2. Clear browser cache
 # Ctrl+Shift+R (Windows/Linux) o Cmd+Shift+R (Mac)
@@ -311,7 +311,7 @@ ls pkg/web/dist/index.html    # Should exist
 - Browser console (F12) → Network tab → WS connections
 
 ### Styles not applied
-- Tailwind clases deben estar exactas: `bg-KakoClaw-bg` no `bg-KakoClaw-surface`
+- Tailwind clases deben estar exactas: `bg-MakoClaw-bg` no `bg-MakoClaw-surface`
 - Custom CSS debe estar en `<style scoped>`
 - En dev: hot reload automático
 - En prod: necesita rebuild con `npm run build`
@@ -319,7 +319,7 @@ ls pkg/web/dist/index.html    # Should exist
 ### API calls return 401 (Unauthorized)
 - Token expirado: logout y login de nuevo
 - Token not sent: verificar `authService.js` tiene Bearer token
-- Backend auth issues: revisar `~/.KakoClaw/config.json`
+- Backend auth issues: revisar `~/.MakoClaw/config.json`
 
 ---
 
@@ -359,8 +359,8 @@ ls pkg/web/dist/index.html    # Should exist
 - Integración backend Go
 - Build y verificación
 
-**Binario listo**: `build/KakoClaw-darwin-arm64` (o el tuyo)
+**Binario listo**: `build/MakoClaw-darwin-arm64` (o el tuyo)
 **Frontend embebido**: `pkg/web/dist/` → compilado en Go binary
 **Desarrollo**:  `pkg/web/frontend/` con npm dev server
 
-**Próximo paso**: `./build/KakoClaw web` para ver en `http://localhost:8080`
+**Próximo paso**: `./build/MakoClaw web` para ver en `http://localhost:8080`

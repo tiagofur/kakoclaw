@@ -1,8 +1,8 @@
-// KakoClaw - Ultra-lightweight personal AI agent
+// makoclaw - Ultra-lightweight personal AI agent
 // Inspired by and based on nanobot: https://github.com/HKUDS/nanobot
 // License: MIT
 //
-// Copyright (c) 2026 KakoClaw contributors
+// Copyright (c) 2026 makoclaw contributors
 
 package agent
 
@@ -17,17 +17,17 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/sipeed/kakoclaw/pkg/bus"
-	"github.com/sipeed/kakoclaw/pkg/config"
-	"github.com/sipeed/kakoclaw/pkg/logger"
-	"github.com/sipeed/kakoclaw/pkg/mcp"
-	"github.com/sipeed/kakoclaw/pkg/observability"
-	"github.com/sipeed/kakoclaw/pkg/providers"
-	"github.com/sipeed/kakoclaw/pkg/ratelimit"
-	"github.com/sipeed/kakoclaw/pkg/session"
-	"github.com/sipeed/kakoclaw/pkg/storage"
-	"github.com/sipeed/kakoclaw/pkg/tools"
-	"github.com/sipeed/kakoclaw/pkg/utils"
+	"github.com/sipeed/makoclaw/pkg/bus"
+	"github.com/sipeed/makoclaw/pkg/config"
+	"github.com/sipeed/makoclaw/pkg/logger"
+	"github.com/sipeed/makoclaw/pkg/mcp"
+	"github.com/sipeed/makoclaw/pkg/observability"
+	"github.com/sipeed/makoclaw/pkg/providers"
+	"github.com/sipeed/makoclaw/pkg/ratelimit"
+	"github.com/sipeed/makoclaw/pkg/session"
+	"github.com/sipeed/makoclaw/pkg/storage"
+	"github.com/sipeed/makoclaw/pkg/tools"
+	"github.com/sipeed/makoclaw/pkg/utils"
 )
 
 type AgentLoop struct {
@@ -127,7 +127,15 @@ func NewAgentLoopForUser(userUUID string, globalCfg *config.Config, msgBus *bus.
 
 func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers.LLMProvider) *AgentLoop {
 	workspace := cfg.WorkspacePath()
-	os.MkdirAll(workspace, 0755)
+	// Only create the global workspace directory in single-user/CLI mode.
+	// In multi-user web mode, each user has their own isolated workspace created
+	// by EnsureUserWorkspace/EnsureUserDirectory. The global workspace is not used.
+	if cfg.Web.Enabled {
+		// Multi-user web mode: suppress global workspace creation.
+		_ = workspace
+	} else {
+		os.MkdirAll(workspace, 0755)
+	}
 
 	restrict := cfg.Agents.Defaults.RestrictToWorkspace
 
@@ -239,15 +247,13 @@ func (al *AgentLoop) SetUserForAgent(userUUID string, userID int64) {
 		return
 	}
 
-	if userUUID != "" {
-		workspace, err := config.EnsureUserWorkspace(userUUID)
-		if err != nil {
-			logger.WarnCF("agent", "Failed to ensure user workspace", map[string]interface{}{"error": err.Error()})
-		} else {
-			al.workspace = workspace
-			al.sessions.SetStorage(filepath.Join(workspace, "sessions"))
-			al.updateToolsWorkspace(workspace)
-		}
+	workspace, err := config.EnsureUserWorkspace(userUUID)
+	if err != nil {
+		logger.WarnCF("agent", "Failed to ensure user workspace", map[string]interface{}{"error": err.Error()})
+	} else {
+		al.workspace = workspace
+		al.sessions.SetStorage(filepath.Join(workspace, "sessions"))
+		al.updateToolsWorkspace(workspace)
 	}
 
 	al.contextBuilder.WithUser(userUUID, userID)
@@ -960,8 +966,7 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 				}
 
 				// Accumulate tool call fragments
-				for _, tc := range chunk.ToolCalls {
-					idx := 0 // Default index for tool calls
+				for idx, tc := range chunk.ToolCalls {
 					if tc.ID != "" {
 						// New tool call — store metadata
 						toolCallMeta[idx] = tc

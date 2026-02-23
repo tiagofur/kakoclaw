@@ -1,4 +1,4 @@
-# 🐸 KakoClaw — Revisión Completa & Changelog
+# 🦈 MakoClaw — Revisión Completa & Changelog
 
 > Este documento es el historial vivo de mejoras, correcciones y estado de la app.
 > Se actualiza conforme avanzamos.
@@ -122,7 +122,7 @@
 | Metrics/Observability                   | ✅     | Auto-refresh cada 30s                 |
 | Export tasks (JSON/CSV)                 | ✅     | Descarga directa                      |
 | Export chat (JSON)                      | ✅     | Por sesión o todas                    |
-| Import conversaciones                   | ✅     | ChatGPT, Claude, KakoClaw formats     |
+| Import conversaciones                   | ✅     | ChatGPT, Claude, MakoClaw formats     |
 | Backup/Restore completo                 | ✅     | DB + workspace + config + env         |
 | API Docs (Swagger UI)                   | ✅     | OpenAPI 3.0.3 en `/api/docs`          |
 | 9 canales de mensajería                 | ✅     | Telegram, Discord, QQ, DingTalk, etc. |

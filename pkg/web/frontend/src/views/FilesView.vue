@@ -1,17 +1,17 @@
 <template>
-  <div class="h-full flex flex-col bg-kakoclaw-bg">
+  <div class="h-full flex flex-col bg-makoclaw-bg">
     <!-- Header -->
-    <div class="flex-none p-4 border-b border-kakoclaw-border bg-kakoclaw-surface flex items-center justify-between">
+    <div class="flex-none p-4 border-b border-makoclaw-border bg-makoclaw-surface flex items-center justify-between">
       <div>
-        <h2 class="text-xl font-bold bg-gradient-to-r from-kakoclaw-accent to-emerald-500 bg-clip-text text-transparent">Files</h2>
-        <p class="text-sm text-kakoclaw-text-secondary mt-1">Browse and upload workspace files</p>
+        <h2 class="text-xl font-bold bg-gradient-to-r from-makoclaw-accent to-blue-500 bg-clip-text text-transparent">Files</h2>
+        <p class="text-sm text-makoclaw-text-secondary mt-1">Browse and upload workspace files</p>
       </div>
       <div class="flex items-center gap-3">
         <input type="file" ref="fileInput" class="hidden" @change="handleFileUpload" multiple />
         <button
           @click="$refs.fileInput.click()"
           :disabled="uploading"
-          class="flex items-center gap-2 px-4 py-2 bg-kakoclaw-accent text-white rounded-lg hover:bg-kakoclaw-accent/90 transition-all text-sm shadow-lg shadow-kakoclaw-accent/20 disabled:opacity-50"
+          class="flex items-center gap-2 px-4 py-2 bg-makoclaw-accent text-white rounded-lg hover:bg-makoclaw-accent/90 transition-all text-sm shadow-lg shadow-makoclaw-accent/20 disabled:opacity-50"
         >
           <svg v-if="uploading" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -22,31 +22,31 @@
           </svg>
           {{ uploading ? 'Uploading...' : 'Upload' }}
         </button>
-        <div class="text-sm text-kakoclaw-text-secondary font-mono bg-kakoclaw-bg px-2 py-1 rounded border border-kakoclaw-border">
+        <div class="text-sm text-makoclaw-text-secondary font-mono bg-makoclaw-bg px-2 py-1 rounded border border-makoclaw-border">
           /{{ currentPath || '' }}
         </div>
       </div>
     </div>
 
     <!-- Breadcrumb -->
-    <div class="flex-none px-4 py-2 border-b border-kakoclaw-border bg-kakoclaw-surface flex items-center gap-1 text-sm overflow-x-auto">
-      <button @click="navigateTo('')" class="text-kakoclaw-accent hover:underline flex-shrink-0">workspace</button>
+    <div class="flex-none px-4 py-2 border-b border-makoclaw-border bg-makoclaw-surface flex items-center gap-1 text-sm overflow-x-auto">
+      <button @click="navigateTo('')" class="text-makoclaw-accent hover:underline flex-shrink-0">workspace</button>
       <template v-for="(part, i) in breadcrumbs" :key="i">
-        <span class="text-kakoclaw-text-secondary">/</span>
-        <button @click="navigateTo(breadcrumbs.slice(0, i + 1).join('/'))" class="text-kakoclaw-accent hover:underline flex-shrink-0">{{ part }}</button>
+        <span class="text-makoclaw-text-secondary">/</span>
+        <button @click="navigateTo(breadcrumbs.slice(0, i + 1).join('/'))" class="text-makoclaw-accent hover:underline flex-shrink-0">{{ part }}</button>
       </template>
     </div>
 
     <!-- Content -->
     <div 
       class="flex-1 overflow-auto custom-scrollbar relative"
-      :class="{ 'bg-kakoclaw-accent/5': isDragging }"
+      :class="{ 'bg-makoclaw-accent/5': isDragging }"
       @dragover.prevent="isDragging = true"
       @dragleave.prevent="isDragging = false"
       @drop.prevent="onDrop"
     >
       <div v-if="isDragging" class="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
-        <div class="bg-kakoclaw-accent text-white px-6 py-3 rounded-full shadow-xl animate-bounce flex items-center gap-2">
+        <div class="bg-makoclaw-accent text-white px-6 py-3 rounded-full shadow-xl animate-bounce flex items-center gap-2">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
           </svg>
@@ -54,47 +54,47 @@
         </div>
       </div>
       <div v-if="loading" class="flex items-center justify-center py-12">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-kakoclaw-accent"></div>
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-makoclaw-accent"></div>
       </div>
 
       <template v-else>
         <!-- Directory listing -->
-        <div v-if="entries !== null" class="divide-y divide-kakoclaw-border">
+        <div v-if="entries !== null" class="divide-y divide-makoclaw-border">
           <!-- Parent directory -->
           <button
             v-if="currentPath"
             @click="navigateUp()"
-            class="w-full flex items-center gap-3 px-6 py-3 hover:bg-kakoclaw-surface transition-colors text-left"
+            class="w-full flex items-center gap-3 px-6 py-3 hover:bg-makoclaw-surface transition-colors text-left"
           >
-            <svg class="w-5 h-5 text-kakoclaw-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-5 h-5 text-makoclaw-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
             </svg>
-            <span class="text-kakoclaw-text-secondary">..</span>
+            <span class="text-makoclaw-text-secondary">..</span>
           </button>
 
           <div
             v-for="entry in entries"
             :key="entry.path"
             @click="entry.is_dir ? navigateTo(entry.path) : viewFile(entry.path)"
-            class="w-full flex items-center gap-3 px-6 py-3 hover:bg-kakoclaw-surface transition-colors text-left cursor-pointer group"
+            class="w-full flex items-center gap-3 px-6 py-3 hover:bg-makoclaw-surface transition-colors text-left cursor-pointer group"
           >
             <!-- Folder icon -->
             <svg v-if="entry.is_dir" class="w-5 h-5 text-yellow-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
               <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
             </svg>
             <!-- File icon -->
-            <svg v-else class="w-5 h-5 text-kakoclaw-text-secondary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg v-else class="w-5 h-5 text-makoclaw-text-secondary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
             <div class="flex-1 min-w-0">
               <span class="text-sm font-medium truncate block">{{ entry.name }}</span>
             </div>
-            <span v-if="!entry.is_dir" class="text-xs text-kakoclaw-text-secondary flex-shrink-0">{{ formatSize(entry.size) }}</span>
-            <span class="text-xs text-kakoclaw-text-secondary flex-shrink-0">{{ formatDate(entry.mod_time) }}</span>
+            <span v-if="!entry.is_dir" class="text-xs text-makoclaw-text-secondary flex-shrink-0">{{ formatSize(entry.size) }}</span>
+            <span class="text-xs text-makoclaw-text-secondary flex-shrink-0">{{ formatDate(entry.mod_time) }}</span>
             
             <button
               @click.stop="downloadEntry(entry.path)"
-              class="ml-2 p-1.5 text-kakoclaw-text-secondary opacity-0 group-hover:opacity-100 hover:text-kakoclaw-accent hover:bg-kakoclaw-bg rounded-lg transition-all"
+              class="ml-2 p-1.5 text-makoclaw-text-secondary opacity-0 group-hover:opacity-100 hover:text-makoclaw-accent hover:bg-makoclaw-bg rounded-lg transition-all"
               title="Download"
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -103,7 +103,7 @@
             </button>
           </div>
 
-          <div v-if="entries.length === 0" class="text-center py-12 text-kakoclaw-text-secondary">
+          <div v-if="entries.length === 0" class="text-center py-12 text-makoclaw-text-secondary">
             <p>Empty directory</p>
           </div>
         </div>
@@ -115,18 +115,18 @@
             <div class="flex items-center gap-4">
               <button
                 @click="downloadEntry(currentPath)"
-                class="flex items-center gap-2 px-3 py-1.5 text-sm bg-kakoclaw-surface border border-kakoclaw-border rounded-lg hover:bg-kakoclaw-border transition-colors text-kakoclaw-accent"
+                class="flex items-center gap-2 px-3 py-1.5 text-sm bg-makoclaw-surface border border-makoclaw-border rounded-lg hover:bg-makoclaw-border transition-colors text-makoclaw-accent"
               >
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
                 Download
               </button>
-              <span class="text-sm text-kakoclaw-text-secondary">{{ formatSize(fileSize) }}</span>
+              <span class="text-sm text-makoclaw-text-secondary">{{ formatSize(fileSize) }}</span>
             </div>
           </div>
           <div v-if="fileError" class="text-yellow-400 text-sm mb-4">{{ fileError }}</div>
-          <pre v-else class="bg-kakoclaw-surface border border-kakoclaw-border rounded-xl p-4 text-sm font-mono overflow-auto max-h-[70vh] whitespace-pre-wrap">{{ fileContent }}</pre>
+          <pre v-else class="bg-makoclaw-surface border border-makoclaw-border rounded-xl p-4 text-sm font-mono overflow-auto max-h-[70vh] whitespace-pre-wrap">{{ fileContent }}</pre>
         </div>
       </template>
     </div>
@@ -257,3 +257,5 @@ onMounted(() => navigateTo(''))
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(156, 163, 175, 0.5); border-radius: 4px; }
 </style>
+
+

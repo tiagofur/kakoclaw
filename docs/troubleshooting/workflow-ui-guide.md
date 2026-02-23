@@ -272,7 +272,7 @@ Currently no keyboard shortcuts implemented. All actions require mouse/touch.
 
 - **Documentation**: [Workflows Guide](../examples/workflows.md)
 - **API Reference**: [Workflows API](../api-reference/workflows.md)
-- **Issues**: https://github.com/sipeed/kakoclaw/issues
+- **Issues**: https://github.com/sipeed/makoclaw/issues
 
 ---
 

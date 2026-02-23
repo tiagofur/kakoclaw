@@ -1,6 +1,6 @@
 # Ejemplos
 
-Ejemplos prácticos y casos de uso de KakoClaw.
+Ejemplos prácticos y casos de uso de MakoClaw.
 
 ## Archivos
 

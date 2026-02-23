@@ -1,5 +1,5 @@
 #!/bin/bash
-# Script to verify GitHub CLI setup for KakoClaw
+# Script to verify GitHub CLI setup for MakoClaw
 
 echo "🔍 Checking GitHub CLI setup..."
 echo

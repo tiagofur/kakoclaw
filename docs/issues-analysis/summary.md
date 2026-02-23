@@ -1,6 +1,6 @@
 # Resumen Ejecutivo de Issues
 
-## KakoClaw Issues - Análisis y Recomendaciones
+## MakoClaw Issues - Análisis y Recomendaciones
 
 **Fecha:** Febrero 2026  
 **Total Issues Analizadas:** 23  
@@ -25,7 +25,7 @@
 
 | Issue | Descripción | Esfuerzo |
 |-------|-------------|----------|
-| **#39** | `KakoClaw doctor` command | 4 horas |
+| **#39** | `MakoClaw doctor` command | 4 horas |
 | **#46** | Config improvements | 3 horas |
 | **#63** | Cronjobs in session | 4 horas |
 | **#43** | Model→Provider mapping | 3 horas |
@@ -137,7 +137,7 @@ Hardware       ██       2 issues
 
 - **[README.md](./README.md)** - Análisis completo de cada issue
 - **[implementation-plans.md](./implementation-plans.md)** - Planes detallados de implementación
-- **Issue Original:** https://github.com/sipeed/KakoClaw/issues
+- **Issue Original:** https://github.com/sipeed/MakoClaw/issues
 
 ---
 

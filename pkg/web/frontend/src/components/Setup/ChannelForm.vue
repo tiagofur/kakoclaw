@@ -51,7 +51,7 @@
         <button
           @click="generateSetupToken"
           :disabled="generatingToken"
-          class="w-full px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-medium transition-colors"
+          class="w-full px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium transition-colors"
         >
           {{ generatingToken ? '🔄 Generating...' : `📱 Generate Setup Link for ${selectedChannel.name}` }}
         </button>
@@ -76,7 +76,7 @@
           </button>
         </div>
 
-        <div v-if="copySuccess" class="text-emerald-400 text-xs text-center">
+        <div v-if="copySuccess" class="text-blue-400 text-xs text-center">
           ✓ Link copied to clipboard!
         </div>
       </div>
@@ -141,11 +141,11 @@
       <button
         @click="testConnection"
         :disabled="isTesting"
-        class="w-full px-4 py-2 rounded-lg border border-emerald-500 text-emerald-400 hover:bg-emerald-900/20 disabled:opacity-50 transition-colors"
+        class="w-full px-4 py-2 rounded-lg border border-blue-500 text-blue-400 hover:bg-blue-900/20 disabled:opacity-50 transition-colors"
       >
         {{ isTesting ? '🔄 Testing...' : '✓ Test Connection' }}
       </button>
-      <p v-if="testResult" :class="['text-xs mt-2', testResult.success ? 'text-emerald-400' : 'text-red-400']">
+      <p v-if="testResult" :class="['text-xs mt-2', testResult.success ? 'text-blue-400' : 'text-red-400']">
         {{ testResult.message }}
       </p>
     </div>
@@ -349,3 +349,4 @@ defineExpose({
 
 <style scoped>
 </style>
+

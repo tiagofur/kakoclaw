@@ -20,7 +20,7 @@ const swaggerUIHTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>KakoClaw API Documentation</title>
+  <title>makoclaw API Documentation</title>
   <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
   <style>
     html { box-sizing: border-box; overflow-y: scroll; }
@@ -54,8 +54,8 @@ const swaggerUIHTML = `<!DOCTYPE html>
 const openAPISpec = `{
   "openapi": "3.0.3",
   "info": {
-    "title": "KakoClaw API",
-    "description": "REST API for the KakoClaw AI agent platform. Includes chat, tasks, skills, cron jobs, channels, voice, memory, files, and export.",
+    "title": "makoclaw API",
+    "description": "REST API for the makoclaw AI agent platform. Includes chat, tasks, skills, cron jobs, channels, voice, memory, files, and export.",
     "version": "1.0.0",
     "license": { "name": "MIT" }
   },
@@ -682,3 +682,4 @@ const openAPISpec = `{
     }
   }
 }`
+

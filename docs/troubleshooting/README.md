@@ -1,6 +1,6 @@
 # Solución de Problemas
 
-Ayuda para resolver problemas comunes con KakoClaw.
+Ayuda para resolver problemas comunes con MakoClaw.
 
 ## Archivos
 
@@ -38,22 +38,22 @@ Ayuda para resolver problemas comunes con KakoClaw.
 ### Logs
 ```bash
 # Modo debug
-KakoClaw agent --debug
+MakoClaw agent --debug
 
 # Logs a archivo
-KakoClaw gateway --debug 2>&1 | tee debug.log
+MakoClaw gateway --debug 2>&1 | tee debug.log
 ```
 
 ### Comandos Útiles
 ```bash
 # Ver estado
-KakoClaw status
+MakoClaw status
 
 # Ver configuración
-cat ~/.KakoClaw/config.json
+cat ~/.MakoClaw/config.json
 
 # Ver workspace
-tree ~/.KakoClaw/workspace/
+tree ~/.MakoClaw/workspace/
 ```
 
 ## Soporte
@@ -61,7 +61,7 @@ tree ~/.KakoClaw/workspace/
 Si no encuentras tu problema aquí:
 
 1. Busca en la [FAQ](./faq.md)
-2. Revisa [GitHub Issues](https://github.com/sipeed/KakoClaw/issues)
+2. Revisa [GitHub Issues](https://github.com/sipeed/MakoClaw/issues)
 3. Únete a [Discord](https://discord.gg/V4sAZ9XWpN)
 4. Crea un nuevo issue
 

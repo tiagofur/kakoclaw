@@ -1,21 +1,21 @@
 <template>
-  <div class="flex flex-col h-full bg-kakoclaw-bg relative overflow-hidden">
+  <div class="flex flex-col h-full bg-makoclaw-bg relative overflow-hidden">
     <!-- Background Gradient Mesh (Subtle) -->
-    <div class="absolute inset-0 pointer-events-none opacity-20 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-emerald-500/20 via-transparent to-transparent"></div>
+    <div class="absolute inset-0 pointer-events-none opacity-20 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-blue-500/20 via-transparent to-transparent"></div>
 
     <!-- Filters & Controls -->
-    <div class="glass-sticky top-0 z-20 p-4 border-b border-kakoclaw-border/30">
+    <div class="glass-sticky top-0 z-20 p-4 border-b border-makoclaw-border/30">
       <!-- Search & Sort Row -->
       <div class="flex gap-4 flex-col lg:flex-row lg:items-center">
         <div class="flex-1 relative group">
-          <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-kakoclaw-text-secondary group-focus-within:text-kakoclaw-accent transition-colors">
+          <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-makoclaw-text-secondary group-focus-within:text-makoclaw-accent transition-colors">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           </div>
           <input
             v-model="searchQuery"
             type="text"
             placeholder="Search tasks by name or description..."
-            class="w-full pl-10 pr-4 py-2.5 bg-kakoclaw-bg/40 border border-kakoclaw-border/50 rounded-xl focus:ring-2 focus:ring-kakoclaw-accent/30 focus:border-kakoclaw-accent transition-all text-sm backdrop-blur-sm"
+            class="w-full pl-10 pr-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent transition-all text-sm backdrop-blur-sm"
           />
         </div>
 
@@ -23,7 +23,7 @@
           <select
             v-model="sortBy"
             @change="taskStore.setSortBy(sortBy)"
-            class="px-4 py-2.5 bg-kakoclaw-bg/40 border border-kakoclaw-border/50 rounded-xl focus:ring-2 focus:ring-kakoclaw-accent/30 text-sm hover:border-kakoclaw-accent/30 transition-all cursor-pointer backdrop-blur-sm outline-none"
+            class="px-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl focus:ring-2 focus:ring-makoclaw-accent/30 text-sm hover:border-makoclaw-accent/30 transition-all cursor-pointer backdrop-blur-sm outline-none"
           >
             <option value="recent">Recent First</option>
             <option value="oldest">Oldest First</option>
@@ -34,7 +34,7 @@
           <select
             v-model="statusFilter"
             @change="taskStore.setFilter('status', statusFilter)"
-            class="px-4 py-2.5 bg-kakoclaw-bg/40 border border-kakoclaw-border/50 rounded-xl focus:ring-2 focus:ring-kakoclaw-accent/30 text-sm hover:border-kakoclaw-accent/30 transition-all cursor-pointer backdrop-blur-sm outline-none"
+            class="px-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl focus:ring-2 focus:ring-makoclaw-accent/30 text-sm hover:border-makoclaw-accent/30 transition-all cursor-pointer backdrop-blur-sm outline-none"
           >
             <option value="">All Statuses</option>
             <option value="backlog">Backlog</option>
@@ -46,19 +46,19 @@
         </div>
 
         <div class="flex items-center gap-3">
-          <div class="flex items-center gap-2 px-3 py-2 bg-kakoclaw-bg/40 border border-kakoclaw-border/50 rounded-xl backdrop-blur-sm">
+          <div class="flex items-center gap-2 px-3 py-2 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl backdrop-blur-sm">
             <input 
               type="checkbox" 
               id="showArchived" 
               v-model="showArchived"
-              class="rounded border-kakoclaw-border bg-kakoclaw-surface text-kakoclaw-accent focus:ring-kakoclaw-accent transition-all cursor-pointer"
+              class="rounded border-makoclaw-border bg-makoclaw-surface text-makoclaw-accent focus:ring-makoclaw-accent transition-all cursor-pointer"
             >
-            <label for="showArchived" class="text-xs font-medium text-kakoclaw-text-secondary select-none cursor-pointer hover:text-kakoclaw-text">Archived</label>
+            <label for="showArchived" class="text-xs font-medium text-makoclaw-text-secondary select-none cursor-pointer hover:text-makoclaw-text">Archived</label>
           </div>
 
           <button
             @click="showNewTaskModal = true"
-            class="px-5 py-2.5 bg-kakoclaw-accent hover:bg-kakoclaw-accent-hover text-white rounded-xl transition-all shadow-lg shadow-kakoclaw-accent/20 hover:shadow-kakoclaw-accent/40 text-sm font-bold flex items-center gap-2 active:scale-95"
+            class="px-5 py-2.5 bg-makoclaw-accent hover:bg-makoclaw-accent-hover text-white rounded-xl transition-all shadow-lg shadow-makoclaw-accent/20 hover:shadow-makoclaw-accent/40 text-sm font-bold flex items-center gap-2 active:scale-95"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
             <span class="hidden sm:inline">New Task</span>
@@ -327,3 +327,5 @@ const handleTaskUnarchived = async (taskId) => {
   }
 }
 </script>
+
+

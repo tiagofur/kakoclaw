@@ -1,6 +1,6 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# KakoClaw Installation Script for Termux/Android
-# This script automates the installation of KakoClaw on Android devices
+# MakoClaw Installation Script for Termux/Android
+# This script automates the installation of MakoClaw on Android devices
 
 set -e
 
@@ -13,11 +13,11 @@ NC='\033[0m' # No Color
 
 # Variables
 INSTALL_DIR="$HOME/.local/bin"
-CONFIG_DIR="$HOME/.KakoClaw"
-REPO_URL="https://github.com/sipeed/KakoClaw.git"
+CONFIG_DIR="$HOME/.MakoClaw"
+REPO_URL="https://github.com/sipeed/MakoClaw.git"
 GO_VERSION_MIN="1.21"
 
-echo -e "${BLUE}🐸 KakoClaw Installer for Termux/Android${NC}"
+echo -e "${BLUE}🦈 MakoClaw Installer for Termux/Android${NC}"
 echo "=========================================="
 echo ""
 
@@ -98,33 +98,33 @@ fi
 print_success "Go version: $GO_VERSION"
 
 # Step 4: Clone repository
-print_status "Cloning KakoClaw repository..."
+print_status "Cloning MakoClaw repository..."
 
-if [ -d "$HOME/KakoClaw" ]; then
-    print_warning "Directory $HOME/KakoClaw already exists"
+if [ -d "$HOME/MakoClaw" ]; then
+    print_warning "Directory $HOME/MakoClaw already exists"
     read -p "Remove and reclone? (y/n) " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        rm -rf "$HOME/KakoClaw"
+        rm -rf "$HOME/MakoClaw"
     else
         print_status "Using existing directory"
-        cd "$HOME/KakoClaw"
+        cd "$HOME/MakoClaw"
         git pull || print_warning "Could not update repository"
     fi
 fi
 
-if [ ! -d "$HOME/KakoClaw" ]; then
-    git clone "$REPO_URL" "$HOME/KakoClaw" || {
+if [ ! -d "$HOME/MakoClaw" ]; then
+    git clone "$REPO_URL" "$HOME/MakoClaw" || {
         print_error "Failed to clone repository"
         exit 1
     }
 fi
 
-cd "$HOME/KakoClaw"
+cd "$HOME/MakoClaw"
 print_success "Repository ready"
 
 # Step 5: Build
-print_status "Building KakoClaw..."
+print_status "Building MakoClaw..."
 
 export CGO_ENABLED=0
 export GOOS=android
@@ -133,7 +133,7 @@ export GOARCH=arm64
 make build || {
     print_error "Build failed"
     print_status "Trying alternative build..."
-    go build -o KakoClaw ./cmd/KakoClaw || {
+    go build -o MakoClaw ./cmd/MakoClaw || {
         print_error "Alternative build also failed"
         exit 1
     }
@@ -142,11 +142,11 @@ make build || {
 print_success "Build completed"
 
 # Step 6: Install
-print_status "Installing KakoClaw..."
+print_status "Installing MakoClaw..."
 
 mkdir -p "$INSTALL_DIR"
-cp KakoClaw "$INSTALL_DIR/"
-chmod +x "$INSTALL_DIR/KakoClaw"
+cp MakoClaw "$INSTALL_DIR/"
+chmod +x "$INSTALL_DIR/MakoClaw"
 
 # Add to PATH if not already there
 if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
@@ -155,20 +155,20 @@ if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
     export PATH="$INSTALL_DIR:$PATH"
 fi
 
-print_success "KakoClaw installed to $INSTALL_DIR"
+print_success "MakoClaw installed to $INSTALL_DIR"
 
 # Step 7: Initialize
-print_status "Initializing KakoClaw..."
+print_status "Initializing MakoClaw..."
 
 if [ ! -f "$CONFIG_DIR/config.json" ]; then
-    KakoClaw onboard || {
+    MakoClaw onboard || {
         print_warning "onboard command failed, creating minimal config..."
         mkdir -p "$CONFIG_DIR/workspace"
         cat > "$CONFIG_DIR/config.json" << 'EOFCONFIG'
 {
   "agents": {
     "defaults": {
-      "workspace": "~/.KakoClaw/workspace",
+      "workspace": "~/.MakoClaw/workspace",
       "model": "ollama/llama3.2",
       "max_tokens": 2048,
       "temperature": 0.7,
@@ -207,11 +207,11 @@ print_status "Creating aliases..."
 if ! grep -q "alias pc=" "$HOME/.bashrc" 2>/dev/null; then
     cat >> "$HOME/.bashrc" << 'EOFALIASES'
 
-# KakoClaw aliases
-alias pc='KakoClaw agent'
-alias pc-gateway='KakoClaw gateway'
-alias pc-status='KakoClaw status'
-alias pc-doctor='KakoClaw doctor'
+# MakoClaw aliases
+alias pc='MakoClaw agent'
+alias pc-gateway='MakoClaw gateway'
+alias pc-status='MakoClaw status'
+alias pc-doctor='MakoClaw doctor'
 EOFALIASES
     print_success "Aliases added to .bashrc"
 fi
@@ -219,13 +219,13 @@ fi
 # Step 10: Create startup script
 print_status "Creating startup script..."
 
-mkdir -p "$HOME/.config/KakoClaw"
-cat > "$HOME/.config/KakoClaw/start-gateway.sh" << 'EOFSTART'
+mkdir -p "$HOME/.config/MakoClaw"
+cat > "$HOME/.config/MakoClaw/start-gateway.sh" << 'EOFSTART'
 #!/data/data/com.termux/files/usr/bin/bash
-# Start KakoClaw Gateway
+# Start MakoClaw Gateway
 
-LOG_FILE="$HOME/KakoClaw-gateway.log"
-PID_FILE="$HOME/.config/KakoClaw/gateway.pid"
+LOG_FILE="$HOME/MakoClaw-gateway.log"
+PID_FILE="$HOME/.config/MakoClaw/gateway.pid"
 
 start() {
     if [ -f "$PID_FILE" ] && kill -0 $(cat "$PID_FILE") 2>/dev/null; then
@@ -233,8 +233,8 @@ start() {
         return 1
     fi
     
-    echo "Starting KakoClaw Gateway..."
-    nohup KakoClaw gateway > "$LOG_FILE" 2>&1 &
+    echo "Starting MakoClaw Gateway..."
+    nohup MakoClaw gateway > "$LOG_FILE" 2>&1 &
     echo $! > "$PID_FILE"
     echo "Gateway started with PID: $!"
     echo "Log: $LOG_FILE"
@@ -289,13 +289,13 @@ case "$1" in
 esac
 EOFSTART
 
-chmod +x "$HOME/.config/KakoClaw/start-gateway.sh"
+chmod +x "$HOME/.config/MakoClaw/start-gateway.sh"
 print_success "Startup script created"
 
 # Summary
 echo ""
 echo "=========================================="
-echo -e "${GREEN}✅ KakoClaw Installation Complete!${NC}"
+echo -e "${GREEN}✅ MakoClaw Installation Complete!${NC}"
 echo "=========================================="
 echo ""
 echo "Installation directory: $INSTALL_DIR"
@@ -303,29 +303,29 @@ echo "Configuration: $CONFIG_DIR/config.json"
 echo "Workspace: $CONFIG_DIR/workspace"
 echo ""
 echo "Quick Start:"
-echo "  KakoClaw version      # Check version"
-echo "  KakoClaw status       # Check status"
-echo "  KakoClaw doctor       # Run health check"
-echo "  KakoClaw agent        # Start interactive mode"
+echo "  MakoClaw version      # Check version"
+echo "  MakoClaw status       # Check status"
+echo "  MakoClaw doctor       # Run health check"
+echo "  MakoClaw agent        # Start interactive mode"
 echo ""
 echo "Aliases (after restarting Termux or running 'source ~/.bashrc'):"
-echo "  pc                    # Shortcut for KakoClaw agent"
-echo "  pc-gateway            # Shortcut for KakoClaw gateway"
-echo "  pc-doctor             # Shortcut for KakoClaw doctor"
+echo "  pc                    # Shortcut for MakoClaw agent"
+echo "  pc-gateway            # Shortcut for MakoClaw gateway"
+echo "  pc-doctor             # Shortcut for MakoClaw doctor"
 echo ""
 echo "Gateway Management:"
-echo "  ~/.config/KakoClaw/start-gateway.sh start   # Start gateway"
-echo "  ~/.config/KakoClaw/start-gateway.sh stop    # Stop gateway"
-echo "  ~/.config/KakoClaw/start-gateway.sh status  # Check status"
+echo "  ~/.config/MakoClaw/start-gateway.sh start   # Start gateway"
+echo "  ~/.config/MakoClaw/start-gateway.sh stop    # Stop gateway"
+echo "  ~/.config/MakoClaw/start-gateway.sh status  # Check status"
 echo ""
 echo "Next Steps:"
-echo "  1. Edit config: nano ~/.KakoClaw/config.json"
+echo "  1. Edit config: nano ~/.MakoClaw/config.json"
 echo "  2. Add your API keys or setup Ollama"
-echo "  3. Run: KakoClaw agent -m 'Hello!'"
+echo "  3. Run: MakoClaw agent -m 'Hello!'"
 echo ""
-echo -e "${YELLOW}Documentation:${NC} https://github.com/sipeed/KakoClaw/tree/main/docs"
+echo -e "${YELLOW}Documentation:${NC} https://github.com/sipeed/MakoClaw/tree/main/docs"
 echo ""
-echo -e "${GREEN}Happy hacking! 🐸${NC}"
+echo -e "${GREEN}Happy hacking! 🦈${NC}"
 echo ""
 
 # Reload shell configuration

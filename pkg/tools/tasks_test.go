@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sipeed/kakoclaw/pkg/config"
-	"github.com/sipeed/kakoclaw/pkg/storage"
+	"github.com/sipeed/makoclaw/pkg/config"
+	"github.com/sipeed/makoclaw/pkg/storage"
 )
 
 func TestTaskToolCreateAndList(t *testing.T) {

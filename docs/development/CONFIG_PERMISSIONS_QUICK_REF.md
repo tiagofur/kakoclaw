@@ -65,7 +65,7 @@ DELETE /api/v1/users/{id}        # Delete user
   "storage": { /* Database config */ }
 }
 ```
-**Storage**: `~/.KakoClaw/config.json`
+**Storage**: `~/.MakoClaw/config.json`
 
 ### Per-User Config
 
@@ -73,7 +73,7 @@ DELETE /api/v1/users/{id}        # Delete user
 - Anthropic, OpenAI, OpenRouter, Groq, Zhipu, VLLM, Gemini, Nvidia, Moonshot, Ollama
 - API keys are **redacted** in responses: `"sk-t****-123"`
 
-**Overlays (File)**: `~/.kakoclaw/users/<uuid>/config.json`
+**Overlays (File)**: `~/.makoclaw/users/<uuid>/config.json`
 - Personal `agents`, `channels`, `tools` overrides
 - Merged over global defaults at runtime
 
@@ -92,7 +92,7 @@ DELETE /api/v1/users/{id}        # Delete user
 ### Promote User to Admin
 ```bash
 # Via database (requires backend restart or re-login)
-sqlite3 ~/.KakoClaw/KakoClaw.db \
+sqlite3 ~/.MakoClaw/MakoClaw.db \
   "UPDATE users SET role='admin' WHERE username='alice';"
 
 # Via API (requires existing admin token)

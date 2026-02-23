@@ -1,10 +1,11 @@
 ---
 slug: deployment
 category: operations
-generatedAt: 2026-02-18T15:22:39.042Z
+generatedAt: 2026-02-23T15:50:10.895Z
 relevantFiles:
   - docker-compose.yml
   - Dockerfile
+  - pkg\web\frontend\node_modules\@surma\rollup-plugin-off-main-thread\Dockerfile
 ---
 
 # How do I deploy this project?

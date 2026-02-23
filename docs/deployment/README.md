@@ -1,6 +1,6 @@
 # Despliegue
 
-Guías para desplegar KakoClaw en diferentes entornos.
+Guías para desplegar MakoClaw en diferentes entornos.
 
 ## Entornos
 

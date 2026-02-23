@@ -25,7 +25,9 @@ client.interceptors.request.use(
 client.interceptors.response.use(
   response => response,
   error => {
-    if (error.response?.status === 401) {
+    // Don't auto-redirect on 401 for the login endpoint itself
+    const isAuthEndpoint = error.config?.url?.includes('/auth/login') || error.config?.url?.includes('/auth/register')
+    if (error.response?.status === 401 && !isAuthEndpoint) {
       const authStore = useAuthStore()
       authStore.logout()
       window.location.href = '/login'

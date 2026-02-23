@@ -1,8 +1,8 @@
-// KakoClaw - Ultra-lightweight personal AI agent
+// makoclaw - Ultra-lightweight personal AI agent
 // Inspired by and based on nanobot: https://github.com/HKUDS/nanobot
 // License: MIT
 //
-// Copyright (c) 2026 KakoClaw contributors
+// Copyright (c) 2026 makoclaw contributors
 
 package channels
 
@@ -11,10 +11,10 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/sipeed/kakoclaw/pkg/bus"
-	"github.com/sipeed/kakoclaw/pkg/config"
-	"github.com/sipeed/kakoclaw/pkg/logger"
-	"github.com/sipeed/kakoclaw/pkg/storage"
+	"github.com/sipeed/makoclaw/pkg/bus"
+	"github.com/sipeed/makoclaw/pkg/config"
+	"github.com/sipeed/makoclaw/pkg/logger"
+	"github.com/sipeed/makoclaw/pkg/storage"
 )
 
 type Manager struct {
@@ -456,3 +456,4 @@ func (m *Manager) SendToChannelForUser(ctx context.Context, userID int64, channe
 
 	return channel.Send(ctx, msg)
 }
+

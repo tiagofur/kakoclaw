@@ -1,4 +1,4 @@
-# KakoClaw Multi-User System - Complete Implementation (Phases 1-4)
+# MakoClaw Multi-User System - Complete Implementation (Phases 1-4)
 
 **Status**: ✅ ALL 4 PHASES COMPLETE  
 **Total Implementation**: 3,019 lines of code  
@@ -183,8 +183,8 @@
 ## File Structure
 
 ```
-kakoclaw/
-├── cmd/kakoclaw/main.go                    # Entry point
+makoclaw/
+├── cmd/makoclaw/main.go                    # Entry point
 ├── pkg/
 │   ├── agent/
 │   │   ├── context.go                      # Phase 3: User context
@@ -224,7 +224,7 @@ kakoclaw/
 │   ├── PHASES_1_2_3_SUMMARY.md             # Phases 1-3 summary
 │   └── PHASE4_CHANNEL_ONBOARDING.md        # Phase 4 details
 └── build/
-    └── kakoclaw-darwin-arm64               # Compiled binary (31MB)
+    └── makoclaw-darwin-arm64               # Compiled binary (31MB)
 ```
 
 ---
@@ -245,7 +245,7 @@ npm install
 # Build entire project (frontend + backend)
 make build
 
-# Binary output: build/kakoclaw-darwin-arm64
+# Binary output: build/makoclaw-darwin-arm64
 ```
 
 ### Configuration
@@ -257,10 +257,10 @@ vim config.json
 
 ### Run
 ```bash
-./build/kakoclaw-darwin-arm64 gateway
+./build/makoclaw-darwin-arm64 gateway
 
 # Or with web UI
-./build/kakoclaw-darwin-arm64 web --listen 0.0.0.0:8080
+./build/makoclaw-darwin-arm64 web --listen 0.0.0.0:8080
 ```
 
 ---
@@ -307,8 +307,8 @@ golangci-lint run          # Lint check
 ### Build Verification
 ```bash
 # Check binary
-file build/kakoclaw-darwin-arm64
-ls -lh build/kakoclaw-darwin-arm64
+file build/makoclaw-darwin-arm64
+ls -lh build/makoclaw-darwin-arm64
 
 # Check frontend
 ls -lh pkg/web/dist
@@ -407,7 +407,7 @@ ls -lh pkg/web/dist
 
 **Implementation Status**: ✅ COMPLETE & PRODUCTION READY
 
-**Repository**: https://github.com/tiagofur/kakoclaw  
+**Repository**: https://github.com/tiagofur/makoclaw  
 **Branch**: `multiuser`  
 **Date**: February 21, 2026  
 **Commits**: 7 total (Phases 1-4)

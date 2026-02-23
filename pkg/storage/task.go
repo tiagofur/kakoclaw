@@ -2,6 +2,7 @@ package storage
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -21,13 +22,23 @@ func (s *Storage) CreateTask(title, description, status string) (int64, error) {
 	return s.CreateTaskForUser(0, title, description, status)
 }
 
-func (s *Storage) CreateTaskForUser(userID int64, title, description, status string) (int64, error) {
+func (s *Storage) CreateTaskForUser(userKey interface{}, title, description, status string) (int64, error) {
 	if status == "" {
 		status = "todo"
 	}
-	uid := normalizeUserID(userID)
-	query := `INSERT INTO tasks (user_id, title, description, status) VALUES (?, ?, ?, ?)`
-	result, err := s.db.Exec(query, uid, title, description, status)
+	var query string
+	var args []interface{}
+
+	if s.isUserDB {
+		query = `INSERT INTO tasks (title, description, status) VALUES (?, ?, ?)`
+		args = []interface{}{title, description, status}
+	} else {
+		uid := normalizeUserKey(userKey)
+		query = `INSERT INTO tasks (user_id, title, description, status) VALUES (?, ?, ?, ?)`
+		args = []interface{}{uid, title, description, status}
+	}
+
+	result, err := s.db.Exec(query, args...)
 	if err != nil {
 		return 0, fmt.Errorf("creating task: %w", err)
 	}
@@ -38,11 +49,21 @@ func (s *Storage) GetTask(id int64) (*Task, error) {
 	return s.GetTaskForUser(0, id)
 }
 
-func (s *Storage) GetTaskForUser(userID, id int64) (*Task, error) {
-	uid := normalizeUserID(userID)
-	query := `SELECT id, user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, created_at, updated_at FROM tasks WHERE id = ? AND user_id = ?`
+func (s *Storage) GetTaskForUser(userKey interface{}, id int64) (*Task, error) {
+	var query string
+	var args []interface{}
+
+	if s.isUserDB {
+		query = `SELECT id, 0 as user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, created_at, updated_at FROM tasks WHERE id = ?`
+		args = []interface{}{id}
+	} else {
+		uid := normalizeUserKey(userKey)
+		query = `SELECT id, user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, created_at, updated_at FROM tasks WHERE id = ? AND user_id = ?`
+		args = []interface{}{id, uid}
+	}
+
 	var t Task
-	err := s.db.QueryRow(query, id, uid).Scan(&t.ID, &t.UserID, &t.Title, &t.Description, &t.Status, &t.Result, &t.Archived, &t.CreatedAt, &t.UpdatedAt)
+	err := s.db.QueryRow(query, args...).Scan(&t.ID, &t.UserID, &t.Title, &t.Description, &t.Status, &t.Result, &t.Archived, &t.CreatedAt, &t.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("getting task: %w", err)
 	}
@@ -53,38 +74,68 @@ func (s *Storage) UpdateTask(id int64, title, description, status, result string
 	return s.UpdateTaskForUser(0, id, title, description, status, result)
 }
 
-func (s *Storage) UpdateTaskForUser(userID, id int64, title, description, status, result string) (*Task, error) {
-	uid := normalizeUserID(userID)
-	query := `UPDATE tasks SET title = ?, description = ?, status = ?, result = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`
-	_, err := s.db.Exec(query, title, description, status, result, id, uid)
+func (s *Storage) UpdateTaskForUser(userKey interface{}, id int64, title, description, status, result string) (*Task, error) {
+	var query string
+	var args []interface{}
+
+	if s.isUserDB {
+		query = `UPDATE tasks SET title = ?, description = ?, status = ?, result = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+		args = []interface{}{title, description, status, result, id}
+	} else {
+		uid := normalizeUserKey(userKey)
+		query = `UPDATE tasks SET title = ?, description = ?, status = ?, result = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`
+		args = []interface{}{title, description, status, result, id, uid}
+	}
+
+	_, err := s.db.Exec(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("updating task: %w", err)
 	}
-	return s.GetTaskForUser(uid, id)
+	return s.GetTaskForUser(userKey, id)
 }
 
 func (s *Storage) UpdateTaskStatus(id int64, status string) (*Task, error) {
 	return s.UpdateTaskStatusForUser(0, id, status)
 }
 
-func (s *Storage) UpdateTaskStatusForUser(userID, id int64, status string) (*Task, error) {
-	uid := normalizeUserID(userID)
-	query := `UPDATE tasks SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`
-	_, err := s.db.Exec(query, status, id, uid)
+func (s *Storage) UpdateTaskStatusForUser(userKey interface{}, id int64, status string) (*Task, error) {
+	var query string
+	var args []interface{}
+
+	if s.isUserDB {
+		query = `UPDATE tasks SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+		args = []interface{}{status, id}
+	} else {
+		uid := normalizeUserKey(userKey)
+		query = `UPDATE tasks SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`
+		args = []interface{}{status, id, uid}
+	}
+
+	_, err := s.db.Exec(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("updating task status: %w", err)
 	}
-	return s.GetTaskForUser(uid, id)
+	return s.GetTaskForUser(userKey, id)
 }
 
 func (s *Storage) ArchiveTask(id int64) error {
 	return s.ArchiveTaskForUser(0, id)
 }
 
-func (s *Storage) ArchiveTaskForUser(userID, id int64) error {
-	uid := normalizeUserID(userID)
-	query := `UPDATE tasks SET archived = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`
-	_, err := s.db.Exec(query, id, uid)
+func (s *Storage) ArchiveTaskForUser(userKey interface{}, id int64) error {
+	var query string
+	var args []interface{}
+
+	if s.isUserDB {
+		query = `UPDATE tasks SET archived = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+		args = []interface{}{id}
+	} else {
+		uid := normalizeUserKey(userKey)
+		query = `UPDATE tasks SET archived = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`
+		args = []interface{}{id, uid}
+	}
+
+	_, err := s.db.Exec(query, args...)
 	if err != nil {
 		return fmt.Errorf("archiving task: %w", err)
 	}
@@ -95,10 +146,20 @@ func (s *Storage) UnarchiveTask(id int64) error {
 	return s.UnarchiveTaskForUser(0, id)
 }
 
-func (s *Storage) UnarchiveTaskForUser(userID, id int64) error {
-	uid := normalizeUserID(userID)
-	query := `UPDATE tasks SET archived = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`
-	_, err := s.db.Exec(query, id, uid)
+func (s *Storage) UnarchiveTaskForUser(userKey interface{}, id int64) error {
+	var query string
+	var args []interface{}
+
+	if s.isUserDB {
+		query = `UPDATE tasks SET archived = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+		args = []interface{}{id}
+	} else {
+		uid := normalizeUserKey(userKey)
+		query = `UPDATE tasks SET archived = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`
+		args = []interface{}{id, uid}
+	}
+
+	_, err := s.db.Exec(query, args...)
 	if err != nil {
 		return fmt.Errorf("unarchiving task: %w", err)
 	}
@@ -109,8 +170,7 @@ func (s *Storage) DeleteTask(id int64) error {
 	return s.DeleteTaskForUser(0, id)
 }
 
-func (s *Storage) DeleteTaskForUser(userID, id int64) error {
-	uid := normalizeUserID(userID)
+func (s *Storage) DeleteTaskForUser(userKey interface{}, id int64) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return fmt.Errorf("beginning transaction: %w", err)
@@ -120,7 +180,19 @@ func (s *Storage) DeleteTaskForUser(userID, id int64) error {
 	if _, err := tx.Exec(`DELETE FROM task_logs WHERE task_id = ?`, id); err != nil {
 		return fmt.Errorf("deleting task logs: %w", err)
 	}
-	if _, err := tx.Exec(`DELETE FROM tasks WHERE id = ? AND user_id = ?`, id, uid); err != nil {
+
+	var query string
+	var args []interface{}
+	if s.isUserDB {
+		query = `DELETE FROM tasks WHERE id = ?`
+		args = []interface{}{id}
+	} else {
+		uid := normalizeUserKey(userKey)
+		query = `DELETE FROM tasks WHERE id = ? AND user_id = ?`
+		args = []interface{}{id, uid}
+	}
+
+	if _, err := tx.Exec(query, args...); err != nil {
 		return fmt.Errorf("deleting task: %w", err)
 	}
 	return tx.Commit()
@@ -130,10 +202,20 @@ func (s *Storage) ListTasks(includeArchived bool) ([]Task, error) {
 	return s.ListTasksForUser(0, includeArchived)
 }
 
-func (s *Storage) ListTasksForUser(userID int64, includeArchived bool) ([]Task, error) {
-	uid := normalizeUserID(userID)
-	query := `SELECT id, user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, created_at, updated_at FROM tasks WHERE user_id = ? AND (archived = ? OR ?) ORDER BY created_at DESC`
-	rows, err := s.db.Query(query, uid, false, includeArchived)
+func (s *Storage) ListTasksForUser(userKey interface{}, includeArchived bool) ([]Task, error) {
+	var query string
+	var args []interface{}
+
+	if s.isUserDB {
+		query = `SELECT id, 0 as user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, created_at, updated_at FROM tasks WHERE (archived = ? OR ?) ORDER BY created_at DESC`
+		args = []interface{}{false, includeArchived}
+	} else {
+		uid := normalizeUserKey(userKey)
+		query = `SELECT id, user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, created_at, updated_at FROM tasks WHERE user_id = ? AND (archived = ? OR ?) ORDER BY created_at DESC`
+		args = []interface{}{uid, false, includeArchived}
+	}
+
+	rows, err := s.db.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("listing tasks: %w", err)
 	}
@@ -147,9 +229,6 @@ func (s *Storage) ListTasksForUser(userID int64, includeArchived bool) ([]Task, 
 		}
 		tasks = append(tasks, t)
 	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterating tasks: %w", err)
-	}
 	return tasks, nil
 }
 
@@ -157,11 +236,21 @@ func (s *Storage) SearchTasks(query string) ([]Task, error) {
 	return s.SearchTasksForUser(0, query)
 }
 
-func (s *Storage) SearchTasksForUser(userID int64, query string) ([]Task, error) {
-	uid := normalizeUserID(userID)
-	sqlQuery := `SELECT id, user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, created_at, updated_at FROM tasks WHERE user_id = ? AND (title LIKE ? OR description LIKE ?) AND archived = 0 ORDER BY created_at DESC`
-	searchTerm := "%" + query + "%"
-	rows, err := s.db.Query(sqlQuery, uid, searchTerm, searchTerm)
+func (s *Storage) SearchTasksForUser(userKey interface{}, query string) ([]Task, error) {
+	var sqlQuery string
+	var args []interface{}
+	searchTerm := "%" + strings.ReplaceAll(strings.ReplaceAll(query, "\\", "\\\\"), "%", "\\%") + "%"
+
+	if s.isUserDB {
+		sqlQuery = `SELECT id, 0 as user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, created_at, updated_at FROM tasks WHERE (title LIKE ? OR description LIKE ?) AND archived = 0 ORDER BY created_at DESC`
+		args = []interface{}{searchTerm, searchTerm}
+	} else {
+		uid := normalizeUserKey(userKey)
+		sqlQuery = `SELECT id, user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, created_at, updated_at FROM tasks WHERE user_id = ? AND (title LIKE ? OR description LIKE ?) AND archived = 0 ORDER BY created_at DESC`
+		args = []interface{}{uid, searchTerm, searchTerm}
+	}
+
+	rows, err := s.db.Query(sqlQuery, args...)
 	if err != nil {
 		return nil, fmt.Errorf("searching tasks: %w", err)
 	}
@@ -175,12 +264,8 @@ func (s *Storage) SearchTasksForUser(userID int64, query string) ([]Task, error)
 		}
 		tasks = append(tasks, t)
 	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterating search results: %w", err)
-	}
 	return tasks, nil
 }
-
 // ListAllUsersTasks returns tasks for all users (for background worker).
 func (s *Storage) ListAllUsersTasks(includeArchived bool) ([]Task, error) {
 	query := `SELECT id, user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, created_at, updated_at FROM tasks WHERE (archived = ? OR ?) ORDER BY created_at DESC`

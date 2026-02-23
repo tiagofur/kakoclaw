@@ -1,18 +1,18 @@
 <template>
-  <div class="h-full flex flex-col bg-kakoclaw-bg">
+  <div class="h-full flex flex-col bg-makoclaw-bg">
     <!-- Header -->
-    <div class="flex-none p-4 border-b border-kakoclaw-border bg-kakoclaw-surface flex items-center justify-between">
+    <div class="flex-none p-4 border-b border-makoclaw-border bg-makoclaw-surface flex items-center justify-between">
       <div>
-        <h2 class="text-xl font-bold bg-gradient-to-r from-kakoclaw-accent to-emerald-500 bg-clip-text text-transparent">Settings</h2>
-        <p class="text-sm text-kakoclaw-text-secondary mt-1">Configure your agent, providers, and channels</p>
+        <h2 class="text-xl font-bold bg-gradient-to-r from-makoclaw-accent to-blue-500 bg-clip-text text-transparent">Settings</h2>
+        <p class="text-sm text-makoclaw-text-secondary mt-1">Configure your agent, providers, and channels</p>
       </div>
-      <div class="flex bg-kakoclaw-bg rounded-lg p-1 border border-kakoclaw-border overflow-x-auto max-w-[50%] sm:max-w-none">
+      <div class="flex bg-makoclaw-bg rounded-lg p-1 border border-makoclaw-border overflow-x-auto max-w-[50%] sm:max-w-none">
         <button
           v-for="tab in tabs"
           :key="tab.key"
           @click="activeTab = tab.key"
           class="px-3 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap"
-          :class="activeTab === tab.key ? 'bg-white dark:bg-gray-700 shadow-sm text-kakoclaw-accent' : 'text-kakoclaw-text-secondary hover:text-kakoclaw-text'"
+          :class="activeTab === tab.key ? 'bg-white dark:bg-gray-700 shadow-sm text-makoclaw-accent' : 'text-makoclaw-text-secondary hover:text-makoclaw-text'"
         >{{ tab.label }}</button>
       </div>
     </div>
@@ -20,7 +20,7 @@
     <!-- Content -->
     <div class="flex-1 overflow-auto p-4 sm:p-6 custom-scrollbar">
       <div v-if="loading" class="flex items-center justify-center py-12">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-kakoclaw-accent"></div>
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-makoclaw-accent"></div>
       </div>
 
       <template v-else-if="configData">
@@ -55,12 +55,12 @@
           <div class="glass-panel rounded-2xl p-8">
             <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-8">
               <div>
-                <h3 class="text-sm font-bold uppercase tracking-widest text-kakoclaw-text-secondary opacity-70">User Accounts</h3>
-                <p class="text-xs text-kakoclaw-text-secondary mt-1">Manage workspace access and permissions</p>
+                <h3 class="text-sm font-bold uppercase tracking-widest text-makoclaw-text-secondary opacity-70">User Accounts</h3>
+                <p class="text-xs text-makoclaw-text-secondary mt-1">Manage workspace access and permissions</p>
               </div>
               <button 
                 @click="openUserModal()"
-                class="px-4 py-2 bg-kakoclaw-accent hover:bg-kakoclaw-accent-hover text-white rounded-xl transition-all shadow-lg shadow-kakoclaw-accent/20 hover:shadow-kakoclaw-accent/40 text-sm font-bold flex items-center justify-center gap-2 active:scale-95"
+                class="px-4 py-2 bg-makoclaw-accent hover:bg-makoclaw-accent-hover text-white rounded-xl transition-all shadow-lg shadow-makoclaw-accent/20 hover:shadow-makoclaw-accent/40 text-sm font-bold flex items-center justify-center gap-2 active:scale-95"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -71,7 +71,7 @@
             
             <div class="overflow-x-auto">
               <table class="w-full text-left text-sm whitespace-nowrap">
-                <thead class="uppercase tracking-wider border-b border-kakoclaw-border text-[10px] text-kakoclaw-text-secondary font-bold">
+                <thead class="uppercase tracking-wider border-b border-makoclaw-border text-[10px] text-makoclaw-text-secondary font-bold">
                   <tr>
                     <th scope="col" class="px-4 py-3">ID</th>
                     <th scope="col" class="px-4 py-3">Username</th>
@@ -81,13 +81,13 @@
                     <th scope="col" class="px-4 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody class="divide-y divide-kakoclaw-border text-kakoclaw-text">
-                  <tr v-for="u in usersList" :key="u.id" class="hover:bg-kakoclaw-bg/50 transition-colors">
+                <tbody class="divide-y divide-makoclaw-border text-makoclaw-text">
+                  <tr v-for="u in usersList" :key="u.id" class="hover:bg-makoclaw-bg/50 transition-colors">
                     <td class="px-4 py-3 font-mono text-xs">{{ u.id }}</td>
                     <td class="px-4 py-3 font-medium">{{ u.username }}</td>
                     <td class="px-4 py-3">
                       <span class="px-2 py-0.5 text-[10px] font-bold uppercase rounded-full" 
-                            :class="u.role === 'admin' ? 'bg-teal-500/10 text-teal-400' : 'bg-kakoclaw-accent/10 text-kakoclaw-accent'">
+                            :class="u.role === 'admin' ? 'bg-teal-500/10 text-teal-400' : 'bg-makoclaw-accent/10 text-makoclaw-accent'">
                         {{ u.role }}
                       </span>
                     </td>
@@ -99,24 +99,24 @@
                         🟢 Activo
                       </span>
                     </td>
-                    <td class="px-4 py-3 text-xs text-kakoclaw-text-secondary">{{ formatDate(u.created_at) }}</td>
+                    <td class="px-4 py-3 text-xs text-makoclaw-text-secondary">{{ formatDate(u.created_at) }}</td>
                     <td class="px-4 py-3 text-right">
-                      <button @click="openUserModal(u)" class="text-kakoclaw-text-secondary hover:text-kakoclaw-accent p-1 transition-colors">
+                      <button @click="openUserModal(u)" class="text-makoclaw-text-secondary hover:text-makoclaw-accent p-1 transition-colors">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                         </svg>
                       </button>
-                      <button v-if="!u.blocked" @click="openBlockModal(u)" :disabled="authStore.user?.username === u.username || isLastAdmin(u)" class="text-kakoclaw-text-secondary hover:text-orange-400 p-1 transition-colors ml-1 disabled:opacity-30 disabled:hover:text-kakoclaw-text-secondary" title="Bloquear usuario">
+                      <button v-if="!u.blocked" @click="openBlockModal(u)" :disabled="authStore.user?.username === u.username || isLastAdmin(u)" class="text-makoclaw-text-secondary hover:text-orange-400 p-1 transition-colors ml-1 disabled:opacity-30 disabled:hover:text-makoclaw-text-secondary" title="Bloquear usuario">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                         </svg>
                       </button>
-                      <button v-if="u.blocked" @click="openUnblockModal(u)" class="text-kakoclaw-text-secondary hover:text-green-400 p-1 transition-colors ml-1" title="Desbloquear usuario">
+                      <button v-if="u.blocked" @click="openUnblockModal(u)" class="text-makoclaw-text-secondary hover:text-green-400 p-1 transition-colors ml-1" title="Desbloquear usuario">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       </button>
-                      <button @click="deleteUserLocal(u)" :disabled="authStore.user?.username === u.username" class="text-kakoclaw-text-secondary hover:text-red-400 p-1 transition-colors ml-1 disabled:opacity-30 disabled:hover:text-kakoclaw-text-secondary">
+                      <button @click="deleteUserLocal(u)" :disabled="authStore.user?.username === u.username" class="text-makoclaw-text-secondary hover:text-red-400 p-1 transition-colors ml-1 disabled:opacity-30 disabled:hover:text-makoclaw-text-secondary">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
@@ -124,7 +124,7 @@
                     </td>
                   </tr>
                   <tr v-if="usersList.length === 0">
-                    <td colspan="6" class="px-4 py-8 text-center text-kakoclaw-text-secondary text-sm">No users found.</td>
+                    <td colspan="6" class="px-4 py-8 text-center text-makoclaw-text-secondary text-sm">No users found.</td>
                   </tr>
                 </tbody>
               </table>
@@ -137,54 +137,54 @@
           <!-- Web & Gateway -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div class="glass-panel rounded-2xl p-6">
-              <h3 class="text-[10px] font-bold uppercase tracking-widest text-kakoclaw-text-secondary opacity-60 mb-6">Web Server</h3>
+              <h3 class="text-[10px] font-bold uppercase tracking-widest text-makoclaw-text-secondary opacity-60 mb-6">Web Server</h3>
               <div class="space-y-3">
                 <div v-for="(val, key) in configData.web" :key="key" class="flex justify-between items-center py-1">
-                  <span class="text-sm text-kakoclaw-text-secondary">{{ formatKey(key) }}</span>
-                  <span class="text-sm font-mono text-kakoclaw-text">{{ String(val) }}</span>
+                  <span class="text-sm text-makoclaw-text-secondary">{{ formatKey(key) }}</span>
+                  <span class="text-sm font-mono text-makoclaw-text">{{ String(val) }}</span>
                 </div>
               </div>
             </div>
             <div class="glass-panel rounded-2xl p-6">
-              <h3 class="text-[10px] font-bold uppercase tracking-widest text-kakoclaw-text-secondary opacity-60 mb-6">Gateway</h3>
+              <h3 class="text-[10px] font-bold uppercase tracking-widest text-makoclaw-text-secondary opacity-60 mb-6">Gateway</h3>
               <div class="space-y-4">
                 <div v-for="(val, key) in configData.gateway" :key="key" class="flex justify-between items-center py-1">
-                  <span class="text-sm text-kakoclaw-text-secondary">{{ formatKey(key) }}</span>
-                  <span class="text-sm font-mono text-kakoclaw-text">{{ String(val) }}</span>
+                  <span class="text-sm text-makoclaw-text-secondary">{{ formatKey(key) }}</span>
+                  <span class="text-sm font-mono text-makoclaw-text">{{ String(val) }}</span>
                 </div>
               </div>
             </div>
           </div>
           
           <div class="glass-panel rounded-2xl p-6">
-            <h3 class="text-[10px] font-bold uppercase tracking-widest text-kakoclaw-text-secondary opacity-60 mb-6">Storage & Backend</h3>
+            <h3 class="text-[10px] font-bold uppercase tracking-widest text-makoclaw-text-secondary opacity-60 mb-6">Storage & Backend</h3>
             <div class="space-y-4">
               <div class="flex justify-between items-center py-1">
-                <span class="text-sm text-kakoclaw-text-secondary">Database Path</span>
-                <span class="text-sm font-mono text-kakoclaw-text text-right truncate ml-4">{{ configData.storage?.path || '(not set)' }}</span>
+                <span class="text-sm text-makoclaw-text-secondary">Database Path</span>
+                <span class="text-sm font-mono text-makoclaw-text text-right truncate ml-4">{{ configData.storage?.path || '(not set)' }}</span>
               </div>
             </div>
           </div>
 
           <div class="glass-panel rounded-2xl p-8">
             <div class="flex justify-between items-center mb-8">
-              <h3 class="text-[10px] font-bold uppercase tracking-widest text-kakoclaw-text-secondary opacity-60">Search Utilities</h3>
+              <h3 class="text-[10px] font-bold uppercase tracking-widest text-makoclaw-text-secondary opacity-60">Search Utilities</h3>
               <button 
                 @click="saveConfig({tools: configData.tools})" 
                 :disabled="saving"
-                class="text-kakoclaw-accent hover:text-kakoclaw-accent-hover text-xs font-bold uppercase tracking-widest disabled:opacity-50 transition-all active:scale-95"
+                class="text-makoclaw-accent hover:text-makoclaw-accent-hover text-xs font-bold uppercase tracking-widest disabled:opacity-50 transition-all active:scale-95"
               >
                 {{ saving ? 'Updating...' : 'Save Updates' }}
               </button>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
                <div>
-                  <label class="block text-[10px] font-bold uppercase tracking-widest text-kakoclaw-text-secondary mb-2 opacity-70">Web Search API Key</label>
-                  <input v-model="configData.tools.web.search.api_key" type="password" placeholder="••••••••••••••••" class="w-full bg-kakoclaw-bg/40 border border-kakoclaw-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-kakoclaw-accent text-kakoclaw-text backdrop-blur-sm transition-all">
+                  <label class="block text-[10px] font-bold uppercase tracking-widest text-makoclaw-text-secondary mb-2 opacity-70">Web Search API Key</label>
+                  <input v-model="configData.tools.web.search.api_key" type="password" placeholder="••••••••••••••••" class="w-full bg-makoclaw-bg/40 border border-makoclaw-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-makoclaw-accent text-makoclaw-text backdrop-blur-sm transition-all">
                </div>
                <div>
-                  <label class="block text-[10px] font-bold uppercase tracking-widest text-kakoclaw-text-secondary mb-2 opacity-70">Max Search Results</label>
-                  <input v-model.number="configData.tools.web.search.max_results" type="number" class="w-full bg-kakoclaw-bg/40 border border-kakoclaw-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-kakoclaw-accent text-kakoclaw-text backdrop-blur-sm transition-all">
+                  <label class="block text-[10px] font-bold uppercase tracking-widest text-makoclaw-text-secondary mb-2 opacity-70">Max Search Results</label>
+                  <input v-model.number="configData.tools.web.search.max_results" type="number" class="w-full bg-makoclaw-bg/40 border border-makoclaw-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-makoclaw-accent text-makoclaw-text backdrop-blur-sm transition-all">
                </div>
              </div>
            </div>
@@ -193,13 +193,13 @@
           <div class="glass-panel rounded-2xl p-8">
             <div class="flex justify-between items-center mb-8">
               <div>
-                <h3 class="text-[10px] font-bold uppercase tracking-widest text-kakoclaw-text-secondary opacity-60">Email Tool</h3>
-                <p class="text-xs text-kakoclaw-text-secondary mt-1">Configure SMTP settings for sending email reports</p>
+                <h3 class="text-[10px] font-bold uppercase tracking-widest text-makoclaw-text-secondary opacity-60">Email Tool</h3>
+                <p class="text-xs text-makoclaw-text-secondary mt-1">Configure SMTP settings for sending email reports</p>
               </div>
               <button 
                 @click="saveConfig({tools: configData.tools})" 
                 :disabled="saving"
-                class="text-kakoclaw-accent hover:text-kakoclaw-accent-hover text-xs font-bold uppercase tracking-widest disabled:opacity-50 transition-all active:scale-95"
+                class="text-makoclaw-accent hover:text-makoclaw-accent-hover text-xs font-bold uppercase tracking-widest disabled:opacity-50 transition-all active:scale-95"
               >
                 {{ saving ? 'Updating...' : 'Save Updates' }}
               </button>
@@ -207,78 +207,87 @@
 
             <div class="space-y-4 mb-6">
               <label class="flex items-center space-x-3">
-                <input v-model="configData.tools.email.enabled" type="checkbox" class="rounded border-kakoclaw-border text-kakoclaw-accent focus:ring-kakoclaw-accent">
-                <span class="text-sm text-kakoclaw-text font-medium">Enable Email Tool</span>
+                <input v-model="configData.tools.email.enabled" type="checkbox" class="rounded border-makoclaw-border text-makoclaw-accent focus:ring-makoclaw-accent">
+                <span class="text-sm text-makoclaw-text font-medium">Enable Email Tool</span>
               </label>
             </div>
 
             <div v-if="configData.tools.email.enabled" class="grid grid-cols-1 sm:grid-cols-2 gap-6">
                <div>
-                  <label class="block text-[10px] font-bold uppercase tracking-widest text-kakoclaw-text-secondary mb-2 opacity-70">SMTP Host</label>
-                  <input v-model="configData.tools.email.host" type="text" placeholder="smtp.gmail.com" class="w-full bg-kakoclaw-bg/40 border border-kakoclaw-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-kakoclaw-accent text-kakoclaw-text backdrop-blur-sm transition-all">
+                  <label class="block text-[10px] font-bold uppercase tracking-widest text-makoclaw-text-secondary mb-2 opacity-70">SMTP Host</label>
+                  <input v-model="configData.tools.email.host" type="text" placeholder="smtp.gmail.com" class="w-full bg-makoclaw-bg/40 border border-makoclaw-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-makoclaw-accent text-makoclaw-text backdrop-blur-sm transition-all">
                </div>
                <div>
-                  <label class="block text-[10px] font-bold uppercase tracking-widest text-kakoclaw-text-secondary mb-2 opacity-70">SMTP Port</label>
-                  <input v-model.number="configData.tools.email.port" type="number" placeholder="587" class="w-full bg-kakoclaw-bg/40 border border-kakoclaw-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-kakoclaw-accent text-kakoclaw-text backdrop-blur-sm transition-all">
+                  <label class="block text-[10px] font-bold uppercase tracking-widest text-makoclaw-text-secondary mb-2 opacity-70">SMTP Port</label>
+                  <input v-model.number="configData.tools.email.port" type="number" placeholder="587" class="w-full bg-makoclaw-bg/40 border border-makoclaw-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-makoclaw-accent text-makoclaw-text backdrop-blur-sm transition-all">
                </div>
                <div>
-                  <label class="block text-[10px] font-bold uppercase tracking-widest text-kakoclaw-text-secondary mb-2 opacity-70">Email Username</label>
-                  <input v-model="configData.tools.email.username" type="email" placeholder="your-email@gmail.com" class="w-full bg-kakoclaw-bg/40 border border-kakoclaw-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-kakoclaw-accent text-kakoclaw-text backdrop-blur-sm transition-all">
+                  <label class="block text-[10px] font-bold uppercase tracking-widest text-makoclaw-text-secondary mb-2 opacity-70">Email Username</label>
+                  <input v-model="configData.tools.email.username" type="email" placeholder="your-email@gmail.com" class="w-full bg-makoclaw-bg/40 border border-makoclaw-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-makoclaw-accent text-makoclaw-text backdrop-blur-sm transition-all">
                </div>
                <div>
-                  <label class="block text-[10px] font-bold uppercase tracking-widest text-kakoclaw-text-secondary mb-2 opacity-70">Email Password / App Password</label>
-                  <input v-model="configData.tools.email.password" type="password" placeholder="••••••••••••••••" class="w-full bg-kakoclaw-bg/40 border border-kakoclaw-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-kakoclaw-accent text-kakoclaw-text backdrop-blur-sm transition-all">
-                  <p class="text-[10px] text-kakoclaw-text-secondary mt-1.5">For Gmail, use an App Password (not your regular password)</p>
+                  <label class="block text-[10px] font-bold uppercase tracking-widest text-makoclaw-text-secondary mb-2 opacity-70">Email Password / App Password</label>
+                  <input
+                    v-model="emailPasswordInput"
+                    @input="emailPasswordModified = true"
+                    type="password"
+                    :placeholder="configData.tools.email.password?.has_password ? '•••••••••••••••• (configured)' : '••••••••••••••••'"
+                    class="w-full bg-makoclaw-bg/40 border border-makoclaw-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-makoclaw-accent text-makoclaw-text backdrop-blur-sm transition-all"
+                  >
+                  <p class="text-[10px] text-makoclaw-text-secondary mt-1.5">
+                    <span v-if="configData.tools.email.password?.has_password && !emailPasswordModified" class="text-green-400">✓ Password configured (leave empty to keep current)</span>
+                    <span v-else>For Gmail, use an App Password (not your regular password)</span>
+                  </p>
                </div>
                <div>
-                  <label class="block text-[10px] font-bold uppercase tracking-widest text-kakoclaw-text-secondary mb-2 opacity-70">From Address</label>
-                  <input v-model="configData.tools.email.from" type="text" placeholder="KakoClaw <your-email@gmail.com>" class="w-full bg-kakoclaw-bg/40 border border-kakoclaw-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-kakoclaw-accent text-kakoclaw-text backdrop-blur-sm transition-all">
+                  <label class="block text-[10px] font-bold uppercase tracking-widest text-makoclaw-text-secondary mb-2 opacity-70">From Address</label>
+                  <input v-model="configData.tools.email.from" type="text" placeholder="makoclaw <your-email@gmail.com>" class="w-full bg-makoclaw-bg/40 border border-makoclaw-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-makoclaw-accent text-makoclaw-text backdrop-blur-sm transition-all">
                </div>
                <div>
-                  <label class="block text-[10px] font-bold uppercase tracking-widest text-kakoclaw-text-secondary mb-2 opacity-70">Default Recipient Email</label>
-                  <input v-model="configData.tools.email.to" type="email" placeholder="recipient@example.com" class="w-full bg-kakoclaw-bg/40 border border-kakoclaw-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-kakoclaw-accent text-kakoclaw-text backdrop-blur-sm transition-all">
+                  <label class="block text-[10px] font-bold uppercase tracking-widest text-makoclaw-text-secondary mb-2 opacity-70">Default Recipient Email</label>
+                  <input v-model="configData.tools.email.to" type="email" placeholder="recipient@example.com" class="w-full bg-makoclaw-bg/40 border border-makoclaw-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-makoclaw-accent text-makoclaw-text backdrop-blur-sm transition-all">
                </div>
              </div>
 
              <div v-if="!configData.tools.email.enabled" class="py-8 text-center opacity-60">
-               <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-kakoclaw-text-secondary mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+               <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-makoclaw-text-secondary mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                </svg>
-               <p class="text-sm text-kakoclaw-text-secondary">Email tool is disabled. Enable it above to configure SMTP settings.</p>
+               <p class="text-sm text-makoclaw-text-secondary">Email tool is disabled. Enable it above to configure SMTP settings.</p>
              </div>
            </div>
 
           <!-- Backup Section -->
           <div class="glass-panel rounded-2xl p-8">
              <div class="flex justify-between items-center mb-8">
-               <h3 class="text-[10px] font-bold uppercase tracking-widest text-kakoclaw-text-secondary opacity-60">Backup & Restore</h3>
+               <h3 class="text-[10px] font-bold uppercase tracking-widest text-makoclaw-text-secondary opacity-60">Backup & Restore</h3>
              </div>
 
              <!-- Export Section -->
              <div class="space-y-5 mb-10">
-               <h4 class="font-bold text-kakoclaw-text flex items-center text-sm">
-                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2 text-kakoclaw-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+               <h4 class="font-bold text-makoclaw-text flex items-center text-sm">
+                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2 text-makoclaw-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                  </svg>
                  Export Backup
                </h4>
 
-               <div class="space-y-3 p-4 bg-kakoclaw-bg/50 rounded-lg">
+               <div class="space-y-3 p-4 bg-makoclaw-bg/50 rounded-lg">
                  <label class="flex items-center space-x-3">
-                   <input type="checkbox" v-model="exportOptions.include_database" checked class="rounded border-kakoclaw-border text-kakoclaw-accent focus:ring-kakoclaw-accent">
-                   <span class="text-sm text-kakoclaw-text">Database & Sessions</span>
+                   <input type="checkbox" v-model="exportOptions.include_database" checked class="rounded border-makoclaw-border text-makoclaw-accent focus:ring-makoclaw-accent">
+                   <span class="text-sm text-makoclaw-text">Database & Sessions</span>
                  </label>
                  <label class="flex items-center space-x-3">
-                   <input type="checkbox" v-model="exportOptions.include_workspace" checked class="rounded border-kakoclaw-border text-kakoclaw-accent focus:ring-kakoclaw-accent">
-                   <span class="text-sm text-kakoclaw-text">Workspace & Skills</span>
+                   <input type="checkbox" v-model="exportOptions.include_workspace" checked class="rounded border-makoclaw-border text-makoclaw-accent focus:ring-makoclaw-accent">
+                   <span class="text-sm text-makoclaw-text">Workspace & Skills</span>
                  </label>
                  <label class="flex items-center space-x-3">
-                   <input type="checkbox" v-model="exportOptions.include_config" class="rounded border-kakoclaw-border text-kakoclaw-accent focus:ring-kakoclaw-accent">
-                   <span class="text-sm text-kakoclaw-text">Configuration (config.json)</span>
+                   <input type="checkbox" v-model="exportOptions.include_config" class="rounded border-makoclaw-border text-makoclaw-accent focus:ring-makoclaw-accent">
+                   <span class="text-sm text-makoclaw-text">Configuration (config.json)</span>
                  </label>
                  <label class="flex items-center space-x-3">
-                   <input type="checkbox" v-model="exportOptions.include_env" class="rounded border-kakoclaw-border text-kakoclaw-accent focus:ring-kakoclaw-accent">
-                   <span class="text-sm text-kakoclaw-text">Environment Variables (.env)</span>
+                   <input type="checkbox" v-model="exportOptions.include_env" class="rounded border-makoclaw-border text-makoclaw-accent focus:ring-makoclaw-accent">
+                   <span class="text-sm text-makoclaw-text">Environment Variables (.env)</span>
                  </label>
                  <p v-if="exportOptions.include_env" class="text-xs text-orange-400 mt-2 flex items-center">
                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -291,7 +300,7 @@
                 <button
                   @click="exportBackup"
                   :disabled="exporting || (!exportOptions.include_database && !exportOptions.include_workspace && !exportOptions.include_config && !exportOptions.include_env)"
-                  class="w-full bg-kakoclaw-accent text-white py-3 rounded-xl font-bold hover:bg-kakoclaw-accent-hover transition-all shadow-lg shadow-kakoclaw-accent/20 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+                  class="w-full bg-makoclaw-accent text-white py-3 rounded-xl font-bold hover:bg-makoclaw-accent-hover transition-all shadow-lg shadow-makoclaw-accent/20 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
                 >
                   <svg v-if="exporting" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -300,46 +309,46 @@
                   <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
-                  {{ exporting ? 'Creating Backup...' : 'Download Backup (.kakoclaw)' }}
+                  {{ exporting ? 'Creating Backup...' : 'Download Backup (.makoclaw)' }}
                 </button>
              </div>
 
               <!-- Import Section -->
               <div class="space-y-4">
-                <h4 class="font-bold text-kakoclaw-text flex items-center text-sm">
+                <h4 class="font-bold text-makoclaw-text flex items-center text-sm">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                   </svg>
                   Import Backup
                 </h4>
 
-               <div class="border-2 border-dashed border-kakoclaw-border rounded-xl p-8 transition-colors hover:border-kakoclaw-accent/50">
-                 <input type="file" @change="handleFileSelect" accept=".kakoclaw" class="hidden" ref="fileInput">
+               <div class="border-2 border-dashed border-makoclaw-border rounded-xl p-8 transition-colors hover:border-makoclaw-accent/50">
+                 <input type="file" @change="handleFileSelect" accept=".makoclaw" class="hidden" ref="fileInput">
                  <button
                    @click="$refs.fileInput.click()"
                    :disabled="importing"
-                   class="w-full flex flex-col items-center justify-center space-y-2 text-kakoclaw-text-secondary hover:text-kakoclaw-text transition-colors disabled:opacity-50"
+                   class="w-full flex flex-col items-center justify-center space-y-2 text-makoclaw-text-secondary hover:text-makoclaw-text transition-colors disabled:opacity-50"
                  >
                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                    </svg>
-                   <span class="font-medium">Select .kakoclaw File</span>
+                   <span class="font-medium">Select .makoclaw File</span>
                    <span class="text-xs">or drag and drop here</span>
                  </button>
 
                  <!-- File Preview -->
                  <div v-if="selectedFile" class="mt-6 space-y-4">
-                   <div class="flex items-center justify-between p-3 bg-kakoclaw-bg rounded-lg">
+                   <div class="flex items-center justify-between p-3 bg-makoclaw-bg rounded-lg">
                      <div class="flex items-center space-x-3">
-                       <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-kakoclaw-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                       <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-makoclaw-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                        </svg>
                        <div>
-                         <p class="font-medium text-sm text-kakoclaw-text">{{ selectedFile.name }}</p>
-                         <p class="text-xs text-kakoclaw-text-secondary">{{ formatBytes(selectedFile.size) }}</p>
+                         <p class="font-medium text-sm text-makoclaw-text">{{ selectedFile.name }}</p>
+                         <p class="text-xs text-makoclaw-text-secondary">{{ formatBytes(selectedFile.size) }}</p>
                        </div>
                      </div>
-                     <button @click="clearSelectedFile" class="text-kakoclaw-text-secondary hover:text-red-400 transition-colors">
+                     <button @click="clearSelectedFile" class="text-makoclaw-text-secondary hover:text-red-400 transition-colors">
                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                        </svg>
@@ -347,13 +356,13 @@
                    </div>
 
                    <!-- Import Options -->
-                   <div v-if="validationResult" class="space-y-3 p-4 bg-kakoclaw-bg/50 rounded-lg">
-                     <p class="text-sm font-medium text-kakoclaw-text mb-2">Backup Information:</p>
+                   <div v-if="validationResult" class="space-y-3 p-4 bg-makoclaw-bg/50 rounded-lg">
+                     <p class="text-sm font-medium text-makoclaw-text mb-2">Backup Information:</p>
                      <div class="grid grid-cols-2 gap-2 text-xs">
-                       <div><span class="text-kakoclaw-text-secondary">Version:</span> <span class="text-kakoclaw-text">{{ validationResult.version }}</span></div>
-                       <div><span class="text-kakoclaw-text-secondary">Files:</span> <span class="text-kakoclaw-text">{{ validationResult.total_files }}</span></div>
-                       <div><span class="text-kakoclaw-text-secondary">Size:</span> <span class="text-kakoclaw-text">{{ formatBytes(validationResult.data_size_bytes) }}</span></div>
-                       <div><span class="text-kakoclaw-text-secondary">Created:</span> <span class="text-kakoclaw-text">{{ formatDate(validationResult.created_at) }}</span></div>
+                       <div><span class="text-makoclaw-text-secondary">Version:</span> <span class="text-makoclaw-text">{{ validationResult.version }}</span></div>
+                       <div><span class="text-makoclaw-text-secondary">Files:</span> <span class="text-makoclaw-text">{{ validationResult.total_files }}</span></div>
+                       <div><span class="text-makoclaw-text-secondary">Size:</span> <span class="text-makoclaw-text">{{ formatBytes(validationResult.data_size_bytes) }}</span></div>
+                       <div><span class="text-makoclaw-text-secondary">Created:</span> <span class="text-makoclaw-text">{{ formatDate(validationResult.created_at) }}</span></div>
                      </div>
 
                      <div v-if="!validationResult.has_any_content" class="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
@@ -365,22 +374,22 @@
                        </p>
                      </div>
 
-                     <div v-else class="space-y-2 pt-2 border-t border-kakoclaw-border">
+                     <div v-else class="space-y-2 pt-2 border-t border-makoclaw-border">
                        <label class="flex items-center space-x-2">
-                         <input type="checkbox" v-model="importOptions.replace_database" class="rounded border-kakoclaw-border text-kakoclaw-accent focus:ring-kakoclaw-accent" :disabled="!validationResult.includes_database">
-                         <span class="text-sm text-kakoclaw-text" :class="{'opacity-50': !validationResult.includes_database}">Replace Database & Sessions ({{ validationResult.database_file_count }} files)</span>
+                         <input type="checkbox" v-model="importOptions.replace_database" class="rounded border-makoclaw-border text-makoclaw-accent focus:ring-makoclaw-accent" :disabled="!validationResult.includes_database">
+                         <span class="text-sm text-makoclaw-text" :class="{'opacity-50': !validationResult.includes_database}">Replace Database & Sessions ({{ validationResult.database_file_count }} files)</span>
                        </label>
                        <label class="flex items-center space-x-2">
-                         <input type="checkbox" v-model="importOptions.replace_workspace" class="rounded border-kakoclaw-border text-kakoclaw-accent focus:ring-kakoclaw-accent" :disabled="!validationResult.includes_workspace">
-                         <span class="text-sm text-kakoclaw-text" :class="{'opacity-50': !validationResult.includes_workspace}">Replace Workspace & Skills ({{ validationResult.workspace_file_count }} files)</span>
+                         <input type="checkbox" v-model="importOptions.replace_workspace" class="rounded border-makoclaw-border text-makoclaw-accent focus:ring-makoclaw-accent" :disabled="!validationResult.includes_workspace">
+                         <span class="text-sm text-makoclaw-text" :class="{'opacity-50': !validationResult.includes_workspace}">Replace Workspace & Skills ({{ validationResult.workspace_file_count }} files)</span>
                        </label>
                        <label class="flex items-center space-x-2">
-                         <input type="checkbox" v-model="importOptions.replace_config" class="rounded border-kakoclaw-border text-kakoclaw-accent focus:ring-kakoclaw-accent" :disabled="!validationResult.includes_config">
-                         <span class="text-sm text-kakoclaw-text" :class="{'opacity-50': !validationResult.includes_config}">Replace Configuration ({{ validationResult.config_file_count }} files)</span>
+                         <input type="checkbox" v-model="importOptions.replace_config" class="rounded border-makoclaw-border text-makoclaw-accent focus:ring-makoclaw-accent" :disabled="!validationResult.includes_config">
+                         <span class="text-sm text-makoclaw-text" :class="{'opacity-50': !validationResult.includes_config}">Replace Configuration ({{ validationResult.config_file_count }} files)</span>
                        </label>
                        <label class="flex items-center space-x-2">
-                         <input type="checkbox" v-model="importOptions.replace_env" class="rounded border-kakoclaw-border text-kakoclaw-accent focus:ring-kakoclaw-accent" :disabled="!validationResult.includes_env">
-                         <span class="text-sm text-kakoclaw-text" :class="{'opacity-50': !validationResult.includes_env}">Replace Environment Variables ({{ validationResult.env_file_count }} files)</span>
+                         <input type="checkbox" v-model="importOptions.replace_env" class="rounded border-makoclaw-border text-makoclaw-accent focus:ring-makoclaw-accent" :disabled="!validationResult.includes_env">
+                         <span class="text-sm text-makoclaw-text" :class="{'opacity-50': !validationResult.includes_env}">Replace Environment Variables ({{ validationResult.env_file_count }} files)</span>
                        </label>
                      </div>
 
@@ -416,13 +425,13 @@
 
     <!-- Channel Config Modal -->
     <div v-if="showChannelModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div class="bg-kakoclaw-surface rounded-2xl shadow-2xl w-full max-w-md border border-kakoclaw-border overflow-hidden animate-in fade-in zoom-in duration-200">
-        <div class="flex justify-between items-center p-6 border-b border-kakoclaw-border bg-kakoclaw-bg/20">
-          <h3 class="text-lg font-bold text-kakoclaw-text flex items-center">
-            <span class="w-7 h-7 mr-3 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg flex items-center justify-center text-kakoclaw-text-secondary scale-90" v-html="selectedChannel?.icon"></span>
+      <div class="bg-makoclaw-surface rounded-2xl shadow-2xl w-full max-w-md border border-makoclaw-border overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div class="flex justify-between items-center p-6 border-b border-makoclaw-border bg-makoclaw-bg/20">
+          <h3 class="text-lg font-bold text-makoclaw-text flex items-center">
+            <span class="w-7 h-7 mr-3 bg-makoclaw-bg border border-makoclaw-border rounded-lg flex items-center justify-center text-makoclaw-text-secondary scale-90" v-html="selectedChannel?.icon"></span>
             Configure {{ selectedChannel?.name }}
           </h3>
-          <button @click="showChannelModal = false" class="text-kakoclaw-text-secondary hover:text-kakoclaw-text flex items-center justify-center w-8 h-8 rounded-full hover:bg-kakoclaw-bg transition-colors">
+          <button @click="showChannelModal = false" class="text-makoclaw-text-secondary hover:text-makoclaw-text flex items-center justify-center w-8 h-8 rounded-full hover:bg-makoclaw-bg transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -432,48 +441,48 @@
         <div class="p-6 space-y-5">
           <div v-if="selectedChannel?.id === 'telegram'" class="space-y-4">
              <div>
-                <label class="block text-xs font-bold text-kakoclaw-text-secondary mb-1.5 uppercase">Bot Token</label>
-                <input v-model="channelForm.token" type="password" placeholder="123456:ABC..." class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-xl text-sm outline-none focus:ring-2 focus:ring-kakoclaw-accent/20 focus:border-kakoclaw-accent text-kakoclaw-text">
+                <label class="block text-xs font-bold text-makoclaw-text-secondary mb-1.5 uppercase">Bot Token</label>
+                <input v-model="channelForm.token" type="password" placeholder="123456:ABC..." class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-xl text-sm outline-none focus:ring-2 focus:ring-makoclaw-accent/20 focus:border-makoclaw-accent text-makoclaw-text">
              </div>
              <div>
-                <label class="block text-xs font-bold text-kakoclaw-text-secondary mb-1.5 uppercase">Allowed Usernames/IDs</label>
-                <input v-model="channelForm.allow_from" type="text" placeholder="user1,1234567" class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-xl text-sm outline-none focus:ring-2 focus:ring-kakoclaw-accent/20 focus:border-kakoclaw-accent text-kakoclaw-text">
-                <p class="text-[10px] text-kakoclaw-text-secondary mt-1.5 ml-1">Comma separated list of users who can use the bot.</p>
+                <label class="block text-xs font-bold text-makoclaw-text-secondary mb-1.5 uppercase">Allowed Usernames/IDs</label>
+                <input v-model="channelForm.allow_from" type="text" placeholder="user1,1234567" class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-xl text-sm outline-none focus:ring-2 focus:ring-makoclaw-accent/20 focus:border-makoclaw-accent text-makoclaw-text">
+                <p class="text-[10px] text-makoclaw-text-secondary mt-1.5 ml-1">Comma separated list of users who can use the bot.</p>
              </div>
           </div>
 
           <div v-else-if="selectedChannel?.id === 'discord'" class="space-y-4">
              <div>
-                <label class="block text-xs font-bold text-kakoclaw-text-secondary mb-1.5 uppercase">Bot Token</label>
-                <input v-model="channelForm.token" type="password" placeholder="MTIz..." class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-xl text-sm outline-none focus:ring-2 focus:ring-kakoclaw-accent/20 focus:border-kakoclaw-accent text-kakoclaw-text">
+                <label class="block text-xs font-bold text-makoclaw-text-secondary mb-1.5 uppercase">Bot Token</label>
+                <input v-model="channelForm.token" type="password" placeholder="MTIz..." class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-xl text-sm outline-none focus:ring-2 focus:ring-makoclaw-accent/20 focus:border-makoclaw-accent text-makoclaw-text">
              </div>
              <div>
-                <label class="block text-xs font-bold text-kakoclaw-text-secondary mb-1.5 uppercase">Allowed Server/Channel IDs</label>
-                <input v-model="channelForm.allow_from" type="text" class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-xl text-sm outline-none focus:ring-2 focus:ring-kakoclaw-accent/20 focus:border-kakoclaw-accent text-kakoclaw-text">
+                <label class="block text-xs font-bold text-makoclaw-text-secondary mb-1.5 uppercase">Allowed Server/Channel IDs</label>
+                <input v-model="channelForm.allow_from" type="text" class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-xl text-sm outline-none focus:ring-2 focus:ring-makoclaw-accent/20 focus:border-makoclaw-accent text-makoclaw-text">
              </div>
           </div>
 
           <div v-else-if="selectedChannel?.id === 'slack'" class="space-y-4">
              <div>
-                <label class="block text-xs font-bold text-kakoclaw-text-secondary mb-1.5 uppercase">Bot Token (xoxb-...)</label>
-                <input v-model="channelForm.bot_token" type="password" placeholder="xoxb-..." class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-xl text-sm outline-none focus:ring-2 focus:ring-kakoclaw-accent/20 focus:border-kakoclaw-accent text-kakoclaw-text">
+                <label class="block text-xs font-bold text-makoclaw-text-secondary mb-1.5 uppercase">Bot Token (xoxb-...)</label>
+                <input v-model="channelForm.bot_token" type="password" placeholder="xoxb-..." class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-xl text-sm outline-none focus:ring-2 focus:ring-makoclaw-accent/20 focus:border-makoclaw-accent text-makoclaw-text">
              </div>
           </div>
 
           <div v-else class="py-10 text-center">
-             <div class="w-12 h-12 rounded-full bg-kakoclaw-bg border border-kakoclaw-border flex items-center justify-center mx-auto mb-3 opacity-50">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-kakoclaw-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+             <div class="w-12 h-12 rounded-full bg-makoclaw-bg border border-makoclaw-border flex items-center justify-center mx-auto mb-3 opacity-50">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-makoclaw-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
                 </svg>
              </div>
-             <p class="text-sm text-kakoclaw-text-secondary font-medium">Advanced settings needed</p>
-             <p class="text-xs text-kakoclaw-text-secondary mt-1">Please edit config.json directly for this channel.</p>
+             <p class="text-sm text-makoclaw-text-secondary font-medium">Advanced settings needed</p>
+             <p class="text-xs text-makoclaw-text-secondary mt-1">Please edit config.json directly for this channel.</p>
           </div>
         </div>
 
-        <div class="flex justify-end space-x-3 p-6 border-t border-kakoclaw-border bg-kakoclaw-bg/20">
-          <button @click="showChannelModal = false" class="px-4 py-2 text-sm font-medium text-kakoclaw-text-secondary hover:text-kakoclaw-text transition-colors">Cancel</button>
-          <button @click="saveChannelConfig" :disabled="saving" class="px-6 py-2 text-sm font-bold bg-kakoclaw-accent text-white rounded-xl shadow-lg shadow-kakoclaw-accent/20 hover:bg-kakoclaw-accent-hover transition-all flex items-center disabled:opacity-50">
+        <div class="flex justify-end space-x-3 p-6 border-t border-makoclaw-border bg-makoclaw-bg/20">
+          <button @click="showChannelModal = false" class="px-4 py-2 text-sm font-medium text-makoclaw-text-secondary hover:text-makoclaw-text transition-colors">Cancel</button>
+          <button @click="saveChannelConfig" :disabled="saving" class="px-6 py-2 text-sm font-bold bg-makoclaw-accent text-white rounded-xl shadow-lg shadow-makoclaw-accent/20 hover:bg-makoclaw-accent-hover transition-all flex items-center disabled:opacity-50">
             <span v-if="saving" class="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin mr-2"></span>
             Apply & Restart
           </button>
@@ -483,30 +492,30 @@
 
     <!-- User Edit/Create Modal -->
     <div v-if="showUserModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div class="bg-kakoclaw-surface rounded-2xl shadow-2xl w-full max-w-sm border border-kakoclaw-border overflow-hidden animate-in fade-in zoom-in duration-200">
-        <div class="flex justify-between items-center p-5 border-b border-kakoclaw-border bg-kakoclaw-bg/20">
-          <h3 class="text-md font-bold text-kakoclaw-text">{{ userForm.id ? 'Edit User' : 'Create User' }}</h3>
-          <button @click="showUserModal = false" class="text-kakoclaw-text-secondary hover:text-kakoclaw-text">
+      <div class="bg-makoclaw-surface rounded-2xl shadow-2xl w-full max-w-sm border border-makoclaw-border overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div class="flex justify-between items-center p-5 border-b border-makoclaw-border bg-makoclaw-bg/20">
+          <h3 class="text-md font-bold text-makoclaw-text">{{ userForm.id ? 'Edit User' : 'Create User' }}</h3>
+          <button @click="showUserModal = false" class="text-makoclaw-text-secondary hover:text-makoclaw-text">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
         <div class="p-5 space-y-4">
           <div>
-            <label class="block text-xs font-bold text-kakoclaw-text-secondary mb-1 uppercase">Username</label>
-            <input v-model="userForm.username" type="text" :disabled="!!userForm.id" class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm outline-none focus:ring-1 focus:ring-kakoclaw-accent disabled:opacity-50 text-kakoclaw-text">
+            <label class="block text-xs font-bold text-makoclaw-text-secondary mb-1 uppercase">Username</label>
+            <input v-model="userForm.username" type="text" :disabled="!!userForm.id" class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:ring-1 focus:ring-makoclaw-accent disabled:opacity-50 text-makoclaw-text">
           </div>
           <div>
-            <label class="block text-xs font-bold text-kakoclaw-text-secondary mb-1 uppercase">{{ userForm.id ? 'New Password (Optional)' : 'Password' }}</label>
+            <label class="block text-xs font-bold text-makoclaw-text-secondary mb-1 uppercase">{{ userForm.id ? 'New Password (Optional)' : 'Password' }}</label>
             <div class="relative">
               <input 
                 v-model="userForm.password" 
                 :type="showPassword ? 'text' : 'password'" 
-                class="w-full px-3 py-2 pr-10 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm outline-none focus:ring-1 focus:ring-kakoclaw-accent text-kakoclaw-text"
+                class="w-full px-3 py-2 pr-10 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:ring-1 focus:ring-makoclaw-accent text-makoclaw-text"
               >
               <button 
                 type="button" 
                 @click="showPassword = !showPassword" 
-                class="absolute right-2 top-1/2 -translate-y-1/2 text-kakoclaw-text-secondary hover:text-kakoclaw-text transition-colors"
+                class="absolute right-2 top-1/2 -translate-y-1/2 text-makoclaw-text-secondary hover:text-makoclaw-text transition-colors"
                 tabindex="-1"
               >
                 <svg v-if="!showPassword" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -520,16 +529,16 @@
             </div>
           </div>
           <div>
-            <label class="block text-xs font-bold text-kakoclaw-text-secondary mb-1 uppercase">Role</label>
-            <select v-model="userForm.role" class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm outline-none focus:ring-1 focus:ring-kakoclaw-accent text-kakoclaw-text">
+            <label class="block text-xs font-bold text-makoclaw-text-secondary mb-1 uppercase">Role</label>
+            <select v-model="userForm.role" class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:ring-1 focus:ring-makoclaw-accent text-makoclaw-text">
               <option value="user">User</option>
               <option value="admin">Admin</option>
             </select>
           </div>
         </div>
-        <div class="flex justify-end space-x-2 p-5 border-t border-kakoclaw-border bg-kakoclaw-bg/20">
-          <button @click="showUserModal = false" class="px-4 py-2 text-sm font-medium text-kakoclaw-text-secondary hover:text-kakoclaw-text">Cancel</button>
-          <button @click="saveUser" :disabled="savingUser" class="px-4 py-2 text-sm font-bold bg-kakoclaw-accent text-white rounded-lg hover:bg-kakoclaw-accent-hover flex items-center disabled:opacity-50">
+        <div class="flex justify-end space-x-2 p-5 border-t border-makoclaw-border bg-makoclaw-bg/20">
+          <button @click="showUserModal = false" class="px-4 py-2 text-sm font-medium text-makoclaw-text-secondary hover:text-makoclaw-text">Cancel</button>
+          <button @click="saveUser" :disabled="savingUser" class="px-4 py-2 text-sm font-bold bg-makoclaw-accent text-white rounded-lg hover:bg-makoclaw-accent-hover flex items-center disabled:opacity-50">
             <span v-if="savingUser" class="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin mr-2"></span>
             Save
           </button>
@@ -539,29 +548,29 @@
 
     <!-- Block User Modal -->
     <div v-if="showBlockModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div class="bg-kakoclaw-surface rounded-2xl shadow-2xl w-full max-w-md border border-kakoclaw-border overflow-hidden animate-in fade-in zoom-in duration-200">
-        <div class="flex justify-between items-center p-5 border-b border-kakoclaw-border bg-red-500/10">
+      <div class="bg-makoclaw-surface rounded-2xl shadow-2xl w-full max-w-md border border-makoclaw-border overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div class="flex justify-between items-center p-5 border-b border-makoclaw-border bg-red-500/10">
           <h3 class="text-md font-bold text-red-400">🚫 Bloquear Usuario</h3>
-          <button @click="showBlockModal = false" class="text-kakoclaw-text-secondary hover:text-kakoclaw-text">
+          <button @click="showBlockModal = false" class="text-makoclaw-text-secondary hover:text-makoclaw-text">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
         <div class="p-5 space-y-4">
-          <p class="text-sm text-kakoclaw-text">¿Está seguro de que desea bloquear a <strong>{{ blockForm.user?.username }}</strong>?</p>
-          <p class="text-xs text-kakoclaw-text-secondary">El usuario no podrá iniciar sesión ni usar canales (Telegram, Discord, etc.) hasta ser desbloqueado.</p>
+          <p class="text-sm text-makoclaw-text">¿Está seguro de que desea bloquear a <strong>{{ blockForm.user?.username }}</strong>?</p>
+          <p class="text-xs text-makoclaw-text-secondary">El usuario no podrá iniciar sesión ni usar canales (Telegram, Discord, etc.) hasta ser desbloqueado.</p>
           <div>
-            <label class="block text-xs font-bold text-kakoclaw-text-secondary mb-1 uppercase">Motivo del bloqueo *</label>
+            <label class="block text-xs font-bold text-makoclaw-text-secondary mb-1 uppercase">Motivo del bloqueo *</label>
             <textarea 
               v-model="blockForm.reason" 
               rows="3" 
               placeholder="Ej: Spam, comportamiento inapropiado, violación de términos..."
-              class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm outline-none focus:ring-1 focus:ring-red-400 text-kakoclaw-text resize-none"
+              class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:ring-1 focus:ring-red-400 text-makoclaw-text resize-none"
             ></textarea>
-            <p class="text-xs text-kakoclaw-text-secondary mt-1">Mínimo 10 caracteres. El usuario verá este motivo.</p>
+            <p class="text-xs text-makoclaw-text-secondary mt-1">Mínimo 10 caracteres. El usuario verá este motivo.</p>
           </div>
         </div>
-        <div class="flex justify-end space-x-2 p-5 border-t border-kakoclaw-border bg-kakoclaw-bg/20">
-          <button @click="showBlockModal = false" class="px-4 py-2 text-sm font-medium text-kakoclaw-text-secondary hover:text-kakoclaw-text">Cancelar</button>
+        <div class="flex justify-end space-x-2 p-5 border-t border-makoclaw-border bg-makoclaw-bg/20">
+          <button @click="showBlockModal = false" class="px-4 py-2 text-sm font-medium text-makoclaw-text-secondary hover:text-makoclaw-text">Cancelar</button>
           <button @click="blockUser" :disabled="savingUser || blockForm.reason.trim().length < 10" class="px-4 py-2 text-sm font-bold bg-red-500 text-white rounded-lg hover:bg-red-600 flex items-center disabled:opacity-50">
             <span v-if="savingUser" class="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin mr-2"></span>
             Bloquear
@@ -572,23 +581,23 @@
 
     <!-- Unblock User Modal -->
     <div v-if="showUnblockModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div class="bg-kakoclaw-surface rounded-2xl shadow-2xl w-full max-w-md border border-kakoclaw-border overflow-hidden animate-in fade-in zoom-in duration-200">
-        <div class="flex justify-between items-center p-5 border-b border-kakoclaw-border bg-green-500/10">
+      <div class="bg-makoclaw-surface rounded-2xl shadow-2xl w-full max-w-md border border-makoclaw-border overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div class="flex justify-between items-center p-5 border-b border-makoclaw-border bg-green-500/10">
           <h3 class="text-md font-bold text-green-400">🔓 Desbloquear Usuario</h3>
-          <button @click="showUnblockModal = false" class="text-kakoclaw-text-secondary hover:text-kakoclaw-text">
+          <button @click="showUnblockModal = false" class="text-makoclaw-text-secondary hover:text-makoclaw-text">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
         <div class="p-5 space-y-4">
-          <p class="text-sm text-kakoclaw-text">¿Está seguro de que desea desbloquear a <strong>{{ unblockForm.user?.username }}</strong>?</p>
-          <div v-if="unblockForm.user?.blocked_reason" class="p-3 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg">
-            <p class="text-xs font-bold text-kakoclaw-text-secondary mb-1">MOTIVO ORIGINAL:</p>
-            <p class="text-sm text-kakoclaw-text">{{ unblockForm.user.blocked_reason }}</p>
+          <p class="text-sm text-makoclaw-text">¿Está seguro de que desea desbloquear a <strong>{{ unblockForm.user?.username }}</strong>?</p>
+          <div v-if="unblockForm.user?.blocked_reason" class="p-3 bg-makoclaw-bg border border-makoclaw-border rounded-lg">
+            <p class="text-xs font-bold text-makoclaw-text-secondary mb-1">MOTIVO ORIGINAL:</p>
+            <p class="text-sm text-makoclaw-text">{{ unblockForm.user.blocked_reason }}</p>
           </div>
-          <p class="text-xs text-kakoclaw-text-secondary">El usuario recuperará acceso completo al sistema.</p>
+          <p class="text-xs text-makoclaw-text-secondary">El usuario recuperará acceso completo al sistema.</p>
         </div>
-        <div class="flex justify-end space-x-2 p-5 border-t border-kakoclaw-border bg-kakoclaw-bg/20">
-          <button @click="showUnblockModal = false" class="px-4 py-2 text-sm font-medium text-kakoclaw-text-secondary hover:text-kakoclaw-text">Cancelar</button>
+        <div class="flex justify-end space-x-2 p-5 border-t border-makoclaw-border bg-makoclaw-bg/20">
+          <button @click="showUnblockModal = false" class="px-4 py-2 text-sm font-medium text-makoclaw-text-secondary hover:text-makoclaw-text">Cancelar</button>
           <button @click="unblockUser" :disabled="savingUser" class="px-4 py-2 text-sm font-bold bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center disabled:opacity-50">
             <span v-if="savingUser" class="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin mr-2"></span>
             Desbloquear
@@ -619,6 +628,10 @@ const saving = ref(false)
 const configData = ref(null)
 const providersList = ref([])
 const activeTab = ref('profile')
+
+// Email password tracking
+const emailPasswordModified = ref(false)
+const emailPasswordInput = ref('')
 
 const tabs = [
   { key: 'profile', label: 'Profile' },
@@ -727,7 +740,7 @@ const exportBackup = async () => {
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `kakoclaw-${new Date().toISOString().split('T')[0]}.kakoclaw`
+    a.download = `makoclaw-${new Date().toISOString().split('T')[0]}.makoclaw`
     document.body.appendChild(a)
     a.click()
     window.URL.revokeObjectURL(url)
@@ -746,8 +759,8 @@ const handleFileSelect = async (event) => {
   const file = event.target.files[0]
   if (!file) return
 
-  if (!file.name.endsWith('.kakoclaw')) {
-    toast.error('Please select a .kakoclaw file')
+  if (!file.name.endsWith('.makoclaw')) {
+    toast.error('Please select a .makoclaw file')
     return
   }
 
@@ -862,6 +875,9 @@ const loadData = async () => {
     if (results[2]) {
       usersList.value = results[2]
     }
+    // Reset email password tracking after loading data
+    emailPasswordModified.value = false
+    emailPasswordInput.value = ''
   } catch (err) {
     console.error(err)
     toast.error('Failed to load configuration')
@@ -873,21 +889,48 @@ const loadData = async () => {
 const saveConfig = async (payload) => {
   saving.value = true
   try {
-    // Determine which endpoint to use:
-    // - System settings (web, gateway, storage) → global config (admin only)
-    // - User settings (agents, providers, channels, tools) → user config
-    const isSystemConfig = payload.web || payload.gateway || payload.storage
-    const isAdminSystemUpdate = isSystemConfig && authStore.user?.role === 'admin'
-    
-    if (isAdminSystemUpdate) {
-      // Admin updating global system config
-      await advancedService.updateConfig(payload)
-    } else {
-      // User updating personal config (agents, providers, channels, tools)
-      await advancedService.updateUserConfig(payload)
+    // Handle email password specially
+    let processedPayload = JSON.parse(JSON.stringify(payload))
+
+    // If saving tools.email configuration
+    if (processedPayload.tools?.email && emailPasswordModified.value) {
+      // Password was modified, include the new value
+      processedPayload.tools.email.password = emailPasswordInput.value
+    } else if (processedPayload.tools?.email && !emailPasswordModified.value) {
+      // Password not modified, keep the has_password indicator (backend will preserve)
+      // The password field already has {has_password: true/false} from configData
     }
-    
+
+    // Separate truly global system settings from user-specific settings
+    // - System settings (web, gateway, storage) → global config (admin only)
+    // - User settings (agents, providers, channels, tools) → user config (always)
+    const hasSystemSettings = processedPayload.web || processedPayload.gateway || processedPayload.storage
+    const hasUserSettings = processedPayload.tools || processedPayload.channels || processedPayload.agents || processedPayload.providers
+
+    // Admin can update global system settings
+    if (hasSystemSettings && authStore.user?.role === 'admin') {
+      // Extract only system settings for global update
+      const systemPayload = {}
+      if (processedPayload.web) systemPayload.web = processedPayload.web
+      if (processedPayload.gateway) systemPayload.gateway = processedPayload.gateway
+      if (processedPayload.storage) systemPayload.storage = processedPayload.storage
+      await advancedService.updateConfig(systemPayload)
+    }
+
+    // User-specific settings ALWAYS go to user config endpoint
+    if (hasUserSettings) {
+      const userPayload = {}
+      if (processedPayload.tools) userPayload.tools = processedPayload.tools
+      if (processedPayload.channels) userPayload.channels = processedPayload.channels
+      if (processedPayload.agents) userPayload.agents = processedPayload.agents
+      if (processedPayload.providers) userPayload.providers = processedPayload.providers
+      await advancedService.updateUserConfig(userPayload)
+    }
+
     toast.success('Configuration updated successfully')
+    // Reset password tracking after successful save
+    emailPasswordModified.value = false
+    emailPasswordInput.value = ''
     // Wait for server to restart channels/processes if needed
     setTimeout(loadData, 500)
   } catch (err) {
@@ -1062,3 +1105,5 @@ watch(
   overflow: hidden;
 }
 </style>
+
+

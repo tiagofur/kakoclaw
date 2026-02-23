@@ -1,6 +1,6 @@
 # Workflows Troubleshooting
 
-Common issues when working with KakoClaw workflows and their solutions.
+Common issues when working with MakoClaw workflows and their solutions.
 
 ---
 
@@ -101,8 +101,8 @@ Some tools require configuration in `config.json`:
 
 **4. Verify tool exists in your version**
 ```bash
-# Check KakoClaw version
-./build/kakoclaw version
+# Check MakoClaw version
+./build/makoclaw version
 
 # Update to latest
 git pull && make build
@@ -326,39 +326,39 @@ curl http://localhost:18880/api/v1/health
 # Look for errors in output
 
 # If running as daemon
-tail -f /tmp/kakoclaw.log
+tail -f /tmp/makoclaw.log
 
 # Look for workflow-related errors
-grep -i "workflow\|panic\|error" /tmp/kakoclaw.log
+grep -i "workflow\|panic\|error" /tmp/makoclaw.log
 ```
 
-**3. Restart KakoClaw**
+**3. Restart MakoClaw**
 ```bash
 # Gateway mode
-pkill kakoclaw
-./build/kakoclaw gateway
+pkill makoclaw
+./build/makoclaw gateway
 
 # Web mode
-pkill kakoclaw
-./build/kakoclaw web
+pkill makoclaw
+./build/makoclaw web
 ```
 
 **4. Check database**
 ```bash
 # SQLite database location
-ls -lh ~/.KakoClaw/KakoClaw.db
+ls -lh ~/.MakoClaw/MakoClaw.db
 
 # If corrupted, backup and recreate
-cp ~/.KakoClaw/KakoClaw.db ~/.KakoClaw/KakoClaw.db.backup
-rm ~/.KakoClaw/KakoClaw.db
-# Restart KakoClaw (auto-creates new DB)
+cp ~/.MakoClaw/MakoClaw.db ~/.MakoClaw/MakoClaw.db.backup
+rm ~/.MakoClaw/MakoClaw.db
+# Restart MakoClaw (auto-creates new DB)
 ```
 
 **5. Report bug**
 If issue persists:
 1. Capture backend logs
 2. Export problematic workflow JSON
-3. Create issue at: https://github.com/sipeed/kakoclaw/issues
+3. Create issue at: https://github.com/sipeed/makoclaw/issues
 
 ---
 
@@ -429,34 +429,34 @@ Workflows from different users interfere with each other or see each other's dat
 **Known Limitation**: Current implementation uses shared agent context (`defaultAgentLoop`).
 
 ### Status
-⚠️ **Not yet fixed.** See TODO comment in [main.go](../../cmd/kakoclaw/main.go#L849)
+⚠️ **Not yet fixed.** See TODO comment in [main.go](../../cmd/makoclaw/main.go#L849)
 
 ### Workarounds
 
 **1. Single-user deployment (recommended)**
-- Use KakoClaw in single-user mode
+- Use MakoClaw in single-user mode
 - Each user runs their own instance
 
 **2. Separate workspaces**
 ```json
 // User 1 config
 {
-  "workspace": "/home/user1/.kakoclaw/workspace"
+  "workspace": "/home/user1/.makoclaw/workspace"
 }
 
 // User 2 config
 {
-  "workspace": "/home/user2/.kakoclaw/workspace"
+  "workspace": "/home/user2/.makoclaw/workspace"
 }
 ```
 
-**3. Use different KakoClaw instances**
+**3. Use different MakoClaw instances**
 ```bash
 # User 1: Port 18880
-./kakoclaw web --port 18880 --config /home/user1/.kakoclaw/config.json
+./makoclaw web --port 18880 --config /home/user1/.makoclaw/config.json
 
 # User 2: Port 18881
-./kakoclaw web --port 18881 --config /home/user2/.kakoclaw/config.json
+./makoclaw web --port 18881 --config /home/user2/.makoclaw/config.json
 ```
 
 ### Tracking
@@ -580,7 +580,7 @@ curl http://localhost:18880/api/v1/health
 **3. Check process**
 ```bash
 # macOS/Linux
-ps aux | grep kakoclaw
+ps aux | grep makoclaw
 
 # Check if gateway or web mode is running
 ```
@@ -595,7 +595,7 @@ sudo iptables -L | grep 18880
 **5. Try different port**
 ```bash
 # Start on different port
-./kakoclaw web --port 8080
+./makoclaw web --port 8080
 
 # Access: http://localhost:8080
 ```
@@ -606,7 +606,7 @@ sudo iptables -L | grep 18880
 
 - **Documentation**: [Workflows Guide](../examples/workflows.md)
 - **API Reference**: [Workflows API](../api-reference/workflows.md)
-- **GitHub Issues**: https://github.com/sipeed/kakoclaw/issues
+- **GitHub Issues**: https://github.com/sipeed/makoclaw/issues
 - **Discord**: https://discord.gg/V4sAZ9XWpN
 
 ---

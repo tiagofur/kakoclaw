@@ -162,7 +162,7 @@ func (c *BaseChannel) SetCommandHandler(handler *CommandHandler) {
 Standalone Vue 3 component for QR code generation:
 
 ```vue
-<QRCode url="https://kakoclaw.app/onboarding?token=abc123..." />
+<QRCode url="https://makoclaw.app/onboarding?token=abc123..." />
 ```
 
 **Features**:
@@ -223,7 +223,7 @@ Adds `qrcode@^1.x` to project dependencies.
 
 2. **Bot responds with setup link + QR**
    ```
-   Bot: 🚀 Welcome to KakoClaw Setup!
+   Bot: 🚀 Welcome to MakoClaw Setup!
         Please visit this link: https://localhost:8080/onboarding?token=abc123...
         ⏱️ This link expires in 1 hour
    ```

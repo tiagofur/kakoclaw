@@ -227,7 +227,7 @@ User clicks "Next" (Step 1: ProviderForm)
 
 ### Accessing the Wizard
 ```
-1. Run: /tmp/kakoclaw-phase3 gateway
+1. Run: /tmp/makoclaw-phase3 gateway
 2. Go to: http://localhost:8080
 3. Login: admin/admin (default)
 4. Navigate to: http://localhost:8080/onboarding
@@ -262,7 +262,7 @@ User clicks "Next" (Step 1: ProviderForm)
 ```
 ✅ Frontend compiles (npm run build)
 ✅ Backend compiles (go build)
-✅ Binary created (/tmp/kakoclaw-phase3)
+✅ Binary created (/tmp/makoclaw-phase3)
 ✅ All imports resolved
 ✅ Components render correctly
 ✅ Form validation works
@@ -279,10 +279,10 @@ User clicks "Next" (Step 1: ProviderForm)
 cd pkg/web/frontend && npm run build
 
 # Build backend
-go build -o ./kakoclaw ./cmd/kakoclaw
+go build -o ./makoclaw ./cmd/makoclaw
 
 # Run gateway
-./kakoclaw gateway
+./makoclaw gateway
 
 # Check git status
 git status

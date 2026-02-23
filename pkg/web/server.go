@@ -18,19 +18,20 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/sipeed/kakoclaw/pkg/agent"
-	"github.com/sipeed/kakoclaw/pkg/channels"
-	"github.com/sipeed/kakoclaw/pkg/config"
-	"github.com/sipeed/kakoclaw/pkg/cron"
-	"github.com/sipeed/kakoclaw/pkg/logger"
-	"github.com/sipeed/kakoclaw/pkg/mcp"
-	"github.com/sipeed/kakoclaw/pkg/observability"
-	"github.com/sipeed/kakoclaw/pkg/providers"
-	"github.com/sipeed/kakoclaw/pkg/ratelimit"
-	"github.com/sipeed/kakoclaw/pkg/skills"
-	"github.com/sipeed/kakoclaw/pkg/storage"
-	"github.com/sipeed/kakoclaw/pkg/voice"
-	"github.com/sipeed/kakoclaw/pkg/workflow"
+	"github.com/sipeed/makoclaw/pkg/agent"
+	"github.com/sipeed/makoclaw/pkg/bus"
+	"github.com/sipeed/makoclaw/pkg/channels"
+	"github.com/sipeed/makoclaw/pkg/config"
+	"github.com/sipeed/makoclaw/pkg/cron"
+	"github.com/sipeed/makoclaw/pkg/logger"
+	"github.com/sipeed/makoclaw/pkg/mcp"
+	"github.com/sipeed/makoclaw/pkg/observability"
+	"github.com/sipeed/makoclaw/pkg/providers"
+	"github.com/sipeed/makoclaw/pkg/ratelimit"
+	"github.com/sipeed/makoclaw/pkg/skills"
+	"github.com/sipeed/makoclaw/pkg/storage"
+	"github.com/sipeed/makoclaw/pkg/voice"
+	"github.com/sipeed/makoclaw/pkg/workflow"
 )
 
 //go:embed dist/*
@@ -51,7 +52,9 @@ type Server struct {
 	agentManager            *agent.AgentManager
 	server                  *http.Server
 	authManager             *authManager
-	store                   *storage.Storage
+	store                   *storage.Storage            // legacy shared storage (kept for backward compat during migration)
+	centralStore            *storage.CentralStorage     // central DB: users, settings, channel mappings
+	userMgr                 *storage.UserStorageManager // per-user DB manager
 	loginLimit              *ratelimit.RateLimiter
 	tasksMu                 sync.RWMutex
 	tasksClients            map[*websocket.Conn]struct{}
@@ -67,6 +70,7 @@ type Server struct {
 	workflowEngine          *workflow.Engine
 	execMu                  sync.RWMutex
 	activeExecs             map[string]*activeExecution
+	msgBus                  *bus.MessageBus
 }
 
 type taskItem struct {
@@ -110,6 +114,16 @@ func NewServerWithWorkspace(cfg config.WebConfig, agentLoop *agent.AgentLoop, wo
 // SetStorage allows setting storage after initialization (helper for legacy calls)
 func (s *Server) SetStorage(store *storage.Storage) {
 	s.store = store
+}
+
+// SetCentralStorage sets the central database storage for user auth operations.
+func (s *Server) SetCentralStorage(cs *storage.CentralStorage) {
+	s.centralStore = cs
+}
+
+// SetUserStorageManager sets the per-user storage manager.
+func (s *Server) SetUserStorageManager(mgr *storage.UserStorageManager) {
+	s.userMgr = mgr
 }
 
 // SetCronService injects the cron service for REST exposure
@@ -158,16 +172,26 @@ func (s *Server) SetWorkflowEngine(e *workflow.Engine) {
 	s.workflowEngine = e
 }
 
+// SetBus injects the message bus for REST exposure
+func (s *Server) SetBus(b *bus.MessageBus) {
+	s.msgBus = b
+}
+
 func defaultWorkspace() string {
 	home, err := os.UserHomeDir()
 	if err != nil || home == "" {
 		return "."
 	}
-	return filepath.Join(home, ".KakoClaw", "workspace")
+	return filepath.Join(home, ".makoclaw", "workspace")
 }
 
 func (s *Server) Start(ctx context.Context) error {
-	authManager, err := newAuthManager(s.store, s.cfg.Username, s.cfg.Password, s.cfg.JWTExpiry)
+	// Use central storage for auth if available, fallback to legacy shared storage
+	authStore := s.centralStore
+	if authStore == nil {
+		logger.WarnC("web", "CentralStorage not provided, auth features may be limited")
+	}
+	authManager, err := newAuthManager(authStore, s.cfg.Username, s.cfg.Password, s.cfg.JWTExpiry)
 	if err != nil {
 		return err
 	}
@@ -175,9 +199,7 @@ func (s *Server) Start(ctx context.Context) error {
 
 	// Ensure storage is available
 	if s.store == nil {
-		// Fallback to internal storage if not provided (should be provided by main)
-		// For now, we assume it's passed or set. If not, we log warning.
-		logger.WarnC("web", "Storage not provided to web server, some features may be disabled")
+		logger.WarnC("web", "Legacy storage not provided to web server, some features may be disabled")
 	} else {
 		// Wire persistent storage into the metrics singleton so that counters survive restarts.
 		observability.Global().SetStorage(s.store)
@@ -439,16 +461,29 @@ func (s *Server) authMiddleware(next http.Handler) http.HandlerFunc {
 				})
 				return
 			}
-			// Check if user is blocked
-			user, err := s.store.GetUserByUsername(claims.Sub)
-			if err == nil && user.Blocked {
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusForbidden)
-				_ = json.NewEncoder(w).Encode(map[string]interface{}{
-					"error":   fmt.Sprintf("Usuario bloqueado. Motivo: %s. Contacte soporte.", user.BlockedReason),
-					"blocked": true,
-				})
-				return
+			// Check if user is blocked (use central store if available)
+			if s.centralStore != nil {
+				user, err := s.centralStore.GetUserByUsername(claims.Sub)
+				if err == nil && user.Blocked {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusForbidden)
+					_ = json.NewEncoder(w).Encode(map[string]interface{}{
+						"error":   fmt.Sprintf("Usuario bloqueado. Motivo: %s. Contacte soporte.", user.BlockedReason),
+						"blocked": true,
+					})
+					return
+				}
+			} else if s.store != nil {
+				user, err := s.resolveUserByUsername(claims.Sub)
+				if err == nil && user.Blocked {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusForbidden)
+					_ = json.NewEncoder(w).Encode(map[string]interface{}{
+						"error":   fmt.Sprintf("Usuario bloqueado. Motivo: %s. Contacte soporte.", user.BlockedReason),
+						"blocked": true,
+					})
+					return
+				}
 			}
 			// Attach claims to context
 			ctx := context.WithValue(r.Context(), userClaimsKey, claims)
@@ -493,19 +528,91 @@ func checkWebSocketOrigin(r *http.Request) bool {
 
 // getUserIDFromClaims extracts the user_id from the request's JWT claims.
 // Returns user_id and true if found; otherwise 0 and false.
+// NOTE: This is the legacy method. Prefer getUserStorage() for per-user isolation.
 func (s *Server) getUserIDFromClaims(r *http.Request) (int64, bool) {
 	claims, ok := r.Context().Value(userClaimsKey).(*jwtClaims)
 	if !ok || claims == nil {
 		return 0, false
 	}
+	// Try central store first
+	if s.centralStore != nil {
+		user, err := s.centralStore.GetUserByUsername(claims.Sub)
+		if err != nil {
+			return 0, false
+		}
+		return user.ID, true
+	}
+	// Fallback to legacy store
 	if s.store == nil {
 		return 0, false
 	}
-	user, err := s.store.GetUserByUsername(claims.Sub)
+	user, err := s.resolveUserByUsername(claims.Sub)
 	if err != nil {
 		return 0, false
 	}
 	return user.ID, true
+}
+
+// getUserStorage returns the per-user Storage for the authenticated user.
+// This is the preferred method for the multi-user architecture.
+// Returns the per-user storage, user UUID, and true if successful.
+func (s *Server) getUserStorage(r *http.Request) (*storage.Storage, string, bool) {
+	claims, ok := r.Context().Value(userClaimsKey).(*jwtClaims)
+	if !ok || claims == nil {
+		return nil, "", false
+	}
+
+	// If per-user storage manager is available, use it
+	if s.userMgr != nil {
+		userUUID := claims.UUID
+		if userUUID == "" {
+			// Fallback: get UUID from central store via username
+			if s.centralStore != nil {
+				user, err := s.centralStore.GetUserByUsername(claims.Sub)
+				if err != nil {
+					return nil, "", false
+				}
+				userUUID = user.UUID
+			}
+		}
+		if userUUID == "" {
+			return nil, "", false
+		}
+		store, err := s.userMgr.GetOrCreate(userUUID)
+		if err != nil {
+			return nil, "", false
+		}
+		logger.InfoCF("web", "Resolved per-user storage", map[string]interface{}{"uuid": userUUID, "path": s.userMgr.UserDBPath(userUUID)})
+		return store, userUUID, true
+	}
+
+	// Fallback: return legacy shared store
+	if s.store != nil {
+		return s.store, "", true
+	}
+	return nil, "", false
+}
+
+// resolveUserByUsername looks up a user by username, trying centralStore first, then legacy store.
+func (s *Server) resolveUserByUsername(username string) (*storage.User, error) {
+	if s.centralStore != nil {
+		return s.centralStore.GetUserByUsername(username)
+	}
+	if s.store != nil {
+		return s.store.GetUserByUsername(username)
+	}
+	return nil, storage.ErrUserNotFound
+}
+
+// resolveUserByID looks up a user by ID, trying centralStore first, then legacy store.
+func (s *Server) resolveUserByID(id int64) (*storage.User, error) {
+	if s.centralStore != nil {
+		return s.centralStore.GetUserByID(id)
+	}
+	if s.store != nil {
+		return s.store.GetUserByID(id)
+	}
+	return nil, storage.ErrUserNotFound
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
@@ -516,13 +623,9 @@ func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
-	if s.store == nil {
-		http.Error(w, "tasks store unavailable", http.StatusServiceUnavailable)
-		return
-	}
-	userID, ok := s.getUserIDFromClaims(r)
+	store, userID, ok := s.getUserStorage(r)
 	if !ok {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		http.Error(w, "unauthorized or store unavailable", http.StatusUnauthorized)
 		return
 	}
 
@@ -533,7 +636,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			includeArchived := r.URL.Query().Get("include_archived") == "true"
-			tasks, err := s.store.ListTasksForUser(userID, includeArchived)
+			tasks, err := store.ListTasksForUser(userID, includeArchived)
 			if err != nil {
 				http.Error(w, "failed to list tasks", http.StatusInternalServerError)
 				return
@@ -569,14 +672,14 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "invalid status", http.StatusBadRequest)
 				return
 			}
-			id, err := s.store.CreateTaskForUser(userID, strings.TrimSpace(in.Title), strings.TrimSpace(in.Description), status)
+			id, err := store.CreateTaskForUser(userID, strings.TrimSpace(in.Title), strings.TrimSpace(in.Description), status)
 			if err != nil {
 				http.Error(w, "failed to create task", http.StatusInternalServerError)
 				return
 			}
 
 			// Fetch the created task to get full details (like created_at)
-			created, err := s.store.GetTaskForUser(userID, id)
+			created, err := store.GetTaskForUser(userID, id)
 			if err != nil {
 				http.Error(w, "failed to get created task", http.StatusInternalServerError)
 				return
@@ -628,7 +731,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		updated, err := s.store.UpdateTaskStatusForUser(userID, id, status)
+		updated, err := store.UpdateTaskStatusForUser(userID, id, status)
 		if err != nil {
 			http.Error(w, "task not found", http.StatusNotFound)
 			return
@@ -664,12 +767,12 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if err := s.store.ArchiveTaskForUser(userID, id); err != nil {
+		if err := store.ArchiveTaskForUser(userID, id); err != nil {
 			http.Error(w, "failed to archive task", http.StatusInternalServerError)
 			return
 		}
 
-		task, err := s.store.GetTaskForUser(userID, id)
+		task, err := store.GetTaskForUser(userID, id)
 		if err == nil {
 			item := taskItem{
 				ID:          toString(task.ID),
@@ -702,12 +805,12 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if err := s.store.UnarchiveTaskForUser(userID, id); err != nil {
+		if err := store.UnarchiveTaskForUser(userID, id); err != nil {
 			http.Error(w, "failed to unarchive task", http.StatusInternalServerError)
 			return
 		}
 
-		task, err := s.store.GetTaskForUser(userID, id)
+		task, err := store.GetTaskForUser(userID, id)
 		if err == nil {
 			item := taskItem{
 				ID:          toString(task.ID),
@@ -735,7 +838,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "invalid task id for logs", http.StatusBadRequest)
 			return
 		}
-		logs, err := s.store.GetTaskLogs(logsID)
+		logs, err := store.GetTaskLogs(logsID)
 		if err != nil {
 			http.Error(w, "failed to get task logs", http.StatusInternalServerError)
 			return
@@ -777,7 +880,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		updated, err := s.store.UpdateTaskForUser(
+		updated, err := store.UpdateTaskForUser(
 			userID,
 			id,
 			strings.TrimSpace(in.Title),
@@ -804,7 +907,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(item)
 	case http.MethodDelete:
-		if err := s.store.DeleteTaskForUser(userID, id); err != nil {
+		if err := store.DeleteTaskForUser(userID, id); err != nil {
 			http.Error(w, "failed to delete task", http.StatusInternalServerError)
 			return
 		}
@@ -1288,7 +1391,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if s.authManager == nil || s.store == nil {
+	if s.authManager == nil || s.centralStore == nil {
 		http.Error(w, "service unavailable", http.StatusServiceUnavailable)
 		return
 	}
@@ -1334,8 +1437,8 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if email is blocked
-	if blocked, err := s.store.IsEmailBlocked(in.Email); err == nil && blocked {
+	// Check if email is blocked (use central store)
+	if blocked, err := s.centralStore.IsEmailBlocked(in.Email); err == nil && blocked {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusForbidden)
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -1345,8 +1448,8 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create user with "user" role (not admin)
-	user, err := s.store.CreateUserWithEmail(in.Username, in.Email, in.Password, "user")
+	// Create user with "user" role (not admin) — use central store
+	user, err := s.centralStore.CreateUserWithEmail(in.Username, in.Email, in.Password, "user")
 	if err != nil {
 		if err == storage.ErrUserExists {
 			http.Error(w, "username or email already exists", http.StatusConflict)
@@ -1356,8 +1459,31 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Initialize per-user workspace and database
+	if s.userMgr != nil && user.UUID != "" {
+		if err := s.userMgr.EnsureUserDirectory(user.UUID); err != nil {
+			logger.WarnCF("web", "Failed to create user workspace on register", map[string]interface{}{
+				"user": user.Username, "error": err.Error(),
+			})
+		}
+		if _, err := s.userMgr.GetOrCreate(user.UUID); err != nil {
+			logger.WarnCF("web", "Failed to create user database on register", map[string]interface{}{
+				"user": user.Username, "error": err.Error(),
+			})
+		}
+		// Seed a default config.json for the new user so they start with a
+		// proper isolated configuration instead of falling back to the global one.
+		if s.fullConfig != nil {
+			if err := config.SaveConfigForUser(user.UUID, s.fullConfig); err != nil {
+				logger.WarnCF("web", "Failed to seed user config.json on register", map[string]interface{}{
+					"user": user.Username, "error": err.Error(),
+				})
+			}
+		}
+	}
+
 	// Auto-login: generate token
-	token, err := s.authManager.signToken(user.Username, user.Role)
+	token, err := s.authManager.signToken(user.Username, user.UUID, user.Role)
 	if err != nil {
 		http.Error(w, "user created but login failed", http.StatusInternalServerError)
 		return
@@ -1392,8 +1518,8 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		OldPassword string `json:"old_password"`
-		NewPassword string `json:"new_password"`
+		CurrentPassword string `json:"current_password"`
+		NewPassword     string `json:"new_password"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
 		http.Error(w, "invalid json", http.StatusBadRequest)
@@ -1404,7 +1530,7 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
-	if err := s.authManager.changePassword(claims.Sub, in.OldPassword, in.NewPassword); err != nil {
+	if err := s.authManager.changePassword(claims.Sub, in.CurrentPassword, in.NewPassword); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -1413,7 +1539,7 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
-	if s.authManager == nil || s.store == nil {
+	if s.authManager == nil || (s.centralStore == nil && s.store == nil) {
 		http.Error(w, "service unavailable", http.StatusServiceUnavailable)
 		return
 	}
@@ -1425,7 +1551,13 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodGet {
-		user, err := s.store.GetUserByUsername(claims.Sub)
+		var user *storage.User
+		var err error
+		if s.centralStore != nil {
+			user, err = s.centralStore.GetUserByUsername(claims.Sub)
+		} else {
+			user, err = s.resolveUserByUsername(claims.Sub)
+		}
 		if err != nil {
 			http.Error(w, "user not found", http.StatusNotFound)
 			return
@@ -1446,36 +1578,74 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var in struct {
-			Username string `json:"username"`
-			Email    string `json:"email"`
+			Username          string `json:"username"`
+			Email             string `json:"email"`
+			FullName          string `json:"full_name"`
+			DateOfBirth       string `json:"date_of_birth"` // ISO 8601: "2000-01-31"
+			Timezone          string `json:"timezone"`
+			PreferredLanguage string `json:"preferred_language"`
+			AvatarURL         string `json:"avatar_url"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
 			http.Error(w, "invalid json", http.StatusBadRequest)
 			return
 		}
 
-		user, err := s.store.GetUserByUsername(claims.Sub)
+		// Parse optional date_of_birth
+		var dob *time.Time
+		if in.DateOfBirth != "" {
+			parsed, err := time.Parse("2006-01-02", in.DateOfBirth)
+			if err != nil {
+				http.Error(w, "invalid date_of_birth format, expected YYYY-MM-DD", http.StatusBadRequest)
+				return
+			}
+			dob = &parsed
+		}
+
+		var user *storage.User
+		var err error
+		if s.centralStore != nil {
+			user, err = s.centralStore.GetUserByUsername(claims.Sub)
+		} else {
+			user, err = s.resolveUserByUsername(claims.Sub)
+		}
 		if err != nil {
 			http.Error(w, "user not found", http.StatusNotFound)
 			return
 		}
 
-		if err := s.store.UpdateUserProfile(user.ID, in.Username, in.Email); err != nil {
-			if err == storage.ErrUserExists {
-				http.Error(w, "username already exists", http.StatusConflict)
+		if s.centralStore != nil {
+			if err := s.centralStore.UpdateUserProfile(user.ID, in.Username, in.Email, in.FullName, dob, in.Timezone, in.PreferredLanguage, in.AvatarURL); err != nil {
+				if err == storage.ErrUserExists {
+					http.Error(w, "username already exists", http.StatusConflict)
+					return
+				}
+				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+		} else {
+			if err := s.store.UpdateUserProfile(user.ID, in.Username, in.Email, in.FullName, dob, in.Timezone, in.PreferredLanguage, in.AvatarURL); err != nil {
+				if err == storage.ErrUserExists {
+					http.Error(w, "username already exists", http.StatusConflict)
+					return
+				}
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 		}
 
 		// If username changed, issue new token
 		newToken := ""
-		if in.Username != claims.Sub {
+		if in.Username != "" && in.Username != claims.Sub {
 			// Get updated user to get role
-			updatedUser, err := s.store.GetUserByID(user.ID)
+			var updatedUser *storage.User
+			if s.centralStore != nil {
+				updatedUser, err = s.centralStore.GetUserByID(user.ID)
+			} else {
+				updatedUser, err = s.store.GetUserByID(user.ID)
+			}
 			if err == nil {
-				newToken, _ = s.authManager.signToken(updatedUser.Username, updatedUser.Role)
+				newToken, _ = s.authManager.signToken(updatedUser.Username, updatedUser.UUID, updatedUser.Role)
 			}
 		}
 
@@ -1492,13 +1662,9 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleTaskSearch(w http.ResponseWriter, r *http.Request) {
-	if s.store == nil {
-		http.Error(w, "store unavailable", http.StatusServiceUnavailable)
-		return
-	}
-	userID, ok := s.getUserIDFromClaims(r)
+	store, userID, ok := s.getUserStorage(r)
 	if !ok {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		http.Error(w, "unauthorized or store unavailable", http.StatusUnauthorized)
 		return
 	}
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
@@ -1506,7 +1672,7 @@ func (s *Server) handleTaskSearch(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "query parameter 'q' is required", http.StatusBadRequest)
 		return
 	}
-	results, err := s.store.SearchTasksForUser(userID, q)
+	results, err := store.SearchTasksForUser(userID, q)
 	if err != nil {
 		http.Error(w, "search failed", http.StatusInternalServerError)
 		return
@@ -1516,13 +1682,9 @@ func (s *Server) handleTaskSearch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleChatSessions(w http.ResponseWriter, r *http.Request) {
-	if s.store == nil {
-		http.Error(w, "store unavailable", http.StatusServiceUnavailable)
-		return
-	}
-	userID, ok := s.getUserIDFromClaims(r)
+	store, userID, ok := s.getUserStorage(r)
 	if !ok {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		http.Error(w, "unauthorized or store unavailable", http.StatusUnauthorized)
 		return
 	}
 
@@ -1545,7 +1707,7 @@ func (s *Server) handleChatSessions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	sessions, err := s.store.ListSessionsForUser(userID, archivedFilter, limit, offset)
+	sessions, err := store.ListSessionsForUser(userID, archivedFilter, limit, offset)
 	if err != nil {
 		http.Error(w, "failed to list sessions", http.StatusInternalServerError)
 		return
@@ -1556,13 +1718,9 @@ func (s *Server) handleChatSessions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleChatSessionMessages(w http.ResponseWriter, r *http.Request) {
-	if s.store == nil {
-		http.Error(w, "store unavailable", http.StatusServiceUnavailable)
-		return
-	}
-	userID, ok := s.getUserIDFromClaims(r)
+	store, userID, ok := s.getUserStorage(r)
 	if !ok {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		http.Error(w, "unauthorized or store unavailable", http.StatusUnauthorized)
 		return
 	}
 
@@ -1578,7 +1736,7 @@ func (s *Server) handleChatSessionMessages(w http.ResponseWriter, r *http.Reques
 
 	switch r.Method {
 	case http.MethodGet:
-		messages, err := s.store.GetMessagesForUser(userID, id)
+		messages, err := store.GetMessagesForUser(userID, id)
 		if err != nil {
 			http.Error(w, "failed to get messages", http.StatusInternalServerError)
 			return
@@ -1587,7 +1745,7 @@ func (s *Server) handleChatSessionMessages(w http.ResponseWriter, r *http.Reques
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{"messages": messages})
 
 	case http.MethodDelete:
-		if err := s.store.DeleteSessionForUser(userID, id); err != nil {
+		if err := store.DeleteSessionForUser(userID, id); err != nil {
 			http.Error(w, "failed to delete session", http.StatusInternalServerError)
 			return
 		}
@@ -1607,7 +1765,7 @@ func (s *Server) handleChatSessionMessages(w http.ResponseWriter, r *http.Reques
 			http.Error(w, "nothing to update", http.StatusBadRequest)
 			return
 		}
-		sess, err := s.store.UpdateSessionForUser(userID, id, payload.Title, payload.Archived)
+		sess, err := store.UpdateSessionForUser(userID, id, payload.Title, payload.Archived)
 		if err != nil {
 			http.Error(w, "failed to update session", http.StatusInternalServerError)
 			return
@@ -1621,13 +1779,9 @@ func (s *Server) handleChatSessionMessages(w http.ResponseWriter, r *http.Reques
 }
 
 func (s *Server) handleChatSearch(w http.ResponseWriter, r *http.Request) {
-	if s.store == nil {
-		http.Error(w, "store unavailable", http.StatusServiceUnavailable)
-		return
-	}
-	userID, ok := s.getUserIDFromClaims(r)
+	store, userID, ok := s.getUserStorage(r)
 	if !ok {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		http.Error(w, "unauthorized or store unavailable", http.StatusUnauthorized)
 		return
 	}
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
@@ -1635,7 +1789,7 @@ func (s *Server) handleChatSearch(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "query parameter 'q' is required", http.StatusBadRequest)
 		return
 	}
-	results, err := s.store.SearchMessagesForUser(userID, q)
+	results, err := store.SearchMessagesForUser(userID, q)
 	if err != nil {
 		http.Error(w, "search failed", http.StatusInternalServerError)
 		return
@@ -1649,13 +1803,9 @@ func (s *Server) handleChatFork(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if s.store == nil {
-		http.Error(w, "store unavailable", http.StatusServiceUnavailable)
-		return
-	}
-	userID, ok := s.getUserIDFromClaims(r)
+	store, userID, ok := s.getUserStorage(r)
 	if !ok {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		http.Error(w, "unauthorized or store unavailable", http.StatusUnauthorized)
 		return
 	}
 
@@ -1675,7 +1825,7 @@ func (s *Server) handleChatFork(w http.ResponseWriter, r *http.Request) {
 
 	newSessionID := fmt.Sprintf("web:chat:fork:%d", time.Now().UnixMilli())
 
-	count, err := s.store.ForkSessionForUser(userID, payload.SessionID, newSessionID, payload.MessageID)
+	count, err := store.ForkSessionForUser(userID, payload.SessionID, newSessionID, payload.MessageID)
 	if err != nil {
 		http.Error(w, "fork failed: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -2071,7 +2221,7 @@ func (s *Server) handleLongTermMemory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user to obtain UUID
-	user, err := s.store.GetUserByID(userID)
+	user, err := s.resolveUserByID(userID)
 	if err != nil {
 		http.Error(w, "user not found", http.StatusNotFound)
 		return
@@ -2125,7 +2275,7 @@ func (s *Server) handleDailyNotes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user to obtain UUID
-	user, err := s.store.GetUserByID(userID)
+	user, err := s.resolveUserByID(userID)
 	if err != nil {
 		http.Error(w, "user not found", http.StatusNotFound)
 		return
@@ -2201,7 +2351,7 @@ func (s *Server) handleVoiceTranscribe(w http.ResponseWriter, r *http.Request) {
 	if ext == "" {
 		ext = ".webm" // Default extension for browser MediaRecorder
 	}
-	tmpFile, err := os.CreateTemp("", "KakoClaw-voice-*"+ext)
+	tmpFile, err := os.CreateTemp("", "makoclaw-voice-*"+ext)
 	if err != nil {
 		logger.ErrorCF("web", "Failed to create temp file for voice", map[string]interface{}{"error": err.Error()})
 		http.Error(w, "internal error", http.StatusInternalServerError)
@@ -2258,21 +2408,17 @@ func (s *Server) handleAgents(w http.ResponseWriter, r *http.Request) {
 	agentsList := make([]map[string]interface{}, 0)
 
 	// Primary source: load from persisted user config (survives restarts)
-	if s.store != nil {
-		if userID, ok := s.getUserIDFromClaims(r); ok {
-			if user, err := s.store.GetUserByID(userID); err == nil {
-				if userCfg, _ := config.LoadConfigForUser(user.UUID); userCfg != nil {
-					for name, spec := range userCfg.Agents.Specialists {
-						agentsList = append(agentsList, map[string]interface{}{
-							"name":        name,
-							"description": spec.Description,
-							"tools":       spec.Tools,
-							"provider":    spec.Provider,
-							"model":       spec.Model,
-							"keywords":    spec.Keywords,
-						})
-					}
-				}
+	if _, userUUID, ok := s.getUserStorage(r); ok && userUUID != "" {
+		if userCfg, _ := config.LoadConfigForUser(userUUID); userCfg != nil {
+			for name, spec := range userCfg.Agents.Specialists {
+				agentsList = append(agentsList, map[string]interface{}{
+					"name":        name,
+					"description": spec.Description,
+					"tools":       spec.Tools,
+					"provider":    spec.Provider,
+					"model":       spec.Model,
+					"keywords":    spec.Keywords,
+				})
 			}
 		}
 	}
@@ -2367,11 +2513,11 @@ func (s *Server) handleAgentSessions(w http.ResponseWriter, r *http.Request, age
 		return
 	}
 
-	if s.agentManager == nil || s.store == nil {
+	if s.agentManager == nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
 		_ = json.NewEncoder(w).Encode(map[string]string{
-			"error": "agent manager or storage not available",
+			"error": "agent manager not available",
 		})
 		return
 	}
@@ -2440,15 +2586,6 @@ func (s *Server) handleSpecialistCreate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if s.store == nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusServiceUnavailable)
-		_ = json.NewEncoder(w).Encode(map[string]string{
-			"error": "storage not available",
-		})
-		return
-	}
-
 	var specialistReq struct {
 		Name        string   `json:"name"`
 		Description string   `json:"description"`
@@ -2480,24 +2617,37 @@ func (s *Server) handleSpecialistCreate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	userID, ok := s.getUserIDFromClaims(r)
+	store, userUUID, ok := s.getUserStorage(r)
 	if !ok {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
 		return
 	}
 
-	user, err := s.store.GetUserByID(userID)
-	if err != nil {
-		http.Error(w, "user not found", http.StatusNotFound)
+	if userUUID == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "user UUID is empty - please re-login or contact support"})
 		return
 	}
 
-	userCfg, _ := config.LoadConfigForUser(user.UUID)
+	userCfg, _ := config.LoadConfigForUser(userUUID)
 	if userCfg == nil {
 		userCfg = config.DefaultConfig()
 	}
 	if userCfg.Agents.Specialists == nil {
 		userCfg.Agents.Specialists = map[string]config.SpecialistConfig{}
+	}
+
+	// If this specialist was previously removed, remove it from the removed list
+	if userCfg.Agents.RemovedSpecialists != nil {
+		for i, name := range userCfg.Agents.RemovedSpecialists {
+			if name == specialistReq.Name {
+				userCfg.Agents.RemovedSpecialists = append(userCfg.Agents.RemovedSpecialists[:i], userCfg.Agents.RemovedSpecialists[i+1:]...)
+				break
+			}
+		}
 	}
 
 	specCfg := config.SpecialistConfig{
@@ -2514,16 +2664,20 @@ func (s *Server) handleSpecialistCreate(w http.ResponseWriter, r *http.Request) 
 	}
 
 	userCfg.Agents.Specialists[specialistReq.Name] = specCfg
-	if err := config.SaveConfigForUser(user.UUID, userCfg); err != nil {
+	if err := config.SaveConfigForUser(userUUID, userCfg); err != nil {
 		logger.ErrorCF("web", "Failed to save user config for specialist", map[string]interface{}{
-			"user_uuid": user.UUID,
+			"user_uuid": userUUID,
 			"error":     err.Error(),
 		})
-		http.Error(w, "failed to save config", http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "failed to save config: " + err.Error(),
+		})
 		return
 	}
 
-	if _, err := s.agentManager.AddOrUpdateSpecialist(specialistReq.Name, &specCfg, userCfg, s.store); err != nil {
+	if _, err := s.agentManager.AddOrUpdateSpecialist(specialistReq.Name, &specCfg, userCfg, store); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
 		_ = json.NewEncoder(w).Encode(map[string]string{
@@ -2547,9 +2701,9 @@ func (s *Server) handleSpecialistCreate(w http.ResponseWriter, r *http.Request) 
 	if s.multiUserChannelManager != nil {
 		go func() {
 			ctx := context.Background()
-			if err := s.multiUserChannelManager.RestartUserChannels(ctx, user.UUID); err != nil {
+			if err := s.multiUserChannelManager.RestartUserChannels(ctx, userUUID); err != nil {
 				logger.WarnCF("web", "Failed to restart user channels after specialist create", map[string]interface{}{
-					"user_uuid": user.UUID,
+					"user_uuid": userUUID,
 					"error":     err.Error(),
 				})
 			}
@@ -2599,15 +2753,6 @@ func (s *Server) handleSpecialistUpdate(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	if s.store == nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusServiceUnavailable)
-		_ = json.NewEncoder(w).Encode(map[string]string{
-			"error": "storage not available",
-		})
-		return
-	}
-
 	var updateReq struct {
 		Description string   `json:"description"`
 		Prompt      string   `json:"prompt"`
@@ -2629,24 +2774,28 @@ func (s *Server) handleSpecialistUpdate(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	userID, ok := s.getUserIDFromClaims(r)
+	store, userUUID, ok := s.getUserStorage(r)
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	user, err := s.store.GetUserByID(userID)
-	if err != nil {
-		http.Error(w, "user not found", http.StatusNotFound)
-		return
-	}
-
-	userCfg, _ := config.LoadConfigForUser(user.UUID)
+	userCfg, _ := config.LoadConfigForUser(userUUID)
 	if userCfg == nil {
 		userCfg = config.DefaultConfig()
 	}
 	if userCfg.Agents.Specialists == nil {
 		userCfg.Agents.Specialists = map[string]config.SpecialistConfig{}
+	}
+
+	// If this specialist was previously removed, remove it from the removed list
+	if userCfg.Agents.RemovedSpecialists != nil {
+		for i, name := range userCfg.Agents.RemovedSpecialists {
+			if name == specialistName {
+				userCfg.Agents.RemovedSpecialists = append(userCfg.Agents.RemovedSpecialists[:i], userCfg.Agents.RemovedSpecialists[i+1:]...)
+				break
+			}
+		}
 	}
 
 	specCfg := config.SpecialistConfig{
@@ -2663,16 +2812,16 @@ func (s *Server) handleSpecialistUpdate(w http.ResponseWriter, r *http.Request, 
 	}
 
 	userCfg.Agents.Specialists[specialistName] = specCfg
-	if err := config.SaveConfigForUser(user.UUID, userCfg); err != nil {
+	if err := config.SaveConfigForUser(userUUID, userCfg); err != nil {
 		logger.ErrorCF("web", "Failed to save user config for specialist update", map[string]interface{}{
-			"user_uuid": user.UUID,
+			"user_uuid": userUUID,
 			"error":     err.Error(),
 		})
 		http.Error(w, "failed to save config", http.StatusInternalServerError)
 		return
 	}
 
-	if _, err := s.agentManager.AddOrUpdateSpecialist(specialistName, &specCfg, userCfg, s.store); err != nil {
+	if _, err := s.agentManager.AddOrUpdateSpecialist(specialistName, &specCfg, userCfg, store); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
 		_ = json.NewEncoder(w).Encode(map[string]string{
@@ -2691,9 +2840,9 @@ func (s *Server) handleSpecialistUpdate(w http.ResponseWriter, r *http.Request, 
 	if s.multiUserChannelManager != nil {
 		go func() {
 			ctx := context.Background()
-			if err := s.multiUserChannelManager.RestartUserChannels(ctx, user.UUID); err != nil {
+			if err := s.multiUserChannelManager.RestartUserChannels(ctx, userUUID); err != nil {
 				logger.WarnCF("web", "Failed to restart user channels after specialist update", map[string]interface{}{
-					"user_uuid": user.UUID,
+					"user_uuid": userUUID,
 					"error":     err.Error(),
 				})
 			}
@@ -2719,28 +2868,13 @@ func (s *Server) handleSpecialistDelete(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	if s.store == nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusServiceUnavailable)
-		_ = json.NewEncoder(w).Encode(map[string]string{
-			"error": "storage not available",
-		})
-		return
-	}
-
-	userID, ok := s.getUserIDFromClaims(r)
+	_, userUUID, ok := s.getUserStorage(r)
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	user, err := s.store.GetUserByID(userID)
-	if err != nil {
-		http.Error(w, "user not found", http.StatusNotFound)
-		return
-	}
-
-	userCfg, _ := config.LoadConfigForUser(user.UUID)
+	userCfg, _ := config.LoadConfigForUser(userUUID)
 	if userCfg == nil || userCfg.Agents.Specialists == nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
@@ -2760,9 +2894,16 @@ func (s *Server) handleSpecialistDelete(w http.ResponseWriter, r *http.Request, 
 	}
 
 	delete(userCfg.Agents.Specialists, specialistName)
-	if err := config.SaveConfigForUser(user.UUID, userCfg); err != nil {
+
+	// Mark as removed to prevent re-inheritance from global config
+	if userCfg.Agents.RemovedSpecialists == nil {
+		userCfg.Agents.RemovedSpecialists = []string{}
+	}
+	userCfg.Agents.RemovedSpecialists = append(userCfg.Agents.RemovedSpecialists, specialistName)
+
+	if err := config.SaveConfigForUser(userUUID, userCfg); err != nil {
 		logger.ErrorCF("web", "Failed to save user config for specialist delete", map[string]interface{}{
-			"user_uuid": user.UUID,
+			"user_uuid": userUUID,
 			"error":     err.Error(),
 		})
 		http.Error(w, "failed to save config", http.StatusInternalServerError)
@@ -2786,9 +2927,9 @@ func (s *Server) handleSpecialistDelete(w http.ResponseWriter, r *http.Request, 
 	if s.multiUserChannelManager != nil {
 		go func() {
 			ctx := context.Background()
-			if err := s.multiUserChannelManager.RestartUserChannels(ctx, user.UUID); err != nil {
+			if err := s.multiUserChannelManager.RestartUserChannels(ctx, userUUID); err != nil {
 				logger.WarnCF("web", "Failed to restart user channels after specialist delete", map[string]interface{}{
-					"user_uuid": user.UUID,
+					"user_uuid": userUUID,
 					"error":     err.Error(),
 				})
 			}
@@ -2942,6 +3083,53 @@ func (s *Server) handleOrchestratorConfig(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// 1. Get user configuration
+	store, userUUID, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	userCfg, _ := config.LoadConfigForUser(userUUID)
+	if userCfg == nil {
+		userCfg = config.DefaultConfig()
+	}
+
+	// 2. Update orchestrator section
+	userCfg.Agents.Orchestrator = config.OrchestratorConfig{
+		Enabled:              updateReq.Enabled,
+		Provider:             updateReq.Provider,
+		Model:                updateReq.Model,
+		MaxTokens:            updateReq.MaxTokens,
+		Temperature:          updateReq.Temperature,
+		MaxDelegationRetries: updateReq.MaxDelegationRetries,
+		FallbackToDefault:    updateReq.FallbackToDefault,
+		Description:          updateReq.Description,
+	}
+
+	// 3. Save user configuration
+	if err := config.SaveConfigForUser(userUUID, userCfg); err != nil {
+		logger.ErrorCF("web", "Failed to save user config for orchestrator update", map[string]interface{}{
+			"user_uuid": userUUID,
+			"error":     err.Error(),
+		})
+		http.Error(w, "failed to save config", http.StatusInternalServerError)
+		return
+	}
+
+	// 4. Update runtime state (re-initialize orchestrator)
+	// We need message bus, which is on the server if available
+	if s.agentManager != nil {
+		// Attempt to initialize orchestrator with new config
+		// Note: This might require specialists to be present if enabled=true
+		if err := s.agentManager.InitializeOrchestrator(userCfg, s.msgBus, store); err != nil {
+			logger.WarnCF("web", "Failed to runtime-initialize orchestrator", map[string]interface{}{
+				"error": err.Error(),
+			})
+			// We don't fail the request because persistence was successful
+		}
+	}
+
 	response := map[string]interface{}{
 		"success": true,
 		"orchestrator": map[string]interface{}{
@@ -2956,9 +3144,9 @@ func (s *Server) handleOrchestratorConfig(w http.ResponseWriter, r *http.Request
 		},
 	}
 
-	logger.InfoCF("web", "Updated orchestrator config", map[string]interface{}{
-		"enabled":  updateReq.Enabled,
-		"provider": updateReq.Provider,
+	logger.InfoCF("web", "Updated and persisted orchestrator config", map[string]interface{}{
+		"user_uuid": userUUID,
+		"enabled":   updateReq.Enabled,
 	})
 
 	w.Header().Set("Content-Type", "application/json")

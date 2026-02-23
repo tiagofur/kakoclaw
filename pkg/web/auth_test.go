@@ -5,19 +5,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sipeed/kakoclaw/pkg/config"
-	"github.com/sipeed/kakoclaw/pkg/storage"
+	"github.com/sipeed/makoclaw/pkg/storage"
 )
 
 func TestAuthManagerLoginVerifyAndChangePassword(t *testing.T) {
 	dir := t.TempDir()
-	store, err := storage.New(config.StorageConfig{Path: filepath.Join(dir, "test.db")})
+	cs, err := storage.NewCentral(filepath.Join(dir, "central.db"))
 	if err != nil {
-		t.Fatalf("storage.New failed: %v", err)
+		t.Fatalf("NewCentral failed: %v", err)
 	}
-	defer store.Close()
+	defer cs.Close()
 
-	mgr, err := newAuthManager(store, "admin", "InitialPass123!", "1h")
+	mgr, err := newAuthManager(cs, "admin", "InitialPass123!", "1h")
 	if err != nil {
 		t.Fatalf("newAuthManager failed: %v", err)
 	}
@@ -51,13 +50,13 @@ func TestAuthManagerLoginVerifyAndChangePassword(t *testing.T) {
 
 func TestAuthManagerTokenExpiry(t *testing.T) {
 	dir := t.TempDir()
-	store, err := storage.New(config.StorageConfig{Path: filepath.Join(dir, "test_expiry.db")})
+	cs, err := storage.NewCentral(filepath.Join(dir, "central_expiry.db"))
 	if err != nil {
-		t.Fatalf("storage.New failed: %v", err)
+		t.Fatalf("NewCentral failed: %v", err)
 	}
-	defer store.Close()
+	defer cs.Close()
 
-	mgr, err := newAuthManager(store, "admin", "InitialPass123!", "1ms")
+	mgr, err := newAuthManager(cs, "admin", "InitialPass123!", "1ms")
 	if err != nil {
 		t.Fatalf("newAuthManager failed: %v", err)
 	}
@@ -73,13 +72,13 @@ func TestAuthManagerTokenExpiry(t *testing.T) {
 
 func TestAuthManagerRequiresBootstrapPasswordWhenNoAdmins(t *testing.T) {
 	dir := t.TempDir()
-	store, err := storage.New(config.StorageConfig{Path: filepath.Join(dir, "test_bootstrap_missing_password.db")})
+	cs, err := storage.NewCentral(filepath.Join(dir, "central_bootstrap.db"))
 	if err != nil {
-		t.Fatalf("storage.New failed: %v", err)
+		t.Fatalf("NewCentral failed: %v", err)
 	}
-	defer store.Close()
+	defer cs.Close()
 
-	_, err = newAuthManager(store, "admin", "", "1h")
+	_, err = newAuthManager(cs, "admin", "", "1h")
 	if err == nil {
 		t.Fatal("expected error when no admin exists and bootstrap password is empty")
 	}
@@ -87,21 +86,21 @@ func TestAuthManagerRequiresBootstrapPasswordWhenNoAdmins(t *testing.T) {
 
 func TestAuthManagerPromotesConfiguredUserWhenNoAdmins(t *testing.T) {
 	dir := t.TempDir()
-	store, err := storage.New(config.StorageConfig{Path: filepath.Join(dir, "test_promote_configured_user.db")})
+	cs, err := storage.NewCentral(filepath.Join(dir, "central_promote.db"))
 	if err != nil {
-		t.Fatalf("storage.New failed: %v", err)
+		t.Fatalf("NewCentral failed: %v", err)
 	}
-	defer store.Close()
+	defer cs.Close()
 
-	if _, err := store.CreateUser("alice", "AlicePass123!", "user"); err != nil {
+	if _, err := cs.CreateUser("alice", "AlicePass123!", "user"); err != nil {
 		t.Fatalf("CreateUser alice failed: %v", err)
 	}
 
-	if _, err := newAuthManager(store, "alice", "AnyBootstrapPassword123!", "1h"); err != nil {
+	if _, err := newAuthManager(cs, "alice", "AnyBootstrapPassword123!", "1h"); err != nil {
 		t.Fatalf("newAuthManager failed: %v", err)
 	}
 
-	alice, err := store.GetUserByUsername("alice")
+	alice, err := cs.GetUserByUsername("alice")
 	if err != nil {
 		t.Fatalf("GetUserByUsername alice failed: %v", err)
 	}
@@ -112,22 +111,22 @@ func TestAuthManagerPromotesConfiguredUserWhenNoAdmins(t *testing.T) {
 
 func TestAuthManagerCreatesConfiguredAdminWhenNoAdmins(t *testing.T) {
 	dir := t.TempDir()
-	store, err := storage.New(config.StorageConfig{Path: filepath.Join(dir, "test_create_configured_admin.db")})
+	cs, err := storage.NewCentral(filepath.Join(dir, "central_create_admin.db"))
 	if err != nil {
-		t.Fatalf("storage.New failed: %v", err)
+		t.Fatalf("NewCentral failed: %v", err)
 	}
-	defer store.Close()
+	defer cs.Close()
 
-	if _, err := store.CreateUser("existing", "ExistingPass123!", "user"); err != nil {
+	if _, err := cs.CreateUser("existing", "ExistingPass123!", "user"); err != nil {
 		t.Fatalf("CreateUser existing failed: %v", err)
 	}
 
-	mgr, err := newAuthManager(store, "admin", "BootstrapPass123!", "1h")
+	mgr, err := newAuthManager(cs, "admin", "BootstrapPass123!", "1h")
 	if err != nil {
 		t.Fatalf("newAuthManager failed: %v", err)
 	}
 
-	admin, err := store.GetUserByUsername("admin")
+	admin, err := cs.GetUserByUsername("admin")
 	if err != nil {
 		t.Fatalf("GetUserByUsername admin failed: %v", err)
 	}
@@ -142,24 +141,24 @@ func TestAuthManagerCreatesConfiguredAdminWhenNoAdmins(t *testing.T) {
 
 func TestAuthManagerKeepsExistingAdminAndDoesNotPromoteConfiguredUser(t *testing.T) {
 	dir := t.TempDir()
-	store, err := storage.New(config.StorageConfig{Path: filepath.Join(dir, "test_keep_existing_admin.db")})
+	cs, err := storage.NewCentral(filepath.Join(dir, "central_keep_admin.db"))
 	if err != nil {
-		t.Fatalf("storage.New failed: %v", err)
+		t.Fatalf("NewCentral failed: %v", err)
 	}
-	defer store.Close()
+	defer cs.Close()
 
-	if _, err := store.CreateUser("admin1", "Admin1Pass123!", "admin"); err != nil {
+	if _, err := cs.CreateUser("admin1", "Admin1Pass123!", "admin"); err != nil {
 		t.Fatalf("CreateUser admin1 failed: %v", err)
 	}
-	if _, err := store.CreateUser("alice", "AlicePass123!", "user"); err != nil {
+	if _, err := cs.CreateUser("alice", "AlicePass123!", "user"); err != nil {
 		t.Fatalf("CreateUser alice failed: %v", err)
 	}
 
-	if _, err := newAuthManager(store, "alice", "BootstrapPass123!", "1h"); err != nil {
+	if _, err := newAuthManager(cs, "alice", "BootstrapPass123!", "1h"); err != nil {
 		t.Fatalf("newAuthManager failed: %v", err)
 	}
 
-	alice, err := store.GetUserByUsername("alice")
+	alice, err := cs.GetUserByUsername("alice")
 	if err != nil {
 		t.Fatalf("GetUserByUsername alice failed: %v", err)
 	}
@@ -170,13 +169,13 @@ func TestAuthManagerKeepsExistingAdminAndDoesNotPromoteConfiguredUser(t *testing
 
 func TestAuthManagerInvalidCredentialsErrorShape(t *testing.T) {
 	dir := t.TempDir()
-	store, err := storage.New(config.StorageConfig{Path: filepath.Join(dir, "test_invalid_credentials_shape.db")})
+	cs, err := storage.NewCentral(filepath.Join(dir, "central_invalid_creds.db"))
 	if err != nil {
-		t.Fatalf("storage.New failed: %v", err)
+		t.Fatalf("NewCentral failed: %v", err)
 	}
-	defer store.Close()
+	defer cs.Close()
 
-	mgr, err := newAuthManager(store, "admin", "InitialPass123!", "1h")
+	mgr, err := newAuthManager(cs, "admin", "InitialPass123!", "1h")
 	if err != nil {
 		t.Fatalf("newAuthManager failed: %v", err)
 	}

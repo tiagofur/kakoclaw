@@ -1,6 +1,6 @@
 # Desarrollo
 
-Documentación para desarrolladores y contribuidores de KakoClaw.
+Documentación para desarrolladores y contribuidores de MakoClaw.
 
 ## Archivos
 
@@ -37,9 +37,9 @@ Documentación para desarrolladores y contribuidores de KakoClaw.
 
 ## Comunidad
 
-- [GitHub Issues](https://github.com/sipeed/KakoClaw/issues)
+- [GitHub Issues](https://github.com/sipeed/MakoClaw/issues)
 - [Discord](https://discord.gg/V4sAZ9XWpN)
 
 ---
 
-¡Gracias por contribuir! 🐸
+¡Gracias por contribuir! 🦈

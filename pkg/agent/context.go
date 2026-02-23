@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sipeed/kakoclaw/pkg/logger"
-	"github.com/sipeed/kakoclaw/pkg/providers"
-	"github.com/sipeed/kakoclaw/pkg/skills"
-	"github.com/sipeed/kakoclaw/pkg/tools"
+	"github.com/sipeed/makoclaw/pkg/logger"
+	"github.com/sipeed/makoclaw/pkg/providers"
+	"github.com/sipeed/makoclaw/pkg/skills"
+	"github.com/sipeed/makoclaw/pkg/tools"
 )
 
 type ContextBuilder struct {
@@ -28,7 +28,7 @@ func getGlobalConfigDir() string {
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(home, ".KakoClaw")
+	return filepath.Join(home, ".makoclaw")
 }
 
 func NewContextBuilder(workspace string) *ContextBuilder {
@@ -64,10 +64,16 @@ func (cb *ContextBuilder) WithUser(userUUID string, userID int64) *ContextBuilde
 	cb.skillsLoader = skills.NewSkillsLoader(userWorkspace, globalSkillsDir, builtinSkillsDir)
 
 	home, err := os.UserHomeDir()
-	if err == nil {
-		userSkillsPath := filepath.Join(home, ".kakoclaw", "users", userUUID, "skills")
-		cb.skillsLoader.SetUserSkillsPath(userSkillsPath)
+	if err != nil {
+		logger.WarnCF("agent", "Failed to get user home dir, user skills not loaded",
+			map[string]interface{}{
+				"user_uuid": userUUID,
+				"error":     err.Error(),
+			})
+		return cb
 	}
+	userSkillsPath := filepath.Join(home, ".makoclaw", "users", userUUID, "skills")
+	cb.skillsLoader.SetUserSkillsPath(userSkillsPath)
 
 	return cb
 }
@@ -82,7 +88,7 @@ func (cb *ContextBuilder) getUserWorkspacePath() string {
 	if err != nil {
 		return cb.workspace
 	}
-	return filepath.Join(home, ".kakoclaw", "users", cb.userUUID, "workspace")
+	return filepath.Join(home, ".makoclaw", "users", cb.userUUID, "workspace")
 }
 
 // SetToolsRegistry sets the tools registry for dynamic tool summary generation.
@@ -98,9 +104,9 @@ func (cb *ContextBuilder) getIdentity() string {
 	// Build tools section dynamically
 	toolsSection := cb.buildToolsSection()
 
-	return fmt.Sprintf(`# KakoClaw 🐸
+	return fmt.Sprintf(`# makoclaw 🦈
 
-You are KakoClaw, a helpful AI assistant.
+You are makoclaw, a helpful AI assistant.
 
 ## Current Time
 %s
@@ -322,3 +328,4 @@ func (cb *ContextBuilder) GetSkillsInfo() map[string]interface{} {
 		"names":     skillNames,
 	}
 }
+

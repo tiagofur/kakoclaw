@@ -1,7 +1,7 @@
 ---
 slug: getting-started
 category: getting-started
-generatedAt: 2026-02-18T15:22:38.277Z
+generatedAt: 2026-02-23T15:50:07.472Z
 ---
 
 # How do I set up and run this project?
@@ -17,7 +17,7 @@ generatedAt: 2026-02-18T15:22:38.277Z
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd kakoclaw
+cd makoclaw
 
 # Install dependencies
 npm install

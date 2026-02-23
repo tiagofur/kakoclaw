@@ -24,8 +24,8 @@ type SkillInfo struct {
 type SkillsLoader struct {
 	workspace       string // user workspace, if multiuser-enabled
 	workspaceSkills string // workspace skills (项目级别)
-	userSkillsPath  string // user-specific skills (~/.kakoclaw/users/<uuid>/skills)
-	globalSkills    string // 全局 skills (~/.KakoClaw/skills)
+	userSkillsPath  string // user-specific skills (~/.makoclaw/users/<uuid>/skills)
+	globalSkills    string // 全局 skills (~/.makoclaw/skills)
 	builtinSkills   string // 内置 skills
 }
 
@@ -34,13 +34,13 @@ func NewSkillsLoader(workspace string, globalSkills string, builtinSkills string
 		workspace:       workspace,
 		workspaceSkills: filepath.Join(workspace, "skills"),
 		userSkillsPath:  "",           // Will be set via SetUserSkillsPath if needed
-		globalSkills:    globalSkills, // ~/.KakoClaw/skills
+		globalSkills:    globalSkills, // ~/.makoclaw/skills
 		builtinSkills:   builtinSkills,
 	}
 }
 
 // SetUserSkillsPath sets the user-specific skills directory for multiuser support.
-// This should be ~/.kakoclaw/users/<userUUID>/skills
+// This should be ~/.makoclaw/users/<userUUID>/skills
 func (sl *SkillsLoader) SetUserSkillsPath(path string) {
 	sl.userSkillsPath = path
 }
@@ -48,7 +48,7 @@ func (sl *SkillsLoader) SetUserSkillsPath(path string) {
 func (sl *SkillsLoader) ListSkills() []SkillInfo {
 	skills := make([]SkillInfo, 0)
 
-	// 1. User-specific skills (~/.kakoclaw/users/<uuid>/skills) - highest priority
+	// 1. User-specific skills (~/.makoclaw/users/<uuid>/skills) - highest priority
 	if sl.userSkillsPath != "" {
 		if dirs, err := os.ReadDir(sl.userSkillsPath); err == nil {
 			for _, dir := range dirs {
@@ -106,7 +106,7 @@ func (sl *SkillsLoader) ListSkills() []SkillInfo {
 		}
 	}
 
-	// 3. 全局 skills (~/.KakoClaw/skills) - 被 user 和 workspace skills 覆盖
+	// 3. 全局 skills (~/.makoclaw/skills) - 被 user 和 workspace skills 覆盖
 	if sl.globalSkills != "" {
 		if dirs, err := os.ReadDir(sl.globalSkills); err == nil {
 			for _, dir := range dirs {
@@ -188,7 +188,7 @@ func (sl *SkillsLoader) LoadSkill(name string) (string, bool) {
 		}
 	}
 
-	// 2. 其次从全局 skills 加载 (~/.KakoClaw/skills)
+	// 2. 其次从全局 skills 加载 (~/.makoclaw/skills)
 	if sl.globalSkills != "" {
 		skillFile := filepath.Join(sl.globalSkills, name, "SKILL.md")
 		if content, err := os.ReadFile(skillFile); err == nil {
@@ -327,3 +327,4 @@ func escapeXML(s string) string {
 	s = strings.ReplaceAll(s, ">", "&gt;")
 	return s
 }
+

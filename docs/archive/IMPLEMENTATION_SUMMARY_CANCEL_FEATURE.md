@@ -120,7 +120,7 @@ List all active executions.
 ### Build Steps Completed
 1. ✅ Built Go backend: `make build`
 2. ✅ Built frontend (Vite): automatically included in make build
-3. ✅ Built Docker image: `docker build -t kakoclaw:latest .`
+3. ✅ Built Docker image: `docker build -t makoclaw:latest .`
 4. ✅ Deployed container: `docker-compose up -d`
 
 ### Verification
@@ -250,7 +250,7 @@ If issues occur, rollback steps:
 docker-compose down
 
 # Revert to previous image
-docker tag kakoclaw:previous kakoclaw:latest
+docker tag makoclaw:previous makoclaw:latest
 
 # Restart
 docker-compose up -d
@@ -260,7 +260,7 @@ Or rebuild from previous commit:
 ```bash
 git checkout <previous-commit-hash>
 make build
-docker build -t kakoclaw:latest .
+docker build -t makoclaw:latest .
 docker-compose up -d
 ```
 
@@ -282,5 +282,5 @@ Please test the following scenarios:
 ---
 
 **Implementation completed:** February 20, 2026, 04:09 UTC
-**Docker image:** kakoclaw:latest (sha256:f0268365...)
+**Docker image:** makoclaw:latest (sha256:f0268365...)
 **Container status:** Running on 127.0.0.1:18880

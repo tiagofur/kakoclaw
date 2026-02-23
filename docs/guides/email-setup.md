@@ -1,6 +1,6 @@
 # Configuracion de Email
 
-Esta guia explica como habilitar y configurar el envio de emails en KakoClaw para que el agente pueda enviarte reportes, resumenes y notificaciones por correo electronico.
+Esta guia explica como habilitar y configurar el envio de emails en MakoClaw para que el agente pueda enviarte reportes, resumenes y notificaciones por correo electronico.
 
 ## Tabla de Contenidos
 
@@ -17,7 +17,7 @@ Esta guia explica como habilitar y configurar el envio de emails en KakoClaw par
 
 ## Como Funciona
 
-KakoClaw incluye una herramienta integrada llamada `send_email_report` que permite al agente enviar correos electronicos directamente usando SMTP. No necesitas instalar software adicional como `sendmail` o `msmtp`; el envio se realiza desde el propio binario de Go usando el paquete `net/smtp`.
+MakoClaw incluye una herramienta integrada llamada `send_email_report` que permite al agente enviar correos electronicos directamente usando SMTP. No necesitas instalar software adicional como `sendmail` o `msmtp`; el envio se realiza desde el propio binario de Go usando el paquete `net/smtp`.
 
 El agente puede usar esta herramienta para:
 
@@ -28,7 +28,7 @@ El agente puede usar esta herramienta para:
 
 ## Requisitos
 
-- KakoClaw instalado y funcionando
+- MakoClaw instalado y funcionando
 - Una cuenta de correo con acceso SMTP (Gmail, Outlook, etc.)
 - Para Gmail: verificacion en 2 pasos activada y un App Password generado
 
@@ -45,7 +45,7 @@ Gmail no permite autenticacion SMTP con tu contrasena normal. Necesitas generar 
 ### 1.2 Generar el App Password
 
 1. Ve a [https://myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)
-2. En "Seleccionar aplicacion", escribe un nombre descriptivo (ej: `KakoClaw`)
+2. En "Seleccionar aplicacion", escribe un nombre descriptivo (ej: `MakoClaw`)
 3. Haz clic en **Crear**
 4. Google te mostrara un codigo de 16 caracteres, por ejemplo: `abcd efgh ijkl mnop`
 5. **Copia este codigo** (sin espacios): `abcdefghijklmnop`
@@ -61,17 +61,17 @@ Edita tu archivo `.env` en la raiz del proyecto:
 
 ```bash
 # Email Tools
-KakoClaw_TOOLS_EMAIL_USERNAME=tu_correo@gmail.com
-KakoClaw_TOOLS_EMAIL_PASSWORD=abcdefghijklmnop
-KakoClaw_TOOLS_EMAIL_FROM=KakoClaw <tu_correo@gmail.com>
-KakoClaw_TOOLS_EMAIL_TO=destinatario@ejemplo.com
+MakoClaw_TOOLS_EMAIL_USERNAME=tu_correo@gmail.com
+MakoClaw_TOOLS_EMAIL_PASSWORD=abcdefghijklmnop
+MakoClaw_TOOLS_EMAIL_FROM=MakoClaw <tu_correo@gmail.com>
+MakoClaw_TOOLS_EMAIL_TO=destinatario@ejemplo.com
 ```
 
 | Variable | Descripcion | Ejemplo |
 |----------|-------------|---------|
 | `EMAIL_USERNAME` | Correo usado para autenticacion SMTP | `mi_correo@gmail.com` |
 | `EMAIL_PASSWORD` | App Password generado en el paso anterior | `abcdefghijklmnop` |
-| `EMAIL_FROM` | Nombre y correo que aparece como remitente | `KakoClaw <mi_correo@gmail.com>` |
+| `EMAIL_FROM` | Nombre y correo que aparece como remitente | `MakoClaw <mi_correo@gmail.com>` |
 | `EMAIL_TO` | Destinatario por defecto de los emails | `yo@ejemplo.com` |
 
 > **Nota:** El archivo `.env` ya esta incluido en `.gitignore` para evitar que las credenciales se suban al repositorio.
@@ -81,33 +81,33 @@ KakoClaw_TOOLS_EMAIL_TO=destinatario@ejemplo.com
 Exporta las variables en tu shell o agregalas a `~/.bashrc` / `~/.zshrc`:
 
 ```bash
-export KakoClaw_TOOLS_EMAIL_ENABLED=true
-export KakoClaw_TOOLS_EMAIL_HOST=smtp.gmail.com
-export KakoClaw_TOOLS_EMAIL_PORT=587
-export KakoClaw_TOOLS_EMAIL_USERNAME=tu_correo@gmail.com
-export KakoClaw_TOOLS_EMAIL_PASSWORD=abcdefghijklmnop
-export KakoClaw_TOOLS_EMAIL_FROM="KakoClaw <tu_correo@gmail.com>"
-export KakoClaw_TOOLS_EMAIL_TO=destinatario@ejemplo.com
+export MakoClaw_TOOLS_EMAIL_ENABLED=true
+export MakoClaw_TOOLS_EMAIL_HOST=smtp.gmail.com
+export MakoClaw_TOOLS_EMAIL_PORT=587
+export MakoClaw_TOOLS_EMAIL_USERNAME=tu_correo@gmail.com
+export MakoClaw_TOOLS_EMAIL_PASSWORD=abcdefghijklmnop
+export MakoClaw_TOOLS_EMAIL_FROM="MakoClaw <tu_correo@gmail.com>"
+export MakoClaw_TOOLS_EMAIL_TO=destinatario@ejemplo.com
 ```
 
 ## Paso 3: Habilitar el Email Tool
 
 ### Con Docker Compose
 
-En `docker-compose.yml`, asegurate de que la variable `KakoClaw_TOOLS_EMAIL_ENABLED` este en `"true"`:
+En `docker-compose.yml`, asegurate de que la variable `MakoClaw_TOOLS_EMAIL_ENABLED` este en `"true"`:
 
 ```yaml
 services:
-  KakoClaw:
+  MakoClaw:
     environment:
       # ... otras variables ...
-      KakoClaw_TOOLS_EMAIL_ENABLED: "true"
-      KakoClaw_TOOLS_EMAIL_HOST: "smtp.gmail.com"
-      KakoClaw_TOOLS_EMAIL_PORT: "587"
-      KakoClaw_TOOLS_EMAIL_USERNAME: "${KakoClaw_TOOLS_EMAIL_USERNAME}"
-      KakoClaw_TOOLS_EMAIL_PASSWORD: "${KakoClaw_TOOLS_EMAIL_PASSWORD}"
-      KakoClaw_TOOLS_EMAIL_FROM: "${KakoClaw_TOOLS_EMAIL_FROM}"
-      KakoClaw_TOOLS_EMAIL_TO: "${KakoClaw_TOOLS_EMAIL_TO}"
+      MakoClaw_TOOLS_EMAIL_ENABLED: "true"
+      MakoClaw_TOOLS_EMAIL_HOST: "smtp.gmail.com"
+      MakoClaw_TOOLS_EMAIL_PORT: "587"
+      MakoClaw_TOOLS_EMAIL_USERNAME: "${MakoClaw_TOOLS_EMAIL_USERNAME}"
+      MakoClaw_TOOLS_EMAIL_PASSWORD: "${MakoClaw_TOOLS_EMAIL_PASSWORD}"
+      MakoClaw_TOOLS_EMAIL_FROM: "${MakoClaw_TOOLS_EMAIL_FROM}"
+      MakoClaw_TOOLS_EMAIL_TO: "${MakoClaw_TOOLS_EMAIL_TO}"
 ```
 
 ### Con config.json
@@ -123,7 +123,7 @@ Alternativamente, agrega la seccion `email` dentro de `tools` en tu `config.json
       "port": 587,
       "username": "tu_correo@gmail.com",
       "password": "abcdefghijklmnop",
-      "from": "KakoClaw <tu_correo@gmail.com>",
+      "from": "MakoClaw <tu_correo@gmail.com>",
       "to": "destinatario@ejemplo.com"
     }
   }
@@ -143,7 +143,7 @@ docker compose down && docker compose up -d --build
 
 ```bash
 # Reiniciar el agente o gateway
-KakoClaw gateway
+MakoClaw gateway
 ```
 
 ### Probar el envio
@@ -151,7 +151,7 @@ KakoClaw gateway
 Una vez reiniciado, puedes pedirle al agente que envie un email de prueba:
 
 ```
-KakoClaw agent -m "Enviale un email de prueba a mi correo con el asunto 'Test KakoClaw'"
+MakoClaw agent -m "Enviale un email de prueba a mi correo con el asunto 'Test MakoClaw'"
 ```
 
 O desde cualquier canal conectado (Telegram, Discord, web), simplemente escribe:
@@ -164,7 +164,7 @@ El agente usara la herramienta `send_email_report` automaticamente.
 
 ## Configuracion con config.json
 
-Si prefieres no usar variables de entorno, puedes agregar toda la configuracion directamente en `~/.KakoClaw/config.json`. Aqui un ejemplo completo:
+Si prefieres no usar variables de entorno, puedes agregar toda la configuracion directamente en `~/.MakoClaw/config.json`. Aqui un ejemplo completo:
 
 ```json
 {
@@ -186,7 +186,7 @@ Si prefieres no usar variables de entorno, puedes agregar toda la configuracion 
       "port": 587,
       "username": "tu_correo@gmail.com",
       "password": "tu_app_password",
-      "from": "KakoClaw <tu_correo@gmail.com>",
+      "from": "MakoClaw <tu_correo@gmail.com>",
       "to": "destinatario@ejemplo.com"
     }
   }
@@ -202,50 +202,50 @@ Si no usas Gmail, puedes configurar cualquier servidor SMTP que soporte autentic
 ### Outlook / Hotmail
 
 ```bash
-KakoClaw_TOOLS_EMAIL_HOST=smtp.office365.com
-KakoClaw_TOOLS_EMAIL_PORT=587
-KakoClaw_TOOLS_EMAIL_USERNAME=tu_correo@outlook.com
-KakoClaw_TOOLS_EMAIL_PASSWORD=tu_contrasena
+MakoClaw_TOOLS_EMAIL_HOST=smtp.office365.com
+MakoClaw_TOOLS_EMAIL_PORT=587
+MakoClaw_TOOLS_EMAIL_USERNAME=tu_correo@outlook.com
+MakoClaw_TOOLS_EMAIL_PASSWORD=tu_contrasena
 ```
 
 ### Yahoo Mail
 
 ```bash
-KakoClaw_TOOLS_EMAIL_HOST=smtp.mail.yahoo.com
-KakoClaw_TOOLS_EMAIL_PORT=587
-KakoClaw_TOOLS_EMAIL_USERNAME=tu_correo@yahoo.com
-KakoClaw_TOOLS_EMAIL_PASSWORD=tu_app_password
+MakoClaw_TOOLS_EMAIL_HOST=smtp.mail.yahoo.com
+MakoClaw_TOOLS_EMAIL_PORT=587
+MakoClaw_TOOLS_EMAIL_USERNAME=tu_correo@yahoo.com
+MakoClaw_TOOLS_EMAIL_PASSWORD=tu_app_password
 ```
 
 ### SendGrid
 
 ```bash
-KakoClaw_TOOLS_EMAIL_HOST=smtp.sendgrid.net
-KakoClaw_TOOLS_EMAIL_PORT=587
-KakoClaw_TOOLS_EMAIL_USERNAME=apikey
-KakoClaw_TOOLS_EMAIL_PASSWORD=SG.tu_api_key
+MakoClaw_TOOLS_EMAIL_HOST=smtp.sendgrid.net
+MakoClaw_TOOLS_EMAIL_PORT=587
+MakoClaw_TOOLS_EMAIL_USERNAME=apikey
+MakoClaw_TOOLS_EMAIL_PASSWORD=SG.tu_api_key
 ```
 
 ### Servidor SMTP propio
 
 ```bash
-KakoClaw_TOOLS_EMAIL_HOST=mail.tudominio.com
-KakoClaw_TOOLS_EMAIL_PORT=587
-KakoClaw_TOOLS_EMAIL_USERNAME=usuario@tudominio.com
-KakoClaw_TOOLS_EMAIL_PASSWORD=tu_contrasena
+MakoClaw_TOOLS_EMAIL_HOST=mail.tudominio.com
+MakoClaw_TOOLS_EMAIL_PORT=587
+MakoClaw_TOOLS_EMAIL_USERNAME=usuario@tudominio.com
+MakoClaw_TOOLS_EMAIL_PASSWORD=tu_contrasena
 ```
 
 ## Referencia de Variables
 
 | Variable de Entorno | Campo JSON | Tipo | Default | Descripcion |
 |---------------------|------------|------|---------|-------------|
-| `KakoClaw_TOOLS_EMAIL_ENABLED` | `tools.email.enabled` | bool | `false` | Activa o desactiva la herramienta de email |
-| `KakoClaw_TOOLS_EMAIL_HOST` | `tools.email.host` | string | `smtp.gmail.com` | Servidor SMTP |
-| `KakoClaw_TOOLS_EMAIL_PORT` | `tools.email.port` | int | `587` | Puerto SMTP (587 para STARTTLS) |
-| `KakoClaw_TOOLS_EMAIL_USERNAME` | `tools.email.username` | string | `""` | Usuario para autenticacion SMTP |
-| `KakoClaw_TOOLS_EMAIL_PASSWORD` | `tools.email.password` | string | `""` | Contrasena o App Password |
-| `KakoClaw_TOOLS_EMAIL_FROM` | `tools.email.from` | string | `""` | Remitente (formato: `Nombre <correo>`) |
-| `KakoClaw_TOOLS_EMAIL_TO` | `tools.email.to` | string | `""` | Destinatario por defecto |
+| `MakoClaw_TOOLS_EMAIL_ENABLED` | `tools.email.enabled` | bool | `false` | Activa o desactiva la herramienta de email |
+| `MakoClaw_TOOLS_EMAIL_HOST` | `tools.email.host` | string | `smtp.gmail.com` | Servidor SMTP |
+| `MakoClaw_TOOLS_EMAIL_PORT` | `tools.email.port` | int | `587` | Puerto SMTP (587 para STARTTLS) |
+| `MakoClaw_TOOLS_EMAIL_USERNAME` | `tools.email.username` | string | `""` | Usuario para autenticacion SMTP |
+| `MakoClaw_TOOLS_EMAIL_PASSWORD` | `tools.email.password` | string | `""` | Contrasena o App Password |
+| `MakoClaw_TOOLS_EMAIL_FROM` | `tools.email.from` | string | `""` | Remitente (formato: `Nombre <correo>`) |
+| `MakoClaw_TOOLS_EMAIL_TO` | `tools.email.to` | string | `""` | Destinatario por defecto |
 
 ## Solucion de Problemas
 
@@ -255,7 +255,7 @@ La herramienta no esta habilitada. Verifica que:
 
 ```bash
 # Variable de entorno
-KakoClaw_TOOLS_EMAIL_ENABLED=true
+MakoClaw_TOOLS_EMAIL_ENABLED=true
 
 # O en config.json
 "tools": { "email": { "enabled": true } }
@@ -280,11 +280,11 @@ Estas usando tu contrasena normal de Gmail. Genera un App Password siguiendo el 
 
 ### Error: "no recipient specified"
 
-No se especifico destinatario. Configura `KakoClaw_TOOLS_EMAIL_TO` o pasa el parametro `to` al usar la herramienta.
+No se especifico destinatario. Configura `MakoClaw_TOOLS_EMAIL_TO` o pasa el parametro `to` al usar la herramienta.
 
 ### Los emails llegan a Spam
 
-- Configura el campo `FROM` con el formato correcto: `KakoClaw <tu_correo@gmail.com>`
+- Configura el campo `FROM` con el formato correcto: `MakoClaw <tu_correo@gmail.com>`
 - Evita palabras como "test" o "prueba" en el asunto durante las primeras pruebas
 - Marca los emails como "No es spam" en tu bandeja para entrenar el filtro
 

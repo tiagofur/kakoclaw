@@ -77,7 +77,7 @@ Auto-detección:
 ### Ver Provider Asignado
 
 ```bash
-KakoClaw status
+MakoClaw status
 
 # Output:
 # Model: openai/gpt-4
@@ -90,7 +90,7 @@ Simplemente cambia el prefijo en el modelo:
 
 ```bash
 # Para usar GPT-4 via OpenRouter en lugar de OpenAI directo:
-# Editar ~/.KakoClaw/config.json
+# Editar ~/.MakoClaw/config.json
 {
   "agents": {
     "defaults": {
@@ -111,4 +111,4 @@ Simplemente cambia el prefijo en el modelo:
 
 - Implementación: `pkg/providers/http_provider.go`
 - Tests: `pkg/providers/http_provider_test.go`
-- Issue original: https://github.com/sipeed/KakoClaw/issues/43
+- Issue original: https://github.com/sipeed/MakoClaw/issues/43

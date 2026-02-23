@@ -1,6 +1,6 @@
 # Guía de Contribución
 
-¡Gracias por tu interés en contribuir a KakoClaw! Este documento proporciona las pautas y mejores prácticas para contribuir al proyecto.
+¡Gracias por tu interés en contribuir a MakoClaw! Este documento proporciona las pautas y mejores prácticas para contribuir al proyecto.
 
 ## 🤝 Cómo Contribuir
 
@@ -19,11 +19,11 @@ Hay muchas formas de contribuir:
 
 ```bash
 # Haz fork en GitHub, luego:
-git clone https://github.com/TU_USUARIO/KakoClaw.git
-cd KakoClaw
+git clone https://github.com/TU_USUARIO/MakoClaw.git
+cd MakoClaw
 
 # Configura upstream
-git remote add upstream https://github.com/sipeed/KakoClaw.git
+git remote add upstream https://github.com/sipeed/MakoClaw.git
 ```
 
 ### 2. Configura tu Entorno
@@ -35,7 +35,7 @@ Ver [Configuración del Entorno](./setup.md) para instrucciones detalladas.
 ```bash
 make build
 make test
-KakoClaw version
+MakoClaw version
 ```
 
 ## 📋 Guías de Contribución
@@ -43,7 +43,7 @@ KakoClaw version
 ### Reportar Bugs
 
 Antes de reportar:
-1. Busca en [issues existentes](https://github.com/sipeed/KakoClaw/issues)
+1. Busca en [issues existentes](https://github.com/sipeed/MakoClaw/issues)
 2. Verifica que estás usando la última versión
 3. Intenta reproducir en un entorno limpio
 
@@ -499,6 +499,6 @@ Los contribuidores serán reconocidos en:
 
 ---
 
-¡Gracias por contribuir! 🐸
+¡Gracias por contribuir! 🦈
 
 Para preguntas, únete a nuestro [Discord](https://discord.gg/V4sAZ9XWpN).

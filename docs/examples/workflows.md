@@ -1,8 +1,8 @@
 # Workflows - Automation Pipelines
 
-> **Status**: ✅ **Fully Functional** | **Feature Phase**: MVP Complete | **UI**: Web Panel Only
+> **Status**: ✅ **Fully Functional** | **Feature Phase**: MVP Complete | **UI**: Web Panel Only | **Platform**: 🦈 MakoClaw
 
-Workflows enable you to create multi-step automation pipelines that combine LLM prompts, tool executions, and conditional logic. Perfect for repetitive tasks, complex research, code analysis, content generation, and more.
+**Workflows** enable you to create multi-step automation pipelines that combine LLM prompts, tool executions, and conditional logic. Perfect for repetitive tasks, complex research, code analysis, content generation, and more.
 
 ---
 
@@ -25,12 +25,12 @@ Workflows enable you to create multi-step automation pipelines that combine LLM 
 
 ### Access Workflows
 
-1. Start KakoClaw web panel:
-   ```bash
-   ./build/kakoclaw web
-   # or
-   ./build/kakoclaw gateway
-   ```
+1. Start MakoClaw web panel:
+    ```bash
+    MakoClaw web
+    # or
+    MakoClaw gateway
+    ```
 
 2. Navigate to **http://localhost:18880** (or your configured port)
 
@@ -1143,8 +1143,8 @@ After execution, workflows have one of these statuses:
 
 **Solutions**:
 - Likely a backend issue
-- Check backend logs: `/tmp/kakoclaw.log`
-- Restart KakoClaw service
+- Check backend logs: `/tmp/makoclaw.log`
+- Restart MakoClaw service
 - Report as bug if persists
 
 ---
@@ -1163,9 +1163,9 @@ See [workflow-templates.json](./workflow-templates.json) for ready-to-use workfl
 
 ## Feedback & Support
 
-- **Issue Tracker**: https://github.com/sipeed/kakoclaw/issues
-- **Documentation**: https://github.com/sipeed/kakoclaw/tree/main/docs
-- **Discussions**: https://github.com/sipeed/kakoclaw/discussions
+- **Issue Tracker**: https://github.com/sipeed/makoclaw/issues
+- **Documentation**: https://github.com/sipeed/makoclaw/tree/main/docs
+- **Discussions**: https://github.com/sipeed/makoclaw/discussions
 
 ---
 

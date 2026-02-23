@@ -13,32 +13,31 @@ Welcome to the repository knowledge base. Start with the project overview, then 
 - [Tooling & Productivity Guide](./tooling.md)
 
 ## Repository Snapshot
-- `ANDROID.md/`
 - `assets/`
 - `build.ps1/`
 - `cmd/`
 - `config.example.json/`
 - `config.json/`
-- `DOCKER_DEPLOYMENT.md/`
 - `docker-compose.yml/`
 - `Dockerfile/`
 - `docs/` — Living documentation produced by this tool.
-- `FRONTEND_QUICK_START.md/`
 - `go.mod/`
 - `go.sum/`
-- `IMPLEMENTATION_SUMMARY.md/`
+- `makoclaw/`
+- `MakoClaw-data/`
+- `makoclaw.exe/`
 - `LICENSE/`
 - `Makefile/`
-- `KakoClaw-data/`
-- `KakoClaw.exe/`
+- `nul/`
+- `picoclaw.exe/`
 - `pkg/`
-- `QUICK_START.md/`
 - `README.md/`
-- `REPORTE_COMPLETO_PICACLAW.md/`
 - `scripts/`
-- `SESSION_SUMMARY.md/`
 - `skills/`
+- `test_backup_1.txt/`
 - `test_bcrypt.go/`
+- `test_pkg_web_fixed.txt/`
+- `test_pkg_web.txt/`
 
 ## Document Map
 | Guide | File | Primary Inputs |

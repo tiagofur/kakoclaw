@@ -9,12 +9,20 @@ bin/
 *.txt
 /picoclaw
 /picoclaw-test
+/makoclaw
+/makoclaw.exe
 
 # Picoclaw specific
 .picoclaw/
+.makoclaw/
 config.json
 sessions/
 build/
+
+# Test artifacts
+nul
+test_*.txt
+test_*.go
 
 # Coverage
 coverage.txt
@@ -28,7 +36,9 @@ ralph/
 
 # Docker local files
 .env
+.env.local
 picoclaw-data/
 KakoClaw-data/
+MakoClaw-data/
 KakoClaw-data/workspace/web/web-auth.json
 nul

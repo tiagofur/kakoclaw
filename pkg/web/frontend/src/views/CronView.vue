@@ -1,14 +1,14 @@
 <template>
-  <div class="h-full flex flex-col bg-kakoclaw-bg">
+  <div class="h-full flex flex-col bg-makoclaw-bg">
     <!-- Header -->
-    <div class="flex-none p-4 border-b border-kakoclaw-border bg-kakoclaw-surface flex items-center justify-between">
+    <div class="flex-none p-4 border-b border-makoclaw-border bg-makoclaw-surface flex items-center justify-between">
       <div>
-        <h2 class="text-xl font-bold bg-gradient-to-r from-kakoclaw-accent to-emerald-500 bg-clip-text text-transparent">Cron Jobs</h2>
-        <p class="text-sm text-kakoclaw-text-secondary mt-1">Scheduled tasks and recurring automations</p>
+        <h2 class="text-xl font-bold bg-gradient-to-r from-makoclaw-accent to-blue-500 bg-clip-text text-transparent">Cron Jobs</h2>
+        <p class="text-sm text-makoclaw-text-secondary mt-1">Scheduled tasks and recurring automations</p>
       </div>
       <button
         @click="openCreateModal"
-        class="flex items-center gap-2 px-4 py-2 bg-kakoclaw-accent text-white rounded-lg hover:bg-kakoclaw-accent/90 transition-colors text-sm"
+        class="flex items-center gap-2 px-4 py-2 bg-makoclaw-accent text-white rounded-lg hover:bg-makoclaw-accent/90 transition-colors text-sm"
       >
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
         New Job
@@ -18,19 +18,19 @@
     <!-- Content -->
     <div class="flex-1 overflow-auto p-6 custom-scrollbar">
       <div v-if="loading" class="flex items-center justify-center py-12">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-kakoclaw-accent"></div>
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-makoclaw-accent"></div>
       </div>
 
       <template v-else>
         <!-- Status Banner -->
         <div class="mb-4 px-4 py-3 rounded-lg border"
-          :class="status.enabled ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400'"
+          :class="status.enabled ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400'"
         >
           <span class="font-medium">Cron service: {{ status.enabled ? 'Running' : 'Not available' }}</span>
           <span v-if="status.jobs !== undefined" class="ml-2 text-sm opacity-75">({{ status.jobs }} active jobs)</span>
         </div>
 
-        <div v-if="jobs.length === 0" class="text-center py-12 text-kakoclaw-text-secondary">
+        <div v-if="jobs.length === 0" class="text-center py-12 text-makoclaw-text-secondary">
           <p class="text-lg">No cron jobs configured</p>
           <p class="text-sm mt-2">Create a scheduled job to automate tasks</p>
         </div>
@@ -39,7 +39,7 @@
           <div
             v-for="job in jobs"
             :key="job.id"
-            class="bg-kakoclaw-surface border border-kakoclaw-border rounded-xl p-5"
+            class="bg-makoclaw-surface border border-makoclaw-border rounded-xl p-5"
           >
             <div class="flex items-start justify-between">
               <div class="flex-1 min-w-0">
@@ -47,15 +47,15 @@
                   <h3 class="font-semibold">{{ job.name }}</h3>
                   <span
                     class="px-2 py-0.5 text-xs rounded-full"
-                    :class="job.enabled ? 'bg-emerald-500/10 text-emerald-400' : 'bg-gray-500/10 text-gray-400'"
+                    :class="job.enabled ? 'bg-blue-500/10 text-blue-400' : 'bg-gray-500/10 text-gray-400'"
                   >{{ job.enabled ? 'Active' : 'Disabled' }}</span>
                 </div>
-                <p class="text-sm text-kakoclaw-text-secondary mt-1">{{ job.payload.message }}</p>
+                <p class="text-sm text-makoclaw-text-secondary mt-1">{{ job.payload.message }}</p>
               </div>
             </div>
 
-            <div class="flex items-center gap-4 mt-3 text-xs text-kakoclaw-text-secondary">
-              <span>Schedule: <span class="text-kakoclaw-text font-mono">{{ formatSchedule(job.schedule) }}</span></span>
+            <div class="flex items-center gap-4 mt-3 text-xs text-makoclaw-text-secondary">
+              <span>Schedule: <span class="text-makoclaw-text font-mono">{{ formatSchedule(job.schedule) }}</span></span>
               <span v-if="job.schedule.tz" class="font-mono">TZ: {{ job.schedule.tz }}</span>
               <span v-if="job.state.lastStatus">Last: {{ job.state.lastStatus }}</span>
               <span v-if="job.state.nextRunAtMs">Next: {{ formatTimestamp(job.state.nextRunAtMs) }}</span>
@@ -64,16 +64,16 @@
             <div class="flex items-center gap-2 mt-3">
               <button
                 @click="runJob(job)"
-                class="px-3 py-1.5 text-xs text-kakoclaw-accent bg-kakoclaw-accent/10 rounded-lg hover:bg-kakoclaw-accent/20 transition-colors"
+                class="px-3 py-1.5 text-xs text-makoclaw-accent bg-makoclaw-accent/10 rounded-lg hover:bg-makoclaw-accent/20 transition-colors"
               >Run Now</button>
               <button
                 @click="openEditModal(job)"
-                class="px-3 py-1.5 text-xs text-kakoclaw-text-secondary bg-kakoclaw-bg border border-kakoclaw-border rounded-lg hover:bg-kakoclaw-border transition-colors"
+                class="px-3 py-1.5 text-xs text-makoclaw-text-secondary bg-makoclaw-bg border border-makoclaw-border rounded-lg hover:bg-makoclaw-border transition-colors"
               >Edit</button>
               <button
                 @click="toggleJob(job.id, !job.enabled)"
                 class="px-3 py-1.5 text-xs rounded-lg transition-colors"
-                :class="job.enabled ? 'bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20' : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'"
+                :class="job.enabled ? 'bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20' : 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20'"
               >{{ job.enabled ? 'Disable' : 'Enable' }}</button>
               <button
                 @click="confirmDeleteJob(job)"
@@ -87,21 +87,21 @@
 
     <!-- Create / Edit Job Modal -->
     <div v-if="showModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="showModal = false">
-      <div class="bg-kakoclaw-surface border border-kakoclaw-border rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6">
+      <div class="bg-makoclaw-surface border border-makoclaw-border rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6">
         <h3 class="font-semibold text-lg mb-4">{{ editingJobId ? 'Edit Cron Job' : 'Create Cron Job' }}</h3>
         <div class="space-y-4">
           <!-- Name -->
           <div>
             <label class="block text-sm font-medium mb-1">Name</label>
             <input v-model="form.name" type="text" placeholder="My scheduled task"
-              class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm outline-none focus:border-kakoclaw-accent" />
+              class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent" />
           </div>
 
           <!-- Message -->
           <div>
             <label class="block text-sm font-medium mb-1">Message (what the agent should do)</label>
             <textarea v-model="form.message" rows="3" placeholder="Summarize today's tasks and send a report..."
-              class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm outline-none focus:border-kakoclaw-accent resize-none" />
+              class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent resize-none" />
           </div>
 
           <!-- Schedule Type -->
@@ -114,8 +114,8 @@
                 @click="form.scheduleType = opt.value"
                 class="px-3 py-2 text-xs rounded-lg border transition-colors text-center"
                 :class="form.scheduleType === opt.value
-                  ? 'border-kakoclaw-accent bg-kakoclaw-accent/10 text-kakoclaw-accent'
-                  : 'border-kakoclaw-border bg-kakoclaw-bg text-kakoclaw-text-secondary hover:border-kakoclaw-accent/50'"
+                  ? 'border-makoclaw-accent bg-makoclaw-accent/10 text-makoclaw-accent'
+                  : 'border-makoclaw-border bg-makoclaw-bg text-makoclaw-text-secondary hover:border-makoclaw-accent/50'"
               >{{ opt.label }}</button>
             </div>
           </div>
@@ -124,7 +124,7 @@
           <div v-if="form.scheduleType === 'daily'" class="space-y-2">
             <label class="block text-sm font-medium">Run at</label>
             <input v-model="form.time" type="time"
-              class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm outline-none focus:border-kakoclaw-accent" />
+              class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent" />
           </div>
 
           <!-- Weekly: day-of-week + time -->
@@ -138,15 +138,15 @@
                   @click="toggleWeekDay(idx)"
                   class="w-9 h-9 text-xs rounded-lg border transition-colors flex items-center justify-center"
                   :class="form.weekDays.includes(idx)
-                    ? 'border-kakoclaw-accent bg-kakoclaw-accent/10 text-kakoclaw-accent'
-                    : 'border-kakoclaw-border bg-kakoclaw-bg text-kakoclaw-text-secondary hover:border-kakoclaw-accent/50'"
+                    ? 'border-makoclaw-accent bg-makoclaw-accent/10 text-makoclaw-accent'
+                    : 'border-makoclaw-border bg-makoclaw-bg text-makoclaw-text-secondary hover:border-makoclaw-accent/50'"
                 >{{ day }}</button>
               </div>
             </div>
             <div>
               <label class="block text-sm font-medium mb-1">Time</label>
               <input v-model="form.time" type="time"
-                class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm outline-none focus:border-kakoclaw-accent" />
+                class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent" />
             </div>
           </div>
 
@@ -155,14 +155,14 @@
             <div>
               <label class="block text-sm font-medium mb-2">Day of month</label>
               <select v-model.number="form.monthDay"
-                class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm outline-none focus:border-kakoclaw-accent">
+                class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent">
                 <option v-for="d in 31" :key="d" :value="d">{{ d }}</option>
               </select>
             </div>
             <div>
               <label class="block text-sm font-medium mb-1">Time</label>
               <input v-model="form.time" type="time"
-                class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm outline-none focus:border-kakoclaw-accent" />
+                class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent" />
             </div>
           </div>
 
@@ -171,9 +171,9 @@
             <label class="block text-sm font-medium">Repeat every</label>
             <div class="flex gap-2">
               <input v-model.number="form.intervalValue" type="number" min="1" placeholder="30"
-                class="flex-1 px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm outline-none focus:border-kakoclaw-accent" />
+                class="flex-1 px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent" />
               <select v-model="form.intervalUnit"
-                class="px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm outline-none focus:border-kakoclaw-accent">
+                class="px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent">
                 <option value="minutes">Minutes</option>
                 <option value="hours">Hours</option>
               </select>
@@ -184,38 +184,38 @@
           <div v-if="form.scheduleType === 'onetime'" class="space-y-2">
             <label class="block text-sm font-medium">Run at</label>
             <input v-model="form.oneTimeDateTime" type="datetime-local"
-              class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm outline-none focus:border-kakoclaw-accent" />
+              class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent" />
           </div>
 
           <!-- Custom: raw cron expression -->
           <div v-if="form.scheduleType === 'custom'" class="space-y-2">
             <label class="block text-sm font-medium">Cron Expression</label>
             <input v-model="form.cronExpr" type="text" placeholder="0 9 * * 1-5"
-              class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm outline-none focus:border-kakoclaw-accent font-mono" />
-            <p class="text-xs text-kakoclaw-text-secondary">Standard 5-field cron: minute hour day-of-month month day-of-week</p>
+              class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent font-mono" />
+            <p class="text-xs text-makoclaw-text-secondary">Standard 5-field cron: minute hour day-of-month month day-of-week</p>
           </div>
 
           <!-- Timezone (for cron-based schedules) -->
           <div v-if="['daily', 'weekly', 'monthly', 'custom'].includes(form.scheduleType)" class="space-y-2">
             <label class="block text-sm font-medium">Timezone</label>
             <select v-model="form.timezone"
-              class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm outline-none focus:border-kakoclaw-accent">
+              class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent">
               <option value="">UTC (default)</option>
               <option v-for="tz in commonTimezones" :key="tz" :value="tz">{{ tz }}</option>
             </select>
           </div>
 
           <!-- Generated expression preview -->
-          <div v-if="generatedExpr" class="px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg">
-            <p class="text-xs text-kakoclaw-text-secondary mb-1">Generated expression</p>
-            <code class="text-sm font-mono text-kakoclaw-accent">{{ generatedExpr }}</code>
+          <div v-if="generatedExpr" class="px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg">
+            <p class="text-xs text-makoclaw-text-secondary mb-1">Generated expression</p>
+            <code class="text-sm font-mono text-makoclaw-accent">{{ generatedExpr }}</code>
           </div>
 
           <!-- Next 3 runs preview -->
-          <div v-if="nextRuns.length > 0" class="px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg">
-            <p class="text-xs text-kakoclaw-text-secondary mb-1">Next runs</p>
+          <div v-if="nextRuns.length > 0" class="px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg">
+            <p class="text-xs text-makoclaw-text-secondary mb-1">Next runs</p>
             <ul class="space-y-0.5">
-              <li v-for="(run, i) in nextRuns" :key="i" class="text-sm text-kakoclaw-text font-mono">{{ run }}</li>
+              <li v-for="(run, i) in nextRuns" :key="i" class="text-sm text-makoclaw-text font-mono">{{ run }}</li>
             </ul>
           </div>
 
@@ -228,12 +228,12 @@
             <div>
               <label class="block text-sm font-medium mb-1">Channel</label>
               <input v-model="form.channel" type="text" placeholder="telegram"
-                class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm outline-none focus:border-kakoclaw-accent" />
+                class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent" />
             </div>
             <div>
               <label class="block text-sm font-medium mb-1">To (Chat ID)</label>
               <input v-model="form.to" type="text" placeholder=""
-                class="w-full px-3 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded-lg text-sm outline-none focus:border-kakoclaw-accent" />
+                class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent" />
             </div>
           </div>
         </div>
@@ -241,9 +241,9 @@
         <!-- Modal Actions -->
         <div class="flex justify-end gap-3 mt-6">
           <button @click="showModal = false"
-            class="px-4 py-2 text-sm text-kakoclaw-text-secondary hover:text-kakoclaw-text transition-colors">Cancel</button>
+            class="px-4 py-2 text-sm text-makoclaw-text-secondary hover:text-makoclaw-text transition-colors">Cancel</button>
           <button @click="submitJob" :disabled="!canSubmit"
-            class="px-4 py-2 text-sm bg-kakoclaw-accent text-white rounded-lg hover:bg-kakoclaw-accent/90 transition-colors disabled:opacity-50">
+            class="px-4 py-2 text-sm bg-makoclaw-accent text-white rounded-lg hover:bg-makoclaw-accent/90 transition-colors disabled:opacity-50">
             {{ editingJobId ? 'Save' : 'Create' }}
           </button>
         </div>
@@ -252,14 +252,14 @@
 
     <!-- Delete Confirmation Modal -->
     <div v-if="showDeleteConfirm" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="showDeleteConfirm = false">
-      <div class="bg-kakoclaw-surface border border-kakoclaw-border rounded-xl max-w-sm w-full p-6">
+      <div class="bg-makoclaw-surface border border-makoclaw-border rounded-xl max-w-sm w-full p-6">
         <h3 class="font-semibold text-lg mb-2">Delete Job</h3>
-        <p class="text-sm text-kakoclaw-text-secondary mb-4">
-          Are you sure you want to delete <span class="font-medium text-kakoclaw-text">{{ deletingJob?.name }}</span>? This action cannot be undone.
+        <p class="text-sm text-makoclaw-text-secondary mb-4">
+          Are you sure you want to delete <span class="font-medium text-makoclaw-text">{{ deletingJob?.name }}</span>? This action cannot be undone.
         </p>
         <div class="flex justify-end gap-3">
           <button @click="showDeleteConfirm = false"
-            class="px-4 py-2 text-sm text-kakoclaw-text-secondary hover:text-kakoclaw-text transition-colors">Cancel</button>
+            class="px-4 py-2 text-sm text-makoclaw-text-secondary hover:text-makoclaw-text transition-colors">Cancel</button>
           <button @click="executeDeleteJob"
             class="px-4 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">Delete</button>
         </div>
@@ -687,3 +687,5 @@ onMounted(() => loadJobs())
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(156, 163, 175, 0.5); border-radius: 4px; }
 </style>
+
+

@@ -1,7 +1,7 @@
 ---
 slug: project-structure
 category: architecture
-generatedAt: 2026-02-18T15:22:38.693Z
+generatedAt: 2026-02-23T15:50:09.224Z
 ---
 
 # How is the codebase organized?
@@ -12,7 +12,7 @@ generatedAt: 2026-02-18T15:22:38.693Z
 assets/
 cmd/
 docs/
-KakoClaw-data/
+MakoClaw-data/
 pkg/
 scripts/
 skills/

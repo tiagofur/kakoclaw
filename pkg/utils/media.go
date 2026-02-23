@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/sipeed/kakoclaw/pkg/logger"
+	"github.com/sipeed/makoclaw/pkg/logger"
 )
 
 // IsAudioFile checks if a file is an audio file based on its filename extension and content type.
@@ -64,7 +64,7 @@ func DownloadFile(url, filename string, opts DownloadOptions) string {
 		opts.LoggerPrefix = "utils"
 	}
 
-	mediaDir := filepath.Join(os.TempDir(), "KakoClaw_media")
+	mediaDir := filepath.Join(os.TempDir(), "makoclaw_media")
 	if err := os.MkdirAll(mediaDir, 0700); err != nil {
 		logger.ErrorCF(opts.LoggerPrefix, "Failed to create media directory", map[string]interface{}{
 			"error": err.Error(),
@@ -141,3 +141,4 @@ func DownloadFileSimple(url, filename string) string {
 		LoggerPrefix: "media",
 	})
 }
+

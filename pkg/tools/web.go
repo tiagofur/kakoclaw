@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	userAgent = "Mozilla/5.0 (compatible; KakoClaw/1.0)"
+	userAgent = "Mozilla/5.0 (compatible; makoclaw/1.0)"
 )
 
 type WebSearchTool struct {
@@ -296,3 +296,4 @@ func (t *WebFetchTool) extractText(htmlContent string) string {
 
 	return strings.Join(cleanLines, "\n")
 }
+

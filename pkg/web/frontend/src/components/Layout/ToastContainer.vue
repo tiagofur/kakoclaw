@@ -46,13 +46,13 @@ const { toasts, dismiss } = useToast()
 const toastClasses = (type) => {
   switch (type) {
     case 'success':
-      return 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+      return 'bg-blue-500/15 border-blue-500/30 text-blue-300'
     case 'error':
       return 'bg-red-500/15 border-red-500/30 text-red-300'
     case 'warning':
       return 'bg-amber-500/15 border-amber-500/30 text-amber-300'
     default:
-      return 'bg-kakoclaw-accent/15 border-kakoclaw-accent/30 text-kakoclaw-accent'
+      return 'bg-makoclaw-accent/15 border-makoclaw-accent/30 text-makoclaw-accent'
   }
 }
 </script>
@@ -76,3 +76,5 @@ const toastClasses = (type) => {
   transition: transform 0.3s ease;
 }
 </style>
+
+

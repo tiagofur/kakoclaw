@@ -12,10 +12,10 @@ import (
 	larkim "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
 	larkws "github.com/larksuite/oapi-sdk-go/v3/ws"
 
-	"github.com/sipeed/kakoclaw/pkg/bus"
-	"github.com/sipeed/kakoclaw/pkg/config"
-	"github.com/sipeed/kakoclaw/pkg/logger"
-	"github.com/sipeed/kakoclaw/pkg/utils"
+	"github.com/sipeed/makoclaw/pkg/bus"
+	"github.com/sipeed/makoclaw/pkg/config"
+	"github.com/sipeed/makoclaw/pkg/logger"
+	"github.com/sipeed/makoclaw/pkg/utils"
 )
 
 type FeishuChannel struct {
@@ -106,7 +106,7 @@ func (c *FeishuChannel) Send(ctx context.Context, msg bus.OutboundMessage) error
 			ReceiveId(msg.ChatID).
 			MsgType(larkim.MsgTypeText).
 			Content(string(payload)).
-			Uuid(fmt.Sprintf("KakoClaw-%d", time.Now().UnixNano())).
+			Uuid(fmt.Sprintf("makoclaw-%d", time.Now().UnixNano())).
 			Build()).
 		Build()
 
@@ -214,3 +214,4 @@ func stringValue(v *string) string {
 	}
 	return *v
 }
+

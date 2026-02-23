@@ -1,6 +1,16 @@
 # Guía de Inicio Rápido
 
-Bienvenido a KakoClaw. Esta guía te ayudará a configurar y ejecutar tu asistente de IA en menos de 5 minutos.
+Bienvenido a **MakoClaw** — La plataforma de agentes de IA de alto nivel. Esta guía te ayudará a configurar y ejecutar tu ecosistema de IA en menos de 5 minutos.
+
+<div align="center">
+
+**🦈 MakoClaw — The Apex AI Agent**
+
+Ultrafast · 10MB RAM · $10 Hardware · Self-Bootstrapped
+
+</div>
+
+---
 
 ## ✅ Requisitos Previos
 
@@ -9,6 +19,8 @@ Bienvenido a KakoClaw. Esta guía te ayudará a configurar y ejecutar tu asisten
 - **Hardware**: Cualquier computadora moderna (incluso Raspberry Pi o placas de $10)
 - **Conexión a Internet**: Para comunicación con LLMs
 
+---
+
 ## 🚀 Instalación
 
 ### Opción 1: Binario Pre-compilado (Recomendado)
@@ -16,27 +28,30 @@ Bienvenido a KakoClaw. Esta guía te ayudará a configurar y ejecutar tu asisten
 ```bash
 # Descargar el binario para tu plataforma
 # Linux x86_64
-wget https://github.com/sipeed/KakoClaw/releases/latest/download/KakoClaw-linux-amd64
+wget https://github.com/sipeed/MakoClaw/releases/latest/download/MakoClaw-linux-amd64
 
 # Linux ARM64 (Raspberry Pi, etc)
-wget https://github.com/sipeed/KakoClaw/releases/latest/download/KakoClaw-linux-arm64
+wget https://github.com/sipeed/MakoClaw/releases/latest/download/MakoClaw-linux-arm64
 
 # macOS
-wget https://github.com/sipeed/KakoClaw/releases/latest/download/KakoClaw-darwin-amd64
+wget https://github.com/sipeed/MakoClaw/releases/latest/download/MakoClaw-darwin-amd64
 
-# Hacer ejecutable
-chmod +x KakoClaw-linux-amd64
+# Windows
+wget https://github.com/sipeed/MakoClaw/releases/latest/download/MakoClaw-windows-amd64.exe
+
+# Hacer ejecutable (Linux/macOS)
+chmod +x MakoClaw-linux-amd64
 
 # Mover a tu PATH
-sudo mv KakoClaw-linux-amd64 /usr/local/bin/KakoClaw
+sudo mv MakoClaw-linux-amd64 /usr/local/bin/MakoClaw
 ```
 
 ### Opción 2: Compilar desde Fuente
 
 ```bash
 # Clonar el repositorio
-git clone https://github.com/sipeed/KakoClaw.git
-cd KakoClaw
+git clone https://github.com/sipeed/MakoClaw.git
+cd MakoClaw
 
 # Compilar
 make build
@@ -45,53 +60,54 @@ make build
 make install
 
 # Verificar instalación
-KakoClaw version
+MakoClaw version
 ```
+
+---
 
 ## ⚙️ Configuración Inicial
 
-### Paso 1: Inicializar KakoClaw
+### Paso 1: Inicializar MakoClaw
 
 ```bash
-KakoClaw onboard
+MakoClaw onboard
 ```
 
 Esto creará:
-- `~/.KakoClaw/config.json` - Archivo de configuración
-- `~/.KakoClaw/workspace/` - Directorio de trabajo
+- `~/.MakoClaw/config.json` — Archivo de configuración
+- `~/.MakoClaw/workspace/` — Directorio de trabajo
 - Archivos base: `AGENTS.md`, `IDENTITY.md`, `SOUL.md`, `USER.md`
 
 ### Paso 2: Obtener API Key
 
 Elige un proveedor de LLM y obtén tu API key:
 
-#### Opción A: OpenRouter (Recomendado - Múltiples modelos)
+#### Opción A: OpenRouter (Recomendado — Múltiples modelos)
 1. Ve a [openrouter.ai/keys](https://openrouter.ai/keys)
 2. Crea una cuenta
 3. Genera una API key
 4. Tienes 200K tokens gratis por mes
 
-#### Opción B: Zhipu (Para usuarios de China)
-1. Ve a [bigmodel.cn](https://bigmodel.cn)
+#### Opción B: Groq (Rápido y gratis)
+1. Ve a [console.groq.com](https://console.groq.com)
 2. Crea cuenta y obtén API key
-3. Tienes 200K tokens gratis por mes
+3. Incluye Whisper para transcripción de voz
 
 #### Opción C: Anthropic (Claude)
 1. Ve a [console.anthropic.com](https://console.anthropic.com)
 2. Crea cuenta y obtén API key
 
-#### Opción D: Groq (Rápido y gratis)
-1. Ve a [console.groq.com](https://console.groq.com)
+#### Opción D: OpenAI (GPT-4)
+1. Ve a [platform.openai.com](https://platform.openai.com)
 2. Crea cuenta y obtén API key
-3. Incluye Whisper para transcripción de voz
 
 ### Paso 3: Configurar API Key
 
-Edita `~/.KakoClaw/config.json`:
+Edita `~/.MakoClaw/config.json`:
 
 ```bash
 # Abrir con tu editor favorito
-nano ~/.KakoClaw/config.json
+nano ~/.MakoClaw/config.json
 ```
 
 Configuración básica:
@@ -113,34 +129,62 @@ Configuración básica:
 }
 ```
 
+---
+
 ## 💬 Primer Uso
 
 ### Modo Directo (Una sola pregunta)
 
 ```bash
-KakoClaw agent -m "Hola, ¿qué puedes hacer?"
+MakoClaw agent -m "Hola, ¿qué puedes hacer?"
 ```
 
 ### Modo Interactivo (Chat continuo)
 
 ```bash
-KakoClaw agent
+MakoClaw agent
 
-🐸 Interactive mode (Ctrl+C to exit)
+🦈 Interactive mode (Ctrl+C to exit)
 
-🐸 You: Hola
+🦈 You: Hola
 
-🐸 Hola! Soy KakoClaw, tu asistente de IA ultraligero. Puedo ayudarte con:
-- Buscar información en la web
-- Leer y escribir archivos
-- Ejecutar comandos en tu sistema
+🦈 Hola! Soy MakoClaw, tu plataforma de agentes de IA de alto nivel. Puedo ayudarte con:
+- Búsqueda en la web
+- Lectura y escritura de archivos
+- Ejecución de comandos en tu sistema
 - Programar tareas recurrentes
+- Gestión de tareas con Kanban
+- Creación de workflows visuales
 - Y mucho más...
 
 ¿En qué puedo ayudarte hoy?
 
-🐸 You: 
+🦈 You:
 ```
+
+### Panel Web (Interfaz gráfica completa)
+
+```bash
+# Iniciar servidor web
+MakoClaw web
+
+# O usar el gateway para canales también
+MakoClaw gateway
+
+# Abrir http://localhost:18880 en tu navegador
+```
+
+El panel web incluye:
+- 💬 Chat con historial
+- 📋 Kanban Board para tareas
+- 🔄 Visual Workflows
+- 🤖 Multi-Agent System
+- 📁 Gestión de archivos
+- 🧠 Base de conocimientos
+- ⏰ Cron jobs
+- 📊 Métricas y reportes
+
+---
 
 ## 🔍 Funciones Básicas
 
@@ -148,45 +192,66 @@ KakoClaw agent
 
 ```bash
 # Necesitas configurar Brave Search API (opcional pero recomendado)
-# Ve a https://brave.com/search/api - 2000 consultas/mes gratis
+# Ve a https://brave.com/search/api — 2000 consultas/mes gratis
 
-KakoClaw agent -m "Busca información sobre Go programming"
+MakoClaw agent -m "Busca información sobre Go programming"
 ```
 
 ### 2. Operaciones con Archivos
 
 ```bash
 # Crear un archivo
-KakoClaw agent -m "Crea un archivo hello.txt con el contenido 'Hola Mundo'"
+MakoClaw agent -m "Crea un archivo hello.txt con el contenido 'Hola Mundo'"
 
 # Leer un archivo
-KakoClaw agent -m "Lee el archivo hello.txt"
+MakoClaw agent -m "Lee el archivo hello.txt"
 
 # Listar directorio
-KakoClaw agent -m "Lista los archivos en el directorio actual"
+MakoClaw agent -m "Lista los archivos en el directorio actual"
+
+# Editar un archivo (asistido por IA)
+MakoClaw agent -m "Edita el archivo config.json y cambia el modelo"
 ```
 
 ### 3. Ejecución de Comandos
 
 ```bash
 # Ejecutar comando shell
-KakoClaw agent -m "Ejecuta el comando 'date'"
+MakoClaw agent -m "Ejecuta el comando 'date'"
 
 # Análisis de sistema
-KakoClaw agent -m "Muestra el uso de disco con df -h"
+MakoClaw agent -m "Muestra el uso de disco con df -h"
+
+# Procesos en ejecución
+MakoClaw agent -m "Lista los procesos que más CPU consumen"
 ```
 
-### 4. Tareas Programadas
+### 4. Gestión de Tareas (Kanban)
 
 ```bash
-# Crear recordatorio
-KakoClaw cron add -n "reunion" -m "Tienes una reunión en 10 minutos" -e 600
+# Crear una tarea
+MakoClaw agent -m "Crea una tarea: 'Revisar PR del proyecto' con alta prioridad"
 
-# Ver tareas programadas
-KakoClaw cron list
+# Listar tareas
+MakoClaw agent -m "Muestra todas las tareas en el Kanban"
+
+# Actualizar estado
+MakoClaw agent -m "Marca la tarea 'Revisar PR' como en progreso"
 ```
 
-### 5. Workflows (Automatización Multi-Paso)
+### 5. Tareas Programadas (Cron)
+
+```bash
+# Crear recordatorio (via panel web o comando)
+# Panel: Cron → New Job
+# O comando:
+MakoClaw cron add -n "reunion" -m "Tienes una reunión en 10 minutos" -e 600
+
+# Ver tareas programadas
+MakoClaw cron list
+```
+
+### 6. Workflows (Automatización Multi-Paso)
 
 Los **workflows** te permiten crear pipelines de automatización combinando prompts, herramientas y lógica condicional.
 
@@ -196,9 +261,7 @@ Los **workflows** te permiten crear pipelines de automatización combinando prom
 
 1. **Iniciar servidor web:**
 ```bash
-KakoClaw web
-# o
-KakoClaw gateway
+MakoClaw web
 ```
 
 2. **Acceder al panel:**
@@ -212,13 +275,13 @@ KakoClaw gateway
    - Descripción: "Busca y resume información"
 
 4. **Agregar pasos:**
-   
+
    **Paso 1 - Búsqueda Web:**
    - Tipo: Tool
    - Label: "Search web"
    - Tool Name: `web_search`
    - Args: `{"query": "Go programming best practices 2026"}`
-   
+
    **Paso 2 - Resumen con IA:**
    - Tipo: Prompt
    - Label: "Summarize"
@@ -229,16 +292,20 @@ KakoClaw gateway
    - Click "Run"
    - Ver resultados en tiempo real
 
-#### Ejemplos Útiles
+#### Ejemplos de Workflows Útiles
 
-- **Code Review Bot**: Analiza código → Crea tarea si hay issues
-- **Test Analyzer**: Corre tests → Analiza fallas → Guarda reporte
-- **Research Assistant**: Busca → Sintetiza → Guarda notas
-- **SEO Optimizer**: Lee artículo → Analiza → Genera mejoras
+- **Code Review Bot**: Analiza código → Crea tarea si hay issues → Asigna al desarrollador
+- **Test Analyzer**: Corre tests → Analiza fallas → Guarda reporte → Notifica equipo
+- **Research Assistant**: Busca → Sintetiza → Guarda notas → Genera resumen
+- **SEO Optimizer**: Lee artículo → Analiza keywords → Genera mejoras → Actualiza archivo
+- **Deploy Bot**: Corre tests → Buiild → Deploy → Notifica resultado
+- **Backup Bot**: Comprime archivos → Sube a cloud → Guarda log → Programa próximo
 
 📚 **Más información:** [Guía completa de Workflows](../examples/workflows.md)
 
 🎯 **Templates listos:** [workflow-templates.json](../examples/workflow-templates.json)
+
+---
 
 ## 🤖 Uso Avanzado
 
@@ -253,7 +320,7 @@ KakoClaw gateway
    - Busca @userinfobot en Telegram
    - Copia tu ID numérico
 
-3. **Configurar en KakoClaw:**
+3. **Configurar en MakoClaw:**
 
 ```json
 {
@@ -270,50 +337,105 @@ KakoClaw gateway
 4. **Iniciar Gateway:**
 
 ```bash
-KakoClaw gateway
+MakoClaw gateway
 
 # Ahora puedes escribirle a tu bot en Telegram!
+```
+
+### Otros Canales Disponibles
+
+- **Discord**: Configura bot token en `config.json`
+- **Slack**: Configura bot token en `config.json`
+- **WhatsApp**: Requiere bridge (Go-WhatsApp)
+- **Signal**: Configura en `config.json`
+- **QQ**: Configura en `config.json`
+- **DingTalk**: Configura en `config.json`
+- **Feishu**: Configura en `config.json`
+- **MaixCam**: Configura en `config.json`
+
+Ver [Canales de Mensajería](./channels.md) para más detalles.
+
+### Multi-Agent System
+
+1. **Configurar Orchestrator:**
+```json
+{
+  "agents": {
+    "orchestrator": {
+      "enabled": true,
+      "provider": "openrouter",
+      "model": "anthropic/claude-3.5-sonnet",
+      "temperature": 0.7,
+      "max_delegation_retries": 3
+    }
+  }
+}
+```
+
+2. **Crear Specialist:**
+- Panel: Agents → New Specialist
+- Configura modelo, temperatura, y descripción
+- El Orchestrator delegará tareas automáticamente
+
+### Base de Conocimiento (RAG)
+
+1. **Subir documentos:**
+- Panel: Knowledge → Upload
+- Soporta: PDF, TXT, MD, JSON, CSV, HTML, XML, YAML, LOG
+
+2. **Buscar:**
+- Panel: Knowledge → Search
+- O usa el comando `query_knowledge`
+
+```bash
+MakoClaw agent -m "¿Qué dice mi documento sobre el proyecto?"
 ```
 
 ### Usar Skills
 
 ```bash
 # Ver skills disponibles
-KakoClaw skills list
+MakoClaw skills list
 
 # Instalar skill de clima
-KakoClaw skills install sipeed/KakoClaw-skills/weather
+MakoClaw skills install sipeed/MakoClaw-skills/weather
 
 # Usar el skill
-KakoClaw agent -m "¿Cómo está el clima en Madrid?"
+MakoClaw agent -m "¿Cómo está el clima en Madrid?"
 ```
 
 ### Múltiples Sesiones
 
 ```bash
 # Sesión de trabajo
-KakoClaw agent -s trabajo
+MakoClaw agent -s trabajo
 
 # Sesión personal
-KakoClaw agent -s personal
+MakoClaw agent -s personal
 
 # Cada sesión tiene su propio historial y contexto
 ```
+
+---
 
 ## 📊 Ver Estado
 
 ```bash
 # Ver configuración y estado
-KakoClaw status
+MakoClaw status
 
 # Salida esperada:
-🐸 KakoClaw Status
+🦈 MakoClaw Status
 
-Config: /home/user/.KakoClaw/config.json ✓
-Workspace: /home/user/.KakoClaw/workspace ✓
+Config: /home/user/.MakoClaw/config.json ✓
+Workspace: /home/user/.MakoClaw/workspace ✓
 Model: anthropic/claude-3.5-sonnet
 OpenRouter API: ✓
+Agents: 1 active
+Workflows: 3 defined
 ```
+
+---
 
 ## 🐛 Solución de Problemas
 
@@ -352,12 +474,25 @@ OpenRouter API: ✓
 }
 ```
 
+### Panel web no carga
+
+**Solución:**
+1. Verifica que el puerto 18880 no esté en uso
+2. Usa `--port` para cambiar el puerto: `MakoClaw web --port 8080`
+3. Verifica firewall
+
+---
+
 ## 🎓 Siguientes Pasos
 
 - 📖 Lee la [documentación completa](../README.md)
 - 🛠️ Aprende a [crear tus propios skills](../development/creating-skills.md)
-- 💻 Configura [múltiples canales](../guides/channels.md)
-- ⚡ Optimiza tu [configuración de LLM](../guides/llm-providers.md)
+- 💻 Configura [múltiples canales](./channels.md)
+- ⚡ Optimiza tu [configuración de LLM](./llm-providers.md)
+- 🤖 Explora el [Multi-Agent System](../development/MULTI_AGENT_SETUP.md)
+- 🔄 Crea [Workflows avanzados](../examples/workflows.md)
+
+---
 
 ## 💡 Tips
 
@@ -366,13 +501,25 @@ OpenRouter API: ✓
 3. **Experimenta**: Prueba diferentes modelos y temperaturas
 4. **Revisa logs**: Usa `--debug` para ver qué está pasando detrás
 5. **Mantén actualizado**: `git pull && make install` periódicamente
+6. **Usa workflows**: Automatiza tareas repetitivas
+7. **Leverage Kanban**: Deja que la IA gestione tus tareas
+8. **Crea especialistas**: Agentes especializados para dominios específicos
+
+---
 
 ## 🆘 Ayuda
 
 - **Documentación**: [docs/](../README.md)
-- **Issues**: [GitHub Issues](https://github.com/sipeed/KakoClaw/issues)
-- **Comunidad**: [Discord](https://discord.gg/V4sAZ9XWpN)
+- **Issues**: [GitHub Issues](https://github.com/sipeed/MakoClaw/issues)
+- **Discord**: [Comunidad](https://discord.gg/V4sAZ9XWpN)
+- **Discussions**: [GitHub Discussions](https://github.com/sipeed/MakoClaw/discussions)
 
 ---
 
-**¡Felicitaciones!** Ahora tienes KakoClaw funcionando. 🐸
+<div align="center">
+
+**¡Felicitaciones!** 🦈
+
+Ahora tienes **MakoClaw** funcionando. El tiburón más rápido del océano de la IA.
+
+</div>

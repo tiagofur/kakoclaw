@@ -1,10 +1,11 @@
 {
   "version": "1.0.0",
-  "generated": "2026-02-18T15:22:38.049Z",
+  "generated": "2026-02-23T15:50:07.145Z",
   "stack": {
     "primaryLanguage": "typescript",
     "languages": [
       "go",
+      "python",
       "javascript",
       "typescript"
     ],
@@ -20,12 +21,12 @@
     "hasCI": true
   },
   "structure": {
-    "totalFiles": 3554,
+    "totalFiles": 19901,
     "rootPath": ".",
     "topDirectories": [
       {
         "name": "assets",
-        "fileCount": 11,
+        "fileCount": 12,
         "description": "Static assets (images, fonts)"
       },
       {
@@ -35,22 +36,27 @@
       },
       {
         "name": "docs",
-        "fileCount": 31,
+        "fileCount": 67,
         "description": "Documentation files"
       },
       {
-        "name": "KakoClaw-data",
-        "fileCount": 6,
+        "name": "makoclaw",
+        "fileCount": 1,
+        "description": "Module directory"
+      },
+      {
+        "name": "MakoClaw-data",
+        "fileCount": 99,
         "description": "Module directory"
       },
       {
         "name": "pkg",
-        "fileCount": 3478,
+        "fileCount": 19694,
         "description": "Module directory"
       },
       {
         "name": "scripts",
-        "fileCount": 1,
+        "fileCount": 3,
         "description": "Build and utility scripts"
       },
       {
@@ -62,55 +68,77 @@
     "languageDistribution": [
       {
         "extension": ".js",
-        "count": 2127
+        "count": 10356
       },
       {
         "extension": ".ts",
-        "count": 390
-      },
-      {
-        "extension": ".md",
-        "count": 236
-      },
-      {
-        "extension": ".json",
-        "count": 202
-      },
-      {
-        "extension": ".map",
-        "count": 194
-      },
-      {
-        "extension": ".go",
-        "count": 74
-      },
-      {
-        "extension": ".mts",
-        "count": 34
-      },
-      {
-        "extension": ".mjs",
-        "count": 32
+        "count": 2579
       },
       {
         "extension": ".cjs",
-        "count": 29
+        "count": 1279
       },
       {
         "extension": ".cts",
-        "count": 24
+        "count": 1259
+      },
+      {
+        "extension": ".map",
+        "count": 1130
+      },
+      {
+        "extension": ".json",
+        "count": 756
+      },
+      {
+        "extension": ".md",
+        "count": 719
+      },
+      {
+        "extension": ".css",
+        "count": 522
+      },
+      {
+        "extension": ".mjs",
+        "count": 270
+      },
+      {
+        "extension": ".scss",
+        "count": 256
       }
     ]
   },
   "architecture": {
     "layers": [
       {
+        "name": "Config",
+        "description": "Configuration and constants",
+        "directories": [
+          "pkg\\web\\frontend",
+          "pkg\\web\\frontend\\src\\composables"
+        ],
+        "symbolCount": 1,
+        "dependsOn": []
+      },
+      {
         "name": "Services",
         "description": "Business logic and orchestration",
         "directories": [
           "pkg\\web\\frontend\\src\\services"
         ],
-        "symbolCount": 2,
+        "symbolCount": 9,
+        "dependsOn": [
+          "Config"
+        ]
+      },
+      {
+        "name": "Repositories",
+        "description": "Data access and persistence",
+        "directories": [
+          "MakoClaw-data\\workspace",
+          "MakoClaw-data\\workspace\\documentos"
+        ],
+        "symbolCount": 7,
         "dependsOn": []
       }
     ],
@@ -127,6 +155,20 @@
   },
   "symbols": {
     "classes": [
+      {
+        "name": "LeadGenerator",
+        "kind": "class",
+        "file": "MakoClaw-data\\workspace\\documentos\\sistema_automatizado.py",
+        "line": 20,
+        "exported": true
+      },
+      {
+        "name": "WebAnalyzer",
+        "kind": "class",
+        "file": "MakoClaw-data\\workspace\\documentos\\web_analyzer.py",
+        "line": 16,
+        "exported": true
+      },
       {
         "name": "ChatWebSocket",
         "kind": "class",
@@ -148,28 +190,196 @@
         "name": "addMessage",
         "kind": "function",
         "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
-        "line": 10,
+        "line": 27,
         "exported": true
       },
       {
         "name": "addTask",
         "kind": "function",
         "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
-        "line": 87,
+        "line": 93,
+        "exported": true
+      },
+      {
+        "name": "addToolCall",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
+        "line": 75,
+        "exported": true
+      },
+      {
+        "name": "analyze_companies_batch",
+        "kind": "function",
+        "file": "MakoClaw-data\\workspace\\documentos\\web_analyzer.py",
+        "line": 276,
+        "exported": true
+      },
+      {
+        "name": "appendStreamToken",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
+        "line": 51,
         "exported": true
       },
       {
         "name": "clearFilter",
         "kind": "function",
         "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
-        "line": 110,
+        "line": 139,
         "exported": true
       },
       {
         "name": "clearMessages",
         "kind": "function",
         "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
-        "line": 18,
+        "line": 99,
+        "exported": true
+      },
+      {
+        "name": "closeSpecialistModal",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\agentsStore.js",
+        "line": 162,
+        "exported": true
+      },
+      {
+        "name": "createSpecialist",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\agentsStore.js",
+        "line": 51,
+        "exported": true
+      },
+      {
+        "name": "deleteSpecialist",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\agentsStore.js",
+        "line": 83,
+        "exported": true
+      },
+      {
+        "name": "demo_con_datos_ejemplo",
+        "kind": "function",
+        "file": "MakoClaw-data\\workspace\\documentos\\sistema_automatizado.py",
+        "line": 384,
+        "exported": true
+      },
+      {
+        "name": "endStreamingMessage",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
+        "line": 60,
+        "exported": true
+      },
+      {
+        "name": "enqueuePendingMessage",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
+        "line": 115,
+        "exported": true
+      },
+      {
+        "name": "ensureLoaded",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\services\\pyodideRunner.js",
+        "line": 42,
+        "exported": true
+      },
+      {
+        "name": "fetchAgents",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\agentsStore.js",
+        "line": 23,
+        "exported": true
+      },
+      {
+        "name": "fetchMetrics",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\agentsStore.js",
+        "line": 127,
+        "exported": true
+      },
+      {
+        "name": "fetchSpecialistDetails",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\agentsStore.js",
+        "line": 37,
+        "exported": true
+      },
+      {
+        "name": "flujo_completo_ejemplo",
+        "kind": "function",
+        "file": "MakoClaw-data\\workspace\\documentos\\picoclaw_workflow.py",
+        "line": 27,
+        "exported": true
+      },
+      {
+        "name": "flushPendingMessages",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
+        "line": 120,
+        "exported": true
+      },
+      {
+        "name": "formato_lead_para_picoclaw",
+        "kind": "function",
+        "file": "MakoClaw-data\\workspace\\documentos\\picoclaw_workflow.py",
+        "line": 197,
+        "exported": true
+      },
+      {
+        "name": "generate_task_description",
+        "kind": "function",
+        "file": "MakoClaw-data\\workspace\\create_remaining_tasks.py",
+        "line": 72,
+        "exported": true
+      },
+      {
+        "name": "generateSpecialistWithAI",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\agentsStore.js",
+        "line": 99,
+        "exported": true
+      },
+      {
+        "name": "getSpecialistBgColor",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\agentsStore.js",
+        "line": 192,
+        "exported": true
+      },
+      {
+        "name": "getSpecialistColor",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\agentsStore.js",
+        "line": 180,
+        "exported": true
+      },
+      {
+        "name": "getSpecialistDisplay",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
+        "line": 244,
+        "exported": true
+      },
+      {
+        "name": "getSpecialistIcon",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\agentsStore.js",
+        "line": 168,
+        "exported": true
+      },
+      {
+        "name": "getStatus",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\services\\pyodideRunner.js",
+        "line": 34,
+        "exported": true
+      },
+      {
+        "name": "installPwa",
+        "kind": "function",
+        "file": "pkg\\web\\frontend\\src\\stores\\uiStore.js",
+        "line": 20,
         "exported": true
       },
       {
@@ -180,136 +390,10 @@
         "exported": true
       },
       {
-        "name": "removeTask",
+        "name": "onStatusChange",
         "kind": "function",
-        "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
-        "line": 98,
-        "exported": true
-      },
-      {
-        "name": "restoreSession",
-        "kind": "function",
-        "file": "pkg\\web\\frontend\\src\\stores\\authStore.js",
-        "line": 29,
-        "exported": true
-      },
-      {
-        "name": "restoreUIPreferences",
-        "kind": "function",
-        "file": "pkg\\web\\frontend\\src\\stores\\uiStore.js",
-        "line": 32,
-        "exported": true
-      },
-      {
-        "name": "setActiveTab",
-        "kind": "function",
-        "file": "pkg\\web\\frontend\\src\\stores\\uiStore.js",
+        "file": "pkg\\web\\frontend\\src\\services\\pyodideRunner.js",
         "line": 28,
-        "exported": true
-      },
-      {
-        "name": "setConnected",
-        "kind": "function",
-        "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
-        "line": 22,
-        "exported": true
-      },
-      {
-        "name": "setCredentials",
-        "kind": "function",
-        "file": "pkg\\web\\frontend\\src\\stores\\authStore.js",
-        "line": 16,
-        "exported": true
-      },
-      {
-        "name": "setFilter",
-        "kind": "function",
-        "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
-        "line": 106,
-        "exported": true
-      },
-      {
-        "name": "setLoading",
-        "kind": "function",
-        "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
-        "line": 123,
-        "exported": true
-      },
-      {
-        "name": "setLoading",
-        "kind": "function",
-        "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
-        "line": 26,
-        "exported": true
-      },
-      {
-        "name": "setSelectedTask",
-        "kind": "function",
-        "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
-        "line": 102,
-        "exported": true
-      },
-      {
-        "name": "setSortBy",
-        "kind": "function",
-        "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
-        "line": 119,
-        "exported": true
-      },
-      {
-        "name": "setTasks",
-        "kind": "function",
-        "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
-        "line": 83,
-        "exported": true
-      },
-      {
-        "name": "setTheme",
-        "kind": "function",
-        "file": "pkg\\web\\frontend\\src\\stores\\uiStore.js",
-        "line": 9,
-        "exported": true
-      },
-      {
-        "name": "setWebSocket",
-        "kind": "function",
-        "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
-        "line": 127,
-        "exported": true
-      },
-      {
-        "name": "setWebSocket",
-        "kind": "function",
-        "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
-        "line": 30,
-        "exported": true
-      },
-      {
-        "name": "sortTasks",
-        "kind": "function",
-        "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
-        "line": 66,
-        "exported": true
-      },
-      {
-        "name": "toggleSidebar",
-        "kind": "function",
-        "file": "pkg\\web\\frontend\\src\\stores\\uiStore.js",
-        "line": 23,
-        "exported": true
-      },
-      {
-        "name": "toggleTheme",
-        "kind": "function",
-        "file": "pkg\\web\\frontend\\src\\stores\\uiStore.js",
-        "line": 19,
-        "exported": true
-      },
-      {
-        "name": "updateTask",
-        "kind": "function",
-        "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
-        "line": 91,
         "exported": true
       }
     ],
@@ -321,28 +405,203 @@
       "name": "addMessage",
       "kind": "function",
       "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
-      "line": 10,
+      "line": 27,
       "exported": true
     },
     {
       "name": "addTask",
       "kind": "function",
       "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
-      "line": 87,
+      "line": 93,
+      "exported": true
+    },
+    {
+      "name": "addToolCall",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
+      "line": 75,
+      "exported": true
+    },
+    {
+      "name": "analyze_companies_batch",
+      "kind": "function",
+      "file": "MakoClaw-data\\workspace\\documentos\\web_analyzer.py",
+      "line": 276,
+      "exported": true
+    },
+    {
+      "name": "appendStreamToken",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
+      "line": 51,
       "exported": true
     },
     {
       "name": "clearFilter",
       "kind": "function",
       "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
-      "line": 110,
+      "line": 139,
       "exported": true
     },
     {
       "name": "clearMessages",
       "kind": "function",
       "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
-      "line": 18,
+      "line": 99,
+      "exported": true
+    },
+    {
+      "name": "closeSpecialistModal",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\agentsStore.js",
+      "line": 162,
+      "exported": true
+    },
+    {
+      "name": "createSpecialist",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\agentsStore.js",
+      "line": 51,
+      "exported": true
+    },
+    {
+      "name": "deleteSpecialist",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\agentsStore.js",
+      "line": 83,
+      "exported": true
+    },
+    {
+      "name": "demo_con_datos_ejemplo",
+      "kind": "function",
+      "file": "MakoClaw-data\\workspace\\documentos\\sistema_automatizado.py",
+      "line": 384,
+      "exported": true
+    },
+    {
+      "name": "endStreamingMessage",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
+      "line": 60,
+      "exported": true
+    },
+    {
+      "name": "enqueuePendingMessage",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
+      "line": 115,
+      "exported": true
+    },
+    {
+      "name": "ensureLoaded",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\services\\pyodideRunner.js",
+      "line": 42,
+      "exported": true
+    },
+    {
+      "name": "fetchAgents",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\agentsStore.js",
+      "line": 23,
+      "exported": true
+    },
+    {
+      "name": "fetchMetrics",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\agentsStore.js",
+      "line": 127,
+      "exported": true
+    },
+    {
+      "name": "fetchSpecialistDetails",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\agentsStore.js",
+      "line": 37,
+      "exported": true
+    },
+    {
+      "name": "flujo_completo_ejemplo",
+      "kind": "function",
+      "file": "MakoClaw-data\\workspace\\documentos\\picoclaw_workflow.py",
+      "line": 27,
+      "exported": true
+    },
+    {
+      "name": "flushPendingMessages",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
+      "line": 120,
+      "exported": true
+    },
+    {
+      "name": "formato_lead_para_picoclaw",
+      "kind": "function",
+      "file": "MakoClaw-data\\workspace\\documentos\\picoclaw_workflow.py",
+      "line": 197,
+      "exported": true
+    },
+    {
+      "name": "generate_task_description",
+      "kind": "function",
+      "file": "MakoClaw-data\\workspace\\create_remaining_tasks.py",
+      "line": 72,
+      "exported": true
+    },
+    {
+      "name": "generateSpecialistWithAI",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\agentsStore.js",
+      "line": 99,
+      "exported": true
+    },
+    {
+      "name": "getSpecialistBgColor",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\agentsStore.js",
+      "line": 192,
+      "exported": true
+    },
+    {
+      "name": "getSpecialistColor",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\agentsStore.js",
+      "line": 180,
+      "exported": true
+    },
+    {
+      "name": "getSpecialistDisplay",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
+      "line": 244,
+      "exported": true
+    },
+    {
+      "name": "getSpecialistIcon",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\agentsStore.js",
+      "line": 168,
+      "exported": true
+    },
+    {
+      "name": "getStatus",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\services\\pyodideRunner.js",
+      "line": 34,
+      "exported": true
+    },
+    {
+      "name": "installPwa",
+      "kind": "function",
+      "file": "pkg\\web\\frontend\\src\\stores\\uiStore.js",
+      "line": 20,
+      "exported": true
+    },
+    {
+      "name": "LeadGenerator",
+      "kind": "class",
+      "file": "MakoClaw-data\\workspace\\documentos\\sistema_automatizado.py",
+      "line": 20,
       "exported": true
     },
     {
@@ -351,151 +610,18 @@
       "file": "pkg\\web\\frontend\\src\\stores\\authStore.js",
       "line": 41,
       "exported": true
-    },
-    {
-      "name": "removeTask",
-      "kind": "function",
-      "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
-      "line": 98,
-      "exported": true
-    },
-    {
-      "name": "restoreSession",
-      "kind": "function",
-      "file": "pkg\\web\\frontend\\src\\stores\\authStore.js",
-      "line": 29,
-      "exported": true
-    },
-    {
-      "name": "restoreUIPreferences",
-      "kind": "function",
-      "file": "pkg\\web\\frontend\\src\\stores\\uiStore.js",
-      "line": 32,
-      "exported": true
-    },
-    {
-      "name": "setActiveTab",
-      "kind": "function",
-      "file": "pkg\\web\\frontend\\src\\stores\\uiStore.js",
-      "line": 28,
-      "exported": true
-    },
-    {
-      "name": "setConnected",
-      "kind": "function",
-      "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
-      "line": 22,
-      "exported": true
-    },
-    {
-      "name": "setCredentials",
-      "kind": "function",
-      "file": "pkg\\web\\frontend\\src\\stores\\authStore.js",
-      "line": 16,
-      "exported": true
-    },
-    {
-      "name": "setFilter",
-      "kind": "function",
-      "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
-      "line": 106,
-      "exported": true
-    },
-    {
-      "name": "setLoading",
-      "kind": "function",
-      "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
-      "line": 123,
-      "exported": true
-    },
-    {
-      "name": "setLoading",
-      "kind": "function",
-      "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
-      "line": 26,
-      "exported": true
-    },
-    {
-      "name": "setSelectedTask",
-      "kind": "function",
-      "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
-      "line": 102,
-      "exported": true
-    },
-    {
-      "name": "setSortBy",
-      "kind": "function",
-      "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
-      "line": 119,
-      "exported": true
-    },
-    {
-      "name": "setTasks",
-      "kind": "function",
-      "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
-      "line": 83,
-      "exported": true
-    },
-    {
-      "name": "setTheme",
-      "kind": "function",
-      "file": "pkg\\web\\frontend\\src\\stores\\uiStore.js",
-      "line": 9,
-      "exported": true
-    },
-    {
-      "name": "setWebSocket",
-      "kind": "function",
-      "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
-      "line": 127,
-      "exported": true
-    },
-    {
-      "name": "setWebSocket",
-      "kind": "function",
-      "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
-      "line": 30,
-      "exported": true
-    },
-    {
-      "name": "sortTasks",
-      "kind": "function",
-      "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
-      "line": 66,
-      "exported": true
-    },
-    {
-      "name": "toggleSidebar",
-      "kind": "function",
-      "file": "pkg\\web\\frontend\\src\\stores\\uiStore.js",
-      "line": 23,
-      "exported": true
-    },
-    {
-      "name": "toggleTheme",
-      "kind": "function",
-      "file": "pkg\\web\\frontend\\src\\stores\\uiStore.js",
-      "line": 19,
-      "exported": true
-    },
-    {
-      "name": "updateTask",
-      "kind": "function",
-      "file": "pkg\\web\\frontend\\src\\stores\\taskStore.js",
-      "line": 91,
-      "exported": true
     }
   ],
   "dependencies": {
     "mostImported": [
       {
-        "file": "pkg\\web\\frontend\\src\\stores\\authStore.js",
-        "importedBy": 4
+        "file": "pkg\\web\\frontend\\src\\services\\api.js",
+        "importedBy": 7,
+        "description": "Business logic and orchestration services"
       },
       {
-        "file": "pkg\\web\\frontend\\src\\services\\api.js",
-        "importedBy": 2,
-        "description": "Business logic and orchestration services"
+        "file": "pkg\\web\\frontend\\src\\stores\\authStore.js",
+        "importedBy": 6
       },
       {
         "file": "pkg\\web\\frontend\\src\\App.vue",
@@ -513,25 +639,82 @@
         "description": "CSS/SCSS stylesheets"
       },
       {
+        "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
+        "importedBy": 1
+      },
+      {
+        "file": "pkg\\web\\frontend\\src\\stores\\agentsStore.js",
+        "importedBy": 1
+      },
+      {
+        "file": "pkg\\web\\frontend\\src\\composables\\useToast.js",
+        "importedBy": 1
+      },
+      {
+        "file": "pkg\\web\\frontend\\src\\views\\LandingPage.vue",
+        "importedBy": 1,
+        "description": "View templates"
+      },
+      {
         "file": "pkg\\web\\frontend\\src\\views\\LoginPage.vue",
         "importedBy": 1,
         "description": "View templates"
       },
       {
-        "file": "pkg\\web\\frontend\\src\\views\\DashboardPage.vue",
+        "file": "pkg\\web\\frontend\\src\\views\\SignupPage.vue",
         "importedBy": 1,
         "description": "View templates"
       },
       {
-        "file": "pkg\\web\\frontend\\src\\stores\\chatStore.js",
+        "file": "pkg\\web\\frontend\\src\\views\\OnboardingView.vue",
+        "importedBy": 1,
+        "description": "View templates"
+      },
+      {
+        "file": "pkg\\web\\frontend\\src\\components\\Layout\\MainLayout.vue",
         "importedBy": 1
+      },
+      {
+        "file": "pkg\\web\\frontend\\src\\views\\DashboardView.vue",
+        "importedBy": 1,
+        "description": "View templates"
+      },
+      {
+        "file": "pkg\\web\\frontend\\src\\views\\ChatView.vue",
+        "importedBy": 1,
+        "description": "View templates"
+      },
+      {
+        "file": "pkg\\web\\frontend\\src\\views\\TasksView.vue",
+        "importedBy": 1,
+        "description": "View templates"
+      },
+      {
+        "file": "pkg\\web\\frontend\\src\\views\\HistoryView.vue",
+        "importedBy": 1,
+        "description": "View templates"
+      },
+      {
+        "file": "pkg\\web\\frontend\\src\\views\\MemoryView.vue",
+        "importedBy": 1,
+        "description": "View templates"
+      },
+      {
+        "file": "pkg\\web\\frontend\\src\\views\\ReportsView.vue",
+        "importedBy": 1,
+        "description": "View templates"
+      },
+      {
+        "file": "pkg\\web\\frontend\\src\\views\\SkillsView.vue",
+        "importedBy": 1,
+        "description": "View templates"
       }
     ]
   },
   "stats": {
-    "totalSymbols": 26,
-    "exportedSymbols": 24,
-    "analysisTimeMs": 161
+    "totalSymbols": 79,
+    "exportedSymbols": 73,
+    "analysisTimeMs": 154
   },
   "keyFiles": [
     {
@@ -545,13 +728,78 @@
       "category": "entrypoint"
     },
     {
+      "path": "pkg\\web\\frontend\\node_modules\\@babel\\traverse\\tsconfig.overrides.json",
+      "description": "TypeScript configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\@surma\\rollup-plugin-off-main-thread\\tests\\fixtures\\assets-in-worker\\rollup.config.js",
+      "description": "Tool configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\@surma\\rollup-plugin-off-main-thread\\tests\\fixtures\\module-worker\\rollup.config.js",
+      "description": "Tool configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\array-buffer-byte-length\\tsconfig.json",
+      "description": "TypeScript configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\async-function\\tsconfig.json",
+      "description": "TypeScript configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\available-typed-arrays\\tsconfig.json",
+      "description": "TypeScript configuration",
+      "category": "config"
+    },
+    {
       "path": "pkg\\web\\frontend\\node_modules\\call-bind-apply-helpers\\tsconfig.json",
+      "description": "TypeScript configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\call-bound\\tsconfig.json",
+      "description": "TypeScript configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\data-view-buffer\\tsconfig.json",
+      "description": "TypeScript configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\data-view-byte-length\\tsconfig.json",
+      "description": "TypeScript configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\data-view-byte-offset\\tsconfig.json",
+      "description": "TypeScript configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\deepmerge\\rollup.config.js",
+      "description": "Tool configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\define-data-property\\tsconfig.json",
       "description": "TypeScript configuration",
       "category": "config"
     },
     {
       "path": "pkg\\web\\frontend\\node_modules\\dunder-proto\\tsconfig.json",
       "description": "TypeScript configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\es-abstract\\eslint.config.mjs",
+      "description": "Tool configuration",
       "category": "config"
     },
     {
@@ -575,6 +823,21 @@
       "category": "config"
     },
     {
+      "path": "pkg\\web\\frontend\\node_modules\\es-to-primitive\\tsconfig.json",
+      "description": "TypeScript configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\fast-uri\\eslint.config.js",
+      "description": "Tool configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\fast-uri\\tsconfig.json",
+      "description": "TypeScript configuration",
+      "category": "config"
+    },
+    {
       "path": "pkg\\web\\frontend\\node_modules\\fastq\\eslint.config.js",
       "description": "Tool configuration",
       "category": "config"
@@ -585,120 +848,40 @@
       "category": "config"
     },
     {
+      "path": "pkg\\web\\frontend\\node_modules\\for-each\\tsconfig.json",
+      "description": "TypeScript configuration",
+      "category": "config"
+    },
+    {
+      "path": "pkg\\web\\frontend\\node_modules\\generator-function\\tsconfig.json",
+      "description": "TypeScript configuration",
+      "category": "config"
+    },
+    {
       "path": "pkg\\web\\frontend\\node_modules\\get-proto\\tsconfig.json",
       "description": "TypeScript configuration",
       "category": "config"
     },
     {
-      "path": "pkg\\web\\frontend\\node_modules\\gopd\\tsconfig.json",
+      "path": "pkg\\web\\frontend\\node_modules\\get-symbol-description\\tsconfig.json",
       "description": "TypeScript configuration",
       "category": "config"
-    },
-    {
-      "path": "pkg\\web\\frontend\\node_modules\\has-symbols\\tsconfig.json",
-      "description": "TypeScript configuration",
-      "category": "config"
-    },
-    {
-      "path": "pkg\\web\\frontend\\node_modules\\has-tostringtag\\tsconfig.json",
-      "description": "TypeScript configuration",
-      "category": "config"
-    },
-    {
-      "path": "pkg\\web\\frontend\\node_modules\\hasown\\tsconfig.json",
-      "description": "TypeScript configuration",
-      "category": "config"
-    },
-    {
-      "path": "pkg\\web\\frontend\\node_modules\\math-intrinsics\\tsconfig.json",
-      "description": "TypeScript configuration",
-      "category": "config"
-    },
-    {
-      "path": "pkg\\web\\frontend\\node_modules\\reusify\\eslint.config.js",
-      "description": "Tool configuration",
-      "category": "config"
-    },
-    {
-      "path": "pkg\\web\\frontend\\node_modules\\reusify\\tsconfig.json",
-      "description": "TypeScript configuration",
-      "category": "config"
-    },
-    {
-      "path": "pkg\\web\\frontend\\node_modules\\tailwindcss\\prettier.config.js",
-      "description": "Tool configuration",
-      "category": "config"
-    },
-    {
-      "path": "pkg\\web\\frontend\\node_modules\\tailwindcss\\stubs\\postcss.config.cjs",
-      "description": "Tool configuration",
-      "category": "config"
-    },
-    {
-      "path": "pkg\\web\\frontend\\node_modules\\tailwindcss\\stubs\\postcss.config.js",
-      "description": "Tool configuration",
-      "category": "config"
-    },
-    {
-      "path": "pkg\\web\\frontend\\node_modules\\tailwindcss\\stubs\\tailwind.config.cjs",
-      "description": "Tool configuration",
-      "category": "config"
-    },
-    {
-      "path": "pkg\\web\\frontend\\node_modules\\tailwindcss\\stubs\\tailwind.config.js",
-      "description": "Tool configuration",
-      "category": "config"
-    },
-    {
-      "path": "pkg\\web\\frontend\\node_modules\\tailwindcss\\stubs\\tailwind.config.ts",
-      "description": "Tool configuration",
-      "category": "config"
-    },
-    {
-      "path": "pkg\\web\\frontend\\postcss.config.js",
-      "description": "Tool configuration",
-      "category": "config"
-    },
-    {
-      "path": "pkg\\web\\frontend\\tailwind.config.js",
-      "description": "Tool configuration",
-      "category": "config"
-    },
-    {
-      "path": "pkg\\web\\frontend\\vite.config.js",
-      "description": "Tool configuration",
-      "category": "config"
-    },
-    {
-      "path": "pkg\\web\\frontend\\node_modules\\@jridgewell\\gen-mapping\\dist\\types\\types.d.ts",
-      "description": "Type definitions",
-      "category": "types"
-    },
-    {
-      "path": "pkg\\web\\frontend\\node_modules\\@jridgewell\\gen-mapping\\src\\types.ts",
-      "description": "Type definitions",
-      "category": "types"
-    },
-    {
-      "path": "pkg\\web\\frontend\\node_modules\\@jridgewell\\trace-mapping\\src\\types.ts",
-      "description": "Type definitions",
-      "category": "types"
     }
   ],
   "navigation": {
-    "tests": "**/*.test.{ts,js}",
+    "tests": "**/*.spec.ts",
     "config": [],
     "types": [
-      "pkg\\web\\frontend\\node_modules\\vue-router\\vue-router-auto.d.ts",
-      "pkg\\web\\frontend\\node_modules\\vue-router\\vue-router-auto-routes.d.ts",
-      "pkg\\web\\frontend\\node_modules\\vue\\jsx.d.ts",
-      "pkg\\web\\frontend\\node_modules\\update-browserslist-db\\index.d.ts",
-      "pkg\\web\\frontend\\node_modules\\vite\\client.d.ts",
-      "pkg\\web\\frontend\\node_modules\\tailwindcss\\resolveConfig.d.ts",
-      "pkg\\web\\frontend\\node_modules\\tailwindcss\\plugin.d.ts",
-      "pkg\\web\\frontend\\node_modules\\tailwindcss\\loadConfig.d.ts",
-      "pkg\\web\\frontend\\node_modules\\tailwindcss\\defaultTheme.d.ts",
-      "pkg\\web\\frontend\\node_modules\\tailwindcss\\defaultConfig.d.ts"
+      "pkg\\web\\frontend\\node_modules\\workbox-window\\_version.d.ts",
+      "pkg\\web\\frontend\\node_modules\\workbox-window\\Workbox.d.ts",
+      "pkg\\web\\frontend\\node_modules\\workbox-window\\messageSW.d.ts",
+      "pkg\\web\\frontend\\node_modules\\workbox-window\\index.d.ts",
+      "pkg\\web\\frontend\\node_modules\\workbox-streams\\_version.d.ts",
+      "pkg\\web\\frontend\\node_modules\\workbox-streams\\_types.d.ts",
+      "pkg\\web\\frontend\\node_modules\\workbox-streams\\strategy.d.ts",
+      "pkg\\web\\frontend\\node_modules\\workbox-streams\\isSupported.d.ts",
+      "pkg\\web\\frontend\\node_modules\\workbox-streams\\index.d.ts",
+      "pkg\\web\\frontend\\node_modules\\workbox-streams\\concatenate.d.ts"
     ],
     "mainLogic": [
       "src"

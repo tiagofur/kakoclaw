@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/sipeed/kakoclaw/pkg/agent"
-	"github.com/sipeed/kakoclaw/pkg/bus"
-	"github.com/sipeed/kakoclaw/pkg/config"
-	"github.com/sipeed/kakoclaw/pkg/logger"
-	"github.com/sipeed/kakoclaw/pkg/storage"
+	"github.com/sipeed/makoclaw/pkg/agent"
+	"github.com/sipeed/makoclaw/pkg/bus"
+	"github.com/sipeed/makoclaw/pkg/config"
+	"github.com/sipeed/makoclaw/pkg/logger"
+	"github.com/sipeed/makoclaw/pkg/storage"
 )
 
 // MultiUserChannelManager manages channel instances for multiple users.

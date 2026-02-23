@@ -1,6 +1,6 @@
 # Arquitectura
 
-Documentación técnica sobre la arquitectura y diseño interno de KakoClaw.
+Documentación técnica sobre la arquitectura y diseño interno de MakoClaw.
 
 ## Archivos
 

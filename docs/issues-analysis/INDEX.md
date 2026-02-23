@@ -1,6 +1,6 @@
-# Análisis de Issues de KakoClaw
+# Análisis de Issues de MakoClaw
 
-Este directorio contiene el análisis completo de las issues abiertas en el repositorio de KakoClaw.
+Este directorio contiene el análisis completo de las issues abiertas en el repositorio de MakoClaw.
 
 ## Archivos
 
@@ -42,7 +42,7 @@ Este directorio contiene el análisis completo de las issues abiertas en el repo
 - **#15** - Build falla en ARM 32-bit
 
 ### 🟡 Buenas Primeras Contribuciones
-- **#39** - Comando `KakoClaw doctor`
+- **#39** - Comando `MakoClaw doctor`
 - **#46** - Mejoras en configuración
 - **#63** - Gestionar cronjobs desde chat
 
@@ -70,7 +70,7 @@ Este directorio contiene el análisis completo de las issues abiertas en el repo
 
 ## Enlaces
 
-- **Issues GitHub:** https://github.com/sipeed/KakoClaw/issues
+- **Issues GitHub:** https://github.com/sipeed/MakoClaw/issues
 - **Contribuir:** [../development/contributing.md](../development/contributing.md)
 - **Setup Dev:** [../development/setup.md](../development/setup.md)
 

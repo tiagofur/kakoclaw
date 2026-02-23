@@ -1,6 +1,6 @@
 # Referencia de API
 
-Documentación de referencia de las interfaces y APIs de KakoClaw.
+Documentación de referencia de las interfaces y APIs de MakoClaw.
 
 ## Módulos
 
@@ -15,7 +15,7 @@ Documentación de referencia de las interfaces y APIs de KakoClaw.
 Esta documentación es útil para:
 - Crear extensions (tools, channels, providers)
 - Entender las interfaces internas
-- Integrar KakoClaw con otros sistemas
+- Integrar MakoClaw con otros sistemas
 
 ## Ejemplos
 

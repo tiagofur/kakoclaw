@@ -17,7 +17,7 @@ func EnsureUserWorkspace(userUUID string) (string, error) {
 		return "", err
 	}
 
-	userRoot := filepath.Join(home, ".kakoclaw", "users", userUUID)
+	userRoot := filepath.Join(home, ".makoclaw", "users", userUUID)
 	workspace := filepath.Join(userRoot, "workspace")
 
 	// Core directories
@@ -53,7 +53,7 @@ You are a helpful AI assistant. Be concise, accurate, and friendly.
 `,
 		"SOUL.md": `# Soul
 
-I am KakoClaw, a lightweight AI assistant powered by AI.
+I am makoclaw, a lightweight AI assistant powered by AI.
 
 ## Personality
 
@@ -94,10 +94,10 @@ Information about user goes here.
 		"IDENTITY.md": `# Identity
 
 ## Name
-KakoClaw (The Apex AI Agent)
+makoclaw (The Apex AI Agent)
 
 ## Description
-The ultimate evolution of the PicoClaw lineage. KakoClaw is an ultra-efficient, Go-native personal AI assistant designed for the most demanding efficiency requirements.
+The ultimate evolution of the PicoClaw lineage. makoclaw is an ultra-efficient, Go-native personal AI assistant designed for the most demanding efficiency requirements.
 
 ## Version
 0.1.0
@@ -127,7 +127,7 @@ MIT License - Free, Open, and Unstoppable.
 Proudly inspired by and evolved from PicoClaw.
 
 ## Repository
-https://github.com/sipeed/kakoclaw
+https://github.com/sipeed/makoclaw
 `,
 	}
 
@@ -171,3 +171,4 @@ This file stores important information that should persist across sessions.
 
 	return workspace, nil
 }
+

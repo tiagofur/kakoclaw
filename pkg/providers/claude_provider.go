@@ -7,7 +7,7 @@ import (
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
-	"github.com/sipeed/kakoclaw/pkg/auth"
+	"github.com/sipeed/makoclaw/pkg/auth"
 )
 
 type ClaudeProvider struct {
@@ -200,8 +200,9 @@ func createClaudeTokenSource() func() (string, error) {
 			return "", fmt.Errorf("loading auth credentials: %w", err)
 		}
 		if cred == nil {
-			return "", fmt.Errorf("no credentials for anthropic. Run: KakoClaw auth login --provider anthropic")
+			return "", fmt.Errorf("no credentials for anthropic. Run: makoclaw auth login --provider anthropic")
 		}
 		return cred.AccessToken, nil
 	}
 }
+

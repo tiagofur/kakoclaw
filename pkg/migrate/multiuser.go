@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/sipeed/kakoclaw/pkg/config"
-	"github.com/sipeed/kakoclaw/pkg/storage"
+	"github.com/sipeed/makoclaw/pkg/config"
+	"github.com/sipeed/makoclaw/pkg/storage"
 )
 
 type MultiuserResult struct {
@@ -33,7 +33,7 @@ func MigrateToMultiuser(cfg *config.Config, store *storage.Storage, user *storag
 		return nil, err
 	}
 
-	userRoot := filepath.Join(home, ".kakoclaw", "users", user.UUID)
+	userRoot := filepath.Join(home, ".makoclaw", "users", user.UUID)
 	userWorkspace := filepath.Join(userRoot, "workspace")
 
 	// Move legacy workspace if present and user workspace does not exist yet
@@ -57,7 +57,7 @@ func MigrateToMultiuser(cfg *config.Config, store *storage.Storage, user *storag
 
 	// Copy global config into user config if it does not exist
 	userConfigPath := filepath.Join(userRoot, "config.json")
-	globalConfigPath := filepath.Join(home, ".kakoclaw", "config.json")
+	globalConfigPath := filepath.Join(home, ".makoclaw", "config.json")
 	if _, err := os.Stat(userConfigPath); os.IsNotExist(err) {
 		if data, err := os.ReadFile(globalConfigPath); err == nil {
 			if err := os.WriteFile(userConfigPath, data, 0644); err == nil {
@@ -87,3 +87,4 @@ func isDirEmpty(path string) bool {
 	}
 	return len(entries) == 0
 }
+

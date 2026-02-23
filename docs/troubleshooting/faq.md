@@ -1,16 +1,16 @@
 # Solución de Problemas Comunes (FAQ)
 
-Respuestas a las preguntas más frecuentes sobre KakoClaw.
+Respuestas a las preguntas más frecuentes sobre MakoClaw.
 
 ## General
 
-### ¿KakoClaw es gratis?
+### ¿MakoClaw es gratis?
 
-Sí, KakoClaw es software open source bajo licencia MIT. Sin embargo, necesitarás:
+Sí, MakoClaw es software open source bajo licencia MIT. Sin embargo, necesitarás:
 - **API keys de LLM**: Algunos providers tienen tiers gratuitos (OpenRouter, Groq)
 - **Servidor**: Para correr el gateway (puede ser tu propia computadora)
 
-### ¿Cuánto cuesta usar KakoClaw?
+### ¿Cuánto cuesta usar MakoClaw?
 
 El costo depende del proveedor de LLM:
 - **OpenRouter**: 200K tokens/mes gratis
@@ -20,7 +20,7 @@ El costo depende del proveedor de LLM:
 
 ### ¿Funciona sin internet?
 
-Parcialmente. KakoClaw puede funcionar con LLMs locales (vLLM, Ollama), pero algunas features como web search requieren conexión.
+Parcialmente. MakoClaw puede funcionar con LLMs locales (vLLM, Ollama), pero algunas features como web search requieren conexión.
 
 ### ¿Qué tan seguro es?
 
@@ -40,11 +40,11 @@ go version
 # go version go1.21.0 linux/amd64
 ```
 
-### ¿Cómo actualizo KakoClaw?
+### ¿Cómo actualizo MakoClaw?
 
 ```bash
 # Si compilaste desde fuente
-cd KakoClaw
+cd MakoClaw
 git pull origin main
 make build
 make install
@@ -57,7 +57,7 @@ make install
 
 ```bash
 # Verificar que está en PATH
-which KakoClaw
+which MakoClaw
 
 # Si no, agregar a PATH
 export PATH="$HOME/.local/bin:$PATH"
@@ -69,17 +69,17 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 ### ¿Dónde está el archivo de configuración?
 
 ```
-~/.KakoClaw/config.json
+~/.MakoClaw/config.json
 ```
 
 Puedes ver la ubicación exacta con:
 ```bash
-KakoClaw status
+MakoClaw status
 ```
 
 ### ¿Cómo cambio el modelo de LLM?
 
-Edita `~/.KakoClaw/config.json`:
+Edita `~/.MakoClaw/config.json`:
 
 ```json
 {
@@ -125,9 +125,9 @@ Sí:
 Todas las opciones de config.json pueden ser variables de entorno:
 
 ```bash
-export KakoClaw_AGENTS_DEFAULTS_MODEL="gpt-4"
-export KakoClaw_PROVIDERS_OPENROUTER_API_KEY="sk-or-v1-xxx"
-export KakoClaw_CHANNELS_TELEGRAM_TOKEN="123456:ABC..."
+export MakoClaw_AGENTS_DEFAULTS_MODEL="gpt-4"
+export MakoClaw_PROVIDERS_OPENROUTER_API_KEY="sk-or-v1-xxx"
+export MakoClaw_CHANNELS_TELEGRAM_TOKEN="123456:ABC..."
 ```
 
 ## Uso
@@ -136,32 +136,32 @@ export KakoClaw_CHANNELS_TELEGRAM_TOKEN="123456:ABC..."
 
 ```bash
 # Eliminar todas las sesiones
-rm -rf ~/.KakoClaw/workspace/sessions/*
+rm -rf ~/.MakoClaw/workspace/sessions/*
 
 # O eliminar sesión específica
-rm ~/.KakoClaw/workspace/sessions/telegram:123456.json
+rm ~/.MakoClaw/workspace/sessions/telegram:123456.json
 ```
 
 ### ¿Cómo uso sesiones diferentes?
 
 ```bash
 # Sesión de trabajo
-KakoClaw agent -s trabajo
+MakoClaw agent -s trabajo
 
 # Sesión personal
-KakoClaw agent -s personal
+MakoClaw agent -s personal
 
 # Cada sesión tiene su propio historial
 ```
 
-### ¿Puedo usar KakoClaw en scripts?
+### ¿Puedo usar MakoClaw en scripts?
 
 Sí:
 
 ```bash
 #!/bin/bash
 
-RESULT=$(KakoClaw agent -m "Genera un nombre para este archivo: $1")
+RESULT=$(MakoClaw agent -m "Genera un nombre para este archivo: $1")
 echo "$RESULT"
 ```
 
@@ -169,17 +169,17 @@ echo "$RESULT"
 
 ```bash
 # Modo debug
-KakoClaw agent --debug -m "test"
+MakoClaw agent --debug -m "test"
 
 # O variable de entorno
-KakoClaw_DEBUG=1 KakoClaw agent
+MakoClaw_DEBUG=1 MakoClaw agent
 ```
 
 ## Proveedores LLM
 
 ### "No API key configured"
 
-Configura al menos un proveedor en `~/.KakoClaw/config.json`:
+Configura al menos un proveedor en `~/.MakoClaw/config.json`:
 
 ```json
 {
@@ -225,7 +225,7 @@ Verifica:
 
 ```bash
 # Verificar
-KakoClaw status
+MakoClaw status
 # Debe mostrar Telegram API: ✓
 ```
 
@@ -242,10 +242,10 @@ Tienes dos instancias corriendo el mismo bot de Telegram:
 
 ```bash
 # Matar procesos anteriores
-pkill -f "KakoClaw gateway"
+pkill -f "MakoClaw gateway"
 
 # Luego iniciar de nuevo
-KakoClaw gateway
+MakoClaw gateway
 ```
 
 ### WhatsApp no funciona
@@ -253,7 +253,7 @@ KakoClaw gateway
 WhatsApp requiere un bridge externo:
 1. Instalar [whatsmeow](https://github.com/tulir/whatsmeow) o similar
 2. Configurar `bridge_url` en config.json
-3. Iniciar el bridge antes que KakoClaw
+3. Iniciar el bridge antes que MakoClaw
 
 ## Tools
 
@@ -284,10 +284,10 @@ El agente no reconoció el comando. Sé más específico:
 
 ```bash
 # ❌ Vago
-KakoClaw agent -m "lee config"
+MakoClaw agent -m "lee config"
 
 # ✅ Específico
-KakoClaw agent -m "lee el archivo config.json usando read_file"
+MakoClaw agent -m "lee el archivo config.json usando read_file"
 ```
 
 ### "Error: path outside workspace"
@@ -296,10 +296,10 @@ El tool está restringido al workspace por seguridad:
 
 ```bash
 # ❌ Fuera del workspace
-KakoClaw agent -m "lee /etc/passwd"
+MakoClaw agent -m "lee /etc/passwd"
 
 # ✅ Dentro del workspace
-KakoClaw agent -m "lee config.json"
+MakoClaw agent -m "lee config.json"
 ```
 
 Para deshabilitar restricción (no recomendado):
@@ -324,7 +324,7 @@ Verifica:
 
 ```bash
 # Verificar permisos
-ls -la ~/.KakoClaw/workspace/
+ls -la ~/.MakoClaw/workspace/
 
 # Ver espacio
 df -h
@@ -335,8 +335,8 @@ df -h
 ### Las tareas programadas no se ejecutan
 
 Verifica:
-1. Gateway está corriendo (`KakoClaw gateway`)
-2. Job está habilitado: `KakoClaw cron list`
+1. Gateway está corriendo (`MakoClaw gateway`)
+2. Job está habilitado: `MakoClaw cron list`
 3. Formato de expresión cron es correcto
 4. Hora del sistema es correcta: `date`
 
@@ -345,13 +345,13 @@ Verifica:
 Formato correcto:
 ```bash
 # Cada hora
-KakoClaw cron add -n "hourly" -m "test" -c "0 * * * *"
+MakoClaw cron add -n "hourly" -m "test" -c "0 * * * *"
 
 # Todos los días a las 9am
-KakoClaw cron add -n "daily" -m "test" -c "0 9 * * *"
+MakoClaw cron add -n "daily" -m "test" -c "0 9 * * *"
 
 # Cada 5 minutos
-KakoClaw cron add -n "frequent" -m "test" -e 300
+MakoClaw cron add -n "frequent" -m "test" -e 300
 ```
 
 ## Skills
@@ -360,13 +360,13 @@ KakoClaw cron add -n "frequent" -m "test" -e 300
 
 ```bash
 # Verificar skills instalados
-KakoClaw skills list
+MakoClaw skills list
 
 # Instalar skill
-KakoClaw skills install sipeed/KakoClaw-skills/weather
+MakoClaw skills install sipeed/MakoClaw-skills/weather
 
 # Verificar archivo existe
-ls ~/.KakoClaw/workspace/skills/
+ls ~/.MakoClaw/workspace/skills/
 ```
 
 ### Los skills no se cargan
@@ -379,9 +379,9 @@ Verifica:
 ### Crear skill personalizado
 
 ```bash
-mkdir -p ~/.KakoClaw/workspace/skills/mi-skill
+mkdir -p ~/.MakoClaw/workspace/skills/mi-skill
 
-cat > ~/.KakoClaw/workspace/skills/mi-skill/SKILL.md << 'EOF'
+cat > ~/.MakoClaw/workspace/skills/mi-skill/SKILL.md << 'EOF'
 ---
 name: mi-skill
 description: Mi skill personalizado
@@ -395,7 +395,7 @@ EOF
 
 ## Performance
 
-### KakoClaw usa mucha memoria
+### MakoClaw usa mucha memoria
 
 Optimizaciones:
 
@@ -421,7 +421,7 @@ Optimizaciones:
 
 ```bash
 # Verificar logs
-KakoClaw gateway --debug 2>&1 | head -100
+MakoClaw gateway --debug 2>&1 | head -100
 
 # Reducir frecuencia de polling en canales
 ```
@@ -446,7 +446,7 @@ Has excedido el límite del proveedor LLM:
 
 Revisa los logs:
 ```bash
-KakoClaw agent --debug -m "comando" 2>&1
+MakoClaw agent --debug -m "comando" 2>&1
 ```
 
 ### "failed to create provider"
@@ -462,32 +462,32 @@ Verifica:
 
 ```bash
 # Debug completo
-KakoClaw_DEBUG=1 KakoClaw agent --debug
+MakoClaw_DEBUG=1 MakoClaw agent --debug
 
 # Logs a archivo
-KakoClaw gateway --debug 2>&1 | tee KakoClaw.log
+MakoClaw gateway --debug 2>&1 | tee MakoClaw.log
 ```
 
 ### Ver estado del sistema
 
 ```bash
-KakoClaw status
+MakoClaw status
 ```
 
 ### Inspeccionar workspace
 
 ```bash
 # Estructura
-tree ~/.KakoClaw/
+tree ~/.MakoClaw/
 
 # Config
-cat ~/.KakoClaw/config.json | jq .
+cat ~/.MakoClaw/config.json | jq .
 
 # Sesiones
-ls -la ~/.KakoClaw/workspace/sessions/
+ls -la ~/.MakoClaw/workspace/sessions/
 
 # Logs (si existen)
-tail -f ~/.KakoClaw/workspace/KakoClaw.log
+tail -f ~/.MakoClaw/workspace/MakoClaw.log
 ```
 
 ### Test de componentes individuales
@@ -498,17 +498,17 @@ curl -H "Authorization: Bearer TU-API-KEY" \
   https://openrouter.ai/api/v1/models
 
 # Test de tool
-KakoClaw agent -m "ejecuta echo test"
+MakoClaw agent -m "ejecuta echo test"
 
 # Test de canal (si aplica)
-KakoClaw agent -m "envía mensaje de prueba"
+MakoClaw agent -m "envía mensaje de prueba"
 ```
 
 ## Contribución
 
 ### ¿Cómo reporto un bug?
 
-1. Busca en [issues existentes](https://github.com/sipeed/KakoClaw/issues)
+1. Busca en [issues existentes](https://github.com/sipeed/MakoClaw/issues)
 2. Si no existe, crea uno nuevo con:
    - Descripción clara
    - Pasos para reproducir
@@ -529,13 +529,13 @@ Abre un issue con label `enhancement` describiendo:
 ## Recursos Adicionales
 
 - [Documentación](../README.md)
-- [GitHub Issues](https://github.com/sipeed/KakoClaw/issues)
+- [GitHub Issues](https://github.com/sipeed/MakoClaw/issues)
 - [Discord](https://discord.gg/V4sAZ9XWpN)
-- [Releases](https://github.com/sipeed/KakoClaw/releases)
+- [Releases](https://github.com/sipeed/MakoClaw/releases)
 
 ## Aún tienes problemas?
 
-1. Revisa los [issues existentes](https://github.com/sipeed/KakoClaw/issues)
+1. Revisa los [issues existentes](https://github.com/sipeed/MakoClaw/issues)
 2. Únete a nuestro [Discord](https://discord.gg/V4sAZ9XWpN)
 3. Crea un nuevo issue con:
    - Título descriptivo

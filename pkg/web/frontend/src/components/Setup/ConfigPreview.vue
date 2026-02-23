@@ -34,8 +34,8 @@
         </div>
       </div>
 
-      <div class="bg-emerald-900/20 border border-emerald-500/30 rounded-lg p-3 mt-4">
-        <p class="text-emerald-300 text-sm">
+      <div class="bg-blue-900/20 border border-blue-500/30 rounded-lg p-3 mt-4">
+        <p class="text-blue-300 text-sm">
           ✓ Provider configuration looks good
         </p>
       </div>
@@ -72,8 +72,8 @@
         </div>
       </div>
 
-      <div class="bg-emerald-900/20 border border-emerald-500/30 rounded-lg p-3 mt-4">
-        <p class="text-emerald-300 text-sm">
+      <div class="bg-blue-900/20 border border-blue-500/30 rounded-lg p-3 mt-4">
+        <p class="text-blue-300 text-sm">
           ✓ Channel configuration looks good
         </p>
       </div>
@@ -91,10 +91,10 @@
     </div>
 
     <!-- Ready to save -->
-    <div class="bg-gradient-to-r from-emerald-500/20 to-blue-500/20 border border-emerald-500/50 rounded-lg p-6 text-center">
+    <div class="bg-gradient-to-r from-blue-500/20 to-blue-500/20 border border-blue-500/50 rounded-lg p-6 text-center">
       <p class="text-white text-lg font-bold mb-2">Ready to get started! 🚀</p>
       <p class="text-slate-300 text-sm">
-        Click "Finish Setup" to save your configuration and start using KakoClaw
+        Click "Finish Setup" to save your configuration and start using makoclaw
       </p>
     </div>
   </div>
@@ -129,3 +129,5 @@ defineEmits(['edit'])
 
 <style scoped>
 </style>
+
+

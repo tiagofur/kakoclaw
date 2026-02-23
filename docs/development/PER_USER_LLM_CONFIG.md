@@ -29,7 +29,7 @@ Usuario Alice                      Usuario Bob
 ## Cómo Funciona
 
 ### 1. Configuración Global (Template)
-La configuración en `~/.KakoClaw/config.json` define valores predeterminados:
+La configuración en `~/.MakoClaw/config.json` define valores predeterminados:
 
 ```json
 {
@@ -57,7 +57,7 @@ user_id | config (JSON)
 ```
 
 ### 3. Configuración por Usuario (Archivos)
-Cada usuario tiene su archivo de overrides en `~/.kakoclaw/users/<uuid>/config.json`:
+Cada usuario tiene su archivo de overrides en `~/.makoclaw/users/<uuid>/config.json`:
 
 ```json
 {
@@ -73,8 +73,8 @@ Cada usuario tiene su archivo de overrides en `~/.kakoclaw/users/<uuid>/config.j
 ### 4. Merge en Runtime
 Cuando un agente se ejecuta para un usuario:
 
-1. Cargar config global: `~/.KakoClaw/config.json`
-2. Cargar config de usuario: `~/.kakoclaw/users/<uuid>/config.json`
+1. Cargar config global: `~/.MakoClaw/config.json`
+2. Cargar config de usuario: `~/.makoclaw/users/<uuid>/config.json`
 3. **Merge a nivel de sección**: Los valores del usuario sobreescriben los globales
 4. Cargar API keys del usuario desde la DB
 5. **Resultado**: Configuración personalizada para ese usuario
@@ -172,7 +172,7 @@ Los usuarios pueden seleccionar:
 - **Temperature**, **Max Tokens**, **Max Iterations**
 
 Al hacer clic en "Save Agent Settings":
-- Se guarda en `~/.kakoclaw/users/<uuid>/config.json`
+- Se guarda en `~/.makoclaw/users/<uuid>/config.json`
 - Solo afecta a ese usuario
 - No modifica la configuración global
 
@@ -257,10 +257,10 @@ Los usuarios pueden:
 ### "No veo cambios después de actualizar mi provider"
 - Verifica que la actualización fue exitosa: `GET /api/v1/me/config`
 - Recarga la página del frontend
-- Verifica los logs: `tail -f /tmp/kakoclaw.log`
+- Verifica los logs: `tail -f /tmp/makoclaw.log`
 
 ### "Mi config usa el provider global en vez del mío"
-- Confirma que tu override está guardado: `cat ~/.kakoclaw/users/<uuid>/config.json`
+- Confirma que tu override está guardado: `cat ~/.makoclaw/users/<uuid>/config.json`
 - Verifica que tu config incluye `agents.defaults.provider`
 - Si la sección `agents` está vacía, el merge usa la global
 

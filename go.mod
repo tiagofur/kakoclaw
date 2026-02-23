@@ -1,6 +1,6 @@
-module github.com/sipeed/kakoclaw
+module github.com/sipeed/makoclaw
 
-go 1.25.7
+go 1.26
 
 require (
 	github.com/adhocore/gronx v1.19.6

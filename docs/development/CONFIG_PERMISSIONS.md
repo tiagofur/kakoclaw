@@ -27,7 +27,7 @@ When an admin POSTs to `/api/v1/config`, they can modify:
 - **`web`** - Web server configuration (port, auth timeouts)
 - **`storage`** - Database path and settings
 
-**Persistence**: Changes are saved to `~/.KakoClaw/config.json` (or `$KAKOCLAW_CONFIG_PATH`)
+**Persistence**: Changes are saved to `~/.MakoClaw/config.json` (or `$MAKOCLAW_CONFIG_PATH`)
 
 ### User-Specific Configuration (All Users via `/api/v1/me/*`)
 
@@ -56,7 +56,7 @@ Each provider config includes:
 **Endpoint**: `PUT /api/v1/me/providers/update?provider=<name>`
 
 #### Per-User Config Overlays (File-Backed)
-**Storage**: `~/.kakoclaw/users/<user_id>/config.json`
+**Storage**: `~/.makoclaw/users/<user_id>/config.json`
 
 Users can override sections of the global config:
 - **`agents`** - Personal workspace preferences, model choices
@@ -71,8 +71,8 @@ Users can override sections of the global config:
 
 ### Agent Loops
 When creating an agent loop for a user:
-1. Load global config from `~/.KakoClaw/config.json`
-2. Load user config from `~/.kakoclaw/users/<user_id>/config.json`
+1. Load global config from `~/.MakoClaw/config.json`
+2. Load user config from `~/.makoclaw/users/<user_id>/config.json`
 3. Merge user config over global (section-level overlay)
 4. Load user providers from `user_providers_config` DB table
 5. Use merged config + user providers for agent execution

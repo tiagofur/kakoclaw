@@ -1,20 +1,20 @@
 <template>
-  <div class="min-h-screen bg-kakoclaw-bg flex items-center justify-center p-4">
+  <div class="min-h-screen bg-makoclaw-bg flex items-center justify-center p-4">
     <div class="w-full max-w-md">
       <!-- Logo -->
       <div class="text-center mb-8">
-        <h1 class="text-4xl font-bold text-kakoclaw-accent mb-2">KakoClaw</h1>
-        <p class="text-kakoclaw-text-secondary">Create your account</p>
+        <h1 class="text-4xl font-bold text-makoclaw-accent mb-2">makoclaw</h1>
+        <p class="text-makoclaw-text-secondary">Create your account</p>
       </div>
 
       <!-- Form Card -->
-      <div class="bg-kakoclaw-surface border border-kakoclaw-border rounded-lg p-8 shadow-lg">
-        <h2 class="text-2xl font-bold mb-6 text-kakoclaw-text">Sign Up</h2>
+      <div class="bg-makoclaw-surface border border-makoclaw-border rounded-lg p-8 shadow-lg">
+        <h2 class="text-2xl font-bold mb-6 text-makoclaw-text">Sign Up</h2>
 
         <form @submit.prevent="handleSignup" class="space-y-4">
           <!-- Username -->
           <div>
-            <label for="username" class="block text-sm font-medium mb-2 text-kakoclaw-text">
+            <label for="username" class="block text-sm font-medium mb-2 text-makoclaw-text">
               Username
             </label>
             <input
@@ -22,7 +22,7 @@
               id="username"
               type="text"
               placeholder="Choose a username"
-              class="w-full px-4 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded focus-ring text-kakoclaw-text placeholder-kakoclaw-text-secondary"
+              class="w-full px-4 py-2 bg-makoclaw-bg border border-makoclaw-border rounded focus-ring text-makoclaw-text placeholder-makoclaw-text-secondary"
               required
               :disabled="isLoading"
             />
@@ -30,7 +30,7 @@
 
           <!-- Email -->
           <div>
-            <label for="email" class="block text-sm font-medium mb-2 text-kakoclaw-text">
+            <label for="email" class="block text-sm font-medium mb-2 text-makoclaw-text">
               Email
             </label>
             <input
@@ -38,7 +38,7 @@
               id="email"
               type="email"
               placeholder="your@email.com"
-              class="w-full px-4 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded focus-ring text-kakoclaw-text placeholder-kakoclaw-text-secondary"
+              class="w-full px-4 py-2 bg-makoclaw-bg border border-makoclaw-border rounded focus-ring text-makoclaw-text placeholder-makoclaw-text-secondary"
               required
               :disabled="isLoading"
             />
@@ -46,7 +46,7 @@
 
           <!-- Password -->
           <div>
-            <label for="password" class="block text-sm font-medium mb-2 text-kakoclaw-text">
+            <label for="password" class="block text-sm font-medium mb-2 text-makoclaw-text">
               Password
             </label>
             <div class="relative">
@@ -55,7 +55,7 @@
                 id="password"
                 :type="showPassword ? 'text' : 'password'"
                 placeholder="At least 8 characters"
-                class="w-full px-4 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded focus-ring text-kakoclaw-text placeholder-kakoclaw-text-secondary"
+                class="w-full px-4 py-2 bg-makoclaw-bg border border-makoclaw-border rounded focus-ring text-makoclaw-text placeholder-makoclaw-text-secondary"
                 required
                 minlength="8"
                 :disabled="isLoading"
@@ -64,7 +64,7 @@
                 type="button"
                 @click="showPassword = !showPassword"
                 :disabled="isLoading"
-                class="absolute right-3 top-1/2 transform -translate-y-1/2 text-kakoclaw-text-secondary hover:text-kakoclaw-text disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                class="absolute right-3 top-1/2 transform -translate-y-1/2 text-makoclaw-text-secondary hover:text-makoclaw-text disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 :title="showPassword ? 'Hide password' : 'Show password'"
               >
                 <svg v-if="showPassword" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -76,12 +76,12 @@
                 </svg>
               </button>
             </div>
-            <p class="text-xs text-kakoclaw-text-secondary mt-1">Must be at least 8 characters long</p>
+            <p class="text-xs text-makoclaw-text-secondary mt-1">Must be at least 8 characters long</p>
           </div>
 
           <!-- Confirm Password -->
           <div>
-            <label for="confirmPassword" class="block text-sm font-medium mb-2 text-kakoclaw-text">
+            <label for="confirmPassword" class="block text-sm font-medium mb-2 text-makoclaw-text">
               Confirm Password
             </label>
             <div class="relative">
@@ -90,7 +90,7 @@
                 id="confirmPassword"
                 :type="showConfirmPassword ? 'text' : 'password'"
                 placeholder="Re-enter your password"
-                class="w-full px-4 py-2 bg-kakoclaw-bg border border-kakoclaw-border rounded focus-ring text-kakoclaw-text placeholder-kakoclaw-text-secondary"
+                class="w-full px-4 py-2 bg-makoclaw-bg border border-makoclaw-border rounded focus-ring text-makoclaw-text placeholder-makoclaw-text-secondary"
                 required
                 :disabled="isLoading"
               />
@@ -98,7 +98,7 @@
                 type="button"
                 @click="showConfirmPassword = !showConfirmPassword"
                 :disabled="isLoading"
-                class="absolute right-3 top-1/2 transform -translate-y-1/2 text-kakoclaw-text-secondary hover:text-kakoclaw-text disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                class="absolute right-3 top-1/2 transform -translate-y-1/2 text-makoclaw-text-secondary hover:text-makoclaw-text disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 :title="showConfirmPassword ? 'Hide password' : 'Show password'"
               >
                 <svg v-if="showConfirmPassword" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -138,16 +138,16 @@
           <button
             type="submit"
             :disabled="isLoading"
-            class="w-full px-4 py-2 bg-kakoclaw-accent hover:bg-kakoclaw-accent-hover text-white font-medium rounded transition-smooth disabled:opacity-50 disabled:cursor-not-allowed"
+            class="w-full px-4 py-2 bg-makoclaw-accent hover:bg-makoclaw-accent-hover text-white font-medium rounded transition-smooth disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {{ isLoading ? 'Creating account...' : 'Create Account' }}
           </button>
         </form>
 
         <!-- Login Link -->
-        <p class="text-sm text-kakoclaw-text-secondary text-center mt-6">
+        <p class="text-sm text-makoclaw-text-secondary text-center mt-6">
           Already have an account?
-          <router-link to="/login" class="text-kakoclaw-accent hover:text-kakoclaw-accent-hover font-medium">
+          <router-link to="/login" class="text-makoclaw-accent hover:text-makoclaw-accent-hover font-medium">
             Sign In
           </router-link>
         </p>
@@ -268,3 +268,4 @@ const handleSignup = async () => {
   }
 }
 </script>
+

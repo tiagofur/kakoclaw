@@ -1,8 +1,8 @@
-// KakoClaw - Ultra-lightweight personal AI agent
+// makoclaw - Ultra-lightweight personal AI agent
 // Inspired by and based on nanobot: https://github.com/HKUDS/nanobot
 // License: MIT
 //
-// Copyright (c) 2026 KakoClaw contributors
+// Copyright (c) 2026 makoclaw contributors
 
 package agent
 
@@ -159,3 +159,4 @@ func (ms *MemoryStore) GetMemoryContext() string {
 	}
 	return fmt.Sprintf("# Memory\n\n%s", result)
 }
+

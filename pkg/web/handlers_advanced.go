@@ -16,11 +16,11 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/sipeed/kakoclaw/pkg/config"
-	"github.com/sipeed/kakoclaw/pkg/cron"
-	"github.com/sipeed/kakoclaw/pkg/logger"
-	"github.com/sipeed/kakoclaw/pkg/skills"
-	"github.com/sipeed/kakoclaw/pkg/storage"
+	"github.com/sipeed/makoclaw/pkg/config"
+	"github.com/sipeed/makoclaw/pkg/cron"
+	"github.com/sipeed/makoclaw/pkg/logger"
+	"github.com/sipeed/makoclaw/pkg/skills"
+	"github.com/sipeed/makoclaw/pkg/storage"
 )
 
 // ==================== SKILLS ====================
@@ -51,26 +51,20 @@ func (s *Server) handleSkills(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Default: list installed skills for this user
-		userID, ok := s.getUserIDFromClaims(r)
+		_, userUUID, ok := s.getUserStorage(r)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 
-		user, err := s.store.GetUserByID(userID)
-		if err != nil {
-			http.Error(w, "user not found", http.StatusNotFound)
-			return
-		}
-
-		userWorkspace, err := config.EnsureUserWorkspace(user.UUID)
+		userWorkspace, err := config.EnsureUserWorkspace(userUUID)
 		if err != nil {
 			http.Error(w, "failed to access workspace", http.StatusInternalServerError)
 			return
 		}
 
 		// Create a temporary loader for this user's workspace
-		globalSkillsDir := filepath.Join(filepath.Dir(filepath.Dir(userWorkspace)), "..", ".kakoclaw", "skills")
+		globalSkillsDir := filepath.Join(filepath.Dir(filepath.Dir(userWorkspace)), "..", ".makoclaw", "skills")
 		builtinSkillsDir := "skills"
 		userLoader := skills.NewSkillsLoader(userWorkspace, globalSkillsDir, builtinSkillsDir)
 
@@ -155,19 +149,13 @@ func (s *Server) handleSkillAction(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Get user-specific workspace
-		userID, ok := s.getUserIDFromClaims(r)
+		_, userUUID, ok := s.getUserStorage(r)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 
-		user, err := s.store.GetUserByID(userID)
-		if err != nil {
-			http.Error(w, "user not found", http.StatusNotFound)
-			return
-		}
-
-		userWorkspace, err := config.EnsureUserWorkspace(user.UUID)
+		userWorkspace, err := config.EnsureUserWorkspace(userUUID)
 		if err != nil {
 			http.Error(w, "failed to access workspace", http.StatusInternalServerError)
 			return
@@ -206,19 +194,13 @@ func (s *Server) handleSkillAction(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Get user-specific workspace
-		userID, ok := s.getUserIDFromClaims(r)
+		_, userUUID, ok := s.getUserStorage(r)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 
-		user, err := s.store.GetUserByID(userID)
-		if err != nil {
-			http.Error(w, "user not found", http.StatusNotFound)
-			return
-		}
-
-		userWorkspace, err := config.EnsureUserWorkspace(user.UUID)
+		userWorkspace, err := config.EnsureUserWorkspace(userUUID)
 		if err != nil {
 			http.Error(w, "failed to access workspace", http.StatusInternalServerError)
 			return
@@ -244,19 +226,13 @@ func (s *Server) handleSkillAction(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Get user-specific workspace
-		userID, ok := s.getUserIDFromClaims(r)
+		_, userUUID, ok := s.getUserStorage(r)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 
-		user, err := s.store.GetUserByID(userID)
-		if err != nil {
-			http.Error(w, "user not found", http.StatusNotFound)
-			return
-		}
-
-		userWorkspace, err := config.EnsureUserWorkspace(user.UUID)
+		userWorkspace, err := config.EnsureUserWorkspace(userUUID)
 		if err != nil {
 			http.Error(w, "failed to access workspace", http.StatusInternalServerError)
 			return
@@ -280,26 +256,20 @@ func (s *Server) handleSkillAction(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Get user-specific workspace
-		userID, ok := s.getUserIDFromClaims(r)
+		_, userUUID, ok := s.getUserStorage(r)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 
-		user, err := s.store.GetUserByID(userID)
-		if err != nil {
-			http.Error(w, "user not found", http.StatusNotFound)
-			return
-		}
-
-		userWorkspace, err := config.EnsureUserWorkspace(user.UUID)
+		userWorkspace, err := config.EnsureUserWorkspace(userUUID)
 		if err != nil {
 			http.Error(w, "failed to access workspace", http.StatusInternalServerError)
 			return
 		}
 
 		// Create a temporary loader for this user's workspace
-		globalSkillsDir := filepath.Join(filepath.Dir(filepath.Dir(userWorkspace)), "..", ".kakoclaw", "skills")
+		globalSkillsDir := filepath.Join(filepath.Dir(filepath.Dir(userWorkspace)), "..", ".makoclaw", "skills")
 		builtinSkillsDir := "skills"
 		userLoader := skills.NewSkillsLoader(userWorkspace, globalSkillsDir, builtinSkillsDir)
 
@@ -345,7 +315,7 @@ func sanitizeSkillName(name string) (string, bool) {
 }
 
 func buildSkillGenerationPrompt(name, goal, capabilities, constraints, tools, examples string) string {
-	return strings.TrimSpace(fmt.Sprintf(`Create a KakoClaw skill markdown file.
+	return strings.TrimSpace(fmt.Sprintf(`Create a makoclaw skill markdown file.
 Return only the content for SKILL.md (no code fences, no extra commentary).
 
 Requirements:
@@ -637,13 +607,29 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// Validate: user-specific settings must be updated via /api/v1/me/config/update
+		userSpecificKeys := []string{"tools", "agents"}
+		for _, key := range userSpecificKeys {
+			if _, ok := newConfig[key]; ok {
+				logger.WarnCF("web", "Attempted to update user-specific setting via global config endpoint", map[string]interface{}{
+					"key":              key,
+					"endpoint":         "/api/v1/config",
+					"correct_endpoint": "/api/v1/me/config/update",
+					"user":             claims.Sub,
+				})
+				http.Error(w, fmt.Sprintf("%s settings must be updated via /api/v1/me/config/update", key), http.StatusBadRequest)
+				return
+			}
+		}
+
+		// Log global config update
+		logger.InfoCF("web", "Updating global config", map[string]interface{}{
+			"user":             claims.Sub,
+			"updated_sections": getMapKeys(newConfig),
+		})
+
 		// Update components if present
 		updatedAny := false
-
-		if agents, ok := newConfig["agents"].(map[string]interface{}); ok {
-			updateAgentsConfig(s.fullConfig, agents)
-			updatedAny = true
-		}
 
 		if providers, ok := newConfig["providers"].(map[string]interface{}); ok {
 			updateProvidersConfig(s.fullConfig, providers)
@@ -655,15 +641,10 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 			updatedAny = true
 		}
 
-		if tools, ok := newConfig["tools"].(map[string]interface{}); ok {
-			updateToolsConfig(s.fullConfig, tools)
-			updatedAny = true
-		}
-
 		if updatedAny {
 			// Persist config
-			configPath := filepath.Join(os.Getenv("HOME"), ".KakoClaw", "config.json")
-			if path := os.Getenv("KakoClaw_CONFIG_PATH"); path != "" {
+			configPath := filepath.Join(os.Getenv("HOME"), ".makoclaw", "config.json")
+			if path := os.Getenv("makoclaw_CONFIG_PATH"); path != "" {
 				configPath = path
 			}
 			// Special handling for home dir
@@ -761,21 +742,14 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user from claims
-	userID, ok := s.getUserIDFromClaims(r)
+	_, userUUID, ok := s.getUserStorage(r)
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	// Get user to obtain UUID
-	user, err := s.store.GetUserByID(userID)
-	if err != nil {
-		http.Error(w, "user not found", http.StatusNotFound)
-		return
-	}
-
 	// Get user-specific workspace
-	userWorkspace, err := config.EnsureUserWorkspace(user.UUID)
+	userWorkspace, err := config.EnsureUserWorkspace(userUUID)
 	if err != nil {
 		http.Error(w, "failed to access workspace", http.StatusInternalServerError)
 		return
@@ -979,8 +953,9 @@ func (s *Server) handleExportTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if s.store == nil {
-		http.Error(w, "storage not available", http.StatusServiceUnavailable)
+	store, userID, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized or storage unavailable", http.StatusUnauthorized)
 		return
 	}
 
@@ -989,7 +964,7 @@ func (s *Server) handleExportTasks(w http.ResponseWriter, r *http.Request) {
 		format = "json"
 	}
 
-	tasks, err := s.store.ListTasks(true) // Include archived
+	tasks, err := store.ListTasksForUser(userID, true) // Include archived
 	if err != nil {
 		http.Error(w, "failed to list tasks", http.StatusInternalServerError)
 		return
@@ -1036,8 +1011,9 @@ func (s *Server) handleExportChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if s.store == nil {
-		http.Error(w, "storage not available", http.StatusServiceUnavailable)
+	store, userID, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized or storage unavailable", http.StatusUnauthorized)
 		return
 	}
 
@@ -1045,7 +1021,7 @@ func (s *Server) handleExportChat(w http.ResponseWriter, r *http.Request) {
 
 	if sessionID != "" {
 		// Export a single session
-		messages, err := s.store.GetMessages(sessionID)
+		messages, err := store.GetMessages(sessionID)
 		if err != nil {
 			http.Error(w, "failed to get session messages", http.StatusInternalServerError)
 			return
@@ -1062,7 +1038,7 @@ func (s *Server) handleExportChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Export all sessions summary
-	sessions, err := s.store.ListSessions(nil, 0, 0)
+	sessions, err := store.ListSessionsForUser(userID, nil, 0, 0)
 	if err != nil {
 		http.Error(w, "failed to list sessions", http.StatusInternalServerError)
 		return
@@ -1182,12 +1158,6 @@ func cronScheduleFromBody(kind string, atMS, everyMS *int64, expr, tz string) cr
 func (s *Server) handleKnowledge(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	if s.store == nil {
-		w.WriteHeader(http.StatusServiceUnavailable)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "storage not configured"})
-		return
-	}
-
 	switch r.Method {
 	case http.MethodGet:
 		s.handleKnowledgeList(w, r)
@@ -1203,13 +1173,7 @@ func (s *Server) handleKnowledge(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleKnowledgeAction(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	if s.store == nil {
-		w.WriteHeader(http.StatusServiceUnavailable)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "storage not configured"})
-		return
-	}
-
-	userID, ok := s.getUserIDFromClaims(r)
+	store, _, ok := s.getUserStorage(r)
 	if !ok {
 		w.WriteHeader(http.StatusUnauthorized)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
@@ -1232,7 +1196,7 @@ func (s *Server) handleKnowledgeAction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodDelete {
-		if err := s.store.DeleteKnowledgeDocument(userID, docID); err != nil {
+		if err := store.DeleteKnowledgeDocument(0, docID); err != nil {
 			w.WriteHeader(http.StatusNotFound)
 			_ = json.NewEncoder(w).Encode(map[string]string{"error": "document not found"})
 			return
@@ -1242,7 +1206,7 @@ func (s *Server) handleKnowledgeAction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(pathParts) > 1 && pathParts[1] == "chunks" && r.Method == http.MethodGet {
-		chunks, err := s.store.GetKnowledgeDocumentChunks(userID, docID)
+		chunks, err := store.GetKnowledgeDocumentChunks(0, docID)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			_ = json.NewEncoder(w).Encode(map[string]string{"error": "failed to get chunks: " + err.Error()})
@@ -1260,13 +1224,7 @@ func (s *Server) handleKnowledgeAction(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleKnowledgeChunkAction(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	if s.store == nil {
-		w.WriteHeader(http.StatusServiceUnavailable)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "storage not configured"})
-		return
-	}
-
-	userID, ok := s.getUserIDFromClaims(r)
+	store, _, ok := s.getUserStorage(r)
 	if !ok {
 		w.WriteHeader(http.StatusUnauthorized)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
@@ -1297,7 +1255,7 @@ func (s *Server) handleKnowledgeChunkAction(w http.ResponseWriter, r *http.Reque
 			return
 		}
 
-		if err := s.store.UpdateKnowledgeChunk(userID, chunkID, req.Content); err != nil {
+		if err := store.UpdateKnowledgeChunk(0, chunkID, req.Content); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			_ = json.NewEncoder(w).Encode(map[string]string{"error": "failed to update chunk: " + err.Error()})
 			return
@@ -1314,13 +1272,7 @@ func (s *Server) handleKnowledgeChunkAction(w http.ResponseWriter, r *http.Reque
 func (s *Server) handleKnowledgeSearch(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	if s.store == nil {
-		w.WriteHeader(http.StatusServiceUnavailable)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "storage not configured"})
-		return
-	}
-
-	userID, ok := s.getUserIDFromClaims(r)
+	store, _, ok := s.getUserStorage(r)
 	if !ok {
 		w.WriteHeader(http.StatusUnauthorized)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
@@ -1334,7 +1286,7 @@ func (s *Server) handleKnowledgeSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	results, err := s.store.SearchKnowledge(userID, query, 10)
+	results, err := store.SearchKnowledge(0, query, 10)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
@@ -1349,14 +1301,14 @@ func (s *Server) handleKnowledgeSearch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleKnowledgeList(w http.ResponseWriter, r *http.Request) {
-	userID, ok := s.getUserIDFromClaims(r)
+	store, _, ok := s.getUserStorage(r)
 	if !ok {
 		w.WriteHeader(http.StatusUnauthorized)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
 		return
 	}
 
-	docs, err := s.store.ListKnowledgeDocuments(userID)
+	docs, err := store.ListKnowledgeDocuments(0)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
@@ -1369,7 +1321,7 @@ func (s *Server) handleKnowledgeList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleKnowledgeUpload(w http.ResponseWriter, r *http.Request) {
-	userID, ok := s.getUserIDFromClaims(r)
+	store, _, ok := s.getUserStorage(r)
 	if !ok {
 		w.WriteHeader(http.StatusUnauthorized)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
@@ -1432,7 +1384,7 @@ func (s *Server) handleKnowledgeUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	doc, err := s.store.SaveKnowledgeDocument(userID, header.Filename, mimeType, header.Size, chunks)
+	doc, err := store.SaveKnowledgeDocument(0, header.Filename, mimeType, header.Size, chunks)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "failed to save document: " + err.Error()})
@@ -1657,8 +1609,9 @@ func (s *Server) handleImportChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if s.store == nil {
-		http.Error(w, "storage not available", http.StatusServiceUnavailable)
+	store, _, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized or storage unavailable", http.StatusUnauthorized)
 		return
 	}
 
@@ -1666,7 +1619,7 @@ func (s *Server) handleImportChat(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 50<<20)
 
 	var payload struct {
-		Format string          `json:"format"` // "KakoClaw", "chatgpt", "claude", "auto"
+		Format string          `json:"format"` // "makoclaw", "chatgpt", "claude", "auto"
 		Data   json.RawMessage `json:"data"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
@@ -1687,7 +1640,7 @@ func (s *Server) handleImportChat(w http.ResponseWriter, r *http.Request) {
 	totalImported := 0
 	sessionsImported := 0
 	for _, sess := range sessions {
-		count, err := s.store.ImportMessages(sess.SessionID, sess.Messages)
+		count, err := store.ImportMessages(sess.SessionID, sess.Messages)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("failed to import session %s: %v", sess.SessionID, err), http.StatusInternalServerError)
 			return
@@ -1722,8 +1675,8 @@ func parseImportData(format string, data json.RawMessage) ([]importSession, erro
 		return parseChatGPTExport(data)
 	case "claude":
 		return parseClaudeExport(data)
-	case "KakoClaw":
-		return parseKakoClawExport(data)
+	case "makoclaw":
+		return parsemakoclawExport(data)
 	default:
 		return nil, fmt.Errorf("unsupported import format: %s", format)
 	}
@@ -1750,17 +1703,17 @@ func detectImportFormat(data json.RawMessage) string {
 		if _, ok := obj["chat_messages"]; ok {
 			return "claude"
 		}
-		// KakoClaw: has "messages" and "session_id"
+		// makoclaw: has "messages" and "session_id"
 		if _, ok := obj["messages"]; ok {
-			return "KakoClaw"
+			return "makoclaw"
 		}
-		// KakoClaw all-sessions export: has "sessions"
+		// makoclaw all-sessions export: has "sessions"
 		if _, ok := obj["sessions"]; ok {
-			return "KakoClaw"
+			return "makoclaw"
 		}
 	}
 
-	return "KakoClaw" // default fallback
+	return "makoclaw" // default fallback
 }
 
 // parseChatGPTExport parses the ChatGPT conversations.json export format.
@@ -2053,10 +2006,10 @@ func parseClaudeExport(data json.RawMessage) ([]importSession, error) {
 	return sessions, nil
 }
 
-// parseKakoClawExport parses KakoClaw's own export format.
+// parsemakoclawExport parses makoclaw's own export format.
 // Single session: { session_id, messages: [...] }
 // All sessions: { sessions: [ { session_id, ... } ] } — re-imports summary only (not useful), so we accept the single format.
-func parseKakoClawExport(data json.RawMessage) ([]importSession, error) {
+func parsemakoclawExport(data json.RawMessage) ([]importSession, error) {
 	// Single session
 	var single struct {
 		SessionID string `json:"session_id"`
@@ -2070,7 +2023,7 @@ func parseKakoClawExport(data json.RawMessage) ([]importSession, error) {
 	if err := json.Unmarshal(data, &single); err == nil && len(single.Messages) > 0 {
 		sessionID := single.SessionID
 		if sessionID == "" {
-			sessionID = fmt.Sprintf("import:KakoClaw:%d", time.Now().UnixMilli())
+			sessionID = fmt.Sprintf("import:makoclaw:%d", time.Now().UnixMilli())
 		}
 		var msgs []storage.ImportMessage
 		for _, m := range single.Messages {
@@ -2090,7 +2043,7 @@ func parseKakoClawExport(data json.RawMessage) ([]importSession, error) {
 		CreatedAt string `json:"created_at"`
 	}
 	if err := json.Unmarshal(data, &msgs); err == nil && len(msgs) > 0 {
-		sessionID := fmt.Sprintf("import:KakoClaw:%d", time.Now().UnixMilli())
+		sessionID := fmt.Sprintf("import:makoclaw:%d", time.Now().UnixMilli())
 		var importMsgs []storage.ImportMessage
 		for _, m := range msgs {
 			msg := storage.ImportMessage{Role: m.Role, Content: m.Content}
@@ -2102,7 +2055,7 @@ func parseKakoClawExport(data json.RawMessage) ([]importSession, error) {
 		return []importSession{{SessionID: sessionID, Messages: importMsgs}}, nil
 	}
 
-	return nil, fmt.Errorf("could not parse KakoClaw format")
+	return nil, fmt.Errorf("could not parse makoclaw format")
 }
 
 func sanitizeSessionID(s string) string {
@@ -2164,14 +2117,15 @@ func writeJSONError(w http.ResponseWriter, msg string, code int) {
 func (s *Server) handleWorkflows(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	if s.store == nil {
-		writeJSONError(w, "storage not available", http.StatusServiceUnavailable)
+	store, _, ok := s.getUserStorage(r)
+	if !ok {
+		writeJSONError(w, "unauthorized or storage unavailable", http.StatusUnauthorized)
 		return
 	}
 
 	switch r.Method {
 	case http.MethodGet:
-		workflows, err := s.store.ListWorkflows()
+		workflows, err := store.ListWorkflows()
 		if err != nil {
 			writeJSONError(w, "failed to list workflows: "+err.Error(), http.StatusInternalServerError)
 			return
@@ -2197,12 +2151,12 @@ func (s *Server) handleWorkflows(w http.ResponseWriter, r *http.Request) {
 			writeJSONError(w, "name is required", http.StatusBadRequest)
 			return
 		}
-		id, err := s.store.CreateWorkflow(body.Name, body.Description, body.Steps, body.Parameters, body.Schedule)
+		id, err := store.CreateWorkflow(body.Name, body.Description, body.Steps, body.Parameters, body.Schedule)
 		if err != nil {
 			writeJSONError(w, "failed to create workflow: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		wf, _ := s.store.GetWorkflow(id)
+		wf, _ := store.GetWorkflow(id)
 		w.WriteHeader(http.StatusCreated)
 		_ = json.NewEncoder(w).Encode(wf)
 
@@ -2215,8 +2169,9 @@ func (s *Server) handleWorkflows(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleWorkflowAction(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	if s.store == nil {
-		writeJSONError(w, "storage not available", http.StatusServiceUnavailable)
+	store, _, ok := s.getUserStorage(r)
+	if !ok {
+		writeJSONError(w, "unauthorized or storage unavailable", http.StatusUnauthorized)
 		return
 	}
 
@@ -2241,10 +2196,10 @@ func (s *Server) handleWorkflowAction(w http.ResponseWriter, r *http.Request) {
 
 	switch {
 	case action == "run" && r.Method == http.MethodPost:
-		s.handleWorkflowRun(w, r, workflowID)
+		s.handleWorkflowRun(w, r, workflowID, store)
 
 	case action == "runs" && r.Method == http.MethodGet:
-		runs, err := s.store.ListWorkflowRuns(workflowID, 20)
+		runs, err := store.ListWorkflowRuns(workflowID, 20)
 		if err != nil {
 			writeJSONError(w, "failed to list runs: "+err.Error(), http.StatusInternalServerError)
 			return
@@ -2255,7 +2210,7 @@ func (s *Server) handleWorkflowAction(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{"runs": runs})
 
 	case action == "" && r.Method == http.MethodGet:
-		wf, err := s.store.GetWorkflow(workflowID)
+		wf, err := store.GetWorkflow(workflowID)
 		if err != nil {
 			writeJSONError(w, "workflow not found", http.StatusNotFound)
 			return
@@ -2284,12 +2239,12 @@ func (s *Server) handleWorkflowAction(w http.ResponseWriter, r *http.Request) {
 		if body.Enabled != nil {
 			enabled = *body.Enabled
 		} else {
-			existing, err := s.store.GetWorkflow(workflowID)
+			existing, err := store.GetWorkflow(workflowID)
 			if err == nil {
 				enabled = existing.Enabled
 			}
 		}
-		wf, err := s.store.UpdateWorkflow(workflowID, body.Name, body.Description, enabled, body.Steps, body.Parameters, body.Schedule)
+		wf, err := store.UpdateWorkflow(workflowID, body.Name, body.Description, enabled, body.Steps, body.Parameters, body.Schedule)
 		if err != nil {
 			writeJSONError(w, "failed to update workflow: "+err.Error(), http.StatusInternalServerError)
 			return
@@ -2297,7 +2252,7 @@ func (s *Server) handleWorkflowAction(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(wf)
 
 	case action == "" && r.Method == http.MethodDelete:
-		if err := s.store.DeleteWorkflow(workflowID); err != nil {
+		if err := store.DeleteWorkflow(workflowID); err != nil {
 			writeJSONError(w, "failed to delete: "+err.Error(), http.StatusNotFound)
 			return
 		}
@@ -2311,7 +2266,7 @@ func (s *Server) handleWorkflowAction(w http.ResponseWriter, r *http.Request) {
 // handleWorkflowRun executes a workflow and returns the results.
 // Note: The engine's Run() method internally creates and updates the workflow run
 // record in the database, so no additional persistence is needed here.
-func (s *Server) handleWorkflowRun(w http.ResponseWriter, r *http.Request, workflowID int64) {
+func (s *Server) handleWorkflowRun(w http.ResponseWriter, r *http.Request, workflowID int64, store *storage.Storage) {
 	if s.workflowEngine == nil {
 		writeJSONError(w, "workflow engine not available", http.StatusServiceUnavailable)
 		return
@@ -2325,7 +2280,7 @@ func (s *Server) handleWorkflowRun(w http.ResponseWriter, r *http.Request, workf
 		_ = json.NewDecoder(r.Body).Decode(&reqBody)
 	}
 
-	wf, err := s.store.GetWorkflow(workflowID)
+	wf, err := store.GetWorkflow(workflowID)
 	if err != nil {
 		writeJSONError(w, "workflow not found", http.StatusNotFound)
 		return
@@ -2414,6 +2369,33 @@ func updateAgentsConfig(cfg *config.Config, updates map[string]interface{}) {
 			cfg.Agents.Defaults.MaxToolIterations = int(iterations)
 		}
 	}
+
+	if orchestrator, ok := updates["orchestrator"].(map[string]interface{}); ok {
+		if enabled, ok := orchestrator["enabled"].(bool); ok {
+			cfg.Agents.Orchestrator.Enabled = enabled
+		}
+		if provider, ok := orchestrator["provider"].(string); ok {
+			cfg.Agents.Orchestrator.Provider = provider
+		}
+		if model, ok := orchestrator["model"].(string); ok {
+			cfg.Agents.Orchestrator.Model = model
+		}
+		if temp, ok := orchestrator["temperature"].(float64); ok {
+			cfg.Agents.Orchestrator.Temperature = temp
+		}
+		if tokens, ok := orchestrator["max_tokens"].(float64); ok {
+			cfg.Agents.Orchestrator.MaxTokens = int(tokens)
+		}
+		if retries, ok := orchestrator["max_delegation_retries"].(float64); ok {
+			cfg.Agents.Orchestrator.MaxDelegationRetries = int(retries)
+		}
+		if fallback, ok := orchestrator["fallback_to_default"].(bool); ok {
+			cfg.Agents.Orchestrator.FallbackToDefault = fallback
+		}
+		if desc, ok := orchestrator["description"].(string); ok {
+			cfg.Agents.Orchestrator.Description = desc
+		}
+	}
 }
 
 func updateToolsConfig(cfg *config.Config, updates map[string]interface{}) {
@@ -2427,4 +2409,37 @@ func updateToolsConfig(cfg *config.Config, updates map[string]interface{}) {
 			}
 		}
 	}
+
+	if email, ok := updates["email"].(map[string]interface{}); ok {
+		if enabled, ok := email["enabled"].(bool); ok {
+			cfg.Tools.Email.Enabled = enabled
+		}
+		if host, ok := email["host"].(string); ok {
+			cfg.Tools.Email.Host = host
+		}
+		if port, ok := email["port"].(float64); ok {
+			cfg.Tools.Email.Port = int(port)
+		}
+		if user, ok := email["username"].(string); ok {
+			cfg.Tools.Email.Username = user
+		}
+		if pass, ok := email["password"].(string); ok && pass != "" && !strings.Contains(pass, "****") {
+			cfg.Tools.Email.Password = pass
+		}
+		if from, ok := email["from"].(string); ok {
+			cfg.Tools.Email.From = from
+		}
+		if to, ok := email["to"].(string); ok {
+			cfg.Tools.Email.To = to
+		}
+	}
+}
+
+// getMapKeys returns the keys of a map as a string slice
+func getMapKeys(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }

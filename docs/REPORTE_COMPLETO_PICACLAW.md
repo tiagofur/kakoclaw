@@ -1,7 +1,7 @@
-# Reporte Completo: KakoClaw
+# Reporte Completo: MakoClaw
 
 ## Índice
-1. [¿Qué es KakoClaw?](#qué-es-KakoClaw)
+1. [¿Qué es MakoClaw?](#qué-es-MakoClaw)
 2. [Propósito y Filosofía](#propósito-y-filosofía)
 3. [Características Principales](#características-principales)
 4. [Arquitectura del Sistema](#arquitectura-del-sistema)
@@ -23,9 +23,9 @@
 
 ---
 
-## ¿Qué es KakoClaw?
+## ¿Qué es MakoClaw?
 
-**KakoClaw** es un asistente personal de IA ultraligero escrito en Go, inspirado en [nanobot](https://github.com/HKUDS/nanobot). Es una refactorización completa desde cero donde el propio agente de IA impulsó toda la migración arquitectónica y optimización de código.
+**MakoClaw** es un asistente personal de IA ultraligero escrito en Go, inspirado en [nanobot](https://github.com/HKUDS/nanobot). Es una refactorización completa desde cero donde el propio agente de IA impulsó toda la migración arquitectónica y optimización de código.
 
 ### Estadísticas del Proyecto
 - **Lenguaje**: Go (56 archivos, ~13,600 líneas de código)
@@ -51,7 +51,7 @@ Proveer un asistente de IA eficiente que pueda ejecutarse en hardware mínimo, h
 
 ### Comparativa con Otras Soluciones
 
-| Característica | OpenClaw | NanoBot | **KakoClaw** |
+| Característica | OpenClaw | NanoBot | **MakoClaw** |
 |---------------|----------|---------|--------------|
 | **Lenguaje** | TypeScript | Python | **Go** |
 | **RAM** | >1GB | >100MB | **<10MB** |
@@ -95,9 +95,9 @@ Proveer un asistente de IA eficiente que pueda ejecutarse en hardware mínimo, h
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                        KakoClaw                              │
+│                        MakoClaw                              │
 ├─────────────────────────────────────────────────────────────┤
-│  CLI (cmd/KakoClaw/main.go)                                 │
+│  CLI (cmd/MakoClaw/main.go)                                 │
 │  ├── onboard                                                │
 │  ├── agent (modo interactivo/directo)                      │
 │  ├── gateway (servidor multi-canal)                        │
@@ -147,12 +147,12 @@ Usuario → Canal (Telegram/Discord/etc) → MessageBus → Agent Loop → LLM P
 
 #### Modo Directo
 ```bash
-KakoClaw agent -m "¿Qué es 2+2?"
+MakoClaw agent -m "¿Qué es 2+2?"
 ```
 
 #### Modo Interactivo
 ```bash
-KakoClaw agent
+MakoClaw agent
 # Inicia chat interactivo con readline (historial, edición)
 ```
 
@@ -167,7 +167,7 @@ KakoClaw agent
 Inicia un servidor que escucha múltiples canales simultáneamente:
 
 ```bash
-KakoClaw gateway
+MakoClaw gateway
 ```
 
 Servicios que se inician:
@@ -182,84 +182,84 @@ Soporta OAuth y tokens:
 
 ```bash
 # Login con OAuth (flujo de navegador)
-KakoClaw auth login --provider openai
+MakoClaw auth login --provider openai
 
 # Login con device code (headless)
-KakoClaw auth login --provider openai --device-code
+MakoClaw auth login --provider openai --device-code
 
 # Login con token manual
-KakoClaw auth login --provider anthropic
+MakoClaw auth login --provider anthropic
 
 # Ver estado
-KakoClaw auth status
+MakoClaw auth status
 
 # Logout
-KakoClaw auth logout --provider openai
+MakoClaw auth logout --provider openai
 ```
 
 ### 4. Tareas Programadas (Cron)
 
 ```bash
 # Listar trabajos
-KakoClaw cron list
+MakoClaw cron list
 
 # Agregar trabajo recurrente
-KakoClaw cron add -n "recordatorio" -m "Revisar emails" -e 3600
+MakoClaw cron add -n "recordatorio" -m "Revisar emails" -e 3600
 
 # Agregar con expresión cron
-KakoClaw cron add -n "daily" -m "Backup" -c "0 9 * * *"
+MakoClaw cron add -n "daily" -m "Backup" -c "0 9 * * *"
 
 # Eliminar trabajo
-KakoClaw cron remove <job_id>
+MakoClaw cron remove <job_id>
 
 # Habilitar/Deshabilitar
-KakoClaw cron enable <job_id>
-KakoClaw cron disable <job_id>
+MakoClaw cron enable <job_id>
+MakoClaw cron disable <job_id>
 ```
 
 ### 5. Gestión de Skills
 
 ```bash
 # Listar skills instalados
-KakoClaw skills list
+MakoClaw skills list
 
 # Instalar skill desde GitHub
-KakoClaw skills install sipeed/KakoClaw-skills/weather
+MakoClaw skills install sipeed/MakoClaw-skills/weather
 
 # Buscar skills disponibles
-KakoClaw skills search
+MakoClaw skills search
 
 # Ver detalles
-KakoClaw skills show weather
+MakoClaw skills show weather
 
 # Eliminar skill
-KakoClaw skills remove weather
+MakoClaw skills remove weather
 
 # Instalar skills built-in
-KakoClaw skills install-builtin
-KakoClaw skills list-builtin
+MakoClaw skills install-builtin
+MakoClaw skills list-builtin
 ```
 
 ### 6. Migración desde OpenClaw
 
 ```bash
 # Migración completa
-KakoClaw migrate
+MakoClaw migrate
 
 # Solo configuración
-KakoClaw migrate --config-only
+MakoClaw migrate --config-only
 
 # Solo workspace
-KakoClaw migrate --workspace-only
+MakoClaw migrate --workspace-only
 
 # Simulación (sin cambios)
-KakoClaw migrate --dry-run
+MakoClaw migrate --dry-run
 
 # Forzar sin confirmación
-KakoClaw migrate --force
+MakoClaw migrate --force
 
 # Sincronizar nuevamente
-KakoClaw migrate --refresh
+MakoClaw migrate --refresh
 ```
 
 ---
@@ -336,7 +336,7 @@ pkg/
 ### Estructura del Workspace
 
 ```
-~/.KakoClaw/
+~/.MakoClaw/
 ├── config.json          # Configuración principal
 ├── workspace/
 │   ├── sessions/        # Historial de conversaciones
@@ -577,11 +577,11 @@ Instrucciones detalladas aquí...
 
 **Desde GitHub:**
 ```bash
-KakoClaw skills install usuario/repo/skill-name
+MakoClaw skills install usuario/repo/skill-name
 ```
 
 **Instalación local:**
-- Copiar a `~/.KakoClaw/workspace/skills/`
+- Copiar a `~/.MakoClaw/workspace/skills/`
 
 **Estructura:**
 ```
@@ -920,7 +920,7 @@ jobs:
 
 #### C. Mention System
 - **Feature**: Mencionar al agente en canales grupales
-- **Implementación**: @KakoClaw comando aquí
+- **Implementación**: @MakoClaw comando aquí
 
 ### 7. Capacidades Offline
 
@@ -1391,7 +1391,7 @@ func (s *secretString) UnmarshalJSON(data []byte) error {
 
 ## Conclusión
 
-KakoClaw es una implementación impresionante de un asistente de IA ultraligero que demuestra que es posible tener funcionalidades avanzadas con un footprint mínimo. El código está bien estructurado y sigue buenas prácticas de Go.
+MakoClaw es una implementación impresionante de un asistente de IA ultraligero que demuestra que es posible tener funcionalidades avanzadas con un footprint mínimo. El código está bien estructurado y sigue buenas prácticas de Go.
 
 Las principales fortalezas son:
 1. **Eficiencia**: <10MB RAM, <1s arranque
@@ -1411,7 +1411,7 @@ El proyecto tiene un potencial enorme para crecer mientras mantiene su filosofí
 ---
 
 **Reporte generado el**: 12 de Febrero de 2026  
-**Versión analizada**: KakoClaw v0.1.0  
+**Versión analizada**: MakoClaw v0.1.0  
 **Líneas de código**: ~13,600  
 **Archivos Go**: 56
 
@@ -1421,7 +1421,7 @@ El proyecto tiene un potencial enorme para crecer mientras mantiene su filosofí
 
 ### Funciones Implementadas
 
-El panel web (`pkg/web/`) es una SPA embebida que permite operar KakoClaw desde el navegador.
+El panel web (`pkg/web/`) es una SPA embebida que permite operar MakoClaw desde el navegador.
 
 | Función | Descripción | Estado |
 |---------|-------------|--------|
@@ -1447,7 +1447,7 @@ El panel web (`pkg/web/`) es una SPA embebida que permite operar KakoClaw desde 
 
 ### Flujo de Uso Típico
 
-1. Arrancar con `KakoClaw web` o `KakoClaw gateway` (con web habilitado en config)
+1. Arrancar con `MakoClaw web` o `MakoClaw gateway` (con web habilitado en config)
 2. Abrir `http://127.0.0.1:18880` en navegador
 3. Login con usuario/contraseña configurados (o el password auto-generado)
 4. Crear tareas desde el formulario o chat (`/task create mi tarea`)
@@ -1764,4 +1764,4 @@ if cfg.Web.Enabled && cfg.Web.Password == "" { log warning }
 ---
 
 **Auditoría de seguridad actualizada el**: Julio 2025  
-**Alcance**: `pkg/web/`, `pkg/tools/tasks.go`, `pkg/config/config.go`, `cmd/KakoClaw/main.go`
+**Alcance**: `pkg/web/`, `pkg/tools/tasks.go`, `pkg/config/config.go`, `cmd/MakoClaw/main.go`

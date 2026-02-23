@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/sipeed/kakoclaw/pkg/bus"
-	"github.com/sipeed/kakoclaw/pkg/config"
-	"github.com/sipeed/kakoclaw/pkg/logger"
-	"github.com/sipeed/kakoclaw/pkg/providers"
-	"github.com/sipeed/kakoclaw/pkg/storage"
-	"github.com/sipeed/kakoclaw/pkg/tools"
+	"github.com/sipeed/makoclaw/pkg/bus"
+	"github.com/sipeed/makoclaw/pkg/config"
+	"github.com/sipeed/makoclaw/pkg/logger"
+	"github.com/sipeed/makoclaw/pkg/providers"
+	"github.com/sipeed/makoclaw/pkg/storage"
+	"github.com/sipeed/makoclaw/pkg/tools"
 )
 
 // SpecialistAgent represents a specialized agent with specific tools and LLM configuration
@@ -20,6 +20,8 @@ type SpecialistAgent struct {
 	description  string
 	prompt       string
 	allowedTools map[string]bool
+	keywords     []string
+	providerName string
 }
 
 // SpecialistRegistry manages all configured specialist agents
@@ -123,8 +125,10 @@ func (sr *SpecialistRegistry) GetSpecialistInfo(name string) (*SpecialistInfo, e
 	return &SpecialistInfo{
 		Name:        specialist.name,
 		Description: specialist.description,
-		Provider:    specialist.model,
+		Provider:    specialist.providerName,
+		Model:       specialist.model,
 		Tools:       tools,
+		Keywords:    specialist.keywords,
 	}, nil
 }
 
@@ -182,6 +186,8 @@ func NewSpecialistAgent(
 		description:  cfg.Description,
 		prompt:       cfg.Prompt,
 		allowedTools: allowedTools,
+		keywords:     cfg.Keywords,
+		providerName: cfg.Provider,
 	}
 
 	logger.InfoCF("agent", "Specialist agent created", map[string]interface{}{
@@ -311,9 +317,7 @@ func (ss *SpecialistSelector) SelectByKeywords(keywords []string) []*SpecialistA
 
 // GetSpecialistKeywords returns the specialist's keywords
 func (sa *SpecialistAgent) GetSpecialistKeywords() []string {
-	// For now, extract from description or return empty
-	// This could be expanded to include more metadata
-	return []string{}
+	return sa.keywords
 }
 
 // GetDescription returns the specialist's description

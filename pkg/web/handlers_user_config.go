@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/sipeed/kakoclaw/pkg/config"
-	"github.com/sipeed/kakoclaw/pkg/logger"
-	"github.com/sipeed/kakoclaw/pkg/storage"
+	"github.com/sipeed/makoclaw/pkg/config"
+	"github.com/sipeed/makoclaw/pkg/logger"
+	"github.com/sipeed/makoclaw/pkg/storage"
 )
 
 // ConfigSource indicates where a config value comes from
@@ -29,20 +29,14 @@ type ConfigWithSource struct {
 
 // handleGetUserConfig returns the user's merged config with source indicators
 func (s *Server) handleGetUserConfig(w http.ResponseWriter, r *http.Request) {
-	userID, ok := s.getUserIDFromClaims(r)
+	store, userUUID, ok := s.getUserStorage(r)
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	user, err := s.store.GetUserByID(userID)
-	if err != nil {
-		http.Error(w, "user not found", http.StatusNotFound)
-		return
-	}
-
 	// Load user config (may not exist, that's ok)
-	userCfg, _ := config.LoadConfigForUser(user.UUID)
+	userCfg, _ := config.LoadConfigForUser(userUUID)
 
 	// Load global config
 	globalCfg := s.fullConfig
@@ -54,7 +48,7 @@ func (s *Server) handleGetUserConfig(w http.ResponseWriter, r *http.Request) {
 	// Merge configs
 	mergedCfg := config.MergeConfigs(globalCfg, userCfg)
 
-	userProviders, err := s.store.GetUserProvidersConfig(userID)
+	userProviders, err := store.GetUserProvidersConfig(0)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to get provider config: %v", err), http.StatusInternalServerError)
 		return
@@ -77,6 +71,7 @@ func (s *Server) handleGetUserConfig(w http.ResponseWriter, r *http.Request) {
 				"host":     mergedCfg.Tools.Email.Host,
 				"port":     mergedCfg.Tools.Email.Port,
 				"username": mergedCfg.Tools.Email.Username,
+				"password": map[string]interface{}{"has_password": mergedCfg.Tools.Email.Password != ""}, // Indicador sin valor real
 				"from":     mergedCfg.Tools.Email.From,
 				"to":       mergedCfg.Tools.Email.To,
 			},
@@ -103,15 +98,9 @@ func (s *Server) handleGetUserConfig(w http.ResponseWriter, r *http.Request) {
 
 // handleUpdateUserConfig updates a user's config section
 func (s *Server) handleUpdateUserConfig(w http.ResponseWriter, r *http.Request) {
-	userID, ok := s.getUserIDFromClaims(r)
+	_, userUUID, ok := s.getUserStorage(r)
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	user, err := s.store.GetUserByID(userID)
-	if err != nil {
-		http.Error(w, "user not found", http.StatusNotFound)
 		return
 	}
 
@@ -122,8 +111,14 @@ func (s *Server) handleUpdateUserConfig(w http.ResponseWriter, r *http.Request) 
 	}
 	update = normalizeUpdateKeys(update)
 
+	// Log the update operation
+	logger.InfoCF("web", "Updating user config", map[string]interface{}{
+		"user_uuid":        userUUID,
+		"updated_sections": getMapKeysFromMap(update),
+	})
+
 	// Load existing user config or create new one
-	userCfg, _ := config.LoadConfigForUser(user.UUID)
+	userCfg, _ := config.LoadConfigForUser(userUUID)
 	if userCfg == nil {
 		userCfg = config.DefaultConfig()
 	}
@@ -135,9 +130,9 @@ func (s *Server) handleUpdateUserConfig(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Save user config
-	if err := config.SaveConfigForUser(user.UUID, userCfg); err != nil {
+	if err := config.SaveConfigForUser(userUUID, userCfg); err != nil {
 		logger.ErrorCF("web", "Failed to save user config", map[string]interface{}{
-			"user_uuid": user.UUID,
+			"user_uuid": userUUID,
 			"error":     err.Error(),
 		})
 		http.Error(w, "failed to save config", http.StatusInternalServerError)
@@ -145,22 +140,21 @@ func (s *Server) handleUpdateUserConfig(w http.ResponseWriter, r *http.Request) 
 	}
 
 	logger.InfoCF("web", "User config updated", map[string]interface{}{
-		"user_uuid": user.UUID,
-		"username":  user.Username,
+		"user_uuid": userUUID,
 	})
 
 	// Restart user's channels asynchronously to avoid blocking the response
 	if s.multiUserChannelManager != nil {
 		go func() {
 			ctx := context.Background()
-			if err := s.multiUserChannelManager.RestartUserChannels(ctx, user.UUID); err != nil {
+			if err := s.multiUserChannelManager.RestartUserChannels(ctx, userUUID); err != nil {
 				logger.WarnCF("web", "Failed to restart user channels after config update", map[string]interface{}{
-					"user_uuid": user.UUID,
+					"user_uuid": userUUID,
 					"error":     err.Error(),
 				})
 			} else {
 				logger.InfoCF("web", "Restarted user channels after config update", map[string]interface{}{
-					"user_uuid": user.UUID,
+					"user_uuid": userUUID,
 				})
 			}
 		}()
@@ -175,15 +169,9 @@ func (s *Server) handleUpdateUserConfig(w http.ResponseWriter, r *http.Request) 
 
 // handleDeleteUserConfigSection deletes a config section, reverting to global default
 func (s *Server) handleDeleteUserConfigSection(w http.ResponseWriter, r *http.Request) {
-	userID, ok := s.getUserIDFromClaims(r)
+	_, userUUID, ok := s.getUserStorage(r)
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	user, err := s.store.GetUserByID(userID)
-	if err != nil {
-		http.Error(w, "user not found", http.StatusNotFound)
 		return
 	}
 
@@ -194,7 +182,7 @@ func (s *Server) handleDeleteUserConfigSection(w http.ResponseWriter, r *http.Re
 	}
 
 	// Load user config
-	userCfg, _ := config.LoadConfigForUser(user.UUID)
+	userCfg, _ := config.LoadConfigForUser(userUUID)
 	if userCfg == nil {
 		// Nothing to delete
 		w.Header().Set("Content-Type", "application/json")
@@ -209,28 +197,28 @@ func (s *Server) handleDeleteUserConfigSection(w http.ResponseWriter, r *http.Re
 	resetConfigSection(userCfg, section)
 
 	// Save updated config
-	if err := config.SaveConfigForUser(user.UUID, userCfg); err != nil {
+	if err := config.SaveConfigForUser(userUUID, userCfg); err != nil {
 		http.Error(w, "failed to save config", http.StatusInternalServerError)
 		return
 	}
 
 	logger.InfoCF("web", "User config section reset", map[string]interface{}{
-		"user_uuid": user.UUID,
+		"user_uuid": userUUID,
 		"section":   section,
 	})
 
 	// Restart user's channels if multi-user channel manager is available
 	if s.multiUserChannelManager != nil {
-		if err := s.multiUserChannelManager.RestartUserChannels(r.Context(), user.UUID); err != nil {
+		if err := s.multiUserChannelManager.RestartUserChannels(r.Context(), userUUID); err != nil {
 			logger.WarnCF("web", "Failed to restart user channels after config reset", map[string]interface{}{
-				"user_uuid": user.UUID,
+				"user_uuid": userUUID,
 				"section":   section,
 				"error":     err.Error(),
 			})
 			// Don't fail the request, config was saved successfully
 		} else {
 			logger.InfoCF("web", "Restarted user channels after config reset", map[string]interface{}{
-				"user_uuid": user.UUID,
+				"user_uuid": userUUID,
 				"section":   section,
 			})
 		}
@@ -360,7 +348,84 @@ func isConfigEmpty(cfg *config.Config) bool {
 }
 
 func applyConfigUpdates(cfg *config.Config, updates map[string]interface{}) error {
-	// Marshal current config to intermediate format
+	// SPECIAL CASE: Deep merge for agents and tools to avoid overwriting entire top-level sections
+	if agentsUpdate, ok := updates["agents"].(map[string]interface{}); ok {
+		// Handle defaults
+		if defaultsUpdate, ok := agentsUpdate["defaults"].(map[string]interface{}); ok {
+			defaultsJSON, _ := json.Marshal(defaultsUpdate)
+			json.Unmarshal(defaultsJSON, &cfg.Agents.Defaults)
+		}
+		// Handle orchestrator
+		if orchUpdate, ok := agentsUpdate["orchestrator"].(map[string]interface{}); ok {
+			orchJSON, _ := json.Marshal(orchUpdate)
+			json.Unmarshal(orchJSON, &cfg.Agents.Orchestrator)
+		}
+		// Handle specialists (partial map merge)
+		if specUpdate, ok := agentsUpdate["specialists"].(map[string]interface{}); ok {
+			if cfg.Agents.Specialists == nil {
+				cfg.Agents.Specialists = make(map[string]config.SpecialistConfig)
+			}
+			for name, specRaw := range specUpdate {
+				specJSON, _ := json.Marshal(specRaw)
+				var spec config.SpecialistConfig
+				if err := json.Unmarshal(specJSON, &spec); err == nil {
+					cfg.Agents.Specialists[name] = spec
+				}
+			}
+		}
+		// Remove "agents" from bulk update map to avoid shallow overwrite
+		delete(updates, "agents")
+	}
+
+	if toolsUpdate, ok := updates["tools"].(map[string]interface{}); ok {
+		// Handle web
+		if webUpdate, ok := toolsUpdate["web"].(map[string]interface{}); ok {
+			if searchUpdate, ok := webUpdate["search"].(map[string]interface{}); ok {
+				searchJSON, _ := json.Marshal(searchUpdate)
+				json.Unmarshal(searchJSON, &cfg.Tools.Web.Search)
+			}
+		}
+		// Handle email - special case for password
+		if emailUpdate, ok := toolsUpdate["email"].(map[string]interface{}); ok {
+			// Check if password is being updated
+			passwordValue := emailUpdate["password"]
+			passwordChanged := false
+
+			// If password is a map with has_password field, it's from GET response, not an update
+			if passwordMap, ok := passwordValue.(map[string]interface{}); ok {
+				// This is just the indicator from GET, remove it and don't update password
+				_ = passwordMap // Use the variable
+				delete(emailUpdate, "password")
+			} else if passwordStr, ok := passwordValue.(string); ok {
+				// Actual password string provided
+				if passwordStr != "" {
+					passwordChanged = true
+				} else {
+					// Empty password means don't update existing password
+					delete(emailUpdate, "password")
+				}
+			} else {
+				// Password field missing or null, don't update
+				delete(emailUpdate, "password")
+			}
+
+			// Only update email config if there are actual changes
+			emailJSON, _ := json.Marshal(emailUpdate)
+			var tempCfg config.EmailToolsConfig
+			json.Unmarshal(emailJSON, &tempCfg)
+
+			// Preserve existing password if not being changed
+			if !passwordChanged && cfg.Tools.Email.Password != "" {
+				tempCfg.Password = cfg.Tools.Email.Password
+			}
+
+			cfg.Tools.Email = tempCfg
+		}
+		// Remove "tools" from bulk update map
+		delete(updates, "tools")
+	}
+
+	// Marshaling/Unmarshaling approach for the rest of simpler fields
 	currentJSON, err := json.Marshal(cfg)
 	if err != nil {
 		return err
@@ -371,7 +436,7 @@ func applyConfigUpdates(cfg *config.Config, updates map[string]interface{}) erro
 		return err
 	}
 
-	// Apply updates
+	// Apply remaining updates
 	for key, value := range updates {
 		intermediate[key] = value
 	}
@@ -447,24 +512,19 @@ func resetConfigSection(cfg *config.Config, section string) {
 
 // handleGetUserProviders returns the current user's provider configuration
 func (s *Server) handleGetUserProviders(w http.ResponseWriter, r *http.Request) {
-	userID, ok := s.getUserIDFromClaims(r)
+	store, _, ok := s.getUserStorage(r)
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	if s.store == nil {
-		http.Error(w, "storage not available", http.StatusInternalServerError)
-		return
-	}
-
-	config, err := s.store.GetUserProvidersConfig(userID)
+	cfg, err := store.GetUserProvidersConfig(0)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to get provider config: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	response := redactUserProviders(config)
+	response := redactUserProviders(cfg)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
@@ -477,14 +537,9 @@ func (s *Server) handleUpdateUserProvider(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	userID, ok := s.getUserIDFromClaims(r)
+	store, _, ok := s.getUserStorage(r)
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	if s.store == nil {
-		http.Error(w, "storage not available", http.StatusInternalServerError)
 		return
 	}
 
@@ -513,7 +568,7 @@ func (s *Server) handleUpdateUserProvider(w http.ResponseWriter, r *http.Request
 		AuthMethod: authMethod,
 	}
 
-	if err := s.store.UpdateUserProviderConfig(userID, providerName, providerConfig); err != nil {
+	if err := store.UpdateUserProviderConfig(0, providerName, providerConfig); err != nil {
 		http.Error(w, fmt.Sprintf("failed to update provider config: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -528,20 +583,14 @@ func (s *Server) handleUpdateUserProvider(w http.ResponseWriter, r *http.Request
 
 // handleGetUserChannels returns the current user's channel configuration
 func (s *Server) handleGetUserChannels(w http.ResponseWriter, r *http.Request) {
-	userID, ok := s.getUserIDFromClaims(r)
+	_, userUUID, ok := s.getUserStorage(r)
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	user, err := s.store.GetUserByID(userID)
-	if err != nil {
-		http.Error(w, "user not found", http.StatusNotFound)
-		return
-	}
-
 	// Load user config (may not exist, that's ok)
-	userCfg, _ := config.LoadConfigForUser(user.UUID)
+	userCfg, _ := config.LoadConfigForUser(userUUID)
 
 	// Load global config
 	globalCfg := s.fullConfig
@@ -577,4 +626,13 @@ func (s *Server) handleGetUserChannels(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+// getMapKeysFromMap returns the keys of a map as a string slice
+func getMapKeysFromMap(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }

@@ -85,7 +85,7 @@ func TestHasErrors(t *testing.T) {
 }
 
 func TestCheckDirectories(t *testing.T) {
-	// This test might fail if .KakoClaw doesn't exist
+	// This test might fail if .makoclaw doesn't exist
 	// But it should still run without panic
 	result := checkDirectories()
 	
@@ -151,3 +151,4 @@ func TestCheckPermissions(t *testing.T) {
 		t.Errorf("Expected check name 'Permissions', got %s", result.Name)
 	}
 }
+

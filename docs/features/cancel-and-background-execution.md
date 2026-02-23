@@ -2,7 +2,7 @@
 
 ## Overview
 
-KakoClaw now supports canceling agent executions mid-task and running agents in the background while navigating through the web panel. This provides better control and a more flexible user experience.
+MakoClaw now supports canceling agent executions mid-task and running agents in the background while navigating through the web panel. This provides better control and a more flexible user experience.
 
 ## Features
 
