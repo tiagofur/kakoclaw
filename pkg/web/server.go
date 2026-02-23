@@ -2256,12 +2256,14 @@ func (s *Server) handleAgents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	agentsList := make([]map[string]interface{}, 0)
+	var orchestratorConfig *config.OrchestratorConfig
 
 	// Primary source: load from persisted user config (survives restarts)
 	if s.store != nil {
 		if userID, ok := s.getUserIDFromClaims(r); ok {
 			if user, err := s.store.GetUserByID(userID); err == nil {
 				if userCfg, _ := config.LoadConfigForUser(user.UUID); userCfg != nil {
+					orchestratorConfig = &userCfg.Agents.Orchestrator
 					for name, spec := range userCfg.Agents.Specialists {
 						agentsList = append(agentsList, map[string]interface{}{
 							"name":        name,
@@ -2295,6 +2297,7 @@ func (s *Server) handleAgents(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"orchestrated": orchestrated,
+		"orchestrator": orchestratorConfig,
 		"specialists":  agentsList,
 	})
 }
