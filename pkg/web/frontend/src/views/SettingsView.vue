@@ -51,6 +51,10 @@
           @config="openChannelConfig"
         />
 
+        <ToolPermissionsTab v-if="activeTab === 'permissions' && authStore.user?.role === 'admin'" />
+
+        <AuditLogTab v-if="activeTab === 'audit' && authStore.user?.role === 'admin'" />
+
         <div v-if="activeTab === 'users' && authStore.user?.role === 'admin'" class="space-y-6 max-w-5xl mx-auto animate-fadeIn">
           <div class="glass-panel rounded-2xl p-8">
             <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-8">
@@ -619,6 +623,8 @@ import AgentSettingsTab from '../components/Settings/AgentSettingsTab.vue'
 import ProvidersSettingsTab from '../components/Settings/ProvidersSettingsTab.vue'
 import ChannelsSettingsTab from '../components/Settings/ChannelsSettingsTab.vue'
 import ProfileSettingsTab from '../components/Settings/ProfileSettingsTab.vue'
+import ToolPermissionsTab from '../components/Settings/ToolPermissionsTab.vue'
+import AuditLogTab from '../components/Settings/AuditLogTab.vue'
 
 const toast = useToast()
 const authStore = useAuthStore()
@@ -640,9 +646,11 @@ const tabs = [
   { key: 'channels', label: 'Channels' },
   { key: 'system', label: 'System' }
 ]
-// Dynamically add users tab if admin
+// Dynamically add admin-only tabs
 if (authStore.user?.role === 'admin') {
   tabs.splice(2, 0, { key: 'users', label: 'Users' })
+  tabs.splice(3, 0, { key: 'permissions', label: 'Permissions' })
+  tabs.splice(4, 0, { key: 'audit', label: 'Audit Log' })
 }
 
 const setActiveTabFromRoute = () => {
