@@ -868,7 +868,6 @@ func gatewayCmd() {
 	// Setup MCP manager for configured servers (global for now)
 	// TODO: Make MCP servers per-user in future phase
 	var mcpManager *mcp.Manager
-	var cronService *cron.CronService
 	if len(cfg.Tools.MCP.Servers) > 0 {
 		mcpManager = mcp.NewManager(cfg.Tools.MCP)
 		mcpManager.Start(ctx)
@@ -946,9 +945,7 @@ func gatewayCmd() {
 	fmt.Println("\nShutting down...")
 	cancel()
 	heartbeatService.Stop()
-	if cronService != nil {
-		cronService.Stop()
-	}
+	// Note: Per-user cron services are stopped by MultiUserChannelManager
 	if mcpManager != nil {
 		mcpManager.Stop()
 	}
@@ -997,7 +994,6 @@ func webCmd() {
 
 	msgBus := bus.NewMessageBus()
 	var agentLoop *agent.AgentLoop
-	var cronService *cron.CronService
 
 	// Setup context for all services (needed even in degraded mode)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -1005,47 +1001,21 @@ func webCmd() {
 
 	if provider == nil {
 		// Degraded mode - no provider configured
-		// However, we can still enable cron for deliver=true jobs (message-only, no agent processing)
 		cfg.DegradedMode = true
 		fmt.Println("\n⚠ DEGRADED MODE: No LLM provider configured")
 		fmt.Println("  • Agent loop disabled")
-		fmt.Println("  • Cron: Limited to message delivery only (no agent processing)")
+		fmt.Println("  • Cron jobs will be handled per-user via multi-user manager")
 		fmt.Println("  • Web panel available for configuration")
 		fmt.Println("  → Visit http://localhost:" + fmt.Sprintf("%d", cfg.Web.Port) + " to configure your LLM provider")
 
-		// Create global cron service even in degraded mode (for deliver=true jobs)
-		workspacePath := cfg.WorkspacePath()
-		os.MkdirAll(workspacePath, 0755)
-		cronStorePath := filepath.Join(workspacePath, "cron", "jobs.json")
-		cronService = cron.NewCronService(cronStorePath, nil)
-		// Set a noop executor that only handles deliver=true jobs
-		cronService.SetOnJob(func(job *cron.CronJob) (string, error) {
-			if job.Payload.Deliver {
-				// Deliver-only: just publish the message
-				msgBus.PublishOutbound(bus.OutboundMessage{
-					Channel: job.Payload.Channel,
-					ChatID:  job.Payload.To,
-					Content: job.Payload.Message,
-				})
-				return "ok", nil
-			}
-			// Agent-based jobs not supported in degraded mode
-			return "error: agent processing unavailable in degraded mode", nil
-		})
-		if err := cronService.Start(); err != nil {
-			fmt.Printf("Warning: Failed to start cron service: %v\n", err)
-		}
+		// Note: Cron services are now managed per-user by the web server
+		// through the multiUserChannelManager. No global cron service needed.
 	} else {
 		// Full mode - provider configured
 		agentLoop = agent.NewAgentLoop(cfg, msgBus, provider)
 
-		// Setup cron tool and service
-		cronService = setupCronTool(agentLoop, msgBus, cfg.WorkspacePath())
-		if cronService != nil {
-			if err := cronService.Start(); err != nil {
-				fmt.Printf("Error starting cron service: %v\n", err)
-			}
-		}
+		// Note: Cron services are now managed per-user by the web server
+		// through the multiUserChannelManager. Each user gets their own cron service.
 
 		go agentLoop.Run(ctx)
 	}
@@ -1081,6 +1051,12 @@ func webCmd() {
 	defer userMgr.Close()
 	fmt.Println("✓ Per-user storage manager ready")
 
+	// Create multi-user channel manager for per-user cron service support
+	// In web mode, we don't start channels, but we need the manager for cron services
+	multiChannelManager := channels.NewMultiUserChannelManager(cfg, msgBus, store, centralStore)
+	webServer.SetMultiUserChannelManager(multiChannelManager)
+	fmt.Println("✓ Multi-user cron service manager ready")
+
 	// Create and wire agent manager so specialist CRUD works in web mode
 	// In degraded mode, agent manager can still be created but won't have active agents
 	webAgentManager := agent.NewAgentManager(agentLoop)
@@ -1095,9 +1071,7 @@ func webCmd() {
 
 	// Wire additional services for advanced REST endpoints
 	webServer.SetFullConfig(cfg)
-	if cronService != nil {
-		webServer.SetCronService(cronService)
-	}
+	// Note: Cron service is managed per-user via multiUserChannelManager
 	// Wire voice transcriber if Groq API key is available
 	if cfg.Providers.Groq.APIKey != "" {
 		webTranscriber := voice.NewGroqTranscriber(cfg.Providers.Groq.APIKey)
@@ -1172,9 +1146,7 @@ func webCmd() {
 		mcpManagerWeb.Stop()
 	}
 	_ = webServer.Stop(context.Background())
-	if cronService != nil {
-		cronService.Stop()
-	}
+	// Note: Per-user cron services are stopped by multiUserChannelManager
 	if agentLoop != nil {
 		agentLoop.Stop()
 	}

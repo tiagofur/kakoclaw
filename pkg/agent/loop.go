@@ -703,6 +703,12 @@ func (al *AgentLoop) processSystemMessage(ctx context.Context, msg bus.InboundMe
 func (al *AgentLoop) runAgentLoop(ctx context.Context, opts processOptions) (string, error) {
 	// Clear previous involved agents before processing
 	al.ClearInvolvedAgents()
+	// Register this agent loop as primary responder
+	agentName := al.model
+	if agentName == "" {
+		agentName = "main"
+	}
+	al.AddInvolvedAgent(agentName)
 
 	agentStart := time.Now()
 
@@ -791,6 +797,12 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, opts processOptions) (str
 func (al *AgentLoop) runAgentLoopStream(ctx context.Context, opts processOptions, onToken StreamCallback) (string, error) {
 	// Clear previous involved agents before processing
 	al.ClearInvolvedAgents()
+	// Register this agent loop as primary responder
+	agentName := al.model
+	if agentName == "" {
+		agentName = "main"
+	}
+	al.AddInvolvedAgent(agentName)
 
 	agentStart := time.Now()
 

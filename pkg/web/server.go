@@ -1112,6 +1112,9 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 		func() {
 			// Create cancelable context for this execution
 			ctx, cancel := context.WithCancel(r.Context())
+			// Inject activeAgentLoop as agent tracker so that any orchestrator
+			// delegations register involved agents into this loop's tracking.
+			ctx = agent.ContextWithAgentTracker(ctx, activeAgentLoop)
 			execID := fmt.Sprintf("%s:%d", sessionID, time.Now().UnixNano())
 
 			// Track active execution

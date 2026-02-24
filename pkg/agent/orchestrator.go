@@ -13,6 +13,22 @@ import (
 	"github.com/sipeed/makoclaw/pkg/storage"
 )
 
+type agentTrackerKey struct{}
+
+// ContextWithAgentTracker embeds an AgentLoop into the context so that specialist
+// delegations register agent names into the caller's tracker (e.g. the web chat AgentLoop)
+// instead of the orchestrator's own internal loop.
+func ContextWithAgentTracker(ctx context.Context, tracker *AgentLoop) context.Context {
+	return context.WithValue(ctx, agentTrackerKey{}, tracker)
+}
+
+func agentTrackerFromCtx(ctx context.Context) *AgentLoop {
+	if v, ok := ctx.Value(agentTrackerKey{}).(*AgentLoop); ok {
+		return v
+	}
+	return nil
+}
+
 // OrchestratorAgent is a special agent that analyzes tasks and delegates to specialists
 type OrchestratorAgent struct {
 	*SpecialistAgent
@@ -193,12 +209,16 @@ func (oa *OrchestratorAgent) processSpecialistTask(ctx context.Context, speciali
 		return "", fmt.Errorf("specialist processing error: %w", err)
 	}
 
-	// Register that this specialist was involved in the response
-	// Register orchestrator if not already registered
-	if len(oa.AgentLoop.GetInvolvedAgents()) == 0 {
-		oa.AgentLoop.AddInvolvedAgent("orchestrator")
+	// Use tracker from context if available (web chat passes activeAgentLoop as tracker)
+	// so that orchestrator/specialist names are registered on the correct loop instance.
+	tracker := agentTrackerFromCtx(ctx)
+	if tracker == nil {
+		tracker = oa.AgentLoop
 	}
-	oa.AgentLoop.AddInvolvedAgent(specialistName)
+	if len(tracker.GetInvolvedAgents()) == 0 {
+		tracker.AddInvolvedAgent("orchestrator")
+	}
+	tracker.AddInvolvedAgent(specialistName)
 
 	return result, nil
 }
