@@ -41,6 +41,11 @@ func NewSubagentManager(provider providers.LLMProvider, workspace string, bus *b
 }
 
 func (sm *SubagentManager) Spawn(ctx context.Context, task, label, originChannel, originChatID string) (string, error) {
+	// Check if provider is available (degraded mode check)
+	if sm.provider == nil {
+		return "", fmt.Errorf("cannot spawn subagent: LLM provider not configured. Please configure a provider to use subagent features")
+	}
+
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 

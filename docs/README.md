@@ -33,6 +33,7 @@ Guías paso a paso para usuarios finales.
 
 - **[Guía de Inicio Rápido](./guides/quickstart.md)** — Comienza en menos de 5 minutos
 - [Resumen de Inicio Rápido](./guides/QUICK_START_OVERVIEW.md)
+- **[Modo Degradado](./guides/degraded-mode.md)** — Iniciar sin configuración LLM
 - [Instalación y Configuración](./guides/installation.md)
 - [Configuración de Proveedores LLM](./guides/llm-providers.md)
 - [Canales de Mensajería](./guides/channels.md)
@@ -173,11 +174,13 @@ MakoClaw web
 ## 🦈 Características Principales
 
 ### 🤖 Multi-Agent System
+
 - **Orchestrator**: Delega automáticamente tareas a especialistas
 - **Specialists**: Agentes especializados para tareas específicas
 - **Auto-delegation**: El sistema decide qué specialist usar
 
 ### 📡 9+ Canales de Integración
+
 - **Web UI**: Panel web completo con chat, workflows, tareas
 - **Telegram**: Bot de mensajería instantánea
 - **Discord**: Integración completa con servidores
@@ -192,26 +195,32 @@ MakoClaw web
 ### 🛠️ Herramientas Poderosas
 
 #### Gestión de Archivos
+
 - `read_file`: Leer archivos
 - `write_file`: Crear y editar archivos
 - `list_dir`: Listar directorios
 - `edit_file`: Edición asistida por LLM
 
 #### Búsqueda Web
+
 - `web_search`: Buscar en Brave Search
 - `web_fetch`: Obtener contenido de URLs
 
 #### Ejecución
+
 - `exec`: Ejecutar comandos shell
 - `spawn`: Crear subagentes
 
 #### Gestión de Tareas
+
 - `task_manager`: Crear, listar, actualizar tareas (Kanban)
 
 #### Conocimiento
+
 - `query_knowledge`: Búsqueda en base de documentos (RAG)
 
 #### Otros
+
 - `message`: Envío de mensajes
 - `schedule`: Programar tareas
 - `email`: Envío de emails
@@ -220,17 +229,20 @@ MakoClaw web
 ### 📊 Productividad
 
 #### Kanban Task Board
+
 - Backlog, To Do, In Progress, Review, Done
 - La IA puede crear y actualizar tareas
 - Filtrado, búsqueda, y archivado
 
 #### Visual Workflows
+
 - Builder visual drag-and-drop
 - Prompts, tools, y condiciones
 - Ejecución en tiempo real
 - Historial de ejecuciones
 
 #### Cron Jobs
+
 - Tareas programadas
 - Expresiones cron estándar
 - Ejecución manual
@@ -238,6 +250,7 @@ MakoClaw web
 ### 🧠 Conocimiento
 
 #### Knowledge Base (RAG)
+
 - Upload de documentos (PDF, TXT, MD, JSON, CSV, HTML, XML, YAML, LOG)
 - Búsqueda semántica
 - Recuperación contextual

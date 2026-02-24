@@ -272,6 +272,9 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/cron/", s.handleCronAction)                       // Cron job actions
 	mux.HandleFunc("/api/v1/channels", s.handleChannels)                      // Channels status
 	mux.HandleFunc("/api/v1/config", s.handleConfig)                          // Config (read-only, redacted)
+	mux.HandleFunc("/api/v1/config/status", s.handleConfigStatus)             // Degraded mode status
+	mux.HandleFunc("/api/v1/config/provider", s.handleConfigProvider)         // Update provider config
+	mux.HandleFunc("/api/v1/config/validate", s.handleConfigValidate)         // Validate provider config
 	mux.HandleFunc("/api/v1/agents", s.handleAgents)                          // Agents list
 	mux.HandleFunc("/api/v1/agents/", s.handleAgentAction)                    // Agent details, sessions, config
 	mux.HandleFunc("/api/v1/agents/specialist", s.handleSpecialistCreate)     // Create specialist
@@ -3276,6 +3279,264 @@ func (s *Server) handleAgentMetrics(w http.ResponseWriter, r *http.Request) {
 				"avg_cost": 0.0001,
 			},
 		},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(response)
+}
+
+// handleConfigStatus returns the current configuration status including degraded mode
+func (s *Server) handleConfigStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if s.fullConfig == nil {
+		http.Error(w, "configuration not available", http.StatusInternalServerError)
+		return
+	}
+
+	configured := s.fullConfig.HasValidProviderConfig()
+	degradedMode := s.fullConfig.DegradedMode
+
+	status := map[string]interface{}{
+		"configured":   configured,
+		"degradedMode": degradedMode,
+	}
+
+	if degradedMode {
+		status["reason"] = "No LLM provider configured. Configure a provider to enable full functionality."
+	}
+
+	if !configured && !degradedMode {
+		status["reason"] = "Provider configuration incomplete or invalid."
+	}
+
+	// Include currently configured providers (if any)
+	activeProviders := s.fullConfig.GetActiveProviders()
+	status["activeProviders"] = activeProviders
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(status)
+}
+
+// handleConfigProvider updates the provider configuration
+func (s *Server) handleConfigProvider(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if s.fullConfig == nil {
+		http.Error(w, "configuration not available", http.StatusInternalServerError)
+		return
+	}
+
+	var payload struct {
+		Provider string `json:"provider"`
+		Model    string `json:"model"`
+		APIKey   string `json:"api_key"`
+		APIBase  string `json:"api_base,omitempty"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "invalid JSON: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if payload.Provider == "" {
+		http.Error(w, "provider is required", http.StatusBadRequest)
+		return
+	}
+
+	if payload.Model == "" {
+		http.Error(w, "model is required", http.StatusBadRequest)
+		return
+	}
+
+	// Validate provider type
+	validProviders := map[string]bool{
+		"anthropic": true, "openai": true, "openrouter": true, "groq": true,
+		"zhipu": true, "gemini": true, "moonshot": true, "nvidia": true,
+		"ollama": true, "vllm": true, "mock": true,
+	}
+
+	if !validProviders[payload.Provider] {
+		http.Error(w, "invalid provider", http.StatusBadRequest)
+		return
+	}
+
+	// Ollama and mock don't require API key
+	if payload.Provider != "ollama" && payload.Provider != "mock" && payload.APIKey == "" {
+		http.Error(w, "api_key is required for this provider", http.StatusBadRequest)
+		return
+	}
+
+	// Update config
+	s.fullConfig.Lock()
+	s.fullConfig.Agents.Defaults.Provider = payload.Provider
+	s.fullConfig.Agents.Defaults.Model = payload.Model
+
+	// Update provider-specific config
+	switch payload.Provider {
+	case "anthropic":
+		s.fullConfig.Providers.Anthropic.APIKey = payload.APIKey
+		if payload.APIBase != "" {
+			s.fullConfig.Providers.Anthropic.APIBase = payload.APIBase
+		}
+	case "openai":
+		s.fullConfig.Providers.OpenAI.APIKey = payload.APIKey
+		if payload.APIBase != "" {
+			s.fullConfig.Providers.OpenAI.APIBase = payload.APIBase
+		}
+	case "openrouter":
+		s.fullConfig.Providers.OpenRouter.APIKey = payload.APIKey
+		if payload.APIBase != "" {
+			s.fullConfig.Providers.OpenRouter.APIBase = payload.APIBase
+		}
+	case "groq":
+		s.fullConfig.Providers.Groq.APIKey = payload.APIKey
+		if payload.APIBase != "" {
+			s.fullConfig.Providers.Groq.APIBase = payload.APIBase
+		}
+	case "zhipu":
+		s.fullConfig.Providers.Zhipu.APIKey = payload.APIKey
+		if payload.APIBase != "" {
+			s.fullConfig.Providers.Zhipu.APIBase = payload.APIBase
+		}
+	case "gemini":
+		s.fullConfig.Providers.Gemini.APIKey = payload.APIKey
+		if payload.APIBase != "" {
+			s.fullConfig.Providers.Gemini.APIBase = payload.APIBase
+		}
+	case "moonshot":
+		s.fullConfig.Providers.Moonshot.APIKey = payload.APIKey
+		if payload.APIBase != "" {
+			s.fullConfig.Providers.Moonshot.APIBase = payload.APIBase
+		}
+	case "nvidia":
+		s.fullConfig.Providers.Nvidia.APIKey = payload.APIKey
+		if payload.APIBase != "" {
+			s.fullConfig.Providers.Nvidia.APIBase = payload.APIBase
+		}
+	case "ollama":
+		if payload.APIBase != "" {
+			s.fullConfig.Providers.Ollama.APIBase = payload.APIBase
+		} else {
+			s.fullConfig.Providers.Ollama.APIBase = "http://localhost:11434/v1"
+		}
+	case "vllm":
+		if payload.APIKey != "" {
+			s.fullConfig.Providers.VLLM.APIKey = payload.APIKey
+		}
+		if payload.APIBase != "" {
+			s.fullConfig.Providers.VLLM.APIBase = payload.APIBase
+		}
+	}
+
+	s.fullConfig.DegradedMode = false
+	s.fullConfig.Unlock()
+
+	// Save config to file
+	configPath := filepath.Join(filepath.Dir(s.workspace), "config.json")
+	configData, err := json.MarshalIndent(s.fullConfig, "", "  ")
+	if err != nil {
+		http.Error(w, "failed to marshal config: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := os.WriteFile(configPath, configData, 0644); err != nil {
+		http.Error(w, "failed to save config: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	logger.InfoCF("web", "Provider configuration updated", map[string]interface{}{
+		"provider": payload.Provider,
+		"model":    payload.Model,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Provider configuration saved. Restart the application to apply changes.",
+	})
+}
+
+// handleConfigValidate validates provider credentials without saving
+func (s *Server) handleConfigValidate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if s.fullConfig == nil {
+		http.Error(w, "configuration not available", http.StatusInternalServerError)
+		return
+	}
+
+	var payload struct {
+		Provider string `json:"provider"`
+		APIKey   string `json:"api_key"`
+		APIBase  string `json:"api_base,omitempty"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "invalid JSON: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if payload.Provider == "" {
+		http.Error(w, "provider is required", http.StatusBadRequest)
+		return
+	}
+
+	// Create temporary config for validation
+	tempCfg := *s.fullConfig
+	tempCfg.Agents.Defaults.Provider = payload.Provider
+
+	// Set temporary credentials
+	switch payload.Provider {
+	case "anthropic":
+		tempCfg.Providers.Anthropic.APIKey = payload.APIKey
+		if payload.APIBase != "" {
+			tempCfg.Providers.Anthropic.APIBase = payload.APIBase
+		}
+	case "openai":
+		tempCfg.Providers.OpenAI.APIKey = payload.APIKey
+		if payload.APIBase != "" {
+			tempCfg.Providers.OpenAI.APIBase = payload.APIBase
+		}
+	case "openrouter":
+		tempCfg.Providers.OpenRouter.APIKey = payload.APIKey
+		if payload.APIBase != "" {
+			tempCfg.Providers.OpenRouter.APIBase = payload.APIBase
+		}
+	case "groq":
+		tempCfg.Providers.Groq.APIKey = payload.APIKey
+		if payload.APIBase != "" {
+			tempCfg.Providers.Groq.APIBase = payload.APIBase
+		}
+	case "ollama":
+		if payload.APIBase != "" {
+			tempCfg.Providers.Ollama.APIBase = payload.APIBase
+		}
+	default:
+		http.Error(w, "unsupported provider for validation", http.StatusBadRequest)
+		return
+	}
+
+	// Validate using config validation method
+	err := tempCfg.ValidateProviderConfig(payload.Provider)
+
+	response := map[string]interface{}{
+		"valid": err == nil,
+	}
+
+	if err != nil {
+		response["error"] = err.Error()
+	} else {
+		response["message"] = "Provider configuration is valid"
 	}
 
 	w.Header().Set("Content-Type", "application/json")

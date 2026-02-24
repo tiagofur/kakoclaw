@@ -4,8 +4,31 @@ services:
     ports:
       - "127.0.0.1:18880:18880"
     environment:
-      MAKOCLAW_AGENTS_DEFAULTS_PROVIDER: zhipu
-      MAKOCLAW_AGENTS_DEFAULTS_MODEL: glm-4.7
+      # === REQUIRED CONFIGURATION ===
+      # Web password for authentication (default: changeme - CHANGE IN PRODUCTION!)
+      MAKOCLAW_WEB_PASSWORD: "${MAKOCLAW_WEB_PASSWORD:-changeme}"
+
+      # === OPTIONAL: LLM Provider Configuration ===
+      # Leave these UNSET to start in DEGRADED MODE
+      # In degraded mode:
+      #   ✅ Web UI accessible at http://localhost:18880
+      #   ✅ Setup Wizard available for easy configuration
+      #   ❌ Agent/AI features disabled until provider configured
+      #
+      # To pre-configure LLM provider, uncomment and set:
+      # MAKOCLAW_AGENTS_DEFAULTS_PROVIDER: "openrouter"
+      # MAKOCLAW_AGENTS_DEFAULTS_MODEL: "anthropic/claude-3.5-sonnet"
+      #
+      # Supported providers:
+      #   - ollama (self-hosted, free)
+      #   - openrouter (multiple models, free tier)
+      #   - anthropic (Claude)
+      #   - openai (GPT)
+      #   - groq (fast inference, free tier)
+      #
+      # Documentation: https://github.com/sipeed/MakoClaw/blob/main/docs/guides/degraded-mode.md
+
+      # === Basic Configuration ===
       MAKOCLAW_AGENTS_DEFAULTS_RESTRICT_TO_WORKSPACE: "true"
       MAKOCLAW_AGENTS_DEFAULTS_WORKSPACE: "/home/makoclaw/.MakoClaw/workspace"
       MAKOCLAW_STORAGE_PATH: "/home/makoclaw/.MakoClaw/MakoClaw.db"
@@ -13,11 +36,17 @@ services:
       MAKOCLAW_WEB_HOST: 0.0.0.0
       MAKOCLAW_WEB_PORT: "18880"
       MAKOCLAW_WEB_USERNAME: admin
-      MAKOCLAW_WEB_PASSWORD: "${MAKOCLAW_WEB_PASSWORD}"
-      MAKOCLAW_PROVIDERS_ZHIPU_API_KEY: "${MAKOCLAW_PROVIDERS_ZHIPU_API_KEY}"
-      MAKOCLAW_PROVIDERS_ZHIPU_API_BASE: "https://api.z.ai/api/coding/paas/v4"
-      # Email Tools Configuration
-      MAKOCLAW_TOOLS_EMAIL_ENABLED: "true"
+
+      # === Provider API Keys (OPTIONAL) ===
+      # Uncomment the provider you want to use:
+      # MAKOCLAW_PROVIDERS_OPENROUTER_API_KEY: "${MAKOCLAW_PROVIDERS_OPENROUTER_API_KEY}"
+      # MAKOCLAW_PROVIDERS_ANTHROPIC_API_KEY: "${MAKOCLAW_PROVIDERS_ANTHROPIC_API_KEY}"
+      # MAKOCLAW_PROVIDERS_OPENAI_API_KEY: "${MAKOCLAW_PROVIDERS_OPENAI_API_KEY}"
+      # MAKOCLAW_PROVIDERS_GROQ_API_KEY: "${MAKOCLAW_PROVIDERS_GROQ_API_KEY}"
+      # MAKOCLAW_PROVIDERS_OLLAMA_API_BASE: "http://host.docker.internal:11434"
+
+      # === Email Tools (OPTIONAL) ===
+      MAKOCLAW_TOOLS_EMAIL_ENABLED: "false"
       MAKOCLAW_TOOLS_EMAIL_HOST: "smtp.gmail.com"
       MAKOCLAW_TOOLS_EMAIL_PORT: "587"
       MAKOCLAW_TOOLS_EMAIL_USERNAME: "${MAKOCLAW_TOOLS_EMAIL_USERNAME}"

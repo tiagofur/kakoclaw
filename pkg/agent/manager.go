@@ -17,7 +17,8 @@ type AgentManager struct {
 	isOrchestarted bool
 }
 
-// NewAgentManager creates a new agent manager
+// NewAgentManager creates a new agent manager.
+// defaultAgent can be nil for degraded mode (no LLM provider configured).
 func NewAgentManager(defaultAgent *AgentLoop) *AgentManager {
 	return &AgentManager{
 		defaultAgent:   defaultAgent,
@@ -26,12 +27,25 @@ func NewAgentManager(defaultAgent *AgentLoop) *AgentManager {
 	}
 }
 
-// InitializeOrchestrator sets up the orchestrator and specialists if configured
+// IsReady returns true if the agent manager has a valid provider and can process requests.
+// Returns false in degraded mode when no LLM provider is configured.
+func (am *AgentManager) IsReady() bool {
+	return am != nil && am.defaultAgent != nil && am.defaultAgent.provider != nil
+}
+
+// InitializeOrchestrator sets up the orchestrator and specialists if configured.
+// Returns nil without error if agent manager is not ready (degraded mode).
 func (am *AgentManager) InitializeOrchestrator(
 	cfg *config.Config,
 	msgBus *bus.MessageBus,
 	storage *storage.Storage,
 ) error {
+	// Skip initialization if not ready (degraded mode)
+	if !am.IsReady() {
+		logger.DebugCF("agent", "Orchestrator initialization skipped (degraded mode)", map[string]interface{}{})
+		return nil
+	}
+
 	// Check if orchestrator is enabled
 	if !cfg.Agents.Orchestrator.Enabled {
 		logger.DebugCF("agent", "Orchestrator not enabled", map[string]interface{}{})
@@ -96,8 +110,8 @@ func (am *AgentManager) IsOrchestrated() bool {
 
 // AddOrUpdateSpecialist registers a specialist from config, replacing any existing entry.
 func (am *AgentManager) AddOrUpdateSpecialist(name string, cfg *config.SpecialistConfig, globalCfg *config.Config, store *storage.Storage) (*SpecialistAgent, error) {
-	if am == nil || am.defaultAgent == nil {
-		return nil, fmt.Errorf("agent manager not initialized")
+	if !am.IsReady() {
+		return nil, fmt.Errorf("agent manager not ready: no LLM provider configured")
 	}
 	if cfg == nil {
 		return nil, fmt.Errorf("specialist config is required")

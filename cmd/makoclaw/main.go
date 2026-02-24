@@ -776,32 +776,49 @@ func gatewayCmd() {
 	} else {
 		fmt.Println("⚠ Warning: Storage not available, multiuser features disabled")
 		// Fallback: create a default agent loop for backward compatibility
-		provider, err := providers.CreateProvider(cfg)
+		provider, err := providers.TryCreateProvider(cfg)
 		if err != nil {
 			fmt.Printf("Error creating provider: %v\n", err)
+			fmt.Printf("Fix the configuration or remove provider settings to start in degraded mode\n")
 			os.Exit(1)
 		}
-		agentLoop := agent.NewAgentLoop(cfg, msgBus, provider)
-
-		// Print agent startup info
-		fmt.Println("\n📦 Agent Status:")
-		startupInfo := agentLoop.GetStartupInfo()
-		toolsInfo := startupInfo["tools"].(map[string]interface{})
-		skillsInfo := startupInfo["skills"].(map[string]interface{})
-		fmt.Printf("  • Tools: %d loaded\n", toolsInfo["count"])
-		fmt.Printf("  • Skills: %d/%d available\n",
-			skillsInfo["available"],
-			skillsInfo["total"])
+		if provider == nil {
+			fmt.Println("⚠ DEGRADED MODE: No LLM provider configured")
+			fmt.Println("  Agent loop disabled. Configure provider via web panel to enable.")
+			cfg.DegradedMode = true
+		} else {
+			agentLoop := agent.NewAgentLoop(cfg, msgBus, provider)
+			// Print agent startup info
+			fmt.Println("\n📦 Agent Status:")
+			startupInfo := agentLoop.GetStartupInfo()
+			toolsInfo := startupInfo["tools"].(map[string]interface{})
+			skillsInfo := startupInfo["skills"].(map[string]interface{})
+			fmt.Printf("  • Tools: %d loaded\n", toolsInfo["count"])
+			fmt.Printf("  • Skills: %d/%d available\n",
+				skillsInfo["available"],
+				skillsInfo["total"])
+		}
 	}
 
 	// Setup cron tool and service (uses global config for now)
 	// TODO: Make cron service per-user in future phase
 	var cronService *cron.CronService
 	var defaultAgentLoop *agent.AgentLoop
-	defaultProvider, err := providers.CreateProvider(cfg)
+	defaultProvider, err := providers.TryCreateProvider(cfg)
 	if err != nil {
-		fmt.Printf("Warning: Could not create default provider for cron: %v\n", err)
-		fmt.Printf("Cron service will be disabled\n")
+		fmt.Printf("Error with provider configuration: %v\n", err)
+		fmt.Printf("Fix the configuration or remove provider settings to start in degraded mode\n")
+		cronService = nil
+	} else if defaultProvider == nil {
+		// Degraded mode - no provider configured
+		if !cfg.DegradedMode {
+			cfg.DegradedMode = true
+			fmt.Println("\n⚠ DEGRADED MODE: No LLM provider configured")
+			fmt.Println("  • Cron service disabled")
+			fmt.Println("  • Agent orchestration disabled")
+			fmt.Println("  • Web panel available at http://localhost:" + fmt.Sprintf("%d", cfg.Web.Port))
+			fmt.Println("  → Visit web panel to configure your LLM provider")
+		}
 		cronService = nil
 	} else {
 		defaultAgentLoop = agent.NewAgentLoop(cfg, msgBus, defaultProvider)
@@ -986,28 +1003,43 @@ func webCmd() {
 		os.Exit(1)
 	}
 
-	provider, err := providers.CreateProvider(cfg)
+	provider, err := providers.TryCreateProvider(cfg)
 	if err != nil {
-		fmt.Printf("Error creating provider: %v\n", err)
+		fmt.Printf("Error with provider configuration: %v\n", err)
+		fmt.Printf("Fix the configuration or remove provider settings to start in degraded mode\n")
 		os.Exit(1)
 	}
 
 	msgBus := bus.NewMessageBus()
-	agentLoop := agent.NewAgentLoop(cfg, msgBus, provider)
-
-	// Setup cron tool and service
+	var agentLoop *agent.AgentLoop
 	var cronService *cron.CronService
-	cronService = setupCronTool(agentLoop, msgBus, cfg.WorkspacePath())
-	if cronService != nil {
-		if err := cronService.Start(); err != nil {
-			fmt.Printf("Error starting cron service: %v\n", err)
-		}
-	}
 
+	// Setup context for all services (needed even in degraded mode)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go agentLoop.Run(ctx)
+	if provider == nil {
+		// Degraded mode - no provider configured
+		cfg.DegradedMode = true
+		fmt.Println("\n⚠ DEGRADED MODE: No LLM provider configured")
+		fmt.Println("  • Agent loop disabled")
+		fmt.Println("  • Cron service disabled")
+		fmt.Println("  • Web panel available for configuration")
+		fmt.Println("  → Visit http://localhost:" + fmt.Sprintf("%d", cfg.Web.Port) + " to configure your LLM provider")
+	} else {
+		// Full mode - provider configured
+		agentLoop = agent.NewAgentLoop(cfg, msgBus, provider)
+
+		// Setup cron tool and service
+		cronService = setupCronTool(agentLoop, msgBus, cfg.WorkspacePath())
+		if cronService != nil {
+			if err := cronService.Start(); err != nil {
+				fmt.Printf("Error starting cron service: %v\n", err)
+			}
+		}
+
+		go agentLoop.Run(ctx)
+	}
 
 	webServer := web.NewServerWithWorkspace(cfg.Web, agentLoop, cfg.WorkspacePath())
 	webServer.SetBus(msgBus)
@@ -1041,10 +1073,14 @@ func webCmd() {
 	fmt.Println("✓ Per-user storage manager ready")
 
 	// Create and wire agent manager so specialist CRUD works in web mode
-	webAgentManager := agent.NewAgentManager(agentLoop)
-	if store != nil {
-		if initErr := webAgentManager.InitializeOrchestrator(cfg, msgBus, store); initErr != nil {
-			fmt.Printf("Warning: Failed to initialize agent orchestrator: %v\n", initErr)
+	// In degraded mode, agent manager can still be created but won't have active agents
+	var webAgentManager *agent.AgentManager
+	if agentLoop != nil {
+		webAgentManager = agent.NewAgentManager(agentLoop)
+		if store != nil {
+			if initErr := webAgentManager.InitializeOrchestrator(cfg, msgBus, store); initErr != nil {
+				fmt.Printf("Warning: Failed to initialize agent orchestrator: %v\n", initErr)
+			}
 		}
 	}
 	webServer.SetAgentManager(webAgentManager)
@@ -1074,8 +1110,8 @@ func webCmd() {
 	)
 	skillInstallerWeb := skills.NewSkillInstaller(cfg.WorkspacePath())
 	webServer.SetSkills(skillsLoaderWeb, skillInstallerWeb)
-	// Wire workflow engine
-	if store != nil {
+	// Wire workflow engine (only if agent loop is available)
+	if store != nil && agentLoop != nil {
 		wfEngine := workflow.NewEngine(agentLoop, agentLoop.ToolRegistry(), store)
 		webServer.SetWorkflowEngine(wfEngine)
 	}

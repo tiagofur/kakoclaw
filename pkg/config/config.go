@@ -78,6 +78,7 @@ type Config struct {
 	Tools           ToolsConfig           `json:"tools"`
 	ToolPermissions ToolPermissionsConfig `json:"tool_permissions"`
 	Storage         StorageConfig         `json:"storage"`
+	DegradedMode    bool                  `json:"-"` // Runtime flag: true when no valid LLM provider is configured
 	mu              sync.RWMutex
 }
 
@@ -1202,4 +1203,40 @@ func (c *Config) Lock() {
 // Unlock unlocks the config after writing
 func (c *Config) Unlock() {
 	c.mu.Unlock()
+}
+
+// HasValidProviderConfig checks if there is a valid LLM provider configuration.
+// Returns true if default agent has a valid provider+model, or if orchestrator is enabled with valid config.
+// This is used to determine if the system can run in full mode vs degraded mode.
+func (c *Config) HasValidProviderConfig() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	// Check if default agent has valid provider and model
+	if c.Agents.Defaults.Provider != "" && c.Agents.Defaults.Model != "" {
+		// Validate that the provider is actually configured
+		if c.ValidateProviderConfig(c.Agents.Defaults.Provider) == nil {
+			return true
+		}
+	}
+
+	// Check if orchestrator is enabled and has valid config
+	if c.Agents.Orchestrator.Enabled {
+		if c.Agents.Orchestrator.Provider != "" && c.Agents.Orchestrator.Model != "" {
+			if c.ValidateProviderConfig(c.Agents.Orchestrator.Provider) == nil {
+				return true
+			}
+		}
+	}
+
+	// Check if any specialist has valid config
+	for _, spec := range c.Agents.Specialists {
+		if spec.Provider != "" && spec.Model != "" {
+			if c.ValidateProviderConfig(spec.Provider) == nil {
+				return true
+			}
+		}
+	}
+
+	return false
 }

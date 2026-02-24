@@ -6,6 +6,7 @@
 ## 🎯 Resumen Ejecutivo
 
 MakoClaw ha sido **modernizado exitosamente** con:
+
 - Frontend Vue 3 + Tailwind CSS (dark theme profesional)
 - Interfaz responsiva con dos paneles: Chat (50%) | Tasks (50%)
 - Sidebar navegación estilo VS Code
@@ -18,12 +19,14 @@ MakoClaw ha sido **modernizado exitosamente** con:
 ## 🚀 Inicio Rápido (Docker)
 
 ### Construir Imagen
+
 ```bash
 cd /Users/tiagofur/Desktop/creapolis/makoclaw
 docker build -t MakoClaw:test .
 ```
 
 ### Ejecutar Contenedor
+
 ```bash
 docker run -d -p 18880:18880 \
   -v "$(pwd)/MakoClaw-data:/home/MakoClaw/.MakoClaw" \
@@ -31,6 +34,7 @@ docker run -d -p 18880:18880 \
 ```
 
 ### Acceso
+
 - **URL**: http://localhost:18880
 - **Usuario**: `admin`
 - **Contraseña**: `MakoClaw2024!`
@@ -42,6 +46,7 @@ docker run -d -p 18880:18880 \
 ## ✅ Qué Funciona
 
 ### Interfaz Frontend
+
 - ✅ Login page con validación
 - ✅ Dashboard con sidebar navegable
 - ✅ Tabs: Chat y Tasks
@@ -52,6 +57,7 @@ docker run -d -p 18880:18880 \
 - ✅ Tema light/dark switchable
 
 ### Backend API
+
 - ✅ `POST /api/v1/auth/login` - Autenticación
 - ✅ `GET /api/v1/auth/me` - Info usuario (requiere JWT)
 - ✅ `GET /api/v1/health` - Health check
@@ -63,6 +69,7 @@ docker run -d -p 18880:18880 \
 - ✅ Rate limiting en login (5 intentos/minuto por IP)
 
 ### Docker
+
 - ✅ Multi-stage build (Node.js + Go)
 - ✅ Frontend compilado con Vite
 - ✅ Assets embebidos en binario Go
@@ -74,6 +81,7 @@ docker run -d -p 18880:18880 \
 ## ⚙️ Configuración Actual
 
 ### `MakoClaw-data/config.json`
+
 ```json
 {
   "web": {
@@ -86,23 +94,150 @@ docker run -d -p 18880:18880 \
   },
   "agents": {
     "defaults": {
-      "provider": "mock",
-      "model": "mock"
+      "provider": "openrouter",
+      "model": "anthropic/claude-3.5-sonnet"
+    }
+  },
+  "providers": {
+    "openrouter": {
+      "api_key": "sk-or-v1-YOUR-KEY-HERE"
     }
   }
 }
 ```
 
 **Notas importantes:**
-- El provider está configurado como `"mock"` para testing sin API keys
-- Para producción, cambiar a provider real (openai, anthropic, etc.)
-- El archivo `web-auth.json` se genera automáticamente en `~/.MakoClaw/workspace/web/`
+
+- **Provider and model are optional** - MakoClaw will start in **Degraded Mode** if not configured
+- In Degraded Mode:
+  - ✅ Web panel is fully accessible
+  - ✅ Setup Wizard available for easy provider configuration
+  - ❌ Agent features disabled until provider is configured
+- For production with pre-configured provider, set environment variables (see "Environment Variables" section below)
+- The `web-auth.json` file is generated automatically in `~/.MakoClaw/workspace/web/`
+
+### Environment Variables (Docker)
+
+#### Required (Minimum)
+
+```bash
+# Only web password is required
+MAKOCLAW_WEB_PASSWORD="your-secure-password"
+```
+
+#### Optional (LLM Configuration)
+
+MakoClaw will start in **Degraded Mode** if these are not set. Configure via web UI Setup Wizard after startup.
+
+**OpenRouter Example:**
+
+```bash
+MAKOCLAW_AGENTS_DEFAULTS_PROVIDER="openrouter"
+MAKOCLAW_AGENTS_DEFAULTS_MODEL="anthropic/claude-3.5-sonnet"
+MAKOCLAW_PROVIDERS_OPENROUTER_API_KEY="sk-or-v1-xxxxx"
+```
+
+**Ollama Example** (Self-hosted):
+
+```bash
+MAKOCLAW_AGENTS_DEFAULTS_PROVIDER="ollama"
+MAKOCLAW_AGENTS_DEFAULTS_MODEL="llama2"
+MAKOCLAW_PROVIDERS_OLLAMA_BASE_URL="http://host.docker.internal:11434"
+```
+
+**Anthropic Example:**
+
+```bash
+MAKOCLAW_AGENTS_DEFAULTS_PROVIDER="anthropic"
+MAKOCLAW_AGENTS_DEFAULTS_MODEL="claude-3-5-sonnet-20241022"
+MAKOCLAW_PROVIDERS_ANTHROPIC_API_KEY="sk-ant-xxxxx"
+```
+
+**Groq Example:**
+
+```bash
+MAKOCLAW_AGENTS_DEFAULTS_PROVIDER="groq"
+MAKOCLAW_AGENTS_DEFAULTS_MODEL="mixtral-8x7b-32768"
+MAKOCLAW_PROVIDERS_GROQ_API_KEY="gsk_xxxxx"
+```
+
+### docker-compose.yml Example
+
+**Option A: Degraded Mode (No LLM, Configure via Web UI)**
+
+```yaml
+version: "3.8"
+services:
+  makoclaw:
+    image: makoclaw:latest
+    ports:
+      - "18880:18880"
+    volumes:
+      - ./makoclaw-data:/home/makoclaw/.MakoClaw
+    environment:
+      - MAKOCLAW_WEB_PASSWORD=changeme
+    restart: unless-stopped
+```
+
+**Option B: Pre-configured with OpenRouter**
+
+```yaml
+version: "3.8"
+services:
+  makoclaw:
+    image: makoclaw:latest
+    ports:
+      - "18880:18880"
+    volumes:
+      - ./makoclaw-data:/home/makoclaw/.MakoClaw
+    environment:
+      - MAKOCLAW_WEB_PASSWORD=your-secure-password
+      - MAKOCLAW_AGENTS_DEFAULTS_PROVIDER=openrouter
+      - MAKOCLAW_AGENTS_DEFAULTS_MODEL=anthropic/claude-3.5-sonnet
+      - MAKOCLAW_PROVIDERS_OPENROUTER_API_KEY=sk-or-v1-xxxxx
+    restart: unless-stopped
+```
+
+**Option C: Ollama (Self-hosted LLM)**
+
+```yaml
+version: "3.8"
+services:
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    restart: unless-stopped
+
+  makoclaw:
+    image: makoclaw:latest
+    ports:
+      - "18880:18880"
+    volumes:
+      - ./makoclaw-data:/home/makoclaw/.MakoClaw
+    environment:
+      - MAKOCLAW_WEB_PASSWORD=your-secure-password
+      - MAKOCLAW_AGENTS_DEFAULTS_PROVIDER=ollama
+      - MAKOCLAW_AGENTS_DEFAULTS_MODEL=llama2
+      - MAKOCLAW_PROVIDERS_OLLAMA_BASE_URL=http://ollama:11434
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+volumes:
+  ollama-data:
+```
+
+📖 **See also**: [Degraded Mode Guide](../guides/degraded-mode.md)
 
 ---
 
 ## 📦 Estructura de Deployment
 
 ### Docker Build Process
+
 ```
 Dockerfile (multi-stage)
 ├── Stage 1 (builder)
@@ -120,11 +255,13 @@ Dockerfile (multi-stage)
 ```
 
 ### Binario Incluido
+
 - Frontend compilado: `pkg/web/dist/*` (183KB gzipped)
 - Incluido en binario Go con `//go:embed dist/*`
 - No requiere assets externos
 
 ### Datos Persistentes
+
 ```
 MakoClaw-data/
 ├── config.json              (config)
@@ -143,7 +280,9 @@ MakoClaw-data/
 ## 🔧 Cambios Realizados en este Session
 
 ### 1. Mock Provider (`pkg/providers/mock_provider.go`)
+
 **Creado**: Proveedor de testing para ejecutar sin API keys
+
 ```go
 type MockProvider struct{}
 func (m *MockProvider) Chat(ctx context.Context, ...) (*LLMResponse, error) {
@@ -152,18 +291,22 @@ func (m *MockProvider) Chat(ctx context.Context, ...) (*LLMResponse, error) {
 ```
 
 **Implementado en**: `pkg/providers/http_provider.go` (línea ~245)
+
 ```go
 case "mock":
   return NewMockProvider(), nil
 ```
 
 ### 2. CSP Headers (`pkg/web/server.go` línea 226)
+
 **Antes**:
+
 ```
 Content-Security-Policy: default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self' ws: wss:
 ```
 
 **Después**:
+
 ```
 Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:
 ```
@@ -171,16 +314,19 @@ Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; 
 **Por qué**: Los módulos Vue necesitan `'self'` para cargar desde mismo origen
 
 ### 3. Web Config (`MakoClaw-data/config.json`)
+
 - Enabled: `true` (antes estaba `false`)
 - Host: `0.0.0.0` (antes `127.0.0.1`)
 - Password: `MakoClaw2024!` (bcrypt hashed automáticamente)
 - Provider: `mock` (para testing)
 
 ### 4. Makefile
+
 - Agregado target `build-frontend`
 - Compilación automática de Vue antes de Go build
 
 ### 5. Dockerfile
+
 - Agregado Node.js 18 en stage builder
 - Agregado `npm install && npm run build` antes de Go build
 
@@ -189,6 +335,7 @@ Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; 
 ## 🏗️ Arquitectura Frontend
 
 ### Estructura Vue 3
+
 ```
 pkg/web/frontend/
 ├── src/
@@ -220,6 +367,7 @@ pkg/web/frontend/
 ```
 
 ### Tecnologías
+
 - **Vue 3.4.x** - Framework (Composition API)
 - **Vite 5.4.x** - Build tool
 - **TailwindCSS 3.4** - Styling
@@ -229,6 +377,7 @@ pkg/web/frontend/
 - **TypeScript 5.x** - Type safety
 
 ### Build Output
+
 ```bash
 npm run build
 # ✓ 99 modules transformed
@@ -245,26 +394,30 @@ npm run build
 ## 🔐 Autenticación
 
 ### JWT Flow
+
 1. **Login**: POST `/api/v1/auth/login` con credentials
+
    ```json
-   {"username": "admin", "password": "MakoClaw2024!"}
+   { "username": "admin", "password": "MakoClaw2024!" }
    ```
 
 2. **Response**: JWT token
+
    ```json
-   {"token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."}
+   { "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." }
    ```
 
 3. **Storage**: LocalStorage (navegador)
 
 4. **Uso**: Header `Authorization: Bearer <token>`
 
-5. **Validación**: 
+5. **Validación**:
    - HMAC-SHA256
    - Expira en 24h
    - Verificación en front + backend
 
 ### Password Hash
+
 - Algoritmo: bcrypt (cost: 10)
 - Generado en: `newAuthManager()` (`pkg/web/auth.go`)
 - Almacenado en: `~/.MakoClaw/workspace/web/web-auth.json`
@@ -275,6 +428,7 @@ npm run build
 ## 📋 Próximos Pasos (Opcional)
 
 ### Para Producción
+
 1. **Provider Real**: Cambiar de `"mock"` a uno real en config
    - OpenAI, Anthropic, Groq, Ollama, etc.
    - Agregar API keys en config
@@ -293,6 +447,7 @@ npm run build
    - Actualmente "Disconnected" (sin agentLoop)
 
 ### Features Adicionales
+
 - [ ] Soporte para archivos en chat (drag & drop)
 - [ ] Exportar tareas a CSV
 - [ ] Historial de chat persistente
@@ -304,12 +459,14 @@ npm run build
 ## 🐛 Conocidos Issues / Limitaciones
 
 ### Actual
+
 - WebSocket status muestra "Disconnected" (sin agentLoop activo)
 - Mock provider solo da respuestas simuladas
 - Rate limiting solo en login (TODO en /api/v1/tasks)
 - Sin soporte para OAuth aún en web (solo en CLI)
 
 ### Testing sin WebSocket
+
 - Chat input deshabilitado hasta conectar
 - Tareas funcionales sin WebSocket
 - API REST totalmente operacional
@@ -319,6 +476,7 @@ npm run build
 ## 📊 Test Results
 
 ### Endpoints Testeados ✅
+
 ```bash
 # Health check
 curl http://localhost:18880/api/v1/health
@@ -340,6 +498,7 @@ curl http://localhost:18880 | grep -o "<title>.*</title>"
 ```
 
 ### UI Testeada ✅
+
 - ✅ Login page renderiza correctamente
 - ✅ Form validation funciona
 - ✅ JWT token generado y almacenado

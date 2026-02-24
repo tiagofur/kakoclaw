@@ -20,6 +20,7 @@ import MCPView from '../views/MCPView.vue'
 import MetricsView from '../views/MetricsView.vue'
 import WorkflowView from '../views/WorkflowView.vue'
 import AgentsView from '../views/AgentsView.vue'
+import SetupView from '../views/SetupView.vue'
 
 const routes = [
   {
@@ -44,6 +45,12 @@ const routes = [
     path: '/onboarding',
     name: 'onboarding',
     component: OnboardingView,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/setup',
+    name: 'setup',
+    component: SetupView,
     meta: { requiresAuth: true }
   },
   {

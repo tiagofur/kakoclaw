@@ -1,16 +1,16 @@
 <div align="center">
   <img src="assets/mascot.png" alt="MakoClaw Mascot" width="400">
 
-  # 🦈 MakoClaw: The Apex AI Agent
+# 🦈 MakoClaw: The Apex AI Agent
 
-  ### **Ultrafast · 10MB RAM · $10 Hardware · Self-Bootstrapped**
+### **Ultrafast · 10MB RAM · $10 Hardware · Self-Bootstrapped**
 
-  [![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://go.dev/)
-  [![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
-  [![Platform](https://img.shields.io/badge/Arch-x86_64%20|%20ARM64%20|%20RISC--V-blue?style=for-the-badge)](https://github.com/sipeed/MakoClaw)
-  [![Version](https://img.shields.io/badge/version-0.1.0-blue?style=for-the-badge)](https://github.com/sipeed/MakoClaw/releases)
+[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://go.dev/)
+[![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
+[![Platform](https://img.shields.io/badge/Arch-x86_64%20|%20ARM64%20|%20RISC--V-blue?style=for-the-badge)](https://github.com/sipeed/MakoClaw)
+[![Version](https://img.shields.io/badge/version-0.1.0-blue?style=for-the-badge)](https://github.com/sipeed/MakoClaw/releases)
 
-  **"¡Nada más rápido en el océano de la IA!" — _Nothing faster in the AI ocean!_**
+**"¡Nada más rápido en el océano de la IA!" — _Nothing faster in the AI ocean!_**
 
 </div>
 
@@ -35,12 +35,12 @@ While other "Claw" projects require heavy resources and expensive hardware, Mako
 | Feature              |    OpenClaw     |  NanoBot  |    **MakoClaw**     |
 | :------------------- | :-------------: | :-------: | :-----------------: |
 | **Language**         |   TypeScript    |  Python   |   **Go (Native)**   |
-| **RAM Usage**        |      > 1GB      |  > 100MB  |     **&lt; 10MB**      |
-| **Startup (0.8GHz)** |     > 500s      |   > 30s   |      **&lt; 1s**       |
+| **RAM Usage**        |      > 1GB      |  > 100MB  |    **&lt; 10MB**    |
+| **Startup (0.8GHz)** |     > 500s      |   > 30s   |     **&lt; 1s**     |
 | **Hardware Cost**    | Mac Mini ($599) | SBC ($50) | **Any Board ($10)** |
 | **Philosophy**       |     Bloated     | Flexible  | **Apex Efficiency** |
-| **Multi-Agent**      |       ❌        |     ❌    |        **✅**       |
-| **Channels**         |       3+        |     2+    |       **10+**        |
+| **Multi-Agent**      |       ❌        |    ❌     |       **✅**        |
+| **Channels**         |       3+        |    2+     |       **10+**       |
 
 ---
 
@@ -58,12 +58,14 @@ We believe in democratization of AI. By taking the work of PicoClaw and optimizi
 ## ✨ Features that WOW
 
 ### 🤖 Multi-Agent System
+
 - **Orchestrator**: Automatically delegates tasks to the right specialist
 - **Specialists**: Create AI agents specialized for different domains
 - **Auto-delegation**: The system decides which specialist to use
 - **Metrics**: Track performance across all agents
 
 ### 📡 9+ Channels — One Agent, Everywhere
+
 - **Web UI**: Complete dashboard with chat, workflows, tasks, and more
 - **Telegram**: Instant messaging bot
 - **Discord**: Full server integration
@@ -78,42 +80,51 @@ We believe in democratization of AI. By taking the work of PicoClaw and optimizi
 ### 🛠️ Powerful Tools
 
 #### File Management
+
 - `read_file`: Read file contents
 - `write_file`: Create and edit files
 - `list_dir`: List directories
 - `edit_file`: LLM-assisted file editing
 
 #### Web & Search
+
 - `web_search`: Search with Brave Search API
 - `web_fetch`: Fetch content from URLs
 
 #### Execution
+
 - `exec`: Execute shell commands with security controls
 - `spawn`: Create subagents for specialized tasks
 
 #### Task Management
+
 - `task_manager`: Create, list, update, archive tasks (Kanban integration)
 
 #### Knowledge
+
 - `query_knowledge`: Search document base with semantic retrieval (RAG)
 
 #### Communication
+
 - `message`: Send messages to other channels
 - `schedule`: Schedule recurring tasks
 - `email`: Send emails
 
 #### Memory
+
 - `memory`: Manage long-term context and memory
 
 ### ⚡ Productivity Tools
 
 #### Kanban Task Board
+
 - 5 columns: Backlog, To Do, In Progress, Review, Done
 - AI can create and update tasks automatically
 - Search, filter, and archive tasks
 - Drag & drop interface
 
 #### Visual Workflows
+
 - Drag-and-drop pipeline builder
 - Combine prompts, tools, and conditions
 - Real-time execution monitoring
@@ -121,18 +132,21 @@ We believe in democratization of AI. By taking the work of PicoClaw and optimizi
 - Template library
 
 #### Cron Jobs
+
 - Schedule recurring tasks
 - Standard cron expressions
 - Manual trigger option
 - Timezone support
 
 ### 🧠 Knowledge Base (RAG)
+
 - Upload documents (PDF, TXT, MD, JSON, CSV, HTML, XML, YAML, LOG)
 - Semantic search with full-text search
 - Contextual retrieval for better AI responses
 - Document management and deletion
 
 ### 🔒 Security & Privacy
+
 - **Self-hosted**: Your data stays on your infrastructure
 - **Multi-user authentication**: OAuth 2.0 with PKCE
 - **Session management**: Secure token handling
@@ -140,6 +154,7 @@ We believe in democratization of AI. By taking the work of PicoClaw and optimizi
 - **Access controls**: Channel-specific user whitelists
 
 ### ⚡ Technical Excellence
+
 - **Go (Native)**: Compiled binary, no runtime dependencies
 - **&lt;10MB RAM**: Ultra-lightweight memory footprint
 - **&lt;1s Boot**: Instant startup time
@@ -174,11 +189,20 @@ MakoClaw onboard
 ```
 
 This creates:
+
 - `~/.MakoClaw/config.json` — Configuration file
 - `~/.MakoClaw/workspace/` — Working directory
 - Base files: `AGENTS.md`, `IDENTITY.md`, `SOUL.md`, `USER.md`
 
-### 3. Configure API Key
+### 3. Configure LLM Provider (Optional)
+
+**You have two options:**
+
+#### Option A: Web UI Configuration (Recommended)
+
+Skip configuration and go straight to step 5. MakoClaw will start in **Degraded Mode** with the web panel available for easy configuration via the Setup Wizard.
+
+#### Option B: Manual Configuration
 
 Edit `~/.MakoClaw/config.json`:
 
@@ -200,10 +224,12 @@ Edit `~/.MakoClaw/config.json`:
 ```
 
 **Get API Keys:**
+
 - **OpenRouter**: [openrouter.ai/keys](https://openrouter.ai/keys) — 200K free tokens/month
 - **Groq**: [console.groq.com](https://console.groq.com) — Fast, free, includes Whisper
 - **Claude**: [console.anthropic.com](https://console.anthropic.com)
 - **OpenAI**: [platform.openai.com](https://platform.openai.com)
+- **Ollama**: Self-hosted at [ollama.ai](https://ollama.ai) — Free, runs locally
 
 ### 4. Start Chatting
 
@@ -214,6 +240,37 @@ MakoClaw agent -m "Calculate potential of a $10 RISC-V board"
 # Interactive mode
 MakoClaw agent
 ```
+
+> **Note**: Agent mode requires an LLM provider to be configured. If you skipped step 3, use Web mode (step 5) to configure via the Setup Wizard.
+
+### 💡 Degraded Mode (No Configuration Required)
+
+MakoClaw can start **without any LLM configuration** in **Degraded Mode**:
+
+```bash
+# Start web server (works without API keys)
+MakoClaw web
+
+# Or start gateway mode
+MakoClaw gateway
+```
+
+**In Degraded Mode:**
+
+- ✅ Web panel is fully accessible
+- ✅ Setup Wizard available for easy configuration
+- ✅ All static features work (authentication, settings, etc.)
+- ❌ Agent/AI features disabled until provider is configured
+- ❌ Cron jobs disabled
+
+**To enable full features:**
+
+1. Access the web panel at `http://localhost:18880`
+2. Click "Configure Now" in the warning banner
+3. Follow the Setup Wizard to configure your LLM provider
+4. Restart MakoClaw to activate agent features
+
+📖 **Learn more**: [Degraded Mode Guide](./docs/guides/degraded-mode.md)
 
 ### 5. Launch Web Dashboard
 
@@ -279,6 +336,7 @@ Dive deeper into our [Comprehensive Documentation](./docs/README.md):
 We welcome contributions! Please read our [Contributing Guide](./docs/development/contributing.md) before submitting a PR.
 
 **Areas where we need help:**
+
 - 🐛 Bug fixes
 - 📝 Documentation improvements
 - 🌍 New channels (Matrix, Mastodon, etc.)
@@ -306,6 +364,7 @@ We welcome contributions! Please read our [Contributing Guide](./docs/developmen
 ## 🏆 Sponsors & Supporters
 
 MakoClaw is a community-driven project. Special thanks to:
+
 - [Sipeed](https://sipeed.com/) — Hardware platform and development boards
 - All contributors and users who help improve MakoClaw
 

@@ -6,6 +6,7 @@ Guías paso a paso para usuarios finales de MakoClaw.
 
 - **[quickstart.md](./quickstart.md)** - Guía de inicio rápido para empezar en 5 minutos
 - **[installation.md](./installation.md)** - Guía completa de instalación en todas las plataformas
+- **[degraded-mode.md](./degraded-mode.md)** - Modo degradado: Iniciar sin configuración LLM
 - **[llm-providers.md](./llm-providers.md)** - Configuración de proveedores LLM (pendiente)
 - **[channels.md](./channels.md)** - Configuración de canales de mensajería (pendiente)
 - **[agent-cli.md](./agent-cli.md)** - Uso del agente en modo CLI (pendiente)

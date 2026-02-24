@@ -74,6 +74,7 @@ MakoClaw onboard
 ```
 
 Esto creará:
+
 - `~/.MakoClaw/config.json` — Archivo de configuración
 - `~/.MakoClaw/workspace/` — Directorio de trabajo
 - Archivos base: `AGENTS.md`, `IDENTITY.md`, `SOUL.md`, `USER.md`
@@ -83,25 +84,37 @@ Esto creará:
 Elige un proveedor de LLM y obtén tu API key:
 
 #### Opción A: OpenRouter (Recomendado — Múltiples modelos)
+
 1. Ve a [openrouter.ai/keys](https://openrouter.ai/keys)
 2. Crea una cuenta
 3. Genera una API key
 4. Tienes 200K tokens gratis por mes
 
 #### Opción B: Groq (Rápido y gratis)
+
 1. Ve a [console.groq.com](https://console.groq.com)
 2. Crea cuenta y obtén API key
 3. Incluye Whisper para transcripción de voz
 
 #### Opción C: Anthropic (Claude)
+
 1. Ve a [console.anthropic.com](https://console.anthropic.com)
 2. Crea cuenta y obtén API key
 
 #### Opción D: OpenAI (GPT-4)
+
 1. Ve a [platform.openai.com](https://platform.openai.com)
 2. Crea cuenta y obtén API key
 
-### Paso 3: Configurar API Key
+### Paso 3: Configurar API Key (Opcional)
+
+**Tienes dos opciones:**
+
+#### Opción A: Configuración vía Web UI (Recomendado)
+
+Sáltate la configuración manual y ve directamente al "Panel Web" (más abajo). MakoClaw iniciará en **Modo Degradado** con el panel web disponible para configuración fácil a través del Setup Wizard.
+
+#### Opción B: Configuración Manual
 
 Edita `~/.MakoClaw/config.json`:
 
@@ -116,6 +129,7 @@ Configuración básica:
 {
   "agents": {
     "defaults": {
+      "provider": "openrouter",
       "model": "anthropic/claude-3.5-sonnet",
       "max_tokens": 8192,
       "temperature": 0.7
@@ -129,17 +143,47 @@ Configuración básica:
 }
 ```
 
+### 💡 Modo Degradado (Sin API Keys)
+
+MakoClaw puede iniciar **sin ninguna configuración de LLM** en **Modo Degradado**:
+
+```bash
+# Iniciar sin configurar API keys
+MakoClaw web
+```
+
+**En Modo Degradado:**
+
+- ✅ Panel web totalmente accesible
+- ✅ Setup Wizard disponible para configuración fácil
+- ✅ Todas las funciones estáticas funcionan (autenticación, configuración, etc.)
+- ❌ Funciones de agente/AI deshabilitadas hasta configurar proveedor
+- ❌ Tareas cron deshabilitadas
+
+**Para habilitar todas las funciones:**
+
+1. Accede al panel web en `http://localhost:18880`
+2. Haz clic en "Configure Now" en el banner de advertencia
+3. Sigue el Setup Wizard para configurar tu proveedor LLM
+4. Reinicia MakoClaw para activar funciones del agente
+
+📖 **Más información**: [Guía de Modo Degradado](degraded-mode.md)
+
 ---
 
 ## 💬 Primer Uso
 
 ### Modo Directo (Una sola pregunta)
 
+> **Nota**: El modo agent requiere un proveedor LLM configurado. Si omitiste el paso 3, usa el Panel Web (más abajo) para configurar via el Setup Wizard.
+
 ```bash
 MakoClaw agent -m "Hola, ¿qué puedes hacer?"
 ```
 
 ### Modo Interactivo (Chat continuo)
+
+> **Nota**: Requiere proveedor LLM configurado.
 
 ```bash
 MakoClaw agent
@@ -164,25 +208,29 @@ MakoClaw agent
 
 ### Panel Web (Interfaz gráfica completa)
 
+> **Funciona sin API keys**: El panel web está disponible en Modo Degradado para configuración fácil.
+
 ```bash
 # Iniciar servidor web
 MakoClaw web
 
-# O usar el gateway para canales también
+# O usar el gateway para canales también (requiere proveedor para funciones completas)
 MakoClaw gateway
 
 # Abrir http://localhost:18880 en tu navegador
 ```
 
 El panel web incluye:
-- 💬 Chat con historial
+
+- 💬 Chat con historial (requiere proveedor LLM)
 - 📋 Kanban Board para tareas
-- 🔄 Visual Workflows
-- 🤖 Multi-Agent System
+- 🔄 Visual Workflows (requiere proveedor para ejecución)
+- 🤖 Multi-Agent System (requiere proveedor)
 - 📁 Gestión de archivos
 - 🧠 Base de conocimientos
-- ⏰ Cron jobs
+- ⏰ Cron jobs (requiere proveedor)
 - 📊 Métricas y reportes
+- ⚙️ Setup Wizard (configuración sin editar JSON)
 
 ---
 
@@ -260,6 +308,7 @@ Los **workflows** te permiten crear pipelines de automatización combinando prom
 #### Tu Primer Workflow
 
 1. **Iniciar servidor web:**
+
 ```bash
 MakoClaw web
 ```
@@ -358,6 +407,7 @@ Ver [Canales de Mensajería](./channels.md) para más detalles.
 ### Multi-Agent System
 
 1. **Configurar Orchestrator:**
+
 ```json
 {
   "agents": {
@@ -373,6 +423,7 @@ Ver [Canales de Mensajería](./channels.md) para más detalles.
 ```
 
 2. **Crear Specialist:**
+
 - Panel: Agents → New Specialist
 - Configura modelo, temperatura, y descripción
 - El Orchestrator delegará tareas automáticamente
@@ -380,10 +431,12 @@ Ver [Canales de Mensajería](./channels.md) para más detalles.
 ### Base de Conocimiento (RAG)
 
 1. **Subir documentos:**
+
 - Panel: Knowledge → Upload
 - Soporta: PDF, TXT, MD, JSON, CSV, HTML, XML, YAML, LOG
 
 2. **Buscar:**
+
 - Panel: Knowledge → Search
 - O usa el comando `query_knowledge`
 
@@ -446,11 +499,13 @@ Workflows: 3 defined
 ### Error: "Tool not found"
 
 **Solución:** Algunos comandos necesitan sintaxis específica. Intenta ser más explícito:
+
 - En lugar de "lee config.json", di "lee el archivo config.json"
 
 ### Error de conexión con Telegram
 
 **Solución:** Verifica que:
+
 1. El token es correcto
 2. Tu user ID está en `allow_from`
 3. No hay otra instancia corriendo el mismo bot
@@ -458,9 +513,11 @@ Workflows: 3 defined
 ### No funciona la búsqueda web
 
 **Solución:** Configura Brave Search API:
+
 1. Ve a https://brave.com/search/api
 2. Obtén API key gratuita
 3. Agrega a config.json:
+
 ```json
 {
   "tools": {
@@ -477,6 +534,7 @@ Workflows: 3 defined
 ### Panel web no carga
 
 **Solución:**
+
 1. Verifica que el puerto 18880 no esté en uso
 2. Usa `--port` para cambiar el puerto: `MakoClaw web --port 8080`
 3. Verifica firewall

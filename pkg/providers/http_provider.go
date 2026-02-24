@@ -622,6 +622,52 @@ func CreateProvider(cfg *config.Config) (LLMProvider, error) {
 	return NewHTTPProvider(apiKey, apiBase, proxy), nil
 }
 
+// TryCreateProvider attempts to create a provider but allows graceful degradation.
+// Returns (nil, nil) if no provider/model is configured, allowing the system to start in degraded mode.
+// Returns (provider, nil) if successfully created.
+// Returns (nil, error) only if configuration is present but invalid/incomplete.
+func TryCreateProvider(cfg *config.Config) (LLMProvider, error) {
+	// Check if there's any provider configuration at all
+	model := cfg.Agents.Defaults.Model
+	providerName := cfg.Agents.Defaults.Provider
+
+	// If both provider and model are empty, this is intentional "no configuration" state
+	// Return nil provider without error to allow degraded mode
+	if providerName == "" && model == "" {
+		return nil, nil
+	}
+
+	// If we have a model but no provider, try to detect provider from model name
+	if providerName == "" && model != "" {
+		detectedProvider, _ := GetProviderForModel(model)
+		providerName = detectedProvider
+	}
+
+	// Check if this provider is actually configured with credentials
+	// If provider is explicitly set but has no credentials, this is a config error
+	if providerName != "" && providerName != "mock" && providerName != "ollama" {
+		// Check if the provider has valid configuration
+		if err := cfg.ValidateProviderConfig(providerName); err != nil {
+			// Configuration exists but is invalid/incomplete - return error
+			return nil, fmt.Errorf("invalid provider configuration for '%s': %w. Visit web panel to configure or remove provider/model settings to start in degraded mode", providerName, err)
+		}
+	}
+
+	// Try to create the provider normally
+	// If this fails, it means configuration exists but something is wrong
+	provider, err := CreateProvider(cfg)
+	if err != nil {
+		// If the error is about missing configuration, and we have no explicit config, allow degraded mode
+		if (providerName == "" || model == "") && strings.Contains(err.Error(), "no API key") {
+			return nil, nil
+		}
+		// Otherwise it's a real configuration error
+		return nil, err
+	}
+
+	return provider, nil
+}
+
 // GetProviderForModel returns the provider name for a given model (issue #43)
 // Supports explicit provider/model syntax (e.g., "openai/gpt-4")
 func GetProviderForModel(model string) (provider string, actualModel string) {
