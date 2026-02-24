@@ -91,6 +91,7 @@ func (cs *CentralStorage) migrate() error {
 			timezone TEXT,
 			preferred_language TEXT,
 			avatar_url TEXT,
+			allowed_tools TEXT,
 			blocked BOOLEAN NOT NULL DEFAULT 0,
 			blocked_reason TEXT,
 			blocked_by INTEGER,
@@ -107,6 +108,8 @@ func (cs *CentralStorage) migrate() error {
 		`ALTER TABLE users ADD COLUMN timezone TEXT;`,
 		`ALTER TABLE users ADD COLUMN preferred_language TEXT;`,
 		`ALTER TABLE users ADD COLUMN avatar_url TEXT;`,
+		// Add tool permissions column
+		`ALTER TABLE users ADD COLUMN allowed_tools TEXT;`,
 
 		// Settings table (global settings: jwt_secret, etc.)
 		`CREATE TABLE IF NOT EXISTS settings (
@@ -255,12 +258,14 @@ func (cs *CentralStorage) scanUser(scanner interface {
 	var tz sql.NullString
 	var lang sql.NullString
 	var avatar sql.NullString
+	var allowedTools sql.NullString
 	var blocked sql.NullBool
 	var blockedReason sql.NullString
 	var blockedBy sql.NullInt64
 	var blockedAt sql.NullTime
 	err := scanner.Scan(&u.ID, &u.UUID, &u.Username, &email, &u.PasswordHash, &u.Role,
 		&fullName, &dob, &tz, &lang, &avatar,
+		&allowedTools,
 		&blocked, &blockedReason, &blockedBy, &blockedAt,
 		&u.CreatedAt, &u.UpdatedAt)
 	if err == sql.ErrNoRows {
@@ -287,6 +292,9 @@ func (cs *CentralStorage) scanUser(scanner interface {
 	if avatar.Valid {
 		u.AvatarURL = avatar.String
 	}
+	if allowedTools.Valid && allowedTools.String != "" {
+		u.AllowedTools = &allowedTools.String
+	}
 	if blocked.Valid {
 		u.Blocked = blocked.Bool
 	}
@@ -305,6 +313,7 @@ func (cs *CentralStorage) scanUser(scanner interface {
 
 const userSelectCols = `id, COALESCE(uuid, ''), username, COALESCE(email, ''), password_hash, role,
 	COALESCE(full_name, ''), date_of_birth, COALESCE(timezone, ''), COALESCE(preferred_language, ''), COALESCE(avatar_url, ''),
+	COALESCE(allowed_tools, ''),
 	COALESCE(blocked, 0), COALESCE(blocked_reason, ''), blocked_by, blocked_at,
 	created_at, updated_at`
 

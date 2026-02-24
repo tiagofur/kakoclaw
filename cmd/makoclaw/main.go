@@ -296,7 +296,7 @@ Information about user goes here.
 makoclaw 🦈 (The Apex AI Agent)
 
 ## Description
-The ultimate evolution of the PicoClaw lineage. makoclaw is an ultra-efficient, Go-native personal AI assistant designed for the most demanding efficiency requirements.
+An ultra-efficient, Go-native personal AI assistant designed for the most demanding efficiency requirements.
 
 ## Version
 0.1.0
@@ -321,9 +321,6 @@ The ultimate evolution of the PicoClaw lineage. makoclaw is an ultra-efficient, 
 
 ## License
 MIT License - Free, Open, and Unstoppable.
-
-## Heritage
-Proudly inspired by and evolved from [PicoClaw](https://github.com/sipeed/picoclaw).
 
 ## Repository
 https://github.com/sipeed/makoclaw

@@ -29,4 +29,3 @@ func TestNormalizedSMTPPasswordForNonGmail(t *testing.T) {
 		t.Fatalf("expected password to stay unchanged, got %q", got)
 	}
 }
-

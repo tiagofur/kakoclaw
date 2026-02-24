@@ -295,6 +295,8 @@ func (s *Storage) migrate() error {
 		`ALTER TABLE users ADD COLUMN blocked_by INTEGER;`,
 		`ALTER TABLE users ADD COLUMN blocked_at DATETIME;`,
 		`CREATE INDEX IF NOT EXISTS idx_users_blocked ON users(blocked);`,
+		// Migration: Add allowed_tools column for per-user tool permissions
+		`ALTER TABLE users ADD COLUMN allowed_tools TEXT;`,
 		// Settings table for global configuration
 		`CREATE TABLE IF NOT EXISTS settings (
 			key TEXT PRIMARY KEY,
@@ -459,4 +461,14 @@ func normalizeUserKey(userKey interface{}) interface{} {
 	default:
 		return v
 	}
+}
+
+// ExecRaw executes a raw SQL statement with arguments
+func (s *Storage) ExecRaw(query string, args ...interface{}) (sql.Result, error) {
+	return s.db.Exec(query, args...)
+}
+
+// QueryRaw executes a raw SQL query with arguments
+func (s *Storage) QueryRaw(query string, args ...interface{}) (*sql.Rows, error) {
+	return s.db.Query(query, args...)
 }

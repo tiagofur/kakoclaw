@@ -98,4 +98,3 @@ func ParseCommand(content string) (cmd, args string) {
 
 	return content, ""
 }
-

@@ -169,4 +169,3 @@ func (si *SkillInstaller) ListBuiltinSkills() []BuiltinSkill {
 	}
 	return skills
 }
-

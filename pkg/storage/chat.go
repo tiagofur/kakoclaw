@@ -145,9 +145,9 @@ func (s *Storage) ImportMessages(sessionID string, msgs []ImportMessage) (int, e
 	} else {
 		// This is used for migration where we don't necessarily have the userID here
 		// But ImportMessages signature currently doesn't take userID.
-		// For now assume userID=1 if not provided or handle it in a better way if needed.
-		stmtWithTime, err = tx.Prepare(`INSERT INTO chats (session_id, user_id, role, content, created_at) VALUES (?, 1, ?, ?, ?)`)
-		stmtNoTime, err = tx.Prepare(`INSERT INTO chats (session_id, user_id, role, content) VALUES (?, 1, ?, ?)`)
+		// For backward compatibility with GetMessages() which uses userID=0, use 0 here.
+		stmtWithTime, err = tx.Prepare(`INSERT INTO chats (session_id, user_id, role, content, created_at) VALUES (?, 0, ?, ?, ?)`)
+		stmtNoTime, err = tx.Prepare(`INSERT INTO chats (session_id, user_id, role, content) VALUES (?, 0, ?, ?)`)
 	}
 	if err != nil {
 		return 0, fmt.Errorf("prepare stmts: %w", err)

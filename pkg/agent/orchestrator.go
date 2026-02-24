@@ -16,9 +16,9 @@ import (
 // OrchestratorAgent is a special agent that analyzes tasks and delegates to specialists
 type OrchestratorAgent struct {
 	*SpecialistAgent
-	registry           *SpecialistRegistry
-	delegationRetries  int
-	fallbackToDefault  bool
+	registry          *SpecialistRegistry
+	delegationRetries int
+	fallbackToDefault bool
 }
 
 // DelegationRequest represents a request to delegate to a specialist
@@ -50,14 +50,14 @@ func NewOrchestratorAgent(
 
 	// Create specialist agent with orchestrator config
 	specCfg := config.SpecialistConfig{
-		Name:               "orchestrator",
-		Description:        cfg.Agents.Orchestrator.Description,
-		Provider:           cfg.Agents.Orchestrator.Provider,
-		Model:              cfg.Agents.Orchestrator.Model,
-		MaxTokens:          cfg.Agents.Orchestrator.MaxTokens,
-		Temperature:        cfg.Agents.Orchestrator.Temperature,
-		MaxToolIterations:  cfg.Agents.Orchestrator.MaxDelegationRetries,
-		Tools:              []string{"delegate_to_specialist"}, // Special tool only for orchestrator
+		Name:              "orchestrator",
+		Description:       cfg.Agents.Orchestrator.Description,
+		Provider:          cfg.Agents.Orchestrator.Provider,
+		Model:             cfg.Agents.Orchestrator.Model,
+		MaxTokens:         cfg.Agents.Orchestrator.MaxTokens,
+		Temperature:       cfg.Agents.Orchestrator.Temperature,
+		MaxToolIterations: cfg.Agents.Orchestrator.MaxDelegationRetries,
+		Tools:             []string{"delegate_to_specialist"}, // Special tool only for orchestrator
 	}
 
 	// Create the specialist agent wrapper
@@ -253,7 +253,7 @@ func (oa *OrchestratorAgent) BuildOrchestratorContext() string {
 func (oa *OrchestratorAgent) ProcessOrchestratorMessage(ctx context.Context, userMessage string) (string, error) {
 	// Build orchestrator-specific context
 	orchestratorContext := oa.BuildOrchestratorContext()
-	
+
 	// Prepend context to user message
 	fullMessage := orchestratorContext + "\n\nUser Request:\n" + userMessage
 

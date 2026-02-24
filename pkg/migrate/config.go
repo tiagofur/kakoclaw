@@ -27,7 +27,7 @@ var supportedChannels = map[string]bool{
 	"whatsapp": true,
 	"feishu":   true,
 	"qq":       true,
-	"dingtalk":  true,
+	"dingtalk": true,
 	"maixcam":  true,
 }
 
@@ -375,4 +375,3 @@ func getStringSlice(data map[string]interface{}, key string) []string {
 	}
 	return result
 }
-

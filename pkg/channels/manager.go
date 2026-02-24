@@ -456,4 +456,3 @@ func (m *Manager) SendToChannelForUser(ctx context.Context, userID int64, channe
 
 	return channel.Send(ctx, msg)
 }
-

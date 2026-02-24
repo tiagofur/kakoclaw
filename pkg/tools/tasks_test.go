@@ -49,14 +49,8 @@ func TestTaskToolCreateAndList(t *testing.T) {
 	}
 
 	// Archive
-	// We need the ID, but created_via_tool doesn't return ID as int easily without parsing string "Task created: title (ID: 1)"
-	// Simplification: We'll list again to get JSON and parse ID
-	// Or we can just create another task via storage directly to hack it, ensuring we have ID.
-	// But let's try to parse the output string from Create for now as it returns "Task created: ... (ID: <id>)"
-	// Actually, the previous implementation returned "Task created: %s (ID: %d)".
-	// Let's create a helper or just create via storage for test reliability.
-	
-	id, err := store.CreateTask("to archive", "desc", "todo")
+	// Create task directly with storage using same userID (1) as the tool default
+	id, err := store.CreateTaskForUser(1, "to archive", "desc", "todo")
 	if err != nil {
 		t.Fatalf("direct create failed: %v", err)
 	}
@@ -93,4 +87,3 @@ func TestTaskToolCreateAndList(t *testing.T) {
 		t.Fatalf("expected 'to archive' to be shown, got: %s", out)
 	}
 }
-

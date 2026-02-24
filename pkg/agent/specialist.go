@@ -151,8 +151,16 @@ func NewSpecialistAgent(
 
 	// If specialist has custom provider config, use it; otherwise use base
 	if cfg.Provider != "" {
-		// Create a specialized provider config
-		specCfg := *globalCfg
+		// Create a specialized provider config (copy by value to avoid sync.RWMutex copy)
+		specCfg := config.Config{
+			Agents:    globalCfg.Agents,
+			Channels:  globalCfg.Channels,
+			Providers: globalCfg.Providers,
+			Gateway:   globalCfg.Gateway,
+			Web:       globalCfg.Web,
+			Tools:     globalCfg.Tools,
+			Storage:   globalCfg.Storage,
+		}
 		specCfg.Agents.Defaults.Provider = cfg.Provider
 		specCfg.Agents.Defaults.Model = cfg.Model
 		specCfg.Agents.Defaults.MaxTokens = cfg.MaxTokens

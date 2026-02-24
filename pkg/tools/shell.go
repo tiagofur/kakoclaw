@@ -13,6 +13,27 @@ import (
 	"time"
 )
 
+// SafeShellCommands is the default allowlist of read-only/safe commands for restricted users
+var SafeShellCommands = []string{
+	"ls", "dir", // List directory
+	"cat", "type", // View file contents
+	"head", "tail", // View partial file contents
+	"grep", "findstr", // Search in files
+	"find", "where", // Find files
+	"pwd", "cd", // Working directory
+	"echo",   // Print text
+	"date",   // Current date/time
+	"whoami", // Current user
+	"which",  // Locate command
+	"wc",     // Count lines/words
+	"sort",   // Sort lines
+	"uniq",   // Remove duplicates
+	"diff",   // Compare files
+	"tree",   // Directory tree
+	"file",   // Identify file type
+	"stat",   // File statistics
+}
+
 type ExecTool struct {
 	workingDir          string
 	timeout             time.Duration
@@ -209,4 +230,22 @@ func (t *ExecTool) SetAllowPatterns(patterns []string) error {
 		t.allowPatterns = append(t.allowPatterns, re)
 	}
 	return nil
+}
+
+// SetSafeCommandsForUser configures the exec tool to only allow safe commands
+// Uses the SafeShellCommands list by default, or a custom list if provided
+func (t *ExecTool) SetSafeCommandsForUser(customCommands []string) error {
+	commands := SafeShellCommands
+	if len(customCommands) > 0 {
+		commands = customCommands
+	}
+
+	// Build regex patterns that match command at start of line
+	patterns := make([]string, 0, len(commands))
+	for _, cmd := range commands {
+		// Match command at start or after whitespace/pipe/semicolon
+		patterns = append(patterns, fmt.Sprintf(`^\s*%s\b`, regexp.QuoteMeta(cmd)))
+	}
+
+	return t.SetAllowPatterns(patterns)
 }

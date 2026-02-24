@@ -242,9 +242,19 @@ func (s *Server) Start(ctx context.Context) error {
 			s.handleUnblockUser(w, r)
 			return
 		}
+		// Tool permissions endpoints
+		if strings.Contains(path, "/tools") {
+			s.handleUserTools(w, r)
+			return
+		}
 		// Otherwise, handle as regular user action
 		s.handleUserAction(w, r)
 	})
+
+	// Tool permissions management endpoints (Admin only)
+	mux.HandleFunc("/api/v1/tools/permissions", s.handleToolPermissions)
+	mux.HandleFunc("/api/v1/tools/audit", s.handleToolAudit)
+
 	mux.HandleFunc("/api/v1/tasks", s.handleTasks)
 	mux.HandleFunc("/api/v1/tasks/search", s.handleTaskSearch) // Search tasks
 	mux.HandleFunc("/api/v1/tasks/", s.handleTasks)

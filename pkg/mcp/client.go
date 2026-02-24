@@ -416,4 +416,3 @@ func (c *Client) readLoop() {
 		}
 	}
 }
-

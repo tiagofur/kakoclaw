@@ -11,7 +11,7 @@ import (
 // Each user gets their own database at {dataRoot}/users/{uuid}/user.db.
 type UserStorageManager struct {
 	central  *CentralStorage
-	dataRoot string             // e.g., /home/makoclaw/.MakoClaw
+	dataRoot string              // e.g., /home/makoclaw/.MakoClaw
 	stores   map[string]*Storage // uuid -> per-user Storage
 	mu       sync.RWMutex
 }
@@ -197,7 +197,7 @@ Information about user goes here.
 makoclaw (The Apex AI Agent)
 
 ## Description
-The ultimate evolution of the PicoClaw lineage. makoclaw is an ultra-efficient, Go-native personal AI assistant.
+An ultra-efficient, Go-native personal AI assistant.
 
 ## Version
 0.1.0

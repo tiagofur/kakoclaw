@@ -50,10 +50,10 @@ func (rl *RateLimiter) Allow(key string) bool {
 	}
 
 	now := time.Now()
-	
+
 	// Get existing requests for this key
 	requests := rl.requests[key]
-	
+
 	// Filter out old requests outside the window
 	validRequests := make([]time.Time, 0)
 	windowStart := now.Add(-limit.Window)
@@ -62,16 +62,16 @@ func (rl *RateLimiter) Allow(key string) bool {
 			validRequests = append(validRequests, t)
 		}
 	}
-	
+
 	// Check if we're within the limit
 	if len(validRequests) >= limit.Requests {
 		return false
 	}
-	
+
 	// Add current request
 	validRequests = append(validRequests, now)
 	rl.requests[key] = validRequests
-	
+
 	return true
 }
 
@@ -87,7 +87,7 @@ func (rl *RateLimiter) AllowWithWait(key string) (allowed bool, waitTime time.Du
 
 	now := time.Now()
 	requests := rl.requests[key]
-	
+
 	// Filter out old requests
 	validRequests := make([]time.Time, 0)
 	windowStart := now.Add(-limit.Window)
@@ -96,7 +96,7 @@ func (rl *RateLimiter) AllowWithWait(key string) (allowed bool, waitTime time.Du
 			validRequests = append(validRequests, t)
 		}
 	}
-	
+
 	if len(validRequests) >= limit.Requests {
 		// Calculate wait time until oldest request expires
 		if len(validRequests) > 0 {
@@ -105,10 +105,10 @@ func (rl *RateLimiter) AllowWithWait(key string) (allowed bool, waitTime time.Du
 		}
 		return false, waitTime
 	}
-	
+
 	validRequests = append(validRequests, now)
 	rl.requests[key] = validRequests
-	
+
 	return true, 0
 }
 
@@ -124,12 +124,12 @@ func (rl *RateLimiter) GetRemaining(key string) (remaining int, resetTime time.T
 
 	now := time.Now()
 	requests := rl.requests[key]
-	
+
 	// Count valid requests
 	validCount := 0
 	windowStart := now.Add(-limit.Window)
 	var oldest time.Time
-	
+
 	for _, t := range requests {
 		if t.After(windowStart) {
 			validCount++
@@ -138,16 +138,16 @@ func (rl *RateLimiter) GetRemaining(key string) (remaining int, resetTime time.T
 			}
 		}
 	}
-	
+
 	remaining = limit.Requests - validCount
 	if remaining < 0 {
 		remaining = 0
 	}
-	
+
 	if !oldest.IsZero() {
 		resetTime = oldest.Add(limit.Window)
 	}
-	
+
 	return remaining, resetTime
 }
 
@@ -157,18 +157,18 @@ func (rl *RateLimiter) Cleanup() {
 	defer rl.mu.Unlock()
 
 	now := time.Now()
-	
+
 	for key, requests := range rl.requests {
 		if limit, exists := rl.limits[key]; exists {
 			windowStart := now.Add(-limit.Window)
 			validRequests := make([]time.Time, 0)
-			
+
 			for _, t := range requests {
 				if t.After(windowStart) {
 					validRequests = append(validRequests, t)
 				}
 			}
-			
+
 			if len(validRequests) == 0 {
 				delete(rl.requests, key)
 			} else {
@@ -193,41 +193,41 @@ var once sync.Once
 func GetGlobalLimiter() *RateLimiter {
 	once.Do(func() {
 		globalLimiter = NewRateLimiter()
-		
+
 		// Set default limits
 		// Per-user limits
-		globalLimiter.SetLimit("user:global", 100, time.Hour)     // 100 requests/hour per user
-		globalLimiter.SetLimit("user:burst", 10, time.Minute)     // 10 requests/minute burst
-		
+		globalLimiter.SetLimit("user:global", 100, time.Hour) // 100 requests/hour per user
+		globalLimiter.SetLimit("user:burst", 10, time.Minute) // 10 requests/minute burst
+
 		// API limits
-		globalLimiter.SetLimit("api:openai", 60, time.Minute)     // OpenAI tier 1 limit
-		globalLimiter.SetLimit("api:anthropic", 40, time.Minute)  // Anthropic limit
+		globalLimiter.SetLimit("api:openai", 60, time.Minute)      // OpenAI tier 1 limit
+		globalLimiter.SetLimit("api:anthropic", 40, time.Minute)   // Anthropic limit
 		globalLimiter.SetLimit("api:openrouter", 100, time.Minute) // OpenRouter limit
-		
+
 		// Tool limits
-		globalLimiter.SetLimit("tool:web_search", 30, time.Hour)  // Brave Search free tier
-		globalLimiter.SetLimit("tool:shell", 20, time.Hour)       // Shell execution
+		globalLimiter.SetLimit("tool:web_search", 30, time.Hour) // Brave Search free tier
+		globalLimiter.SetLimit("tool:shell", 20, time.Hour)      // Shell execution
 	})
-	
+
 	return globalLimiter
 }
 
 // WithRateLimit wraps a function with rate limiting
 func WithRateLimit(key string, fn func() error) error {
 	limiter := GetGlobalLimiter()
-	
+
 	allowed, waitTime := limiter.AllowWithWait(key)
 	if !allowed {
 		return fmt.Errorf("rate limit exceeded for %s, please wait %v", key, waitTime)
 	}
-	
+
 	return fn()
 }
 
 // WithRateLimitContext wraps a function with rate limiting and context support
 func WithRateLimitContext(ctx context.Context, key string, fn func() error) error {
 	limiter := GetGlobalLimiter()
-	
+
 	allowed, waitTime := limiter.AllowWithWait(key)
 	if !allowed {
 		select {
@@ -241,6 +241,6 @@ func WithRateLimitContext(ctx context.Context, key string, fn func() error) erro
 			}
 		}
 	}
-	
+
 	return fn()
 }

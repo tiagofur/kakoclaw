@@ -296,4 +296,3 @@ func (t *WebFetchTool) extractText(htmlContent string) string {
 
 	return strings.Join(cleanLines, "\n")
 }
-

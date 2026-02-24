@@ -392,4 +392,3 @@ func relPath(path, base string) string {
 	}
 	return rel
 }
-

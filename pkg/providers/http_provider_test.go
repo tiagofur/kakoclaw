@@ -6,9 +6,9 @@ import (
 
 func TestGetProviderForModel(t *testing.T) {
 	tests := []struct {
-		model         string
-		wantProvider  string
-		wantModel     string
+		model        string
+		wantProvider string
+		wantModel    string
 	}{
 		// Issue #43: Explicit provider/model syntax
 		{"openai/gpt-4", "openai", "gpt-4"},
@@ -19,7 +19,7 @@ func TestGetProviderForModel(t *testing.T) {
 		{"gemini/gemini-pro", "gemini", "gemini-pro"},
 		{"moonshot/kimi-k2", "moonshot", "kimi-k2"},
 		{"nvidia/meta/llama-3.1-405b", "nvidia", "meta/llama-3.1-405b"},
-		
+
 		// Auto-detection (no prefix)
 		{"gpt-4", "openai", "gpt-4"},
 		{"gpt-3.5-turbo", "openai", "gpt-3.5-turbo"},
@@ -37,11 +37,11 @@ func TestGetProviderForModel(t *testing.T) {
 		t.Run(tt.model, func(t *testing.T) {
 			gotProvider, gotModel := GetProviderForModel(tt.model)
 			if gotProvider != tt.wantProvider {
-				t.Errorf("GetProviderForModel(%q) provider = %q, want %q", 
+				t.Errorf("GetProviderForModel(%q) provider = %q, want %q",
 					tt.model, gotProvider, tt.wantProvider)
 			}
 			if gotModel != tt.wantModel {
-				t.Errorf("GetProviderForModel(%q) model = %q, want %q", 
+				t.Errorf("GetProviderForModel(%q) model = %q, want %q",
 					tt.model, gotModel, tt.wantModel)
 			}
 		})

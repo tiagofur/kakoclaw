@@ -2,6 +2,7 @@ package storage
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -22,6 +23,7 @@ type User struct {
 	Timezone          string     `json:"timezone,omitempty"`
 	PreferredLanguage string     `json:"preferred_language,omitempty"`
 	AvatarURL         string     `json:"avatar_url,omitempty"`
+	AllowedTools      *string    `json:"allowed_tools,omitempty"` // JSON array of tool names, null = use role defaults
 	Blocked           bool       `json:"blocked"`
 	BlockedReason     string     `json:"blocked_reason,omitempty"`
 	BlockedBy         *int64     `json:"blocked_by,omitempty"`
@@ -35,6 +37,21 @@ var ErrUserExists = errors.New("user already exists")
 var ErrUserBlocked = errors.New("user is blocked")
 var ErrCannotBlockSelf = errors.New("cannot block yourself")
 var ErrCannotBlockLastAdmin = errors.New("cannot block the last admin")
+
+// GetEffectiveToolPermissions returns the effective list of tools this user can access.
+// Returns user-specific overrides if set, otherwise returns the role's default permissions.
+func (u *User) GetEffectiveToolPermissions(roleDefaults []string) []string {
+	if u.AllowedTools != nil && *u.AllowedTools != "" {
+		// User has custom permissions - parse JSON array
+		var tools []string
+		if err := json.Unmarshal([]byte(*u.AllowedTools), &tools); err == nil {
+			return tools
+		}
+		// Fallback if JSON parse fails
+	}
+	// Use role defaults
+	return roleDefaults
+}
 
 // CountUsers returns the total number of users.
 func (s *Storage) CountUsers() (int, error) {
@@ -129,7 +146,7 @@ func (s *Storage) CreateUserWithEmail(username, email, password, role string) (*
 // legacyUserSelectCols is the SELECT column list for the legacy (non-central) users table.
 const legacyUserSelectCols = `id, COALESCE(uuid, ''), username, COALESCE(email, ''), password_hash, role,
 	COALESCE(full_name, ''), date_of_birth, COALESCE(timezone, ''), COALESCE(preferred_language, ''), COALESCE(avatar_url, ''),
-	COALESCE(blocked, 0), COALESCE(blocked_reason, ''), blocked_by, blocked_at,
+	COALESCE(allowed_tools, ''), COALESCE(blocked, 0), COALESCE(blocked_reason, ''), blocked_by, blocked_at,
 	created_at, updated_at`
 
 func (s *Storage) scanUser(scanner interface {
@@ -142,13 +159,14 @@ func (s *Storage) scanUser(scanner interface {
 	var tz sql.NullString
 	var lang sql.NullString
 	var avatar sql.NullString
+	var allowedTools sql.NullString
 	var blocked sql.NullBool
 	var blockedReason sql.NullString
 	var blockedBy sql.NullInt64
 	var blockedAt sql.NullTime
 	err := scanner.Scan(&u.ID, &u.UUID, &u.Username, &email, &u.PasswordHash, &u.Role,
 		&fullName, &dob, &tz, &lang, &avatar,
-		&blocked, &blockedReason, &blockedBy, &blockedAt,
+		&allowedTools, &blocked, &blockedReason, &blockedBy, &blockedAt,
 		&u.CreatedAt, &u.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, ErrUserNotFound
@@ -173,6 +191,9 @@ func (s *Storage) scanUser(scanner interface {
 	}
 	if avatar.Valid {
 		u.AvatarURL = avatar.String
+	}
+	if allowedTools.Valid && allowedTools.String != "" {
+		u.AllowedTools = &allowedTools.String
 	}
 	if blocked.Valid {
 		u.Blocked = blocked.Bool
@@ -312,6 +333,27 @@ func (s *Storage) UnblockUser(userID int64) error {
 		SET blocked = 0, blocked_reason = NULL, blocked_by = NULL, blocked_at = NULL, updated_at = CURRENT_TIMESTAMP
 		WHERE id = ?`,
 		userID)
+	return err
+}
+
+// UpdateUserTools updates the allowed_tools for a specific user.
+// Pass nil or empty slice to reset to role defaults.
+func (s *Storage) UpdateUserTools(userID int64, tools []string) error {
+	var toolsJSON *string
+	if len(tools) > 0 {
+		data, err := json.Marshal(tools)
+		if err != nil {
+			return err
+		}
+		str := string(data)
+		toolsJSON = &str
+	}
+
+	_, err := s.db.Exec(`
+		UPDATE users 
+		SET allowed_tools = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?`,
+		toolsJSON, userID)
 	return err
 }
 

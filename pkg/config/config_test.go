@@ -8,36 +8,36 @@ import (
 
 func TestParseProviderEnvVars(t *testing.T) {
 	// Set test environment variables
-	os.Setenv("makoclaw_PROVIDERS_ANTHROPIC_API_KEY", "test-antropic-key")
-	os.Setenv("makoclaw_PROVIDERS_OPENAI_API_KEY", "test-openai-key")
-	os.Setenv("makoclaw_PROVIDERS_OPENROUTER_API_BASE", "https://custom.openrouter.ai")
-	os.Setenv("makoclaw_PROVIDERS_GROQ_PROXY", "http://proxy:8080")
-	
+	os.Setenv("MAKOCLAW_PROVIDERS_ANTHROPIC_API_KEY", "test-antropic-key")
+	os.Setenv("MAKOCLAW_PROVIDERS_OPENAI_API_KEY", "test-openai-key")
+	os.Setenv("MAKOCLAW_PROVIDERS_OPENROUTER_API_BASE", "https://custom.openrouter.ai")
+	os.Setenv("MAKOCLAW_PROVIDERS_GROQ_PROXY", "http://proxy:8080")
+
 	defer func() {
-		os.Unsetenv("makoclaw_PROVIDERS_ANTHROPIC_API_KEY")
-		os.Unsetenv("makoclaw_PROVIDERS_OPENAI_API_KEY")
-		os.Unsetenv("makoclaw_PROVIDERS_OPENROUTER_API_BASE")
-		os.Unsetenv("makoclaw_PROVIDERS_GROQ_PROXY")
+		os.Unsetenv("MAKOCLAW_PROVIDERS_ANTHROPIC_API_KEY")
+		os.Unsetenv("MAKOCLAW_PROVIDERS_OPENAI_API_KEY")
+		os.Unsetenv("MAKOCLAW_PROVIDERS_OPENROUTER_API_BASE")
+		os.Unsetenv("MAKOCLAW_PROVIDERS_GROQ_PROXY")
 	}()
-	
+
 	cfg := DefaultConfig()
 	parseProviderEnvVars(cfg)
-	
+
 	// Verify Anthropic API key was set
 	if cfg.Providers.Anthropic.APIKey != "test-antropic-key" {
 		t.Errorf("Anthropic API Key not set correctly, got: %s", cfg.Providers.Anthropic.APIKey)
 	}
-	
+
 	// Verify OpenAI API key was set
 	if cfg.Providers.OpenAI.APIKey != "test-openai-key" {
 		t.Errorf("OpenAI API Key not set correctly, got: %s", cfg.Providers.OpenAI.APIKey)
 	}
-	
+
 	// Verify OpenRouter API base was set
 	if cfg.Providers.OpenRouter.APIBase != "https://custom.openrouter.ai" {
 		t.Errorf("OpenRouter API Base not set correctly, got: %s", cfg.Providers.OpenRouter.APIBase)
 	}
-	
+
 	// Verify Groq proxy was set
 	if cfg.Providers.Groq.Proxy != "http://proxy:8080" {
 		t.Errorf("Groq Proxy not set correctly, got: %s", cfg.Providers.Groq.Proxy)
@@ -48,14 +48,14 @@ func TestProviderEnvVarsOverrideConfig(t *testing.T) {
 	// Create a config with existing values
 	cfg := DefaultConfig()
 	cfg.Providers.Anthropic.APIKey = "config-key"
-	
+
 	// Set environment variable
-	os.Setenv("makoclaw_PROVIDERS_ANTHROPIC_API_KEY", "env-key")
-	defer os.Unsetenv("makoclaw_PROVIDERS_ANTHROPIC_API_KEY")
-	
+	os.Setenv("MAKOCLAW_PROVIDERS_ANTHROPIC_API_KEY", "env-key")
+	defer os.Unsetenv("MAKOCLAW_PROVIDERS_ANTHROPIC_API_KEY")
+
 	// Parse env vars
 	parseProviderEnvVars(cfg)
-	
+
 	// Environment should override config
 	if cfg.Providers.Anthropic.APIKey != "env-key" {
 		t.Errorf("Environment variable should override config, got: %s", cfg.Providers.Anthropic.APIKey)
@@ -84,11 +84,11 @@ func TestInitDataDir(t *testing.T) {
 
 func TestGetUserConfigPathDefault(t *testing.T) {
 	InitDataDir("") // Reset to default
-	
+
 	home, _ := os.UserHomeDir()
 	userUUID := "test-uuid"
 	expectedPath := filepath.Join(home, ".makoclaw", "users", userUUID, "config.json")
-	
+
 	if GetUserConfigPath(userUUID) != expectedPath {
 		t.Errorf("GetUserConfigPath() default incorrect, got: %s, want: %s", GetUserConfigPath(userUUID), expectedPath)
 	}

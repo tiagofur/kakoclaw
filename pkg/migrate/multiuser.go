@@ -87,4 +87,3 @@ func isDirEmpty(path string) bool {
 	}
 	return len(entries) == 0
 }
-

@@ -70,14 +70,15 @@ func (f *FlexibleStringSlice) UnmarshalJSON(data []byte) error {
 }
 
 type Config struct {
-	Agents    AgentsConfig    `json:"agents"`
-	Channels  ChannelsConfig  `json:"channels"`
-	Providers ProvidersConfig `json:"providers"`
-	Gateway   GatewayConfig   `json:"gateway"`
-	Web       WebConfig       `json:"web"`
-	Tools     ToolsConfig     `json:"tools"`
-	Storage   StorageConfig   `json:"storage"`
-	mu        sync.RWMutex
+	Agents          AgentsConfig          `json:"agents"`
+	Channels        ChannelsConfig        `json:"channels"`
+	Providers       ProvidersConfig       `json:"providers"`
+	Gateway         GatewayConfig         `json:"gateway"`
+	Web             WebConfig             `json:"web"`
+	Tools           ToolsConfig           `json:"tools"`
+	ToolPermissions ToolPermissionsConfig `json:"tool_permissions"`
+	Storage         StorageConfig         `json:"storage"`
+	mu              sync.RWMutex
 }
 
 type StorageConfig struct {
@@ -270,6 +271,22 @@ type EmailToolsConfig struct {
 	To       string `json:"to" env:"MAKOCLAW_TOOLS_EMAIL_TO"`
 }
 
+// ToolPermissionsConfig defines tool access control by role and user overrides
+type ToolPermissionsConfig struct {
+	// RoleDefaults maps role names ("admin", "user") to lists of allowed tools
+	// Special value "*" means all tools
+	// Special value "exec_restricted" means exec with allowlist only
+	RoleDefaults map[string][]string `json:"role_defaults"`
+
+	// AllowedShellCommands is the list of safe shell commands that users can execute
+	// Only applies when "exec_restricted" is in user's tool list
+	AllowedShellCommands []string `json:"allowed_shell_commands"`
+
+	// UserOverrides maps usernames to custom tool lists, overriding role defaults
+	// Use null/empty to reset to role defaults
+	UserOverrides map[string][]string `json:"user_overrides,omitempty"`
+}
+
 func DefaultConfig() *Config {
 	return &Config{
 		Agents: AgentsConfig{
@@ -391,6 +408,27 @@ func DefaultConfig() *Config {
 			MCP: MCPConfig{
 				Servers: map[string]MCPServerConfig{},
 			},
+		},
+		ToolPermissions: ToolPermissionsConfig{
+			RoleDefaults: map[string][]string{
+				"admin": {"*"}, // Admins get all tools
+				"user": {
+					"read_file",
+					"list_dir",
+					"task_manager",
+					"query_knowledge",
+					"memory",
+					"web_search",
+					"message",
+					"exec_restricted", // Limited shell access via allowlist
+				},
+			},
+			AllowedShellCommands: []string{
+				"ls", "dir", "cat", "type", "head", "tail", "grep", "findstr",
+				"find", "where", "pwd", "cd", "echo", "date", "whoami",
+				"which", "wc", "sort", "uniq", "diff", "tree", "file", "stat",
+			},
+			UserOverrides: map[string][]string{},
 		},
 		Storage: StorageConfig{
 			Path: "~/.makoclaw/makoclaw.db",
@@ -527,10 +565,10 @@ func GetUserConfigTemplate(globalConfig *Config) *Config {
 				// Inherit non-sensitive defaults
 				Workspace:           filepath.Join("~", ".makoclaw", "users", "{uuid}", "workspace"),
 				RestrictToWorkspace: globalConfig.Agents.Defaults.RestrictToWorkspace,
-				Provider:            "", // Empty: user must choose
-				Model:               globalConfig.Agents.Defaults.Model,            // Inherit
-				MaxTokens:           globalConfig.Agents.Defaults.MaxTokens,        // Inherit
-				Temperature:         globalConfig.Agents.Defaults.Temperature,      // Inherit
+				Provider:            "",                                             // Empty: user must choose
+				Model:               globalConfig.Agents.Defaults.Model,             // Inherit
+				MaxTokens:           globalConfig.Agents.Defaults.MaxTokens,         // Inherit
+				Temperature:         globalConfig.Agents.Defaults.Temperature,       // Inherit
 				MaxToolIterations:   globalConfig.Agents.Defaults.MaxToolIterations, // Inherit
 			},
 			Orchestrator: OrchestratorConfig{
@@ -563,7 +601,7 @@ func GetUserConfigTemplate(globalConfig *Config) *Config {
 		Tools: ToolsConfig{
 			Web: WebToolsConfig{
 				Search: WebSearchConfig{
-					APIKey:     "", // User must provide
+					APIKey:     "",                                       // User must provide
 					MaxResults: globalConfig.Tools.Web.Search.MaxResults, // Inherit
 				},
 			},
@@ -1144,4 +1182,24 @@ func (c *Config) GetActiveChannels() []string {
 	}
 
 	return active
+}
+
+// RLock locks the config for reading
+func (c *Config) RLock() {
+	c.mu.RLock()
+}
+
+// RUnlock unlocks the config after reading
+func (c *Config) RUnlock() {
+	c.mu.RUnlock()
+}
+
+// Lock locks the config for writing
+func (c *Config) Lock() {
+	c.mu.Lock()
+}
+
+// Unlock unlocks the config after writing
+func (c *Config) Unlock() {
+	c.mu.Unlock()
 }

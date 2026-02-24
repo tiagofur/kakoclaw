@@ -328,4 +328,3 @@ func (cb *ContextBuilder) GetSkillsInfo() map[string]interface{} {
 		"names":     skillNames,
 	}
 }
-

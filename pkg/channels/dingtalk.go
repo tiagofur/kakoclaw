@@ -191,4 +191,3 @@ func (c *DingTalkChannel) SendDirectReply(ctx context.Context, sessionWebhook, c
 
 	return nil
 }
-

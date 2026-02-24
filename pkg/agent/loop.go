@@ -37,15 +37,19 @@ type AgentLoop struct {
 	defaultWorkspace string // Base workspace when no user is set
 	userUUID         string // User UUID for multiuser support
 	userID           int64  // User ID for multiuser support
+	userRole         string // User role for permission checks
 	model            string
 	contextWindow    int // Maximum context window size in tokens
 	maxIterations    int
 	sessions         *session.SessionManager
 	contextBuilder   *ContextBuilder
 	tools            *tools.ToolRegistry
+	baseTools        *tools.ToolRegistry // Unfiltered tools (before permission filtering)
 	running          atomic.Bool
 	summarizing      sync.Map // Tracks which sessions are currently being summarized
 	storage          *storage.Storage
+	auditLogger      *tools.SQLiteAuditLogger // Audit logger for restricted tools
+	cfg              *config.Config           // Config for permission checks
 }
 
 // ToolRegistry returns the agent loop's tool registry so external
@@ -216,28 +220,71 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 	contextBuilder := NewContextBuilder(workspace)
 	contextBuilder.SetToolsRegistry(toolsRegistry)
 
+	// Initialize audit logger if storage is available
+	var auditLogger *tools.SQLiteAuditLogger
+	if store != nil {
+		var err error
+		auditLogger, err = tools.NewSQLiteAuditLogger(store)
+		if err != nil {
+			logger.WarnCF("agent", "Failed to initialize audit logger", map[string]interface{}{"error": err.Error()})
+		}
+	}
+
 	return &AgentLoop{
 		bus:              msgBus,
 		provider:         provider,
 		workspace:        workspace,
 		defaultWorkspace: workspace,
-		userUUID:         "", // Will be set via SetUserForAgent if needed
-		userID:           0,  // Default for backward compatibility
+		userUUID:         "",      // Will be set via SetUserForAgent if needed
+		userID:           0,       // Default for backward compatibility
+		userRole:         "admin", // Default to admin for backward compatibility
 		model:            cfg.Agents.Defaults.Model,
 		contextWindow:    cfg.Agents.Defaults.MaxTokens, // Restore context window for summarization
 		maxIterations:    cfg.Agents.Defaults.MaxToolIterations,
 		sessions:         sessionsManager,
 		contextBuilder:   contextBuilder,
 		tools:            toolsRegistry,
+		baseTools:        toolsRegistry, // Keep reference to unfiltered tools
 		summarizing:      sync.Map{},
 		storage:          store,
+		auditLogger:      auditLogger,
+		cfg:              cfg,
 	}
 }
 
 // SetUserForAgent configures the agent loop for a specific user (multiuser support).
+// Also applies tool permission filtering based on user role.
 func (al *AgentLoop) SetUserForAgent(userUUID string, userID int64) {
 	al.userUUID = userUUID
 	al.userID = userID
+
+	// Get user from storage to determine role
+	if userID > 0 && al.storage != nil {
+		user, err := al.storage.GetUserByID(userID)
+		if err == nil {
+			al.userRole = user.Role
+
+			// Apply permission filtering
+			filteredTools := filterToolsByPermissions(al.baseTools, user.Role, userID, al.cfg, al.storage)
+			al.tools = filteredTools
+			al.contextBuilder.SetToolsRegistry(filteredTools)
+
+			logger.InfoCF("agent", "User configured with role-based tool permissions", map[string]interface{}{
+				"user_id":    userID,
+				"user_uuid":  userUUID,
+				"role":       user.Role,
+				"tool_count": len(filteredTools.List()),
+			})
+		} else {
+			logger.WarnCF("agent", "Failed to load user, using default admin permissions", map[string]interface{}{
+				"user_id": userID,
+				"error":   err.Error(),
+			})
+			al.userRole = "admin"
+		}
+	} else {
+		al.userRole = "admin" // Default to admin for backwards compatibility
+	}
 
 	if userUUID == "" {
 		al.workspace = al.defaultWorkspace
@@ -846,6 +893,37 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 			result, err := al.tools.ExecuteWithContext(ctx, tc.Name, tc.Arguments, opts.Channel, opts.ChatID)
 			toolDur := time.Since(toolStart)
 			observability.Global().RecordToolCall(tc.Name, toolDur, err)
+
+			// Audit restricted tool executions
+			if tools.IsRestrictedTool(tc.Name) && al.auditLogger != nil && al.userID > 0 {
+				username := fmt.Sprintf("user_%d", al.userID)
+				if al.storage != nil {
+					if user, userErr := al.storage.GetUserByID(al.userID); userErr == nil {
+						username = user.Username
+					}
+				}
+
+				auditLog := tools.ToolExecutionLog{
+					Timestamp: toolStart,
+					UserID:    al.userID,
+					Username:  username,
+					Tool:      tc.Name,
+					Arguments: tc.Arguments,
+					Success:   err == nil,
+					Duration:  toolDur.Milliseconds(),
+				}
+				if err != nil {
+					auditLog.Error = err.Error()
+				}
+
+				if auditErr := al.auditLogger.LogToolExecution(ctx, auditLog); auditErr != nil {
+					logger.WarnCF("agent", "Failed to log tool execution to audit", map[string]interface{}{
+						"tool":  tc.Name,
+						"error": auditErr.Error(),
+					})
+				}
+			}
+
 			if err != nil {
 				result = fmt.Sprintf("Error: %v", err)
 			}

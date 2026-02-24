@@ -343,7 +343,7 @@ func PrintResults(results []CheckResult) {
 
 	for _, result := range results {
 		fmt.Printf("%s %s: %s\n", result.Status.Icon(), result.Name, result.Message)
-		
+
 		switch result.Status {
 		case StatusOK:
 			okCount++
@@ -381,4 +381,3 @@ func HasErrors(results []CheckResult) bool {
 	}
 	return false
 }
-

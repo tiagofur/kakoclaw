@@ -266,6 +266,7 @@ func (s *Storage) SearchTasksForUser(userKey interface{}, query string) ([]Task,
 	}
 	return tasks, nil
 }
+
 // ListAllUsersTasks returns tasks for all users (for background worker).
 func (s *Storage) ListAllUsersTasks(includeArchived bool) ([]Task, error) {
 	query := `SELECT id, user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, created_at, updated_at FROM tasks WHERE (archived = ? OR ?) ORDER BY created_at DESC`

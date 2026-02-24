@@ -214,4 +214,3 @@ func stringValue(v *string) string {
 	}
 	return *v
 }
-

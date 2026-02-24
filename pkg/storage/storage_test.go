@@ -485,4 +485,3 @@ func TestStoragePathIsolation(t *testing.T) {
 		t.Fatalf("expected isolated empty DB B, got %d messages", len(msgs))
 	}
 }
-
