@@ -2407,6 +2407,10 @@ func (s *Server) handleAgents(w http.ResponseWriter, r *http.Request) {
 
 	agentsList := make([]map[string]interface{}, 0)
 
+	// Orchestrator config to return — loaded from persisted user config so that
+	// the Settings > Agents tab can display the saved state after a page reload.
+	var orchestratorConfig map[string]interface{}
+
 	// Primary source: load from persisted user config (survives restarts)
 	if _, userUUID, ok := s.getUserStorage(r); ok && userUUID != "" {
 		if userCfg, _ := config.LoadConfigForUser(userUUID); userCfg != nil {
@@ -2419,6 +2423,19 @@ func (s *Server) handleAgents(w http.ResponseWriter, r *http.Request) {
 					"model":       spec.Model,
 					"keywords":    spec.Keywords,
 				})
+			}
+			// Return the full orchestrator config so the frontend can restore
+			// the enabled state and all other fields on page load.
+			orch := userCfg.Agents.Orchestrator
+			orchestratorConfig = map[string]interface{}{
+				"enabled":                orch.Enabled,
+				"provider":               orch.Provider,
+				"model":                  orch.Model,
+				"max_tokens":             orch.MaxTokens,
+				"temperature":            orch.Temperature,
+				"max_delegation_retries": orch.MaxDelegationRetries,
+				"fallback_to_default":    orch.FallbackToDefault,
+				"description":            orch.Description,
 			}
 		}
 	}
@@ -2441,6 +2458,7 @@ func (s *Server) handleAgents(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"orchestrated": orchestrated,
+		"orchestrator": orchestratorConfig,
 		"specialists":  agentsList,
 	})
 }
