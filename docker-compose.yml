@@ -1,6 +1,7 @@
 services:
   makoclaw:
     build: .
+    command: ["makoclaw", "gateway"]
     ports:
       - "127.0.0.1:18880:18880"
     environment:
