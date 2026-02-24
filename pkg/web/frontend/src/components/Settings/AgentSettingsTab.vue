@@ -24,13 +24,13 @@
           <div>
             <label class="block text-[10px] font-bold uppercase tracking-widest text-makoclaw-text-secondary mb-2 opacity-70">Provider</label>
             <select v-model="orchestratorConfig.provider" class="w-full bg-makoclaw-bg/40 border border-makoclaw-border rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-makoclaw-accent/30 outline-none text-makoclaw-text backdrop-blur-sm transition-all cursor-pointer">
-              <option v-for="p in providersList" :key="p.name" :value="p.name">{{ p.name }}</option>
+              <option v-for="p in configuredProviders" :key="p.name" :value="p.name">{{ p.name }}</option>
             </select>
           </div>
           <div>
             <label class="block text-[10px] font-bold uppercase tracking-widest text-makoclaw-text-secondary mb-2 opacity-70">Model</label>
             <select v-model="orchestratorConfig.model" class="w-full bg-makoclaw-bg/40 border border-makoclaw-border rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-makoclaw-accent/30 outline-none text-makoclaw-text backdrop-blur-sm transition-all cursor-pointer">
-              <optgroup v-for="p in providersList" :key="p.name" :label="p.name">
+              <optgroup v-for="p in configuredProviders" :key="p.name" :label="p.name">
                 <option v-for="m in p.models" :key="m.id" :value="m.id">{{ m.id }}</option>
               </optgroup>
             </select>
@@ -157,13 +157,13 @@
           <div>
             <label class="block text-[10px] font-bold uppercase tracking-widest text-makoclaw-text-secondary mb-2 opacity-70">Default Provider</label>
             <select v-model="agents.defaults.provider" class="w-full bg-makoclaw-bg/40 border border-makoclaw-border rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-makoclaw-accent/30 outline-none text-makoclaw-text backdrop-blur-sm transition-all cursor-pointer">
-              <option v-for="p in providersList" :key="p.name" :value="p.name">{{ p.name }}</option>
+              <option v-for="p in configuredProviders" :key="p.name" :value="p.name">{{ p.name }}</option>
             </select>
           </div>
           <div>
             <label class="block text-[10px] font-bold uppercase tracking-widest text-makoclaw-text-secondary mb-2 opacity-70">Default Model</label>
             <select v-model="agents.defaults.model" class="w-full bg-makoclaw-bg/40 border border-makoclaw-border rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-makoclaw-accent/30 outline-none text-makoclaw-text backdrop-blur-sm transition-all cursor-pointer">
-              <optgroup v-for="p in providersList" :key="p.name" :label="p.name">
+              <optgroup v-for="p in configuredProviders" :key="p.name" :label="p.name">
                 <option v-for="m in p.models" :key="m.id" :value="m.id">{{ m.id }}</option>
               </optgroup>
             </select>
@@ -211,7 +211,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useAgentsStore } from '../../stores/agentsStore'
 import { useToast } from '../../composables/useToast'
 import SpecialistFormModal from './SpecialistFormModal.vue'
@@ -249,13 +249,69 @@ const orchestratorConfig = ref({
 
 const specialists = ref([])
 
+const configuredProviders = computed(() => {
+  const providers = Array.isArray(props.providersList) ? props.providersList : []
+  return providers.filter((provider) => {
+    if (!provider) return false
+    if (provider.enabled === false) return false
+    return Array.isArray(provider.models) && provider.models.length > 0
+  })
+})
+
+const configuredProviderModels = computed(() => {
+  const map = {}
+  for (const provider of configuredProviders.value) {
+    map[provider.name] = Array.isArray(provider.models) ? provider.models : []
+  }
+  return map
+})
+
+const ensureValidDefaultSelection = () => {
+  const providers = configuredProviders.value
+  if (providers.length === 0) {
+    return
+  }
+
+  const currentProvider = agentsStore?.agents?.defaults?.provider || props.agents?.defaults?.provider
+  const hasCurrentProvider = providers.some((provider) => provider.name === currentProvider)
+
+  if (!hasCurrentProvider) {
+    props.agents.defaults.provider = providers[0].name
+  }
+
+  const providerName = props.agents.defaults.provider
+  const models = configuredProviderModels.value[providerName] || []
+  const currentModel = props.agents.defaults.model
+  const hasCurrentModel = models.some((model) => model.id === currentModel)
+
+  if (!hasCurrentModel && models.length > 0) {
+    props.agents.defaults.model = models[0].id
+  }
+}
+
 onMounted(async () => {
   await agentsStore.fetchAgents()
   if (agentsStore.orchestrator) {
     orchestratorConfig.value = { ...agentsStore.orchestrator }
   }
   specialists.value = [...agentsStore.specialists]
+  ensureValidDefaultSelection()
 })
+
+watch(
+  () => configuredProviders.value,
+  () => {
+    ensureValidDefaultSelection()
+  },
+  { deep: true }
+)
+
+watch(
+  () => props.agents?.defaults?.provider,
+  () => {
+    ensureValidDefaultSelection()
+  }
+)
 
 function getSpecialistIcon(name) {
   return agentsStore.getSpecialistIcon(name)
@@ -295,6 +351,19 @@ async function deleteSpecialist(name) {
 }
 
 async function saveSettings() {
+  if (configuredProviders.value.length === 0) {
+    toast.error('No configured providers available. Configure a provider first.')
+    return
+  }
+
+  const selectedProvider = props.agents?.defaults?.provider
+  const selectedModel = props.agents?.defaults?.model
+  const providerModels = configuredProviderModels.value[selectedProvider] || []
+  if (!providerModels.some((model) => model.id === selectedModel)) {
+    toast.error('Please choose a valid default model from configured providers.')
+    return
+  }
+
   // Specialists are managed locally in this component's specialists ref,
   // while props.agents might be stale or incomplete.
   // We reconstruct the specialist map to match the backend config structure.

@@ -33,7 +33,7 @@ func getDataDir() string {
 		return dataDir
 	}
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".makoclaw")
+	return filepath.Join(home, ".MakoClaw")
 }
 
 // FlexibleStringSlice is a []string that also accepts JSON numbers,
@@ -292,10 +292,10 @@ func DefaultConfig() *Config {
 	return &Config{
 		Agents: AgentsConfig{
 			Defaults: AgentDefaults{
-				Workspace:           "~/.makoclaw/workspace",
+				Workspace:           "~/.MakoClaw/workspace",
 				RestrictToWorkspace: true,
 				Provider:            "",
-				Model:               "openrouter/free",
+				Model:               "",
 				MaxTokens:           8192,
 				Temperature:         0.7,
 				MaxToolIterations:   20,
@@ -432,7 +432,7 @@ func DefaultConfig() *Config {
 			UserOverrides: map[string][]string{},
 		},
 		Storage: StorageConfig{
-			Path: "~/.makoclaw/makoclaw.db",
+			Path: "~/.MakoClaw/makoclaw.db",
 		},
 	}
 }
@@ -564,7 +564,7 @@ func GetUserConfigTemplate(globalConfig *Config) *Config {
 		Agents: AgentsConfig{
 			Defaults: AgentDefaults{
 				// Inherit non-sensitive defaults
-				Workspace:           filepath.Join("~", ".makoclaw", "users", "{uuid}", "workspace"),
+				Workspace:           filepath.Join("~", ".MakoClaw", "users", "{uuid}", "workspace"),
 				RestrictToWorkspace: globalConfig.Agents.Defaults.RestrictToWorkspace,
 				Provider:            "",                                             // Empty: user must choose
 				Model:               globalConfig.Agents.Defaults.Model,             // Inherit
@@ -620,7 +620,7 @@ func GetUserConfigTemplate(globalConfig *Config) *Config {
 			},
 		},
 		Storage: StorageConfig{
-			Path: filepath.Join("~", ".makoclaw", "users", "{uuid}", "user.db"),
+			Path: filepath.Join("~", ".MakoClaw", "users", "{uuid}", "user.db"),
 		},
 	}
 }
@@ -653,8 +653,8 @@ func LoadConfig(path string) (*Config, error) {
 }
 
 // LoadConfigForUser loads configuration for a specific user.
-// It first tries to load from ~/.makoclaw/users/<userUUID>/config.json
-// If that doesn't exist, it falls back to ~/.makoclaw/config.json (global)
+// It first tries to load from ~/.MakoClaw/users/<userUUID>/config.json
+// If that doesn't exist, it falls back to ~/.MakoClaw/config.json (global)
 // If neither exists, it returns DefaultConfig()
 func LoadConfigForUser(userUUID string) (*Config, error) {
 	baseDir := getDataDir()
@@ -705,10 +705,9 @@ func LoadConfigForUser(userUUID string) (*Config, error) {
 			}
 		}
 
-		if err := env.Parse(userCfg); err != nil {
-			return nil, err
-		}
-		parseProviderEnvVars(userCfg)
+		// User config must be loaded as persisted. Do not apply generic env parsing
+		// or provider env var overrides here, otherwise process-level env values can
+		// unintentionally override user-saved settings (e.g. tools.email.enabled).
 		if err := validateWebConfig(&userCfg.Web); err != nil {
 			return nil, fmt.Errorf("web config: %w", err)
 		}
@@ -978,6 +977,16 @@ func MergeConfigs(global, user *Config) *Config {
 	} else {
 		merged.Storage = global.Storage
 	}
+
+	// Merge ToolPermissions section
+	if len(user.ToolPermissions.RoleDefaults) > 0 {
+		merged.ToolPermissions = user.ToolPermissions
+	} else {
+		merged.ToolPermissions = global.ToolPermissions
+	}
+
+	// Preserve DegradedMode flag
+	merged.DegradedMode = global.DegradedMode || user.DegradedMode
 
 	return merged
 }

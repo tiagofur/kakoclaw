@@ -214,12 +214,14 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/auth/me", s.handleMe)
 
 	// User-specific config management (use /api/v1/me/* to avoid /api/v1/users/ conflict)
-	mux.HandleFunc("/api/v1/me/config", s.handleGetUserConfig)                 // Get user's merged config
-	mux.HandleFunc("/api/v1/me/config/update", s.handleUpdateUserConfig)       // Update user config
-	mux.HandleFunc("/api/v1/me/config/reset", s.handleDeleteUserConfigSection) // Reset section to global
-	mux.HandleFunc("/api/v1/me/providers", s.handleGetUserProviders)           // Get user's providers
-	mux.HandleFunc("/api/v1/me/providers/update", s.handleUpdateUserProvider)  // Update specific provider
-	mux.HandleFunc("/api/v1/me/channels", s.handleGetUserChannels)             // Get user's channels
+	mux.HandleFunc("/api/v1/me/config", s.handleGetUserConfig)                   // Get user's merged config
+	mux.HandleFunc("/api/v1/me/config/update", s.handleUpdateUserConfig)         // Update user config
+	mux.HandleFunc("/api/v1/me/config/reset", s.handleDeleteUserConfigSection)   // Reset section to global
+	mux.HandleFunc("/api/v1/me/providers", s.handleGetUserProviders)             // Get user's providers
+	mux.HandleFunc("/api/v1/me/onboarding/complete", s.handleCompleteOnboarding) // Mark onboarding complete
+	mux.HandleFunc("/api/v1/me/workspace/init", s.handleWorkspaceInit)           // Initialize workspace with skills
+	mux.HandleFunc("/api/v1/me/providers/update", s.handleUpdateUserProvider)    // Update specific provider
+	mux.HandleFunc("/api/v1/me/channels", s.handleGetUserChannels)               // Get user's channels
 	// Backwards-compatible aliases
 	mux.HandleFunc("/api/v1/users/me/config", s.handleGetUserConfig)
 	mux.HandleFunc("/api/v1/users/me/config/update", s.handleUpdateUserConfig)
@@ -284,9 +286,10 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/agents/metrics", s.handleAgentMetrics)            // Agent cost metrics
 
 	// Setup/Onboarding flow (Phase 4)
-	mux.HandleFunc("/api/v1/setup/initialize", s.handleSetupInitialize) // Create setup session
-	mux.HandleFunc("/api/v1/setup/validate/", s.handleSetupValidate)    // Validate token
-	mux.HandleFunc("/api/v1/setup/complete/", s.handleSetupComplete)    // Complete setup
+	mux.HandleFunc("/api/v1/setup/initialize", s.handleSetupInitialize)   // Create setup session
+	mux.HandleFunc("/api/v1/setup/validate/", s.handleSetupValidate)      // Validate token
+	mux.HandleFunc("/api/v1/setup/complete/", s.handleSetupComplete)      // Complete setup
+	mux.HandleFunc("/api/v1/test-channel/telegram", s.handleTestTelegram) // Test Telegram connection
 
 	mux.HandleFunc("/api/v1/files", s.handleFiles)                            // File browser
 	mux.HandleFunc("/api/v1/files/", s.handleFiles)                           // File browser subpaths
@@ -294,6 +297,7 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/export/chat", s.handleExportChat)                 // Export chat history
 	mux.HandleFunc("/api/v1/import/chat", s.handleImportChat)                 // Import conversations
 	mux.HandleFunc("/api/v1/models", s.handleModels)                          // Available models/providers
+	mux.HandleFunc("/api/v1/providers/catalog", s.handleProvidersCatalog)     // All available providers metadata
 	mux.HandleFunc("/api/v1/voice/transcribe", s.handleVoiceTranscribe)       // Voice-to-text (Groq STT)
 	mux.HandleFunc("/api/v1/knowledge", s.handleKnowledge)                    // Knowledge base: list + upload
 	mux.HandleFunc("/api/v1/knowledge/search", s.handleKnowledgeSearch)       // Knowledge base: FTS5 search
@@ -341,7 +345,9 @@ func (s *Server) Start(ctx context.Context) error {
 		}
 	}()
 
-	if s.agentLoop != nil && s.store != nil {
+	if s.userMgr != nil && s.centralStore != nil && s.fullConfig != nil && s.msgBus != nil && s.store != nil {
+		go s.runTaskWorker(ctx)
+	} else if s.agentLoop != nil && s.store != nil {
 		go s.runTaskWorker(ctx)
 	}
 
@@ -457,6 +463,16 @@ func (s *Server) authMiddleware(next http.Handler) http.HandlerFunc {
 			next.ServeHTTP(w, r)
 			return
 		}
+		// Providers catalog is public (needed for onboarding wizard before authentication)
+		if strings.HasPrefix(r.URL.Path, "/api/v1/providers/catalog") {
+			next.ServeHTTP(w, r)
+			return
+		}
+		// Channel test endpoints are public (needed for setup wizard before authentication)
+		if strings.HasPrefix(r.URL.Path, "/api/v1/test-channel") {
+			next.ServeHTTP(w, r)
+			return
+		}
 		// API docs are public (Swagger UI needs to load without auth)
 		if r.URL.Path == "/api/docs" || r.URL.Path == "/api/v1/openapi.json" {
 			// Relax CSP for Swagger UI page to load external scripts/styles
@@ -564,6 +580,74 @@ func (s *Server) getUserIDFromClaims(r *http.Request) (int64, bool) {
 		return 0, false
 	}
 	return user.ID, true
+}
+
+// getCronServiceForRequest resolves the cron service and user ID for the request.
+// It prefers per-user cron services when the multi-user manager is available.
+// In degraded mode, it will create per-user cron services on demand.
+func (s *Server) getCronServiceForRequest(r *http.Request) (*cron.CronService, int64, bool) {
+	claims, ok := r.Context().Value(userClaimsKey).(*jwtClaims)
+	if !ok || claims == nil {
+		return nil, 0, false
+	}
+
+	var userID int64
+	userUUID := claims.UUID
+
+	if userUUID != "" {
+		if s.centralStore != nil {
+			if user, err := s.centralStore.GetUserByUUID(userUUID); err == nil && user != nil {
+				userID = user.ID
+			}
+		} else if s.store != nil {
+			if user, err := s.store.GetUserByUUID(userUUID); err == nil && user != nil {
+				userID = user.ID
+			}
+		}
+	}
+
+	if userID == 0 {
+		if s.centralStore != nil {
+			if user, err := s.centralStore.GetUserByUsername(claims.Sub); err == nil && user != nil {
+				userID = user.ID
+				if userUUID == "" {
+					userUUID = user.UUID
+				}
+			}
+		} else if s.store != nil {
+			if user, err := s.resolveUserByUsername(claims.Sub); err == nil && user != nil {
+				userID = user.ID
+				if userUUID == "" {
+					userUUID = user.UUID
+				}
+			}
+		}
+	}
+
+	if userID == 0 {
+		return nil, 0, false
+	}
+
+	// Try to get existing per-user cron service (full mode with agent loop)
+	if s.multiUserChannelManager != nil && userUUID != "" {
+		if cronService, exists := s.multiUserChannelManager.GetCronServiceForUser(userUUID); exists {
+			_ = cronService.Start()
+			return cronService, userID, true
+		}
+
+		// In degraded mode, create a minimal per-user cron service on demand
+		// This allows users to schedule jobs (with deliver=true) without an LLM provider
+		if cronService, err := s.multiUserChannelManager.GetOrCreateCronServiceForUser(userUUID); err == nil {
+			_ = cronService.Start()
+			return cronService, userID, true
+		}
+	}
+
+	if s.cronService != nil {
+		return s.cronService, userID, true
+	}
+
+	return nil, userID, true
 }
 
 // getUserStorage returns the per-user Storage for the authenticated user.
@@ -938,7 +1022,7 @@ type chatResponse struct {
 }
 
 func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
-	if s.agentLoop == nil {
+	if s.userMgr == nil || s.fullConfig == nil || s.msgBus == nil || s.store == nil {
 		http.Error(w, "agent loop unavailable", http.StatusServiceUnavailable)
 		return
 	}
@@ -949,6 +1033,23 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
+
+	userStore, userUUID, userOK := s.getUserStorage(r)
+	if !userOK || userUUID == "" || userStore == nil {
+		http.Error(w, "agent loop unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	activeAgentLoop, err := agent.NewAgentLoopForUser(userUUID, s.fullConfig, s.msgBus, s.centralStore, userStore)
+	if err != nil {
+		logger.ErrorCF("web", "Failed to create per-user agent loop for websocket", map[string]interface{}{
+			"user_uuid": userUUID,
+			"error":     err.Error(),
+		})
+		http.Error(w, "agent loop unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	defer activeAgentLoop.Stop()
 
 	conn, err := wsUpgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -1031,14 +1132,14 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 			}(execID)
 
 			// Use streaming if supported
-			if s.agentLoop.SupportsStreaming() {
+			if activeAgentLoop.SupportsStreaming() {
 				// Send stream_start
 				wsMu.Lock()
 				_ = conn.WriteJSON(map[string]interface{}{"type": "stream_start"})
 				wsMu.Unlock()
 
-				response, err := s.agentLoop.ProcessDirectWithModelStream(
-					ctx, input, sessionID, req.Model,
+				response, err := activeAgentLoop.ProcessDirectWithUserAndModelStream(
+					ctx, userID, input, sessionID, req.Model,
 					func(token string) error {
 						wsMu.Lock()
 						defer wsMu.Unlock()
@@ -1077,16 +1178,22 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 
+				// Get involved agents for metadata
+				agents := activeAgentLoop.GetInvolvedAgents()
 				wsMu.Lock()
-				_ = conn.WriteJSON(map[string]interface{}{
+				streamEndMsg := map[string]interface{}{
 					"type":    "stream_end",
 					"content": response,
-				})
+				}
+				if len(agents) > 0 {
+					streamEndMsg["agents"] = agents
+				}
+				_ = conn.WriteJSON(streamEndMsg)
 				_ = conn.WriteJSON(map[string]interface{}{"type": "ready"})
 				wsMu.Unlock()
 			} else {
 				// Non-streaming fallback
-				response, err := s.agentLoop.ProcessDirectWithModel(ctx, input, sessionID, req.Model, excludeTools...)
+				response, err := activeAgentLoop.ProcessDirectWithUserAndModel(ctx, userID, input, sessionID, req.Model, excludeTools...)
 				if err != nil {
 					errMsg := err.Error()
 					if ctx.Err() == context.Canceled {
@@ -1102,12 +1209,19 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 					wsMu.Unlock()
 					return
 				}
+
+				// Get involved agents for metadata
+				agents := activeAgentLoop.GetInvolvedAgents()
 				wsMu.Lock()
-				_ = conn.WriteJSON(map[string]interface{}{
+				messageMsg := map[string]interface{}{
 					"type":    "message",
 					"role":    "assistant",
 					"content": response,
-				})
+				}
+				if len(agents) > 0 {
+					messageMsg["agents"] = agents
+				}
+				_ = conn.WriteJSON(messageMsg)
 				_ = conn.WriteJSON(map[string]interface{}{"type": "ready"})
 				wsMu.Unlock()
 			}
@@ -1421,6 +1535,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		Username string `json:"username"`
 		Email    string `json:"email"`
 		Password string `json:"password"`
+		Role     string `json:"role"` // Optional: defaults to "user"
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
 		http.Error(w, "invalid json", http.StatusBadRequest)
@@ -1430,6 +1545,18 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	// Basic validation
 	in.Username = strings.TrimSpace(in.Username)
 	in.Email = strings.TrimSpace(in.Email)
+	in.Role = strings.TrimSpace(in.Role)
+
+	// Default role to "user" if not specified
+	if in.Role == "" {
+		in.Role = "user"
+	}
+
+	// Validate role
+	if in.Role != "user" && in.Role != "admin" {
+		http.Error(w, "role must be 'user' or 'admin'", http.StatusBadRequest)
+		return
+	}
 
 	if in.Username == "" {
 		http.Error(w, "username is required", http.StatusBadRequest)
@@ -1461,11 +1588,15 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create user with "user" role (not admin) — use central store
-	user, err := s.centralStore.CreateUserWithEmail(in.Username, in.Email, in.Password, "user")
+	// Create user with specified role (defaults to "user")
+	user, err := s.centralStore.CreateUserWithEmail(in.Username, in.Email, in.Password, in.Role)
 	if err != nil {
 		if err == storage.ErrUserExists {
-			http.Error(w, "username or email already exists", http.StatusConflict)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusConflict)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"error": "Username or email already exists. Please try a different username or email.",
+			})
 			return
 		}
 		http.Error(w, "failed to create user", http.StatusInternalServerError)
@@ -1862,11 +1993,268 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
+
+	// Fetch full user object to include onboarding_completed
+	var onboardingCompleted bool
+	if s.centralStore != nil && claims.UUID != "" {
+		user, err := s.centralStore.GetUserByUUID(claims.UUID)
+		if err == nil && user != nil {
+			onboardingCompleted = user.OnboardingCompleted
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{
-		"username": claims.Sub,
-		"role":     claims.Role,
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"username":             claims.Sub,
+		"role":                 claims.Role,
+		"user_uuid":            claims.UUID,
+		"onboarding_completed": onboardingCompleted,
 	})
+}
+
+func (s *Server) handleCompleteOnboarding(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if s.centralStore == nil {
+		http.Error(w, "service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	claims, ok := r.Context().Value(userClaimsKey).(*jwtClaims)
+	if !ok || claims == nil || claims.UUID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Mark onboarding as completed for this user
+	if err := s.centralStore.MarkOnboardingCompleted(claims.UUID); err != nil {
+		// Fallback for legacy rows that may not have UUID populated
+		if err == storage.ErrUserNotFound && claims.Sub != "" {
+			if fallbackErr := s.centralStore.MarkOnboardingCompletedByUsername(claims.Sub); fallbackErr != nil {
+				logger.ErrorCF("web", "Failed to mark onboarding complete (fallback by username failed)", map[string]interface{}{
+					"user":  claims.Sub,
+					"uuid":  claims.UUID,
+					"error": fallbackErr.Error(),
+				})
+				http.Error(w, "failed to update onboarding status", http.StatusInternalServerError)
+				return
+			}
+		} else {
+			logger.ErrorCF("web", "Failed to mark onboarding complete", map[string]interface{}{
+				"user":  claims.Sub,
+				"uuid":  claims.UUID,
+				"error": err.Error(),
+			})
+			http.Error(w, "failed to update onboarding status", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Onboarding completed successfully",
+	})
+}
+
+// handleWorkspaceInit initializes user workspace with selected skills and example files
+func (s *Server) handleWorkspaceInit(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	claims, ok := r.Context().Value(userClaimsKey).(*jwtClaims)
+	if !ok || claims == nil || claims.UUID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req struct {
+		Skills       []string `json:"skills"`
+		ExampleFiles bool     `json:"exampleFiles"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Get user workspace path
+	var userWorkspace string
+	if s.userMgr != nil {
+		userWorkspace = s.userMgr.UserWorkspacePath(claims.UUID)
+	} else {
+		userWorkspace = s.fullConfig.WorkspacePath()
+	}
+
+	installedSkills := make([]string, 0)
+	installedFiles := make([]string, 0)
+
+	// Install selected skills
+	if len(req.Skills) > 0 {
+		// Get built-in skills path from repo
+		builtinSkillsPath := filepath.Join(filepath.Dir(s.fullConfig.WorkspacePath()), "..", "..", "skills")
+		userSkillsDir := filepath.Join(userWorkspace, "skills")
+
+		// Create skills directory if it doesn't exist
+		if err := os.MkdirAll(userSkillsDir, 0755); err != nil {
+			logger.ErrorCF("web", "Failed to create skills directory", map[string]interface{}{
+				"user": claims.Sub, "error": err.Error(),
+			})
+			http.Error(w, "failed to create skills directory", http.StatusInternalServerError)
+			return
+		}
+
+		// Copy each selected skill
+		for _, skillName := range req.Skills {
+			srcSkillDir := filepath.Join(builtinSkillsPath, skillName)
+			dstSkillDir := filepath.Join(userSkillsDir, skillName)
+
+			// Check if skill exists in builtin
+			if _, err := os.Stat(srcSkillDir); os.IsNotExist(err) {
+				logger.WarnCF("web", "Skill not found in builtin", map[string]interface{}{
+					"skill": skillName, "user": claims.Sub,
+				})
+				continue
+			}
+
+			// Copy skill directory
+			if err := copyDir(srcSkillDir, dstSkillDir); err != nil {
+				logger.ErrorCF("web", "Failed to copy skill", map[string]interface{}{
+					"skill": skillName, "user": claims.Sub, "error": err.Error(),
+				})
+				continue
+			}
+
+			installedSkills = append(installedSkills, skillName)
+		}
+	}
+
+	// Create example files if requested
+	if req.ExampleFiles {
+		examples := map[string]string{
+			"WELCOME.md": `# Welcome to makoclaw!
+
+This is your personal AI agent workspace.
+
+## Quick Start
+
+- Use the Chat view to interact with your agent
+- Create tasks in the Tasks view for tracking work
+- Explore Skills to see what your agent can do
+- Configure settings in the Settings panel
+
+## Example Commands
+
+Try asking your agent:
+- "Show me the files in my workspace"
+- "Create a task to review the documentation"
+- "What skills do you have available?"
+`,
+			"NOTES.md": `# Notes
+
+Use this file to keep track of important information, ideas, and reminders.
+
+## Ideas
+- 
+
+## To Remember
+- 
+
+## Questions
+- 
+`,
+		}
+
+		for filename, content := range examples {
+			filePath := filepath.Join(userWorkspace, filename)
+			if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+				logger.ErrorCF("web", "Failed to create example file", map[string]interface{}{
+					"file": filename, "user": claims.Sub, "error": err.Error(),
+				})
+				continue
+			}
+			installedFiles = append(installedFiles, filename)
+		}
+	}
+
+	logger.InfoCF("web", "Workspace initialized", map[string]interface{}{
+		"user":   claims.Sub,
+		"skills": installedSkills,
+		"files":  installedFiles,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"installed": map[string]interface{}{
+			"skills": installedSkills,
+			"files":  installedFiles,
+		},
+	})
+}
+
+// copyDir recursively copies a directory
+func copyDir(src, dst string) error {
+	srcInfo, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(dst, srcInfo.Mode()); err != nil {
+		return err
+	}
+
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		srcPath := filepath.Join(src, entry.Name())
+		dstPath := filepath.Join(dst, entry.Name())
+
+		if entry.IsDir() {
+			if err := copyDir(srcPath, dstPath); err != nil {
+				return err
+			}
+		} else {
+			if err := copyFile(srcPath, dstPath); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// copyFile copies a single file
+func copyFile(src, dst string) error {
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+
+	dstFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer dstFile.Close()
+
+	if _, err := dstFile.ReadFrom(srcFile); err != nil {
+		return err
+	}
+
+	srcInfo, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+
+	return os.Chmod(dst, srcInfo.Mode())
 }
 
 func toString(v int64) string {
@@ -1965,6 +2353,14 @@ func (s *Server) runTaskWorker(ctx context.Context) {
 }
 
 func (s *Server) processNextTodoTask(ctx context.Context) {
+	if s.userMgr != nil && s.centralStore != nil && s.fullConfig != nil && s.msgBus != nil && s.store != nil {
+		s.processNextTodoTaskPerUser(ctx)
+		return
+	}
+	s.processNextTodoTaskLegacy(ctx)
+}
+
+func (s *Server) processNextTodoTaskLegacy(ctx context.Context) {
 	tasks, err := s.store.ListAllUsersTasks(false)
 	if err != nil {
 		logger.WarnCF("web", "task worker: failed to list tasks", map[string]interface{}{"error": err.Error()})
@@ -1974,76 +2370,117 @@ func (s *Server) processNextTodoTask(ctx context.Context) {
 		if t.Status != "todo" {
 			continue
 		}
-
-		// Log: task picked up
-		_ = s.store.AddTaskLog(t.ID, "started", "Task picked up by worker")
-
-		// Move to in_progress
-		inProgress, err := s.store.UpdateTaskStatusForUser(t.UserID, t.ID, "in_progress")
-		if err != nil {
-			_ = s.store.AddTaskLog(t.ID, "error", "Failed to move to in_progress: "+err.Error())
-			logger.WarnCF("web", "task worker: failed to update status", map[string]interface{}{"task_id": t.ID, "error": err.Error()})
-			continue
-		}
-
-		_ = s.store.AddTaskLog(t.ID, "status_changed", "Status changed to in_progress")
-
-		itemInProgress := taskItem{
-			ID:          toString(inProgress.ID),
-			Title:       inProgress.Title,
-			Description: inProgress.Description,
-			Status:      inProgress.Status,
-			Result:      inProgress.Result,
-			CreatedAt:   inProgress.CreatedAt,
-			Archived:    inProgress.Archived,
-		}
-
-		s.broadcastTaskEvent("status_changed", itemInProgress)
-
-		// Execute task
-		_ = s.store.AddTaskLog(t.ID, "executing", "Sending task to AI agent")
-		prompt := "Ejecuta esta tarea y devuelve un resumen breve.\nTitulo: " + t.Title + "\nDescripcion: " + t.Description
-		// Use a dedicated session for task worker to not mix with user chat
-		taskSessionKey := "web:task:" + toString(t.ID)
-		result, err := s.agentLoop.ProcessDirectWithUser(ctx, t.UserID, prompt, taskSessionKey)
-
-		var finalStatus string
-		var finalResult string
-
-		if err != nil {
-			finalStatus = "review"
-			finalResult = "error: " + err.Error()
-			_ = s.store.AddTaskLog(t.ID, "error", "Agent execution failed: "+err.Error())
-		} else {
-			finalStatus = "review"
-			finalResult = result
-			_ = s.store.AddTaskLog(t.ID, "completed", "Agent returned result successfully")
-		}
-
-		// Update result and status
-		updated, updateErr := s.store.UpdateTaskForUser(t.UserID, t.ID, t.Title, t.Description, finalStatus, finalResult)
-		if updateErr != nil {
-			_ = s.store.AddTaskLog(t.ID, "error", "Failed to save result: "+updateErr.Error())
-			logger.WarnCF("web", "task worker: failed to save result", map[string]interface{}{"task_id": t.ID, "error": updateErr.Error()})
-			continue
-		}
-
-		_ = s.store.AddTaskLog(t.ID, "status_changed", "Status changed to review")
-
-		itemUpdated := taskItem{
-			ID:          toString(updated.ID),
-			Title:       updated.Title,
-			Description: updated.Description,
-			Status:      updated.Status,
-			Result:      updated.Result,
-			CreatedAt:   updated.CreatedAt,
-			Archived:    updated.Archived,
-		}
-
-		s.broadcastTaskEvent("updated", itemUpdated)
-		s.broadcastTaskEvent("status_changed", itemUpdated)
+		s.processTodoTaskWithLoop(ctx, s.store, s.agentLoop, t.UserID, t)
 		return
 	}
+}
+
+func (s *Server) processNextTodoTaskPerUser(ctx context.Context) {
+	users, err := s.centralStore.ListUsers()
+	if err != nil {
+		logger.WarnCF("web", "task worker: failed to list users", map[string]interface{}{"error": err.Error()})
+		return
+	}
+
+	for _, user := range users {
+		if user == nil || user.UUID == "" {
+			continue
+		}
+
+		userStore, err := s.userMgr.GetOrCreate(user.UUID)
+		if err != nil {
+			logger.WarnCF("web", "task worker: failed to open user storage", map[string]interface{}{"user_uuid": user.UUID, "error": err.Error()})
+			continue
+		}
+
+		tasks, err := userStore.ListTasks(false)
+		if err != nil {
+			logger.WarnCF("web", "task worker: failed to list user tasks", map[string]interface{}{"user_uuid": user.UUID, "error": err.Error()})
+			continue
+		}
+
+		for _, t := range tasks {
+			if t.Status != "todo" {
+				continue
+			}
+
+			userLoop, loopErr := agent.NewAgentLoopForUser(user.UUID, s.fullConfig, s.msgBus, s.centralStore, userStore)
+			if loopErr != nil {
+				_ = userStore.AddTaskLog(t.ID, "error", "Failed to create user agent loop: "+loopErr.Error())
+				logger.WarnCF("web", "task worker: failed to create per-user agent loop", map[string]interface{}{"user_uuid": user.UUID, "task_id": t.ID, "error": loopErr.Error()})
+				continue
+			}
+
+			s.processTodoTaskWithLoop(ctx, userStore, userLoop, user.ID, t)
+			userLoop.Stop()
+			return
+		}
+	}
+}
+
+func (s *Server) processTodoTaskWithLoop(ctx context.Context, store *storage.Storage, loop *agent.AgentLoop, userID int64, t storage.Task) {
+	if store == nil || loop == nil {
+		return
+	}
+
+	_ = store.AddTaskLog(t.ID, "started", "Task picked up by worker")
+
+	inProgress, err := store.UpdateTaskStatusForUser(userID, t.ID, "in_progress")
+	if err != nil {
+		_ = store.AddTaskLog(t.ID, "error", "Failed to move to in_progress: "+err.Error())
+		logger.WarnCF("web", "task worker: failed to update status", map[string]interface{}{"task_id": t.ID, "error": err.Error()})
+		return
+	}
+
+	_ = store.AddTaskLog(t.ID, "status_changed", "Status changed to in_progress")
+
+	itemInProgress := taskItem{
+		ID:          toString(inProgress.ID),
+		Title:       inProgress.Title,
+		Description: inProgress.Description,
+		Status:      inProgress.Status,
+		Result:      inProgress.Result,
+		CreatedAt:   inProgress.CreatedAt,
+		Archived:    inProgress.Archived,
+	}
+
+	s.broadcastTaskEvent("status_changed", itemInProgress)
+
+	_ = store.AddTaskLog(t.ID, "executing", "Sending task to AI agent")
+	prompt := "Ejecuta esta tarea y devuelve un resumen breve.\nTitulo: " + t.Title + "\nDescripcion: " + t.Description
+	taskSessionKey := "web:task:" + toString(t.ID)
+	result, err := loop.ProcessDirectWithUser(ctx, userID, prompt, taskSessionKey)
+
+	finalStatus := "review"
+	finalResult := result
+	if err != nil {
+		finalResult = "error: " + err.Error()
+		_ = store.AddTaskLog(t.ID, "error", "Agent execution failed: "+err.Error())
+	} else {
+		_ = store.AddTaskLog(t.ID, "completed", "Agent returned result successfully")
+	}
+
+	updated, updateErr := store.UpdateTaskForUser(userID, t.ID, t.Title, t.Description, finalStatus, finalResult)
+	if updateErr != nil {
+		_ = store.AddTaskLog(t.ID, "error", "Failed to save result: "+updateErr.Error())
+		logger.WarnCF("web", "task worker: failed to save result", map[string]interface{}{"task_id": t.ID, "error": updateErr.Error()})
+		return
+	}
+
+	_ = store.AddTaskLog(t.ID, "status_changed", "Status changed to review")
+
+	itemUpdated := taskItem{
+		ID:          toString(updated.ID),
+		Title:       updated.Title,
+		Description: updated.Description,
+		Status:      updated.Status,
+		Result:      updated.Result,
+		CreatedAt:   updated.CreatedAt,
+		Archived:    updated.Archived,
+	}
+
+	s.broadcastTaskEvent("updated", itemUpdated)
+	s.broadcastTaskEvent("status_changed", itemUpdated)
 }
 
 func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
@@ -2079,12 +2516,24 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 		return defaultModels
 	}
 
-	if s.fullConfig != nil {
-		currentModel = s.fullConfig.Agents.Defaults.Model
+	// Load user-specific config if authenticated
+	var mergedConfig *config.Config = s.fullConfig
+	_, userUUID, ok := s.getUserStorage(r)
+	if ok && userUUID != "" {
+		userCfg, _ := config.LoadConfigForUser(userUUID)
+		if userCfg != nil && s.fullConfig != nil {
+			mergedConfig = config.MergeConfigs(s.fullConfig, userCfg)
+		} else if userCfg != nil {
+			mergedConfig = userCfg
+		}
+	}
+
+	if mergedConfig != nil {
+		currentModel = mergedConfig.Agents.Defaults.Model
 		currentProvider, _ = providers.GetProviderForModel(currentModel)
 
 		// Anthropic
-		if s.fullConfig.Providers.Anthropic.APIKey != "" || s.fullConfig.Providers.Anthropic.AuthMethod != "" {
+		if mergedConfig.Providers.Anthropic.APIKey != "" || mergedConfig.Providers.Anthropic.AuthMethod != "" {
 			providersList = append(providersList, providerInfo{
 				Name: "anthropic", Enabled: true,
 				IsActive: currentProvider == "anthropic",
@@ -2093,12 +2542,12 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 					{ID: "claude-3-5-haiku-20241022", Provider: "anthropic"},
 					{ID: "claude-3-5-sonnet-20241022", Provider: "anthropic"},
 					{ID: "claude-3-haiku-20240307", Provider: "anthropic"},
-				}, s.fullConfig.Providers.Anthropic.Models),
+				}, mergedConfig.Providers.Anthropic.Models),
 			})
 		}
 
 		// OpenAI
-		if s.fullConfig.Providers.OpenAI.APIKey != "" || s.fullConfig.Providers.OpenAI.AuthMethod != "" {
+		if mergedConfig.Providers.OpenAI.APIKey != "" || mergedConfig.Providers.OpenAI.AuthMethod != "" {
 			providersList = append(providersList, providerInfo{
 				Name: "openai", Enabled: true,
 				IsActive: currentProvider == "openai",
@@ -2108,12 +2557,12 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 					{ID: "gpt-4-turbo", Provider: "openai"},
 					{ID: "o1", Provider: "openai"},
 					{ID: "o1-mini", Provider: "openai"},
-				}, s.fullConfig.Providers.OpenAI.Models),
+				}, mergedConfig.Providers.OpenAI.Models),
 			})
 		}
 
 		// OpenRouter
-		if s.fullConfig.Providers.OpenRouter.APIKey != "" {
+		if mergedConfig.Providers.OpenRouter.APIKey != "" {
 			providersList = append(providersList, providerInfo{
 				Name: "openrouter", Enabled: true,
 				IsActive: currentProvider == "openrouter",
@@ -2123,12 +2572,12 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 					{ID: "google/gemini-2.5-pro-preview", Provider: "openrouter"},
 					{ID: "deepseek/deepseek-r1", Provider: "openrouter"},
 					{ID: "meta-llama/llama-4-maverick", Provider: "openrouter"},
-				}, s.fullConfig.Providers.OpenRouter.Models),
+				}, mergedConfig.Providers.OpenRouter.Models),
 			})
 		}
 
 		// Groq
-		if s.fullConfig.Providers.Groq.APIKey != "" {
+		if mergedConfig.Providers.Groq.APIKey != "" {
 			providersList = append(providersList, providerInfo{
 				Name: "groq", Enabled: true,
 				IsActive: currentProvider == "groq",
@@ -2136,12 +2585,12 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 					{ID: "llama-3.3-70b-versatile", Provider: "groq"},
 					{ID: "llama-3.1-8b-instant", Provider: "groq"},
 					{ID: "mixtral-8x7b-32768", Provider: "groq"},
-				}, s.fullConfig.Providers.Groq.Models),
+				}, mergedConfig.Providers.Groq.Models),
 			})
 		}
 
 		// Gemini
-		if s.fullConfig.Providers.Gemini.APIKey != "" {
+		if mergedConfig.Providers.Gemini.APIKey != "" {
 			providersList = append(providersList, providerInfo{
 				Name: "gemini", Enabled: true,
 				IsActive: currentProvider == "gemini",
@@ -2149,57 +2598,58 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 					{ID: "gemini-2.5-pro-preview-05-06", Provider: "gemini"},
 					{ID: "gemini-2.5-flash-preview-05-20", Provider: "gemini"},
 					{ID: "gemini-2.0-flash", Provider: "gemini"},
-				}, s.fullConfig.Providers.Gemini.Models),
+				}, mergedConfig.Providers.Gemini.Models),
 			})
 		}
 
 		// Zhipu
-		if s.fullConfig.Providers.Zhipu.APIKey != "" {
+		if mergedConfig.Providers.Zhipu.APIKey != "" {
 			providersList = append(providersList, providerInfo{
 				Name: "zhipu", Enabled: true,
 				IsActive: currentProvider == "zhipu",
 				Models: getModels("zhipu", []modelInfo{
-					{ID: "glm-4.7", Provider: "zhipu"},
+					{ID: "glm-4-9", Provider: "zhipu"},
+					{ID: "glm-4-air", Provider: "zhipu"},
 					{ID: "glm-4-flash", Provider: "zhipu"},
-				}, s.fullConfig.Providers.Zhipu.Models),
+				}, mergedConfig.Providers.Zhipu.Models),
 			})
 		}
 
 		// Moonshot
-		if s.fullConfig.Providers.Moonshot.APIKey != "" {
+		if mergedConfig.Providers.Moonshot.APIKey != "" {
 			providersList = append(providersList, providerInfo{
 				Name: "moonshot", Enabled: true,
 				IsActive: currentProvider == "moonshot",
 				Models: getModels("moonshot", []modelInfo{
 					{ID: "moonshot/kimi-k2.5", Provider: "moonshot"},
-				}, s.fullConfig.Providers.Moonshot.Models),
+				}, mergedConfig.Providers.Moonshot.Models),
 			})
 		}
 
 		// Nvidia
-		if s.fullConfig.Providers.Nvidia.APIKey != "" {
+		if mergedConfig.Providers.Nvidia.APIKey != "" {
 			providersList = append(providersList, providerInfo{
 				Name: "nvidia", Enabled: true,
 				IsActive: currentProvider == "nvidia",
 				Models: getModels("nvidia", []modelInfo{
 					{ID: "nvidia/llama-3.1-nemotron-70b-instruct", Provider: "nvidia"},
-				}, s.fullConfig.Providers.Nvidia.Models),
+				}, mergedConfig.Providers.Nvidia.Models),
 			})
 		}
 
 		// Ollama
-		if s.fullConfig.Providers.Ollama.APIBase != "" {
+		if mergedConfig.Providers.Ollama.APIBase != "" {
 			providersList = append(providersList, providerInfo{
 				Name: "ollama", Enabled: true,
 				IsActive: currentProvider == "ollama",
 				Models: getModels("ollama", []modelInfo{
 					{ID: "llama3.2", Provider: "ollama"},
-				}, s.fullConfig.Providers.Ollama.Models),
+				}, mergedConfig.Providers.Ollama.Models),
 			})
 		}
 
 		// VLLM
-		if s.fullConfig.Providers.VLLM.APIBase != "" {
+		if mergedConfig.Providers.VLLM.APIBase != "" {
 			providersList = append(providersList, providerInfo{
 				Name: "vllm", Enabled: true,
 				IsActive: currentProvider == "vllm",
@@ -2222,6 +2672,270 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 		"current_model":    currentModel,
 		"current_provider": currentProvider,
 		"providers":        providersList,
+	})
+}
+
+// handleProvidersCatalog returns metadata for all available providers
+// Endpoint: GET /api/v1/providers/catalog
+// Returns: List of all supported providers with their metadata (not just configured ones)
+func (s *Server) handleProvidersCatalog(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	type providerMetadata struct {
+		ID              string   `json:"id"`
+		Name            string   `json:"name"`
+		Description     string   `json:"description"`
+		Icon            string   `json:"icon,omitempty"`
+		RequiresAPIKey  bool     `json:"requires_api_key"`
+		RequiresAPIBase bool     `json:"requires_api_base"`
+		DefaultAPIBase  string   `json:"default_api_base,omitempty"`
+		Models          []string `json:"models"`
+		FreeTier        bool     `json:"free_tier"`
+		DocsURL         string   `json:"docs_url"`
+		APIKeyURL       string   `json:"api_key_url,omitempty"`
+		Tip             string   `json:"tip,omitempty"`
+	}
+
+	catalog := []providerMetadata{
+		{
+			ID:              "openrouter",
+			Name:            "OpenRouter",
+			Description:     "Access 100+ models - Many free options available",
+			Icon:            "🌐",
+			RequiresAPIKey:  true,
+			RequiresAPIBase: false,
+			DefaultAPIBase:  "https://openrouter.ai/api/v1",
+			Models: []string{
+				"openrouter/auto",
+				"google/gemini-2.0-flash-exp:free",
+				"google/gemini-flash-1.5",
+				"meta-llama/llama-3.1-8b-instruct:free",
+				"meta-llama/llama-3.2-3b-instruct:free",
+				"mistralai/mistral-7b-instruct:free",
+				"nousresearch/hermes-3-llama-3.1-405b:free",
+				"qwen/qwen-2-7b-instruct:free",
+				"anthropic/claude-3.5-sonnet",
+				"anthropic/claude-3-haiku",
+				"openai/gpt-4o",
+				"openai/gpt-4o-mini",
+			},
+			FreeTier:  true,
+			DocsURL:   "https://openrouter.ai/docs",
+			APIKeyURL: "https://openrouter.ai/keys",
+			Tip:       "OpenRouter gives you access to 100+ models with a single API key. Many free models available!",
+		},
+		{
+			ID:              "ollama",
+			Name:            "Ollama",
+			Description:     "Run models locally - Completely free and private",
+			Icon:            "🦙",
+			RequiresAPIKey:  false,
+			RequiresAPIBase: true,
+			DefaultAPIBase:  "http://localhost:11434/v1",
+			Models: []string{
+				"llama3.2",
+				"llama3.1",
+				"llama3.1:70b",
+				"mistral",
+				"qwen2.5",
+				"gemma2",
+				"phi3",
+				"codellama",
+				"deepseek-coder-v2",
+			},
+			FreeTier:  true,
+			DocsURL:   "https://ollama.ai",
+			APIKeyURL: "",
+			Tip:       "Ollama lets you run models locally on your machine. No API key needed - completely private!",
+		},
+		{
+			ID:              "anthropic",
+			Name:            "Anthropic",
+			Description:     "Claude models - Smart, safe, and reliable",
+			Icon:            "🤖",
+			RequiresAPIKey:  true,
+			RequiresAPIBase: false,
+			DefaultAPIBase:  "https://api.anthropic.com",
+			Models: []string{
+				"claude-3-5-sonnet-20241022",
+				"claude-3-5-haiku-20241022",
+				"claude-3-opus-20240229",
+				"claude-3-sonnet-20240229",
+				"claude-3-haiku-20240307",
+			},
+			FreeTier:  false,
+			DocsURL:   "https://docs.anthropic.com",
+			APIKeyURL: "https://console.anthropic.com",
+			Tip:       "Claude models are known for safety, reliability, and great instruction-following.",
+		},
+		{
+			ID:              "openai",
+			Name:            "OpenAI",
+			Description:     "GPT-4o, GPT-4, GPT-3.5 - Most capable models",
+			Icon:            "🔮",
+			RequiresAPIKey:  true,
+			RequiresAPIBase: false,
+			DefaultAPIBase:  "https://api.openai.com/v1",
+			Models: []string{
+				"gpt-4o",
+				"gpt-4o-mini",
+				"gpt-4-turbo",
+				"gpt-4",
+				"gpt-3.5-turbo",
+			},
+			FreeTier:  false,
+			DocsURL:   "https://platform.openai.com/docs",
+			APIKeyURL: "https://platform.openai.com/api-keys",
+			Tip:       "OpenAI provides the most advanced models including GPT-4. Excellent for complex reasoning.",
+		},
+		{
+			ID:              "groq",
+			Name:            "Groq",
+			Description:     "Ultra-fast inference - Free tier available",
+			Icon:            "⚡",
+			RequiresAPIKey:  true,
+			RequiresAPIBase: false,
+			DefaultAPIBase:  "https://api.groq.com/openai/v1",
+			Models: []string{
+				"llama-3.3-70b-versatile",
+				"llama-3.1-70b-versatile",
+				"llama-3.1-8b-instant",
+				"mixtral-8x7b-32768",
+				"gemma2-9b-it",
+			},
+			FreeTier:  true,
+			DocsURL:   "https://console.groq.com/docs",
+			APIKeyURL: "https://console.groq.com/keys",
+			Tip:       "Groq offers extremely fast inference with free tier. Perfect for low-latency applications.",
+		},
+		{
+			ID:              "gemini",
+			Name:            "Google Gemini",
+			Description:     "Gemini 2.0 - Powerful multimodal models",
+			Icon:            "✨",
+			RequiresAPIKey:  true,
+			RequiresAPIBase: false,
+			DefaultAPIBase:  "https://generativelanguage.googleapis.com/v1beta",
+			Models: []string{
+				"gemini-2.0-flash-exp",
+				"gemini-1.5-pro",
+				"gemini-1.5-flash",
+			},
+			FreeTier:  true,
+			DocsURL:   "https://ai.google.dev/docs",
+			APIKeyURL: "https://makersuite.google.com/app/apikey",
+			Tip:       "Google's Gemini models offer great multimodal capabilities with generous free tier.",
+		},
+		{
+			ID:              "together",
+			Name:            "Together AI",
+			Description:     "Multiple open-source models with flexible pricing",
+			Icon:            "🤝",
+			RequiresAPIKey:  true,
+			RequiresAPIBase: false,
+			DefaultAPIBase:  "https://api.together.xyz/v1",
+			Models: []string{
+				"meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
+				"meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+				"mistralai/Mixtral-8x7B-Instruct-v0.1",
+				"Qwen/Qwen2.5-72B-Instruct-Turbo",
+			},
+			FreeTier:  false,
+			DocsURL:   "https://docs.together.ai",
+			APIKeyURL: "https://api.together.xyz/settings/api-keys",
+			Tip:       "Access to various open-source models with flexible pricing.",
+		},
+		{
+			ID:              "huggingface",
+			Name:            "Hugging Face",
+			Description:     "Open-source models via inference API",
+			Icon:            "🤗",
+			RequiresAPIKey:  true,
+			RequiresAPIBase: false,
+			DefaultAPIBase:  "https://api-inference.huggingface.co",
+			Models:          []string{},
+			FreeTier:        true,
+			DocsURL:         "https://huggingface.co/docs/api-inference",
+			APIKeyURL:       "https://huggingface.co/settings/tokens",
+			Tip:             "Great for open-source models. Good for privacy-conscious users.",
+		},
+		{
+			ID:              "zhipu",
+			Name:            "Zhipu AI (智谱AI)",
+			Description:     "Chinese LLM provider - GLM models",
+			Icon:            "🇨🇳",
+			RequiresAPIKey:  true,
+			RequiresAPIBase: false,
+			DefaultAPIBase:  "https://open.bigmodel.cn/api/paas/v4",
+			Models: []string{
+				"glm-4-plus",
+				"glm-4-0520",
+				"glm-4-flash",
+				"glm-4-air",
+			},
+			FreeTier:  true,
+			DocsURL:   "https://open.bigmodel.cn/dev/api",
+			APIKeyURL: "https://open.bigmodel.cn/usercenter/apikeys",
+			Tip:       "Chinese language models with strong performance on Chinese tasks.",
+		},
+		{
+			ID:              "moonshot",
+			Name:            "Moonshot AI (月之暗面)",
+			Description:     "Chinese LLM provider - Kimi models",
+			Icon:            "🌙",
+			RequiresAPIKey:  true,
+			RequiresAPIBase: false,
+			DefaultAPIBase:  "https://api.moonshot.cn/v1",
+			Models: []string{
+				"moonshot-v1-8k",
+				"moonshot-v1-32k",
+				"moonshot-v1-128k",
+			},
+			FreeTier:  false,
+			DocsURL:   "https://platform.moonshot.cn/docs",
+			APIKeyURL: "https://platform.moonshot.cn/console/api-keys",
+			Tip:       "Kimi models with very long context windows (up to 128k tokens).",
+		},
+		{
+			ID:              "nvidia",
+			Name:            "NVIDIA NIM",
+			Description:     "NVIDIA-accelerated inference for open models",
+			Icon:            "🎮",
+			RequiresAPIKey:  true,
+			RequiresAPIBase: false,
+			DefaultAPIBase:  "https://integrate.api.nvidia.com/v1",
+			Models: []string{
+				"nvidia/llama-3.1-nemotron-70b-instruct",
+				"meta/llama-3.1-8b-instruct",
+				"mistralai/mixtral-8x7b-instruct-v0.1",
+			},
+			FreeTier:  true,
+			DocsURL:   "https://build.nvidia.com/explore/discover",
+			APIKeyURL: "https://build.nvidia.com/nim",
+			Tip:       "Free tier available. Great performance on NVIDIA hardware.",
+		},
+		{
+			ID:              "vllm",
+			Name:            "vLLM (Self-Hosted)",
+			Description:     "Self-hosted inference server for open models",
+			Icon:            "🚀",
+			RequiresAPIKey:  false,
+			RequiresAPIBase: true,
+			DefaultAPIBase:  "http://localhost:8000/v1",
+			Models:          []string{},
+			FreeTier:        true,
+			DocsURL:         "https://docs.vllm.ai",
+			APIKeyURL:       "",
+			Tip:             "High-performance self-hosted inference. Requires setup but completely free.",
+		},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"providers": catalog,
 	})
 }
 
@@ -3297,8 +4011,24 @@ func (s *Server) handleConfigStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	configured := s.fullConfig.HasValidProviderConfig()
-	degradedMode := s.fullConfig.DegradedMode
+	// Merge user-specific config so per-user providers are recognised
+	effectiveCfg := s.fullConfig
+	if _, userUUID, ok := s.getUserStorage(r); ok && userUUID != "" {
+		if userCfg, err := config.LoadConfigForUser(userUUID); err == nil && userCfg != nil {
+			effectiveCfg = config.MergeConfigs(s.fullConfig, userCfg)
+		}
+	}
+
+	configured := effectiveCfg.HasValidProviderConfig()
+	degradedMode := effectiveCfg.DegradedMode
+
+	// If any provider is configured for this user, treat system as configured
+	// for degraded-banner purposes even when agent defaults are not set yet.
+	activeProviders := effectiveCfg.GetActiveProviders()
+	if len(activeProviders) > 0 {
+		configured = true
+		degradedMode = false
+	}
 
 	status := map[string]interface{}{
 		"configured":   configured,
@@ -3314,7 +4044,6 @@ func (s *Server) handleConfigStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Include currently configured providers (if any)
-	activeProviders := s.fullConfig.GetActiveProviders()
 	status["activeProviders"] = activeProviders
 
 	w.Header().Set("Content-Type", "application/json")
@@ -3491,54 +4220,117 @@ func (s *Server) handleConfigValidate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create temporary config for validation
-	tempCfg := *s.fullConfig
-	tempCfg.Agents.Defaults.Provider = payload.Provider
-
-	// Set temporary credentials
+	// Simple validation without copying the entire config (to avoid lock copy issues)
+	// Just check if required fields are present
+	var validationErr error
 	switch payload.Provider {
-	case "anthropic":
-		tempCfg.Providers.Anthropic.APIKey = payload.APIKey
-		if payload.APIBase != "" {
-			tempCfg.Providers.Anthropic.APIBase = payload.APIBase
-		}
-	case "openai":
-		tempCfg.Providers.OpenAI.APIKey = payload.APIKey
-		if payload.APIBase != "" {
-			tempCfg.Providers.OpenAI.APIBase = payload.APIBase
-		}
-	case "openrouter":
-		tempCfg.Providers.OpenRouter.APIKey = payload.APIKey
-		if payload.APIBase != "" {
-			tempCfg.Providers.OpenRouter.APIBase = payload.APIBase
-		}
-	case "groq":
-		tempCfg.Providers.Groq.APIKey = payload.APIKey
-		if payload.APIBase != "" {
-			tempCfg.Providers.Groq.APIBase = payload.APIBase
+	case "anthropic", "openai", "openrouter", "groq":
+		if payload.APIKey == "" {
+			validationErr = fmt.Errorf("API key is required for %s", payload.Provider)
 		}
 	case "ollama":
-		if payload.APIBase != "" {
-			tempCfg.Providers.Ollama.APIBase = payload.APIBase
+		// Ollama doesn't require API key, just valid base URL
+		if payload.APIBase == "" {
+			validationErr = fmt.Errorf("API base URL is required for ollama")
 		}
 	default:
 		http.Error(w, "unsupported provider for validation", http.StatusBadRequest)
 		return
 	}
 
-	// Validate using config validation method
-	err := tempCfg.ValidateProviderConfig(payload.Provider)
-
 	response := map[string]interface{}{
-		"valid": err == nil,
+		"valid": validationErr == nil,
 	}
 
-	if err != nil {
-		response["error"] = err.Error()
+	if validationErr != nil {
+		response["error"] = validationErr.Error()
 	} else {
 		response["message"] = "Provider configuration is valid"
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(response)
+}
+
+// handleTestTelegram tests a Telegram bot token by calling the Telegram API
+func (s *Server) handleTestTelegram(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		BotToken  string `json:"botToken"`
+		ChannelID string `json:"channelId"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.BotToken == "" {
+		http.Error(w, "bot token required", http.StatusBadRequest)
+		return
+	}
+
+	// Test Telegram connection by calling getMe API
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	// Format: https://api.telegram.org/bot<TOKEN>/getMe
+	testURL := fmt.Sprintf("https://api.telegram.org/bot%s/getMe", req.BotToken)
+
+	resp, err := client.Get(testURL)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": fmt.Sprintf("Connection test failed: %v", err),
+		})
+		return
+	}
+	defer resp.Body.Close()
+
+	var telegramResp struct {
+		Ok     bool `json:"ok"`
+		Result struct {
+			ID       int64  `json:"id"`
+			IsBot    bool   `json:"is_bot"`
+			Username string `json:"username"`
+		} `json:"result,omitempty"`
+		Description string `json:"description,omitempty"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&telegramResp); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Failed to parse Telegram response",
+		})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if !telegramResp.Ok {
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": fmt.Sprintf("Invalid bot token: %s", telegramResp.Description),
+		})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": fmt.Sprintf("✓ Connected to bot @%s (ID: %d)", telegramResp.Result.Username, telegramResp.Result.ID),
+		"bot": map[string]interface{}{
+			"id":       telegramResp.Result.ID,
+			"username": telegramResp.Result.Username,
+			"is_bot":   telegramResp.Result.IsBot,
+		},
+	})
 }

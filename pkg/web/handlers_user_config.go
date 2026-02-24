@@ -29,7 +29,7 @@ type ConfigWithSource struct {
 
 // handleGetUserConfig returns the user's merged config with source indicators
 func (s *Server) handleGetUserConfig(w http.ResponseWriter, r *http.Request) {
-	store, userUUID, ok := s.getUserStorage(r)
+	_, userUUID, ok := s.getUserStorage(r)
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
@@ -48,16 +48,71 @@ func (s *Server) handleGetUserConfig(w http.ResponseWriter, r *http.Request) {
 	// Merge configs
 	mergedCfg := config.MergeConfigs(globalCfg, userCfg)
 
-	userProviders, err := store.GetUserProvidersConfig(0)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to get provider config: %v", err), http.StatusInternalServerError)
-		return
-	}
-
 	// Build redacted view using existing functions
 	redacted := map[string]interface{}{
 		"agents":    mergedCfg.Agents,
-		"providers": redactUserProviders(userProviders),
+		"providers": map[string]interface{}{
+			"anthropic": map[string]interface{}{
+				"api_key":  redactKey(mergedCfg.Providers.Anthropic.APIKey),
+				"api_base": mergedCfg.Providers.Anthropic.APIBase,
+				"models":   mergedCfg.Providers.Anthropic.Models,
+				"configured": mergedCfg.ValidateProviderConfig("anthropic") == nil,
+			},
+			"openai": map[string]interface{}{
+				"api_key":  redactKey(mergedCfg.Providers.OpenAI.APIKey),
+				"api_base": mergedCfg.Providers.OpenAI.APIBase,
+				"models":   mergedCfg.Providers.OpenAI.Models,
+				"configured": mergedCfg.ValidateProviderConfig("openai") == nil,
+			},
+			"openrouter": map[string]interface{}{
+				"api_key":  redactKey(mergedCfg.Providers.OpenRouter.APIKey),
+				"api_base": mergedCfg.Providers.OpenRouter.APIBase,
+				"models":   mergedCfg.Providers.OpenRouter.Models,
+				"configured": mergedCfg.ValidateProviderConfig("openrouter") == nil,
+			},
+			"groq": map[string]interface{}{
+				"api_key":  redactKey(mergedCfg.Providers.Groq.APIKey),
+				"api_base": mergedCfg.Providers.Groq.APIBase,
+				"models":   mergedCfg.Providers.Groq.Models,
+				"configured": mergedCfg.ValidateProviderConfig("groq") == nil,
+			},
+			"zhipu": map[string]interface{}{
+				"api_key":  redactKey(mergedCfg.Providers.Zhipu.APIKey),
+				"api_base": mergedCfg.Providers.Zhipu.APIBase,
+				"models":   mergedCfg.Providers.Zhipu.Models,
+				"configured": mergedCfg.ValidateProviderConfig("zhipu") == nil,
+			},
+			"vllm": map[string]interface{}{
+				"api_key":  redactKey(mergedCfg.Providers.VLLM.APIKey),
+				"api_base": mergedCfg.Providers.VLLM.APIBase,
+				"models":   mergedCfg.Providers.VLLM.Models,
+				"configured": mergedCfg.ValidateProviderConfig("vllm") == nil,
+			},
+			"gemini": map[string]interface{}{
+				"api_key":  redactKey(mergedCfg.Providers.Gemini.APIKey),
+				"api_base": mergedCfg.Providers.Gemini.APIBase,
+				"models":   mergedCfg.Providers.Gemini.Models,
+				"configured": mergedCfg.ValidateProviderConfig("gemini") == nil,
+			},
+			"nvidia": map[string]interface{}{
+				"api_key":  redactKey(mergedCfg.Providers.Nvidia.APIKey),
+				"api_base": mergedCfg.Providers.Nvidia.APIBase,
+				"models":   mergedCfg.Providers.Nvidia.Models,
+				"configured": mergedCfg.ValidateProviderConfig("nvidia") == nil,
+			},
+			"moonshot": map[string]interface{}{
+				"api_key":  redactKey(mergedCfg.Providers.Moonshot.APIKey),
+				"api_base": mergedCfg.Providers.Moonshot.APIBase,
+				"models":   mergedCfg.Providers.Moonshot.Models,
+				"configured": mergedCfg.ValidateProviderConfig("moonshot") == nil,
+			},
+			"ollama": map[string]interface{}{
+				"api_key":  redactKey(mergedCfg.Providers.Ollama.APIKey),
+				"api_base": mergedCfg.Providers.Ollama.APIBase,
+				"models":   mergedCfg.Providers.Ollama.Models,
+				"configured": mergedCfg.ValidateProviderConfig("ollama") == nil,
+			},
+		},
 		"channels":  redactChannels(mergedCfg),
 		"tools": map[string]interface{}{
 			"web": map[string]interface{}{
@@ -82,7 +137,7 @@ func (s *Server) handleGetUserConfig(w http.ResponseWriter, r *http.Request) {
 	hasOverride := userCfg != nil && !isConfigEmpty(userCfg)
 
 	sources := buildConfigSources(globalCfg, userCfg)
-	if isUserProvidersEmpty(userProviders) {
+	if len(mergedCfg.GetActiveProviders()) == 0 {
 		removeProviderSources(sources)
 	}
 
@@ -352,13 +407,54 @@ func applyConfigUpdates(cfg *config.Config, updates map[string]interface{}) erro
 	if agentsUpdate, ok := updates["agents"].(map[string]interface{}); ok {
 		// Handle defaults
 		if defaultsUpdate, ok := agentsUpdate["defaults"].(map[string]interface{}); ok {
-			defaultsJSON, _ := json.Marshal(defaultsUpdate)
-			json.Unmarshal(defaultsJSON, &cfg.Agents.Defaults)
+			if workspace, ok := defaultsUpdate["workspace"].(string); ok {
+				cfg.Agents.Defaults.Workspace = workspace
+			}
+			if restrict, ok := defaultsUpdate["restrict_to_workspace"].(bool); ok {
+				cfg.Agents.Defaults.RestrictToWorkspace = restrict
+			}
+			if provider, ok := defaultsUpdate["provider"].(string); ok {
+				cfg.Agents.Defaults.Provider = provider
+			}
+			if model, ok := defaultsUpdate["model"].(string); ok {
+				cfg.Agents.Defaults.Model = model
+			}
+			if tokens, ok := defaultsUpdate["max_tokens"].(float64); ok {
+				cfg.Agents.Defaults.MaxTokens = int(tokens)
+			}
+			if temperature, ok := defaultsUpdate["temperature"].(float64); ok {
+				cfg.Agents.Defaults.Temperature = temperature
+			}
+			if iterations, ok := defaultsUpdate["max_tool_iterations"].(float64); ok {
+				cfg.Agents.Defaults.MaxToolIterations = int(iterations)
+			}
 		}
 		// Handle orchestrator
 		if orchUpdate, ok := agentsUpdate["orchestrator"].(map[string]interface{}); ok {
-			orchJSON, _ := json.Marshal(orchUpdate)
-			json.Unmarshal(orchJSON, &cfg.Agents.Orchestrator)
+			if enabled, ok := orchUpdate["enabled"].(bool); ok {
+				cfg.Agents.Orchestrator.Enabled = enabled
+			}
+			if provider, ok := orchUpdate["provider"].(string); ok {
+				cfg.Agents.Orchestrator.Provider = provider
+			}
+			if model, ok := orchUpdate["model"].(string); ok {
+				cfg.Agents.Orchestrator.Model = model
+			}
+			if tokens, ok := orchUpdate["max_tokens"].(float64); ok {
+				cfg.Agents.Orchestrator.MaxTokens = int(tokens)
+			}
+			if temperature, ok := orchUpdate["temperature"].(float64); ok {
+				cfg.Agents.Orchestrator.Temperature = temperature
+			}
+			if retries, ok := orchUpdate["max_delegation_retries"].(float64); ok {
+				cfg.Agents.Orchestrator.MaxDelegationRetries = int(retries)
+			}
+			if fallback, ok := orchUpdate["fallback_to_default"].(bool); ok {
+				cfg.Agents.Orchestrator.FallbackToDefault = fallback
+			}
+			if description, ok := orchUpdate["description"].(string); ok {
+				cfg.Agents.Orchestrator.Description = description
+			}
 		}
 		// Handle specialists (partial map merge)
 		if specUpdate, ok := agentsUpdate["specialists"].(map[string]interface{}); ok {
@@ -375,6 +471,117 @@ func applyConfigUpdates(cfg *config.Config, updates map[string]interface{}) erro
 		}
 		// Remove "agents" from bulk update map to avoid shallow overwrite
 		delete(updates, "agents")
+	}
+
+	if channelsUpdate, ok := updates["channels"].(map[string]interface{}); ok {
+		for channelName, rawUpdate := range channelsUpdate {
+			channelPatch, ok := rawUpdate.(map[string]interface{})
+			if !ok {
+				continue
+			}
+
+			switch channelName {
+			case "whatsapp":
+				if err := mergeStructFromMap(&cfg.Channels.WhatsApp, channelPatch); err != nil {
+					return err
+				}
+			case "telegram":
+				if err := mergeStructFromMap(&cfg.Channels.Telegram, channelPatch); err != nil {
+					return err
+				}
+			case "feishu":
+				if err := mergeStructFromMap(&cfg.Channels.Feishu, channelPatch); err != nil {
+					return err
+				}
+			case "discord":
+				if err := mergeStructFromMap(&cfg.Channels.Discord, channelPatch); err != nil {
+					return err
+				}
+			case "maixcam":
+				if err := mergeStructFromMap(&cfg.Channels.MaixCam, channelPatch); err != nil {
+					return err
+				}
+			case "qq":
+				if err := mergeStructFromMap(&cfg.Channels.QQ, channelPatch); err != nil {
+					return err
+				}
+			case "dingtalk":
+				if err := mergeStructFromMap(&cfg.Channels.DingTalk, channelPatch); err != nil {
+					return err
+				}
+			case "slack":
+				if err := mergeStructFromMap(&cfg.Channels.Slack, channelPatch); err != nil {
+					return err
+				}
+			case "signal":
+				if err := mergeStructFromMap(&cfg.Channels.Signal, channelPatch); err != nil {
+					return err
+				}
+			}
+		}
+
+		delete(updates, "channels")
+	}
+
+	if providersUpdate, ok := updates["providers"].(map[string]interface{}); ok {
+		for providerName, rawUpdate := range providersUpdate {
+			providerPatch, ok := rawUpdate.(map[string]interface{})
+			if !ok {
+				continue
+			}
+
+			var target *config.ProviderConfig
+			switch providerName {
+			case "anthropic":
+				target = &cfg.Providers.Anthropic
+			case "openai":
+				target = &cfg.Providers.OpenAI
+			case "openrouter":
+				target = &cfg.Providers.OpenRouter
+			case "groq":
+				target = &cfg.Providers.Groq
+			case "zhipu":
+				target = &cfg.Providers.Zhipu
+			case "vllm":
+				target = &cfg.Providers.VLLM
+			case "gemini":
+				target = &cfg.Providers.Gemini
+			case "nvidia":
+				target = &cfg.Providers.Nvidia
+			case "moonshot":
+				target = &cfg.Providers.Moonshot
+			case "ollama":
+				target = &cfg.Providers.Ollama
+			default:
+				continue
+			}
+
+			if apiKey, ok := providerPatch["api_key"].(string); ok {
+				if apiKey != "" && !strings.Contains(apiKey, "****") {
+					target.APIKey = apiKey
+				}
+			}
+			if apiBase, ok := providerPatch["api_base"].(string); ok {
+				target.APIBase = apiBase
+			}
+			if proxy, ok := providerPatch["proxy"].(string); ok {
+				target.Proxy = proxy
+			}
+			if authMethod, ok := providerPatch["auth_method"].(string); ok {
+				target.AuthMethod = authMethod
+			}
+			if modelsRaw, ok := providerPatch["models"].([]interface{}); ok {
+				models := make([]string, 0, len(modelsRaw))
+				for _, modelRaw := range modelsRaw {
+					if model, ok := modelRaw.(string); ok {
+						models = append(models, model)
+					}
+				}
+				target.Models = models
+			}
+		}
+
+		delete(updates, "providers")
 	}
 
 	if toolsUpdate, ok := updates["tools"].(map[string]interface{}); ok {
@@ -450,6 +657,29 @@ func applyConfigUpdates(cfg *config.Config, updates map[string]interface{}) erro
 	return json.Unmarshal(updatedJSON, cfg)
 }
 
+func mergeStructFromMap[T any](target *T, patch map[string]interface{}) error {
+	currentJSON, err := json.Marshal(target)
+	if err != nil {
+		return err
+	}
+
+	var currentMap map[string]interface{}
+	if err := json.Unmarshal(currentJSON, &currentMap); err != nil {
+		return err
+	}
+
+	for key, value := range patch {
+		currentMap[key] = value
+	}
+
+	mergedJSON, err := json.Marshal(currentMap)
+	if err != nil {
+		return err
+	}
+
+	return json.Unmarshal(mergedJSON, target)
+}
+
 func normalizeUpdateKeys(input map[string]interface{}) map[string]interface{} {
 	if input == nil {
 		return map[string]interface{}{}
@@ -518,7 +748,14 @@ func (s *Server) handleGetUserProviders(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	cfg, err := store.GetUserProvidersConfig(0)
+	// Get the authenticated user's ID for provider config lookup
+	userID, ok := s.getUserIDFromClaims(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	cfg, err := store.GetUserProvidersConfig(userID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to get provider config: %v", err), http.StatusInternalServerError)
 		return
@@ -538,6 +775,12 @@ func (s *Server) handleUpdateUserProvider(w http.ResponseWriter, r *http.Request
 	}
 
 	store, _, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	userID, ok := s.getUserIDFromClaims(r)
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
@@ -568,7 +811,7 @@ func (s *Server) handleUpdateUserProvider(w http.ResponseWriter, r *http.Request
 		AuthMethod: authMethod,
 	}
 
-	if err := store.UpdateUserProviderConfig(0, providerName, providerConfig); err != nil {
+	if err := store.UpdateUserProviderConfig(userID, providerName, providerConfig); err != nil {
 		http.Error(w, fmt.Sprintf("failed to update provider config: %v", err), http.StatusInternalServerError)
 		return
 	}

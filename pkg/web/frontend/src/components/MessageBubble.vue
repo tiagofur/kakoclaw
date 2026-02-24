@@ -26,6 +26,16 @@
         <MarkdownRenderer v-else :content="msg.content" class="text-sm md:text-base" />
       </template>
       
+      <!-- Agent Badges -->
+      <div v-if="msg.agents && msg.agents.length > 0" class="agents-badge-row">
+        <SpecialistBadge 
+          v-for="agent in msg.agents" 
+          :key="agent"
+          :name="agent"
+          class="agent-badge"
+        />
+      </div>
+      
       <div class="flex items-center justify-between mt-1 sm:mt-1.5">
         <p class="text-[10px] opacity-40 font-medium group-hover:opacity-70 transition-opacity">
           {{ formatTime(msg.timestamp || msg.created_at) }}
@@ -75,6 +85,7 @@
 <script setup>
 import MarkdownRenderer from './Chat/MarkdownRenderer.vue'
 import ToolCallItem from './ToolCallItem.vue'
+import SpecialistBadge from './Chat/SpecialistBadge.vue'
 
 defineProps({
   msg: {
@@ -104,4 +115,18 @@ const formatTime = (isoString) => {
 }
 </script>
 
+<style scoped>
+.agents-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.agent-badge {
+  font-size: 0.75rem;
+}
+</style>
 

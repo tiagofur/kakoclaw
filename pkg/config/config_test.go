@@ -87,10 +87,51 @@ func TestGetUserConfigPathDefault(t *testing.T) {
 
 	home, _ := os.UserHomeDir()
 	userUUID := "test-uuid"
-	expectedPath := filepath.Join(home, ".makoclaw", "users", userUUID, "config.json")
+	expectedPath := filepath.Join(home, ".MakoClaw", "users", userUUID, "config.json")
 
 	if GetUserConfigPath(userUUID) != expectedPath {
 		t.Errorf("GetUserConfigPath() default incorrect, got: %s, want: %s", GetUserConfigPath(userUUID), expectedPath)
+	}
+}
+
+func TestLoadConfigForUserDoesNotOverrideUserEmailEnabledFromEnv(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "makoclaw-user-config-env-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	InitDataDir(tempDir)
+	defer InitDataDir("")
+
+	defer os.Unsetenv("MAKOCLAW_TOOLS_EMAIL_ENABLED")
+	if err := os.Setenv("MAKOCLAW_TOOLS_EMAIL_ENABLED", "false"); err != nil {
+		t.Fatalf("failed to set env: %v", err)
+	}
+
+	userUUID := "test-user-uuid"
+	globalPath := filepath.Join(tempDir, "config.json")
+	userPath := filepath.Join(tempDir, "users", userUUID, "config.json")
+
+	globalCfg := DefaultConfig()
+	if err := SaveConfig(globalPath, globalCfg); err != nil {
+		t.Fatalf("failed to save global config: %v", err)
+	}
+
+	userCfg := DefaultConfig()
+	userCfg.Tools.Email.Enabled = true
+	userCfg.Tools.Email.Host = "smtp.example.com"
+	if err := SaveConfig(userPath, userCfg); err != nil {
+		t.Fatalf("failed to save user config: %v", err)
+	}
+
+	loadedCfg, err := LoadConfigForUser(userUUID)
+	if err != nil {
+		t.Fatalf("LoadConfigForUser returned error: %v", err)
+	}
+
+	if !loadedCfg.Tools.Email.Enabled {
+		t.Fatalf("expected user Tools.Email.Enabled to remain true, got false")
 	}
 }
 
@@ -320,9 +361,6 @@ func TestGetUserConfigTemplateWithNilGlobal(t *testing.T) {
 	}
 
 	// Should have default values
-	if userCfg.Agents.Defaults.Model == "" {
-		t.Error("Model should have a default value")
-	}
 	if userCfg.Agents.Defaults.MaxTokens == 0 {
 		t.Error("MaxTokens should have a default value")
 	}

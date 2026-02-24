@@ -15,7 +15,7 @@ export const useConfigStore = defineStore('config', () => {
     loading.value = true
     checkError.value = null
     try {
-      const response = await api.get('/api/v1/config/status')
+      const response = await api.get('/config/status')
       configured.value = response.data.configured
       degradedMode.value = response.data.degradedMode
       reason.value = response.data.reason || ''
@@ -36,7 +36,7 @@ export const useConfigStore = defineStore('config', () => {
   // Update provider configuration
   async function updateProvider(providerData) {
     try {
-      const response = await api.post('/api/v1/config/provider', providerData)
+      const response = await api.post('/config/provider', providerData)
       // Refresh status after update
       await checkStatus()
       return response.data
@@ -49,7 +49,7 @@ export const useConfigStore = defineStore('config', () => {
   // Validate provider credentials
   async function validateProvider(providerData) {
     try {
-      const response = await api.post('/api/v1/config/validate', providerData)
+      const response = await api.post('/config/validate', providerData)
       return response.data
     } catch (error) {
       console.error('Failed to validate provider:', error)

@@ -548,7 +548,7 @@ func migrateHelp() {
 	fmt.Println("  --workspace-only   Only migrate workspace files, skip config")
 	fmt.Println("  --force            Skip confirmation prompts")
 	fmt.Println("  --openclaw-home    Override OpenClaw home directory (default: ~/.openclaw)")
-	fmt.Println("  --makoclaw-home    Override makoclaw home directory (default: ~/.makoclaw)")
+	fmt.Println("  --makoclaw-home    Override makoclaw home directory (default: ~/.MakoClaw)")
 	fmt.Println()
 	fmt.Println("Examples:")
 	fmt.Println("  makoclaw migrate              Detect and migrate from OpenClaw")
@@ -763,7 +763,7 @@ func gatewayCmd() {
 	}
 
 	// Create multi-user channel manager (each user gets their own channels and agent)
-	multiChannelManager := channels.NewMultiUserChannelManager(cfg, msgBus, channelStore)
+	multiChannelManager := channels.NewMultiUserChannelManager(cfg, msgBus, channelStore, centralStore)
 
 	// Initialize channels for all users from database
 	if channelStore != nil {
@@ -778,9 +778,10 @@ func gatewayCmd() {
 		// Fallback: create a default agent loop for backward compatibility
 		provider, err := providers.TryCreateProvider(cfg)
 		if err != nil {
+			// Provider configuration error - enter degraded mode instead of exiting
 			fmt.Printf("Error creating provider: %v\n", err)
-			fmt.Printf("Fix the configuration or remove provider settings to start in degraded mode\n")
-			os.Exit(1)
+			fmt.Println("Starting in DEGRADED MODE. Configure provider via web panel to enable agent features.")
+			provider = nil // Treat error as no provider (degraded mode)
 		}
 		if provider == nil {
 			fmt.Println("⚠ DEGRADED MODE: No LLM provider configured")
@@ -800,34 +801,26 @@ func gatewayCmd() {
 		}
 	}
 
-	// Setup cron tool and service (uses global config for now)
-	// TODO: Make cron service per-user in future phase
-	var cronService *cron.CronService
 	var defaultAgentLoop *agent.AgentLoop
 	defaultProvider, err := providers.TryCreateProvider(cfg)
 	if err != nil {
 		fmt.Printf("Error with provider configuration: %v\n", err)
 		fmt.Printf("Fix the configuration or remove provider settings to start in degraded mode\n")
-		cronService = nil
 	} else if defaultProvider == nil {
 		// Degraded mode - no provider configured
 		if !cfg.DegradedMode {
 			cfg.DegradedMode = true
 			fmt.Println("\n⚠ DEGRADED MODE: No LLM provider configured")
-			fmt.Println("  • Cron service disabled")
 			fmt.Println("  • Agent orchestration disabled")
 			fmt.Println("  • Web panel available at http://localhost:" + fmt.Sprintf("%d", cfg.Web.Port))
 			fmt.Println("  → Visit web panel to configure your LLM provider")
 		}
-		cronService = nil
 	} else {
 		defaultAgentLoop = agent.NewAgentLoop(cfg, msgBus, defaultProvider)
-		cronService = setupCronTool(defaultAgentLoop, msgBus, cfg.WorkspacePath())
 	}
 
-	var agentManager *agent.AgentManager
+	agentManager := agent.NewAgentManager(defaultAgentLoop)
 	if defaultAgentLoop != nil {
-		agentManager = agent.NewAgentManager(defaultAgentLoop)
 		if err := agentManager.InitializeOrchestrator(cfg, msgBus, channelStore); err != nil {
 			logger.WarnCF("gateway", "Failed to initialize orchestrator", map[string]interface{}{
 				"error": err.Error(),
@@ -858,13 +851,6 @@ func gatewayCmd() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if cronService != nil {
-		if err := cronService.Start(); err != nil {
-			fmt.Printf("Error starting cron service: %v\n", err)
-		}
-		fmt.Println("✓ Cron service started")
-	}
-
 	if err := heartbeatService.Start(); err != nil {
 		fmt.Printf("Error starting heartbeat service: %v\n", err)
 	}
@@ -882,6 +868,7 @@ func gatewayCmd() {
 	// Setup MCP manager for configured servers (global for now)
 	// TODO: Make MCP servers per-user in future phase
 	var mcpManager *mcp.Manager
+	var cronService *cron.CronService
 	if len(cfg.Tools.MCP.Servers) > 0 {
 		mcpManager = mcp.NewManager(cfg.Tools.MCP)
 		mcpManager.Start(ctx)
@@ -919,9 +906,6 @@ func gatewayCmd() {
 			}
 
 			// Wire additional services for advanced REST endpoints
-			if cronService != nil {
-				webServer.SetCronService(cronService)
-			}
 			if agentManager != nil {
 				webServer.SetAgentManager(agentManager)
 			}
@@ -936,7 +920,7 @@ func gatewayCmd() {
 			home, _ := os.UserHomeDir()
 			skillsLoader := skills.NewSkillsLoader(
 				cfg.WorkspacePath(),
-				filepath.Join(home, ".makoclaw", "skills"),
+				filepath.Join(home, ".MakoClaw", "skills"),
 				"",
 			)
 			skillInstaller := skills.NewSkillInstaller(cfg.WorkspacePath())
@@ -1005,9 +989,10 @@ func webCmd() {
 
 	provider, err := providers.TryCreateProvider(cfg)
 	if err != nil {
+		// Provider configuration error - enter degraded mode instead of exiting
 		fmt.Printf("Error with provider configuration: %v\n", err)
-		fmt.Printf("Fix the configuration or remove provider settings to start in degraded mode\n")
-		os.Exit(1)
+		fmt.Println("Starting in DEGRADED MODE. Configure provider via web panel to enable agent features.")
+		provider = nil // Treat error as no provider (degraded mode)
 	}
 
 	msgBus := bus.NewMessageBus()
@@ -1020,12 +1005,36 @@ func webCmd() {
 
 	if provider == nil {
 		// Degraded mode - no provider configured
+		// However, we can still enable cron for deliver=true jobs (message-only, no agent processing)
 		cfg.DegradedMode = true
 		fmt.Println("\n⚠ DEGRADED MODE: No LLM provider configured")
 		fmt.Println("  • Agent loop disabled")
-		fmt.Println("  • Cron service disabled")
+		fmt.Println("  • Cron: Limited to message delivery only (no agent processing)")
 		fmt.Println("  • Web panel available for configuration")
 		fmt.Println("  → Visit http://localhost:" + fmt.Sprintf("%d", cfg.Web.Port) + " to configure your LLM provider")
+
+		// Create global cron service even in degraded mode (for deliver=true jobs)
+		workspacePath := cfg.WorkspacePath()
+		os.MkdirAll(workspacePath, 0755)
+		cronStorePath := filepath.Join(workspacePath, "cron", "jobs.json")
+		cronService = cron.NewCronService(cronStorePath, nil)
+		// Set a noop executor that only handles deliver=true jobs
+		cronService.SetOnJob(func(job *cron.CronJob) (string, error) {
+			if job.Payload.Deliver {
+				// Deliver-only: just publish the message
+				msgBus.PublishOutbound(bus.OutboundMessage{
+					Channel: job.Payload.Channel,
+					ChatID:  job.Payload.To,
+					Content: job.Payload.Message,
+				})
+				return "ok", nil
+			}
+			// Agent-based jobs not supported in degraded mode
+			return "error: agent processing unavailable in degraded mode", nil
+		})
+		if err := cronService.Start(); err != nil {
+			fmt.Printf("Warning: Failed to start cron service: %v\n", err)
+		}
 	} else {
 		// Full mode - provider configured
 		agentLoop = agent.NewAgentLoop(cfg, msgBus, provider)
@@ -1074,9 +1083,8 @@ func webCmd() {
 
 	// Create and wire agent manager so specialist CRUD works in web mode
 	// In degraded mode, agent manager can still be created but won't have active agents
-	var webAgentManager *agent.AgentManager
+	webAgentManager := agent.NewAgentManager(agentLoop)
 	if agentLoop != nil {
-		webAgentManager = agent.NewAgentManager(agentLoop)
 		if store != nil {
 			if initErr := webAgentManager.InitializeOrchestrator(cfg, msgBus, store); initErr != nil {
 				fmt.Printf("Warning: Failed to initialize agent orchestrator: %v\n", initErr)
@@ -1105,7 +1113,7 @@ func webCmd() {
 	homeWeb, _ := os.UserHomeDir()
 	skillsLoaderWeb := skills.NewSkillsLoader(
 		cfg.WorkspacePath(),
-		filepath.Join(homeWeb, ".makoclaw", "skills"),
+		filepath.Join(homeWeb, ".MakoClaw", "skills"),
 		"",
 	)
 	skillInstallerWeb := skills.NewSkillInstaller(cfg.WorkspacePath())
@@ -1167,7 +1175,9 @@ func webCmd() {
 	if cronService != nil {
 		cronService.Stop()
 	}
-	agentLoop.Stop()
+	if agentLoop != nil {
+		agentLoop.Stop()
+	}
 	fmt.Println("✓ Web stopped")
 }
 
@@ -1481,7 +1491,7 @@ func authStatusCmd() {
 
 func getConfigPath() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".makoclaw", "config.json")
+	return filepath.Join(home, ".MakoClaw", "config.json")
 }
 
 func setupCronTool(agentLoop *agent.AgentLoop, msgBus *bus.MessageBus, workspace string) *cron.CronService {

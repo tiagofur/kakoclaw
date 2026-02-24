@@ -12,24 +12,25 @@ import (
 )
 
 type User struct {
-	ID                int64      `json:"id"`
-	UUID              string     `json:"uuid"` // Unique identifier for filesystem/workspace paths
-	Username          string     `json:"username"`
-	Email             string     `json:"email,omitempty"`
-	PasswordHash      string     `json:"-"`
-	Role              string     `json:"role"` // 'admin' or 'user'
-	FullName          string     `json:"full_name,omitempty"`
-	DateOfBirth       *time.Time `json:"date_of_birth,omitempty"`
-	Timezone          string     `json:"timezone,omitempty"`
-	PreferredLanguage string     `json:"preferred_language,omitempty"`
-	AvatarURL         string     `json:"avatar_url,omitempty"`
-	AllowedTools      *string    `json:"allowed_tools,omitempty"` // JSON array of tool names, null = use role defaults
-	Blocked           bool       `json:"blocked"`
-	BlockedReason     string     `json:"blocked_reason,omitempty"`
-	BlockedBy         *int64     `json:"blocked_by,omitempty"`
-	BlockedAt         *time.Time `json:"blocked_at,omitempty"`
-	CreatedAt         time.Time  `json:"created_at"`
-	UpdatedAt         time.Time  `json:"updated_at"`
+	ID                  int64      `json:"id"`
+	UUID                string     `json:"uuid"` // Unique identifier for filesystem/workspace paths
+	Username            string     `json:"username"`
+	Email               string     `json:"email,omitempty"`
+	PasswordHash        string     `json:"-"`
+	Role                string     `json:"role"` // 'admin' or 'user'
+	FullName            string     `json:"full_name,omitempty"`
+	DateOfBirth         *time.Time `json:"date_of_birth,omitempty"`
+	Timezone            string     `json:"timezone,omitempty"`
+	PreferredLanguage   string     `json:"preferred_language,omitempty"`
+	AvatarURL           string     `json:"avatar_url,omitempty"`
+	AllowedTools        *string    `json:"allowed_tools,omitempty"` // JSON array of tool names, null = use role defaults
+	OnboardingCompleted bool       `json:"onboarding_completed"`
+	Blocked             bool       `json:"blocked"`
+	BlockedReason       string     `json:"blocked_reason,omitempty"`
+	BlockedBy           *int64     `json:"blocked_by,omitempty"`
+	BlockedAt           *time.Time `json:"blocked_at,omitempty"`
+	CreatedAt           time.Time  `json:"created_at"`
+	UpdatedAt           time.Time  `json:"updated_at"`
 }
 
 var ErrUserNotFound = errors.New("user not found")
@@ -146,7 +147,7 @@ func (s *Storage) CreateUserWithEmail(username, email, password, role string) (*
 // legacyUserSelectCols is the SELECT column list for the legacy (non-central) users table.
 const legacyUserSelectCols = `id, COALESCE(uuid, ''), username, COALESCE(email, ''), password_hash, role,
 	COALESCE(full_name, ''), date_of_birth, COALESCE(timezone, ''), COALESCE(preferred_language, ''), COALESCE(avatar_url, ''),
-	COALESCE(allowed_tools, ''), COALESCE(blocked, 0), COALESCE(blocked_reason, ''), blocked_by, blocked_at,
+	COALESCE(allowed_tools, ''), COALESCE(onboarding_completed, 0), COALESCE(blocked, 0), COALESCE(blocked_reason, ''), blocked_by, blocked_at,
 	created_at, updated_at`
 
 func (s *Storage) scanUser(scanner interface {
@@ -160,13 +161,14 @@ func (s *Storage) scanUser(scanner interface {
 	var lang sql.NullString
 	var avatar sql.NullString
 	var allowedTools sql.NullString
+	var onboardingCompleted sql.NullBool
 	var blocked sql.NullBool
 	var blockedReason sql.NullString
 	var blockedBy sql.NullInt64
 	var blockedAt sql.NullTime
 	err := scanner.Scan(&u.ID, &u.UUID, &u.Username, &email, &u.PasswordHash, &u.Role,
 		&fullName, &dob, &tz, &lang, &avatar,
-		&allowedTools, &blocked, &blockedReason, &blockedBy, &blockedAt,
+		&allowedTools, &onboardingCompleted, &blocked, &blockedReason, &blockedBy, &blockedAt,
 		&u.CreatedAt, &u.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, ErrUserNotFound
@@ -194,6 +196,9 @@ func (s *Storage) scanUser(scanner interface {
 	}
 	if allowedTools.Valid && allowedTools.String != "" {
 		u.AllowedTools = &allowedTools.String
+	}
+	if onboardingCompleted.Valid {
+		u.OnboardingCompleted = onboardingCompleted.Bool
 	}
 	if blocked.Valid {
 		u.Blocked = blocked.Bool
@@ -380,6 +385,15 @@ func (s *Storage) IsEmailBlocked(email string) (bool, error) {
 		return false, err
 	}
 	return blocked, nil
+}
+
+// MarkOnboardingCompleted marks the user's onboarding as completed.
+func (s *Storage) MarkOnboardingCompleted(userUUID string) error {
+	_, err := s.db.Exec(`
+		UPDATE users 
+		SET onboarding_completed = 1, updated_at = CURRENT_TIMESTAMP
+		WHERE uuid = ?`, userUUID)
+	return err
 }
 
 // Settings logic

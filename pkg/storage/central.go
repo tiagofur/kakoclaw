@@ -110,6 +110,8 @@ func (cs *CentralStorage) migrate() error {
 		`ALTER TABLE users ADD COLUMN avatar_url TEXT;`,
 		// Add tool permissions column
 		`ALTER TABLE users ADD COLUMN allowed_tools TEXT;`,
+		// Add onboarding tracking column
+		`ALTER TABLE users ADD COLUMN onboarding_completed BOOLEAN NOT NULL DEFAULT 0;`,
 
 		// Settings table (global settings: jwt_secret, etc.)
 		`CREATE TABLE IF NOT EXISTS settings (
@@ -259,13 +261,14 @@ func (cs *CentralStorage) scanUser(scanner interface {
 	var lang sql.NullString
 	var avatar sql.NullString
 	var allowedTools sql.NullString
+	var onboardingCompleted sql.NullBool
 	var blocked sql.NullBool
 	var blockedReason sql.NullString
 	var blockedBy sql.NullInt64
 	var blockedAt sql.NullTime
 	err := scanner.Scan(&u.ID, &u.UUID, &u.Username, &email, &u.PasswordHash, &u.Role,
 		&fullName, &dob, &tz, &lang, &avatar,
-		&allowedTools,
+		&allowedTools, &onboardingCompleted,
 		&blocked, &blockedReason, &blockedBy, &blockedAt,
 		&u.CreatedAt, &u.UpdatedAt)
 	if err == sql.ErrNoRows {
@@ -295,6 +298,9 @@ func (cs *CentralStorage) scanUser(scanner interface {
 	if allowedTools.Valid && allowedTools.String != "" {
 		u.AllowedTools = &allowedTools.String
 	}
+	if onboardingCompleted.Valid {
+		u.OnboardingCompleted = onboardingCompleted.Bool
+	}
 	if blocked.Valid {
 		u.Blocked = blocked.Bool
 	}
@@ -313,7 +319,7 @@ func (cs *CentralStorage) scanUser(scanner interface {
 
 const userSelectCols = `id, COALESCE(uuid, ''), username, COALESCE(email, ''), password_hash, role,
 	COALESCE(full_name, ''), date_of_birth, COALESCE(timezone, ''), COALESCE(preferred_language, ''), COALESCE(avatar_url, ''),
-	COALESCE(allowed_tools, ''),
+	COALESCE(allowed_tools, ''), COALESCE(onboarding_completed, 0),
 	COALESCE(blocked, 0), COALESCE(blocked_reason, ''), blocked_by, blocked_at,
 	created_at, updated_at`
 
@@ -462,6 +468,44 @@ func (cs *CentralStorage) IsEmailBlocked(email string) (bool, error) {
 		return false, err
 	}
 	return blocked, nil
+}
+
+// MarkOnboardingCompleted marks the user's onboarding as completed.
+func (cs *CentralStorage) MarkOnboardingCompleted(userUUID string) error {
+	res, err := cs.db.Exec(`
+		UPDATE users 
+		SET onboarding_completed = 1, updated_at = CURRENT_TIMESTAMP
+		WHERE uuid = ?`, userUUID)
+	if err != nil {
+		return err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
+// MarkOnboardingCompletedByUsername marks the user's onboarding as completed by username.
+func (cs *CentralStorage) MarkOnboardingCompletedByUsername(username string) error {
+	res, err := cs.db.Exec(`
+		UPDATE users 
+		SET onboarding_completed = 1, updated_at = CURRENT_TIMESTAMP
+		WHERE username = ? COLLATE NOCASE`, username)
+	if err != nil {
+		return err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return ErrUserNotFound
+	}
+	return nil
 }
 
 // ==================== SETTINGS ====================

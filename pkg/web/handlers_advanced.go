@@ -380,27 +380,31 @@ func validateSkillContent(content string) error {
 func (s *Server) handleCron(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	if s.cronService == nil {
+	cronService, userID, ok := s.getCronServiceForRequest(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if cronService == nil {
 		if r.Method == http.MethodGet {
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{"jobs": []interface{}{}, "status": map[string]interface{}{"enabled": false}})
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"jobs": []interface{}{},
+				"status": map[string]interface{}{
+					"enabled": false,
+					"reason":  "not_initialized",
+				},
+			})
 			return
 		}
 		http.Error(w, "cron service not available", http.StatusServiceUnavailable)
 		return
 	}
 
-	// Get user from JWT claims
-	userID, ok := s.getUserIDFromClaims(r)
-	if !ok {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	switch r.Method {
 	case http.MethodGet:
 		includeDisabled := r.URL.Query().Get("include_disabled") == "true"
-		jobs := s.cronService.ListJobsForUser(userID, includeDisabled)
-		status := s.cronService.Status()
+		jobs := cronService.ListJobsForUser(userID, includeDisabled)
+		status := cronService.Status()
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{"jobs": jobs, "status": status})
 
 	case http.MethodPost:
@@ -430,7 +434,7 @@ func (s *Server) handleCron(w http.ResponseWriter, r *http.Request) {
 		// Import cron schedule type
 		schedule := cronScheduleFromBody(body.Schedule.Kind, body.Schedule.AtMS, body.Schedule.EveryMS, body.Schedule.Expr, body.Schedule.TZ)
 
-		job, err := s.cronService.AddJob(userID, body.Name, schedule, body.Message, body.Deliver, body.Channel, body.To)
+		job, err := cronService.AddJob(userID, body.Name, schedule, body.Message, body.Deliver, body.Channel, body.To)
 		if err != nil {
 			// Validation errors from AddJob return 400
 			http.Error(w, "failed to create job: "+err.Error(), http.StatusBadRequest)
@@ -447,15 +451,13 @@ func (s *Server) handleCronAction(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/api/v1/cron/")
 	w.Header().Set("Content-Type", "application/json")
 
-	if s.cronService == nil {
-		http.Error(w, "cron service not available", http.StatusServiceUnavailable)
-		return
-	}
-
-	// Get user from JWT claims
-	userID, ok := s.getUserIDFromClaims(r)
+	cronService, userID, ok := s.getCronServiceForRequest(r)
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if cronService == nil {
+		http.Error(w, "cron service not available", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -467,7 +469,7 @@ func (s *Server) handleCronAction(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "job id required", http.StatusBadRequest)
 			return
 		}
-		if !s.cronService.RemoveJobForUser(userID, jobID) {
+		if !cronService.RemoveJobForUser(userID, jobID) {
 			http.Error(w, "job not found", http.StatusNotFound)
 			return
 		}
@@ -487,7 +489,7 @@ func (s *Server) handleCronAction(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "enabled field required", http.StatusBadRequest)
 			return
 		}
-		job := s.cronService.EnableJobForUser(userID, jobID, *body.Enabled)
+		job := cronService.EnableJobForUser(userID, jobID, *body.Enabled)
 		if job == nil {
 			http.Error(w, "job not found", http.StatusNotFound)
 			return
@@ -526,7 +528,7 @@ func (s *Server) handleCronAction(w http.ResponseWriter, r *http.Request) {
 
 		schedule := cronScheduleFromBody(body.Schedule.Kind, body.Schedule.AtMS, body.Schedule.EveryMS, body.Schedule.Expr, body.Schedule.TZ)
 
-		job, err := s.cronService.UpdateJobForUser(userID, jobID, body.Name, schedule, body.Message, body.Deliver, body.Channel, body.To)
+		job, err := cronService.UpdateJobForUser(userID, jobID, body.Name, schedule, body.Message, body.Deliver, body.Channel, body.To)
 		if err != nil {
 			http.Error(w, "invalid job: "+err.Error(), http.StatusBadRequest)
 			return
@@ -543,7 +545,7 @@ func (s *Server) handleCronAction(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "job id required", http.StatusBadRequest)
 			return
 		}
-		if err := s.cronService.RunJobForUser(userID, jobID); err != nil {
+		if err := cronService.RunJobForUser(userID, jobID); err != nil {
 			statusCode := http.StatusInternalServerError
 			if strings.Contains(err.Error(), "not found") {
 				statusCode = http.StatusNotFound

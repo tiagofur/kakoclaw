@@ -959,15 +959,42 @@ const toggleChannel = async (id) => {
   await saveConfig(payload)
 }
 
+const parseAllowFromInput = (value) => {
+  if (Array.isArray(value)) {
+    return value
+      .map((v) => String(v || '').trim())
+      .filter(Boolean)
+  }
+
+  if (typeof value !== 'string') {
+    return []
+  }
+
+  return value
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean)
+}
+
 const openChannelConfig = (channel) => {
   selectedChannel.value = channel
   const current = configData.value.channels[channel.id] || {}
   
   // Initialize form based on channel type
   if (channel.id === 'telegram') {
-    channelForm.value = { token: '', allow_from: current.allow_from || '' }
+    channelForm.value = {
+      token: '',
+      allow_from: Array.isArray(current.allow_from)
+        ? current.allow_from.join(',')
+        : (current.allow_from || '')
+    }
   } else if (channel.id === 'discord') {
-    channelForm.value = { token: '', allow_from: current.allow_from || '' }
+    channelForm.value = {
+      token: '',
+      allow_from: Array.isArray(current.allow_from)
+        ? current.allow_from.join(',')
+        : (current.allow_from || '')
+    }
   } else if (channel.id === 'slack') {
     channelForm.value = { bot_token: '' }
   } else {
@@ -982,6 +1009,11 @@ const saveChannelConfig = async () => {
   const updates = { enabled: configData.value.channels[selectedChannel.value.id]?.enabled }
   for (const [k, v] of Object.entries(channelForm.value)) {
     if (v !== '') updates[k] = v
+  }
+
+  // Convert comma-separated allow_from text into array for backend schema
+  if (Object.prototype.hasOwnProperty.call(updates, 'allow_from')) {
+    updates.allow_from = parseAllowFromInput(updates.allow_from)
   }
 
   const payload = {

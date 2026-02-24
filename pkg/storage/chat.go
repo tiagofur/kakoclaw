@@ -13,6 +13,7 @@ type Message struct {
 	Role      string    `json:"role"`
 	Content   string    `json:"content"`
 	CreatedAt time.Time `json:"created_at"`
+	Metadata  string    `json:"metadata,omitempty"` // JSON string storing agent attribution
 }
 
 // Session represents a chat session record in the sessions table.
@@ -91,11 +92,11 @@ func (s *Storage) ensureSessionForUser(sessionID string, userKey interface{}) er
 
 // SaveMessage saves a message with backward-compatible user ID (1).
 func (s *Storage) SaveMessage(sessionID, role, content string) error {
-	return s.SaveMessageForUser(0, sessionID, role, content)
+	return s.SaveMessageForUser(0, sessionID, role, content, "")
 }
 
 // SaveMessageForUser saves a message scoped to a specific user.
-func (s *Storage) SaveMessageForUser(userKey interface{}, sessionID, role, content string) error {
+func (s *Storage) SaveMessageForUser(userKey interface{}, sessionID, role, content, metadata string) error {
 	if err := s.ensureSessionForUser(sessionID, userKey); err != nil {
 		return err
 	}
@@ -106,14 +107,14 @@ func (s *Storage) SaveMessageForUser(userKey interface{}, sessionID, role, conte
 	var updateArgs []interface{}
 
 	if s.isUserDB {
-		query = `INSERT INTO chats (session_id, role, content) VALUES (?, ?, ?)`
-		args = []interface{}{sessionID, role, content}
+		query = `INSERT INTO chats (session_id, role, content, metadata) VALUES (?, ?, ?, ?)`
+		args = []interface{}{sessionID, role, content, metadata}
 		updateQuery = `UPDATE sessions SET updated_at = CURRENT_TIMESTAMP WHERE session_id = ?`
 		updateArgs = []interface{}{sessionID}
 	} else {
 		uid := normalizeUserKey(userKey)
-		query = `INSERT INTO chats (session_id, user_id, role, content) VALUES (?, ?, ?, ?)`
-		args = []interface{}{sessionID, uid, role, content}
+		query = `INSERT INTO chats (session_id, user_id, role, content, metadata) VALUES (?, ?, ?, ?, ?)`
+		args = []interface{}{sessionID, uid, role, content, metadata}
 		updateQuery = `UPDATE sessions SET updated_at = CURRENT_TIMESTAMP WHERE session_id = ? AND user_id = ?`
 		updateArgs = []interface{}{sessionID, uid}
 	}
@@ -195,11 +196,11 @@ func (s *Storage) GetMessagesForUser(userKey interface{}, sessionID string) ([]M
 	var args []interface{}
 
 	if s.isUserDB {
-		query = `SELECT id, session_id, role, content, created_at FROM chats WHERE session_id = ? ORDER BY created_at ASC`
+		query = `SELECT id, session_id, role, content, created_at, metadata FROM chats WHERE session_id = ? ORDER BY created_at ASC`
 		args = []interface{}{sessionID}
 	} else {
 		uid := normalizeUserKey(userKey)
-		query = `SELECT id, session_id, role, content, created_at FROM chats WHERE session_id = ? AND user_id = ? ORDER BY created_at ASC`
+		query = `SELECT id, session_id, role, content, created_at, metadata FROM chats WHERE session_id = ? AND user_id = ? ORDER BY created_at ASC`
 		args = []interface{}{sessionID, uid}
 	}
 
@@ -212,7 +213,7 @@ func (s *Storage) GetMessagesForUser(userKey interface{}, sessionID string) ([]M
 	var messages []Message
 	for rows.Next() {
 		var msg Message
-		if err := rows.Scan(&msg.ID, &msg.SessionID, &msg.Role, &msg.Content, &msg.CreatedAt); err != nil {
+		if err := rows.Scan(&msg.ID, &msg.SessionID, &msg.Role, &msg.Content, &msg.CreatedAt, &msg.Metadata); err != nil {
 			return nil, fmt.Errorf("scanning message: %w", err)
 		}
 		messages = append(messages, msg)

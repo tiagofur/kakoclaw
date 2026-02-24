@@ -23,8 +23,8 @@
           </button>
           <span
             class="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full"
-            :class="info.configured ? 'bg-blue-500/10 text-blue-400' : 'bg-gray-500/10 text-gray-400'"
-          >{{ info.configured ? 'Configured' : 'Not configured' }}</span>
+            :class="isProviderConfigured(info) ? 'bg-blue-500/10 text-blue-400' : 'bg-gray-500/10 text-gray-400'"
+          >{{ isProviderConfigured(info) ? 'Configured' : 'Not configured' }}</span>
         </div>
       </div>
       
@@ -34,7 +34,7 @@
           <input 
             v-model="info.api_key" 
             type="password" 
-            :placeholder="info.configured ? '••••••••••••••••' : 'Enter API Key'" 
+            :placeholder="isProviderConfigured(info) ? '••••••••••••••••' : 'Enter API Key'" 
             class="w-full bg-makoclaw-bg/40 border border-makoclaw-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-makoclaw-accent text-makoclaw-text backdrop-blur-sm transition-all"
           >
         </div>
@@ -49,7 +49,7 @@
         </div>
         <div class="lg:col-span-3">
           <button 
-            @click="$emit('save', {providers: {[name]: {api_key: info.api_key, api_base: info.api_base}}})" 
+            @click="$emit('save', {providers: {[name]: {api_key: info.api_key, api_base: info.api_base, models: Array.isArray(info.models) ? info.models : []}}})" 
             :disabled="saving"
             class="w-full bg-makoclaw-accent text-white h-11 rounded-xl font-bold hover:bg-makoclaw-accent-hover transition-all shadow-lg shadow-makoclaw-accent/20 flex items-center justify-center disabled:opacity-50 active:scale-95"
           >
@@ -160,6 +160,14 @@ const selectedProviderName = ref('')
 const newModelInput = ref('')
 const editingModels = ref([])
 
+const isProviderConfigured = (info) => {
+  if (!info || typeof info !== 'object') return false
+  if (info.configured === true) return true
+  const key = typeof info.api_key === 'string' ? info.api_key.trim() : ''
+  // Redacted values like **** still indicate a stored key
+  return key.length > 0
+}
+
 const openModelsModal = (name, info) => {
   selectedProviderName.value = name
   
@@ -168,7 +176,8 @@ const openModelsModal = (name, info) => {
     editingModels.value = [...info.models]
   } else {
     // Check for defaults from API
-    const apiProvider = props.providersList.find(p => p.name === name)
+    const providersList = Array.isArray(props.providersList) ? props.providersList : []
+    const apiProvider = providersList.find(p => p.name === name)
     if (apiProvider && apiProvider.models) {
        editingModels.value = apiProvider.models.map(m => m.id)
     } else {

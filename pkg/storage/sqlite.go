@@ -116,9 +116,12 @@ func (s *Storage) migrateUserDB() error {
 			session_id TEXT NOT NULL,
 			role TEXT NOT NULL,
 			content TEXT NOT NULL,
+			metadata TEXT DEFAULT '',
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_chats_session_id ON chats(session_id);`,
+		// Migration: add metadata column if it doesn't exist (for existing DBs)
+		`ALTER TABLE chats ADD COLUMN metadata TEXT DEFAULT '';`,
 
 		// Sessions
 		`CREATE TABLE IF NOT EXISTS sessions (
@@ -224,9 +227,12 @@ func (s *Storage) migrate() error {
 			session_id TEXT NOT NULL,
 			role TEXT NOT NULL,
 			content TEXT NOT NULL,
+			metadata TEXT DEFAULT '',
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_chats_session_id ON chats(session_id);`,
+		// Migration: add metadata column if it doesn't exist
+		`ALTER TABLE chats ADD COLUMN metadata TEXT DEFAULT '';`,
 		`CREATE TABLE IF NOT EXISTS tasks (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			title TEXT NOT NULL,

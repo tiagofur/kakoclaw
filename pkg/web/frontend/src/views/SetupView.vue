@@ -1,4 +1,22 @@
 <template>
+  <!--
+    SetupView - Degraded Mode Quick Setup
+    
+    This view is shown when:
+    - LLM provider is not configured (degraded mode)
+    - User clicks "Configure Now" button in DegradedModeBanner
+    - Routes to /setup
+    
+    Features:
+    - Quick 2-step provider configuration
+    - Step 1: Choose provider (OpenAI, Anthropic, Groq, Ollama, etc.)
+    - Step 2: Configure API key and model
+    - Does NOT mark onboarding complete or setup workspace
+    
+    Difference from OnboardingView:
+    - OnboardingView is for first-time users (/onboarding) with full 6-step wizard
+    - SetupView is for degraded mode quick fix when provider is missing
+  -->
   <div class="setup-view">
     <div class="setup-container">
       <div class="setup-header">
@@ -10,7 +28,22 @@
         <!-- Step 1: Choose Provider -->
         <div class="wizard-step" :class="{ active: step === 1 }">
           <h2>Step 1: Choose Provider</h2>
-          <div class="provider-grid">
+          
+          <!-- Loading State -->
+          <div v-if="loading" class="loading-state">
+            <div class="spinner"></div>
+            <p>Loading provider options...</p>
+          </div>
+
+          <!-- Error State -->
+          <div v-else-if="error" class="error-state">
+            <div class="error-icon">⚠️</div>
+            <p>{{ error }}</p>
+            <button @click="window.location.reload()" class="btn-secondary">Reload Page</button>
+          </div>
+
+          <!-- Provider Grid -->
+          <div v-else class="provider-grid">
             <div
               v-for="provider in providers"
               :key="provider.id"
@@ -18,13 +51,19 @@
               :class="{ selected: selectedProvider === provider.id }"
               @click="selectProvider(provider.id)"
             >
-              <div class="provider-icon">{{ provider.icon }}</div>
-              <h3>{{ provider.name }}</h3>
+              <div class="provider-icon">
+                <span v-if="provider.icon">{{ provider.icon }}</span>
+                {{ provider.name }}
+              </div>
               <p>{{ provider.description }}</p>
-              <span v-if="provider.apiKeyRequired" class="badge">API Key Required</span>
-              <span v-else class="badge local">Local/Free</span>
+              <div class="provider-badges">
+                <span v-if="provider.apiKeyRequired" class="badge">API Key Required</span>
+                <span v-else class="badge local">Local/Free</span>
+                <span v-if="provider.freeTier" class="badge free">FREE</span>
+              </div>
             </div>
           </div>
+          
           <button
             @click="step = 2"
             :disabled="!selectedProvider"
@@ -42,7 +81,7 @@
           <form @submit.prevent="saveConfiguration" class="config-form">
             <div class="form-group">
               <label>Model</label>
-              <select v-model="config.model" required>
+              <select v-model="config.model" @change="handleModelChange" required>
                 <option value="">Select a model...</option>
                 <option
                   v-for="model in getProviderModels()"
@@ -51,7 +90,20 @@
                 >
                   {{ model.name }}
                 </option>
+                <option value="__custom__">✏️ Enter custom model...</option>
               </select>
+            </div>
+
+            <!-- Custom model input -->
+            <div v-if="config.model === '__custom__'" class="form-group">
+              <label>Custom Model ID</label>
+              <input
+                v-model="customModel"
+                type="text"
+                placeholder="e.g., openrouter/free, deepseek-chat, qwen/qwen-2-7b-instruct:free"
+                required
+              />
+              <small>Enter the exact model identifier from your provider's documentation</small>
             </div>
 
             <div v-if="requiresApiKey()" class="form-group">
@@ -120,15 +172,17 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useConfigStore } from '../stores/configStore'
+import axios from 'axios'
 
 const router = useRouter()
 const configStore = useConfigStore()
 
 const step = ref(1)
 const selectedProvider = ref('')
+const customModel = ref('')
 const config = ref({
   model: '',
   apiKey: '',
@@ -141,90 +195,47 @@ const validationMessage = ref('')
 const validationClass = ref('')
 const error = ref('')
 const showSuccess = ref(false)
+const providers = ref([])
+const loading = ref(true)
 
-const providers = [
-  {
-    id: 'ollama',
-    name: 'Ollama',
-    icon: '🦙',
-    description: 'Run models locally on your machine',
-    apiKeyRequired: false,
-    models: [
-      { id: 'llama3', name: 'Llama 3' },
-      { id: 'llama3:70b', name: 'Llama 3 70B' },
-      { id: 'mistral', name: 'Mistral' },
-      { id: 'codellama', name: 'Code Llama' }
-    ],
-    defaultApiBase: 'http://localhost:11434/v1',
-    apiKeyUrl: ''
-  },
-  {
-    id: 'anthropic',
-    name: 'Anthropic',
-    icon: '🤖',
-    description: 'Claude models - Smart and reliable',
-    apiKeyRequired: true,
-    models: [
-      { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4' },
-      { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet' },
-      { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku' }
-    ],
-    defaultApiBase: 'https://api.anthropic.com',
-    apiKeyUrl: 'console.anthropic.com'
-  },
-  {
-    id: 'openai',
-    name: 'OpenAI',
-    icon: '🔮',
-    description: 'GPT models - Widely used and capable',
-    apiKeyRequired: true,
-    models: [
-      { id: 'gpt-4o', name: 'GPT-4o' },
-      { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
-      { id: 'o1', name: 'o1' },
-      { id: 'o1-mini', name: 'o1 Mini' }
-    ],
-    defaultApiBase: 'https://api.openai.com/v1',
-    apiKeyUrl: 'platform.openai.com/api-keys'
-  },
-  {
-    id: 'openrouter',
-    name: 'OpenRouter',
-    icon: '🌐',
-    description: 'Access multiple models through one API',
-    apiKeyRequired: true,
-    models: [
-      { id: 'anthropic/claude-sonnet-4-20250514', name: 'Claude Sonnet 4' },
-      { id: 'openai/gpt-4o', name: 'GPT-4o' },
-      { id: 'google/gemini-2.5-pro-preview', name: 'Gemini 2.5 Pro' },
-      { id: 'deepseek/deepseek-r1', name: 'DeepSeek R1' },
-      { id: 'meta-llama/llama-4-maverick', name: 'Llama 4 Maverick' }
-    ],
-    defaultApiBase: 'https://openrouter.ai/api/v1',
-    apiKeyUrl: 'openrouter.ai/keys'
-  },
-  {
-    id: 'groq',
-    name: 'Groq',
-    icon: '⚡',
-    description: 'Ultra-fast inference',
-    apiKeyRequired: true,
-    models: [
-      { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B' },
-      { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B' },
-      { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B' }
-    ],
-    defaultApiBase: 'https://api.groq.com/openai/v1',
-    apiKeyUrl: 'console.groq.com/keys'
+// Load providers from API on mount
+onMounted(async () => {
+  try {
+    loading.value = true
+    const response = await axios.get('/api/v1/providers/catalog')
+    providers.value = response.data.providers.map(p => ({
+      id: p.id,
+      name: p.name,
+      icon: p.icon || '🤖',
+      description: p.description,
+      apiKeyRequired: p.requires_api_key,
+      apiBaseRequired: p.requires_api_base,
+      models: p.models.map(m => ({ id: m, name: m })),
+      defaultApiBase: p.default_api_base || '',
+      apiKeyUrl: p.api_key_url || p.docs_url,
+      freeTier: p.free_tier
+    }))
+  } catch (err) {
+    console.error('Failed to load providers:', err)
+    error.value = 'Failed to load provider options. Please refresh the page.'
+  } finally {
+    loading.value = false
   }
-]
+})
 
 function selectProvider(providerId) {
   selectedProvider.value = providerId
+  customModel.value = ''
   config.value = {
     model: '',
     apiKey: '',
     apiBase: ''
+  }
+}
+
+function handleModelChange() {
+  if (config.value.model !== '__custom__') {
+    customModel.value = ''
   }
 }
 
@@ -253,7 +264,15 @@ function requiresApiBase() {
 }
 
 function canValidate() {
-  if (!selectedProvider.value || !config.value.model) return false
+  if (!selectedProvider.value) return false
+  
+  // Check if model is selected (either from dropdown or custom)
+  if (config.value.model === '__custom__') {
+    if (!customModel.value) return false
+  } else if (!config.value.model) {
+    return false
+  }
+  
   if (requiresApiKey() && !config.value.apiKey) return false
   return true
 }
@@ -294,9 +313,15 @@ async function saveConfiguration() {
   error.value = ''
 
   try {
+    // Determine final model value
+    let finalModel = config.value.model
+    if (config.value.model === '__custom__') {
+      finalModel = customModel.value
+    }
+
     const payload = {
       provider: selectedProvider.value,
-      model: config.value.model,
+      model: finalModel,
       api_key: config.value.apiKey
     }
 
@@ -422,11 +447,60 @@ function goToDashboard() {
   border-radius: 12px;
   font-size: 12px;
   font-weight: 600;
+  margin: 2px;
 }
 
 .badge.local {
   background: #4caf50;
   color: white;
+}
+
+.badge.free {
+  background: #00bcd4;
+  color: white;
+}
+
+.provider-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+
+.loading-state,
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid #e0e0e0;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 20px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-state p,
+.error-state p {
+  font-size: 16px;
+  color: #666;
+  margin: 0 0 16px 0;
+}
+
+.error-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
 }
 
 .config-form {

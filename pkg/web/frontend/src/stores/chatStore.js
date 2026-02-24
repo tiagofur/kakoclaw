@@ -40,7 +40,8 @@ export const useChatStore = defineStore('chat', () => {
       role: 'assistant',
       content: '',
       timestamp: new Date().toISOString(),
-      streaming: true
+      streaming: true,
+      agents: [] // Initialize empty agents array
     })
     streamingMessageId.value = id
     isStreaming.value = true
@@ -57,7 +58,7 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   // Finalize the streaming message (set final content, mark as not streaming)
-  function endStreamingMessage(finalContent) {
+  function endStreamingMessage(finalContent, agents = []) {
     if (streamingMessageId.value) {
       const msg = messages.value.find(m => m.id === streamingMessageId.value)
       if (msg) {
@@ -66,10 +67,22 @@ export const useChatStore = defineStore('chat', () => {
           msg.content = finalContent
         }
         msg.streaming = false
+        // Assign agents if provided
+        if (agents && agents.length > 0) {
+          msg.agents = agents
+        }
       }
     }
     streamingMessageId.value = null
     isStreaming.value = false
+  }
+
+  // Set agents for a specific message (for loading from history or post-streaming)
+  function setAgentsForMessage(messageId, agents) {
+    const msg = messages.value.find(m => m.id === messageId)
+    if (msg) {
+      msg.agents = agents || []
+    }
   }
 
   function addToolCall(toolCall) {
@@ -275,6 +288,7 @@ export const useChatStore = defineStore('chat', () => {
     startStreamingMessage,
     appendStreamToken,
     endStreamingMessage,
+    setAgentsForMessage,
     addToolCall,
     setMessages,
     clearMessages,

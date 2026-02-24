@@ -575,10 +575,25 @@ const loadSession = async (sessionId, options = { updateRoute: true }) => {
   
   try {
     const data = await taskService.fetchSessionMessages(normalizedSessionId)
-    chatStore.setMessages((data.messages || []).map(m => ({
-      ...m,
-      timestamp: m.created_at // Normalize timestamp
-    })))
+    chatStore.setMessages((data.messages || []).map(m => {
+      // Parse metadata to extract agents
+      let agents = []
+      if (m.metadata && typeof m.metadata === 'string') {
+        try {
+          const meta = JSON.parse(m.metadata)
+          if (meta.agents && Array.isArray(meta.agents)) {
+            agents = meta.agents
+          }
+        } catch (e) {
+          // Ignore parse errors
+        }
+      }
+      return {
+        ...m,
+        timestamp: m.created_at, // Normalize timestamp
+        agents: agents
+      }
+    }))
     // Close sidebar on mobile
     showSidebar.value = false
   } catch (error) {
@@ -684,7 +699,8 @@ const handleMessage = (message) => {
     chatStore.addMessage({
       role: message.role || 'assistant',
       content: message.content,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      agents: message.agents || []
     })
     // Refresh sessions to show latest message/time
     fetchSessions()
@@ -696,7 +712,11 @@ const handleMessage = (message) => {
     chatStore.appendStreamToken(message.content || '')
   }
   if (message.type === 'stream_end') {
-    chatStore.endStreamingMessage(message.content || '')
+    if (message.error) {
+      chatStore.endStreamingMessage(`Error: ${message.error}`, [])
+    } else {
+      chatStore.endStreamingMessage(message.content || '', message.agents || [])
+    }
     fetchSessions()
   }
   if (message.type === 'tool_call') {
@@ -863,12 +883,17 @@ const sendMessage = async () => {
 
   // Send via WebSocket
   if (chatWs.isConnected()) {
+    const excludeTools = (chatStore.availableTools || []).filter(
+      tool => !(chatStore.enabledTools || []).includes(tool)
+    )
+
     chatWs.send({
       type: 'message',
       content: finalContent,
       session_id: currentSessionId.value,
       model: chatStore.selectedModel || undefined,
-      web_search: chatStore.webSearchEnabled
+      web_search: chatStore.webSearchEnabled,
+      exclude_tools: excludeTools
     })
     // Refresh sessions to show new thread
     setTimeout(fetchSessions, 500)

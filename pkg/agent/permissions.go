@@ -14,7 +14,7 @@ func filterToolsByPermissions(
 	userRole string,
 	userID int64,
 	cfg *config.Config,
-	store *storage.Storage,
+	centralStore *storage.CentralStorage,
 ) *tools.ToolRegistry {
 	// Get role default permissions
 	rolePermissions, ok := cfg.ToolPermissions.RoleDefaults[userRole]
@@ -28,8 +28,8 @@ func filterToolsByPermissions(
 
 	// Get effective permissions (user overrides or role defaults)
 	effectivePermissions := rolePermissions
-	if userID > 0 && store != nil {
-		user, err := store.GetUserByID(userID)
+	if userID > 0 && centralStore != nil {
+		user, err := centralStore.GetUserByID(userID)
 		if err == nil {
 			effectivePermissions = user.GetEffectiveToolPermissions(rolePermissions)
 		}

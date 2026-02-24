@@ -26,7 +26,7 @@
         <div class="mb-4 px-4 py-3 rounded-lg border"
           :class="status.enabled ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400'"
         >
-          <span class="font-medium">Cron service: {{ status.enabled ? 'Running' : 'Not available' }}</span>
+          <span class="font-medium">Cron service: {{ statusLabel }}</span>
           <span v-if="status.jobs !== undefined" class="ml-2 text-sm opacity-75">({{ status.jobs }} active jobs)</span>
         </div>
 
@@ -300,6 +300,12 @@ const commonTimezones = [
   'Asia/Shanghai', 'Asia/Tokyo', 'Asia/Seoul', 'Asia/Kolkata', 'Asia/Singapore',
   'Australia/Sydney', 'Pacific/Auckland'
 ]
+
+const statusLabel = computed(() => {
+  if (status.value.enabled) return 'Running'
+  if (status.value.reason === 'not_initialized') return 'Not available for this user'
+  return 'Not available'
+})
 
 const defaultForm = () => ({
   name: '',

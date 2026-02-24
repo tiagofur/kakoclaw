@@ -1,5 +1,5 @@
 <template>
-  <div v-if="configStore.needsConfiguration() && !dismissed" class="degraded-banner">
+  <div v-if="shouldShowBanner" class="degraded-banner">
     <div class="banner-content">
       <div class="banner-icon">⚠️</div>
       <div class="banner-text">
@@ -17,8 +17,9 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useConfigStore } from '../stores/configStore'
+import { useOnboardingStore } from '../stores/onboardingStore'
 import { useRouter } from 'vue-router'
 
 const props = defineProps({
@@ -29,11 +30,22 @@ const props = defineProps({
 })
 
 const configStore = useConfigStore()
+const onboardingStore = useOnboardingStore()
 const router = useRouter()
 const dismissed = ref(false)
 
+// Only show degraded mode banner if:
+// 1. Configuration is needed (no provider)
+// 2. Not dismissed by user
+// 3. Onboarding is not needed (if onboarding needed, router will redirect)
+const shouldShowBanner = computed(() => {
+  return configStore.needsConfiguration() && 
+         !dismissed.value && 
+         !onboardingStore.needsOnboarding
+})
+
 function showSetupWizard() {
-  router.push('/setup')
+  router.push('/settings?tab=providers')
 }
 
 function dismiss() {

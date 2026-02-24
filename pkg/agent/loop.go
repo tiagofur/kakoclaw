@@ -48,14 +48,46 @@ type AgentLoop struct {
 	running          atomic.Bool
 	summarizing      sync.Map // Tracks which sessions are currently being summarized
 	storage          *storage.Storage
+	centralStorage   *storage.CentralStorage  // Central DB for user identity and permissions lookups
 	auditLogger      *tools.SQLiteAuditLogger // Audit logger for restricted tools
 	cfg              *config.Config           // Config for permission checks
+	involvedAgentsMu sync.Mutex               // Mutex for thread-safe agent tracking
+	involvedAgents   []string                 // Agents involved in current/last response
 }
 
 // ToolRegistry returns the agent loop's tool registry so external
 // components (e.g. the workflow engine) can invoke tools directly.
 func (al *AgentLoop) ToolRegistry() *tools.ToolRegistry {
 	return al.tools
+}
+
+// AddInvolvedAgent adds an agent/specialist name to the list of agents involved in the current response.
+func (al *AgentLoop) AddInvolvedAgent(name string) {
+	al.involvedAgentsMu.Lock()
+	defer al.involvedAgentsMu.Unlock()
+	// Avoid duplicates
+	for _, existing := range al.involvedAgents {
+		if existing == name {
+			return
+		}
+	}
+	al.involvedAgents = append(al.involvedAgents, name)
+}
+
+// GetInvolvedAgents returns the list of agents involved in the current/last response.
+func (al *AgentLoop) GetInvolvedAgents() []string {
+	al.involvedAgentsMu.Lock()
+	defer al.involvedAgentsMu.Unlock()
+	result := make([]string, len(al.involvedAgents))
+	copy(result, al.involvedAgents)
+	return result
+}
+
+// ClearInvolvedAgents clears the list of involved agents (call before processing a new message).
+func (al *AgentLoop) ClearInvolvedAgents() {
+	al.involvedAgentsMu.Lock()
+	defer al.involvedAgentsMu.Unlock()
+	al.involvedAgents = al.involvedAgents[:0]
 }
 
 // processOptions configures how a message is processed
@@ -86,7 +118,7 @@ type ToolCallback func(ev ToolEvent) error
 
 // NewAgentLoopForUser creates an agent loop for a specific user with their merged configuration.
 // It loads the user's config and merges it with the global config, then initializes the agent loop.
-func NewAgentLoopForUser(userUUID string, globalCfg *config.Config, msgBus *bus.MessageBus, storage *storage.Storage) (*AgentLoop, error) {
+func NewAgentLoopForUser(userUUID string, globalCfg *config.Config, msgBus *bus.MessageBus, centralStore *storage.CentralStorage, userStore ...*storage.Storage) (*AgentLoop, error) {
 	if userUUID == "" {
 		return nil, fmt.Errorf("userUUID is required")
 	}
@@ -112,10 +144,14 @@ func NewAgentLoopForUser(userUUID string, globalCfg *config.Config, msgBus *bus.
 
 	// Create agent loop with merged config
 	al := NewAgentLoop(mergedCfg, msgBus, provider)
+	al.SetCentralStorage(centralStore)
+	if len(userStore) > 0 && userStore[0] != nil {
+		al.SetStorage(userStore[0])
+	}
 
 	// Set user context
-	if storage != nil {
-		user, err := storage.GetUserByUUID(userUUID)
+	if centralStore != nil {
+		user, err := centralStore.GetUserByUUID(userUUID)
 		if err == nil {
 			al.SetUserForAgent(userUUID, user.ID)
 		} else {
@@ -247,9 +283,15 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 		baseTools:        toolsRegistry, // Keep reference to unfiltered tools
 		summarizing:      sync.Map{},
 		storage:          store,
+		centralStorage:   nil, // Set via SetCentralStorage in multi-user mode
 		auditLogger:      auditLogger,
 		cfg:              cfg,
 	}
+}
+
+// SetCentralStorage sets the central database storage for user identity lookups.
+func (al *AgentLoop) SetCentralStorage(cs *storage.CentralStorage) {
+	al.centralStorage = cs
 }
 
 // SetUserForAgent configures the agent loop for a specific user (multiuser support).
@@ -258,14 +300,14 @@ func (al *AgentLoop) SetUserForAgent(userUUID string, userID int64) {
 	al.userUUID = userUUID
 	al.userID = userID
 
-	// Get user from storage to determine role
-	if userID > 0 && al.storage != nil {
-		user, err := al.storage.GetUserByID(userID)
+	// Get user from central storage to determine role
+	if userID > 0 && al.centralStorage != nil {
+		user, err := al.centralStorage.GetUserByID(userID)
 		if err == nil {
 			al.userRole = user.Role
 
 			// Apply permission filtering
-			filteredTools := filterToolsByPermissions(al.baseTools, user.Role, userID, al.cfg, al.storage)
+			filteredTools := filterToolsByPermissions(al.baseTools, user.Role, userID, al.cfg, al.centralStorage)
 			al.tools = filteredTools
 			al.contextBuilder.SetToolsRegistry(filteredTools)
 
@@ -337,12 +379,12 @@ func (al *AgentLoop) applyMessageUserContext(msg bus.InboundMessage) {
 		al.SetUserForAgent("", 0)
 		return
 	}
-	if al.storage == nil {
+	if al.centralStorage == nil {
 		al.SetUserForAgent("", msg.UserID)
 		return
 	}
 
-	user, err := al.storage.GetUserByID(msg.UserID)
+	user, err := al.centralStorage.GetUserByID(msg.UserID)
 	if err != nil {
 		logger.WarnCF("agent", "Failed to resolve user UUID", map[string]interface{}{"error": err.Error()})
 		al.SetUserForAgent("", msg.UserID)
@@ -394,6 +436,28 @@ func (al *AgentLoop) RegisterTool(tool tools.Tool) {
 	al.tools.Register(tool)
 }
 
+// SetStorage replaces the active data storage used by stateful tools and message persistence.
+// The central storage used for identity/permission lookups remains unchanged.
+func (al *AgentLoop) SetStorage(store *storage.Storage) {
+	if store == nil {
+		return
+	}
+
+	al.storage = store
+
+	if taskTool, err := tools.NewTaskTool(store); err == nil {
+		al.baseTools.Register(taskTool)
+	} else {
+		logger.WarnCF("agent", "Task manager tool unavailable after storage switch", map[string]interface{}{"error": err.Error()})
+	}
+	al.baseTools.Register(tools.NewKnowledgeTool(store))
+
+	al.tools = filterToolsByPermissions(al.baseTools, al.userRole, al.userID, al.cfg, al.centralStorage)
+	al.contextBuilder.SetToolsRegistry(al.tools)
+	al.updateToolsWorkspace(al.workspace)
+	al.updateToolsUser(al.userID)
+}
+
 func (al *AgentLoop) ProcessDirect(ctx context.Context, content, sessionKey string) (string, error) {
 	return al.ProcessDirectWithChannel(ctx, content, sessionKey, "cli", "direct")
 }
@@ -405,6 +469,20 @@ func (al *AgentLoop) ProcessDirectWithChannel(ctx context.Context, content, sess
 		ChatID:     chatID,
 		Content:    content,
 		SessionKey: sessionKey,
+	}
+
+	return al.processMessage(ctx, msg)
+}
+
+// ProcessDirectWithChannelForUser processes a message for a specific user with a channel override.
+func (al *AgentLoop) ProcessDirectWithChannelForUser(ctx context.Context, userID int64, content, sessionKey, channel, chatID string) (string, error) {
+	msg := bus.InboundMessage{
+		Channel:    channel,
+		SenderID:   "cron",
+		ChatID:     chatID,
+		Content:    content,
+		SessionKey: sessionKey,
+		UserID:     userID,
 	}
 
 	return al.processMessage(ctx, msg)
@@ -439,6 +517,21 @@ func (al *AgentLoop) ProcessDirectWithModel(ctx context.Context, content, sessio
 	return al.processMessageWithModel(ctx, msg, modelOverride, excludeTools...)
 }
 
+// ProcessDirectWithUserAndModel processes a message for a specific user using a model override.
+// excludeTools optionally specifies tool names to exclude from this request.
+func (al *AgentLoop) ProcessDirectWithUserAndModel(ctx context.Context, userID int64, content, sessionKey, modelOverride string, excludeTools ...string) (string, error) {
+	msg := bus.InboundMessage{
+		Channel:    "cli",
+		SenderID:   fmt.Sprintf("user:%d", userID),
+		ChatID:     "direct",
+		Content:    content,
+		SessionKey: sessionKey,
+		UserID:     userID,
+	}
+
+	return al.processMessageWithModel(ctx, msg, modelOverride, excludeTools...)
+}
+
 // StreamCallback is called for each streamed token. Return an error to abort streaming.
 type StreamCallback func(token string) error
 
@@ -453,6 +546,21 @@ func (al *AgentLoop) ProcessDirectWithModelStream(ctx context.Context, content, 
 		ChatID:     "direct",
 		Content:    content,
 		SessionKey: sessionKey,
+	}
+
+	return al.processMessageWithModelStream(ctx, msg, modelOverride, onToken, onTool, excludeTools...)
+}
+
+// ProcessDirectWithUserAndModelStream processes a message for a specific user with streaming.
+// excludeTools optionally specifies tool names to exclude from this request.
+func (al *AgentLoop) ProcessDirectWithUserAndModelStream(ctx context.Context, userID int64, content, sessionKey, modelOverride string, onToken StreamCallback, onTool ToolCallback, excludeTools ...string) (string, error) {
+	msg := bus.InboundMessage{
+		Channel:    "cli",
+		SenderID:   fmt.Sprintf("user:%d", userID),
+		ChatID:     "direct",
+		Content:    content,
+		SessionKey: sessionKey,
+		UserID:     userID,
 	}
 
 	return al.processMessageWithModelStream(ctx, msg, modelOverride, onToken, onTool, excludeTools...)
@@ -514,8 +622,13 @@ func (al *AgentLoop) processMessageWithModel(ctx context.Context, msg bus.Inboun
 }
 
 func (al *AgentLoop) processMessageWithModelStream(ctx context.Context, msg bus.InboundMessage, modelOverride string, onToken StreamCallback, onTool ToolCallback, excludeTools ...string) (string, error) {
+	al.applyMessageUserContext(msg)
+
 	// Rate limiting
 	userKey := fmt.Sprintf("user:%s", msg.SenderID)
+	if msg.UserID > 0 {
+		userKey = fmt.Sprintf("user:%d", msg.UserID)
+	}
 	if !ratelimit.GetGlobalLimiter().Allow(userKey) {
 		return "Rate limit exceeded. Please wait a moment before sending more messages.", nil
 	}
@@ -588,6 +701,9 @@ func (al *AgentLoop) processSystemMessage(ctx context.Context, msg bus.InboundMe
 // runAgentLoop is the core message processing logic.
 // It handles context building, LLM calls, tool execution, and response handling.
 func (al *AgentLoop) runAgentLoop(ctx context.Context, opts processOptions) (string, error) {
+	// Clear previous involved agents before processing
+	al.ClearInvolvedAgents()
+
 	agentStart := time.Now()
 
 	// 1. Update tool contexts
@@ -608,7 +724,7 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, opts processOptions) (str
 	// 3. Save user message to session
 	al.sessions.AddMessageForUser(al.userID, opts.SessionKey, "user", opts.UserMessage)
 	if al.storage != nil {
-		if err := al.storage.SaveMessageForUser(al.userID, opts.SessionKey, "user", opts.UserMessage); err != nil {
+		if err := al.storage.SaveMessageForUser(al.userID, opts.SessionKey, "user", opts.UserMessage, ""); err != nil {
 			logger.ErrorCF("agent", "Failed to save user message to storage", map[string]interface{}{"error": err.Error()})
 		}
 	}
@@ -629,7 +745,16 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, opts processOptions) (str
 	al.sessions.AddMessageForUser(al.userID, opts.SessionKey, "assistant", finalContent)
 	al.sessions.SaveForUser(al.userID, al.sessions.GetOrCreateForUser(al.userID, opts.SessionKey))
 	if al.storage != nil {
-		if err := al.storage.SaveMessageForUser(al.userID, opts.SessionKey, "assistant", finalContent); err != nil {
+		// Prepare metadata with involved agents
+		agents := al.GetInvolvedAgents()
+		if len(agents) == 0 {
+			agents = []string{"default"}
+		}
+		var metadata string
+		if agentJSON, err := json.Marshal(map[string]interface{}{"agents": agents}); err == nil {
+			metadata = string(agentJSON)
+		}
+		if err := al.storage.SaveMessageForUser(al.userID, opts.SessionKey, "assistant", finalContent, metadata); err != nil {
 			logger.ErrorCF("agent", "Failed to save assistant message to storage", map[string]interface{}{"error": err.Error()})
 		}
 	}
@@ -664,6 +789,9 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, opts processOptions) (str
 // runAgentLoopStream is like runAgentLoop but streams the final text response token-by-token.
 // Tool call iterations are handled non-streaming. Only the final text answer is streamed.
 func (al *AgentLoop) runAgentLoopStream(ctx context.Context, opts processOptions, onToken StreamCallback) (string, error) {
+	// Clear previous involved agents before processing
+	al.ClearInvolvedAgents()
+
 	agentStart := time.Now()
 
 	// 1. Update tool contexts
@@ -684,7 +812,7 @@ func (al *AgentLoop) runAgentLoopStream(ctx context.Context, opts processOptions
 	// 3. Save user message to session
 	al.sessions.AddMessageForUser(al.userID, opts.SessionKey, "user", opts.UserMessage)
 	if al.storage != nil {
-		if err := al.storage.SaveMessageForUser(al.userID, opts.SessionKey, "user", opts.UserMessage); err != nil {
+		if err := al.storage.SaveMessageForUser(al.userID, opts.SessionKey, "user", opts.UserMessage, ""); err != nil {
 			logger.ErrorCF("agent", "Failed to save user message to storage", map[string]interface{}{"error": err.Error()})
 		}
 	}
@@ -705,7 +833,16 @@ func (al *AgentLoop) runAgentLoopStream(ctx context.Context, opts processOptions
 	al.sessions.AddMessageForUser(al.userID, opts.SessionKey, "assistant", finalContent)
 	al.sessions.SaveForUser(al.userID, al.sessions.GetOrCreateForUser(al.userID, opts.SessionKey))
 	if al.storage != nil {
-		if err := al.storage.SaveMessageForUser(al.userID, opts.SessionKey, "assistant", finalContent); err != nil {
+		// Prepare metadata with involved agents
+		agents := al.GetInvolvedAgents()
+		if len(agents) == 0 {
+			agents = []string{"default"}
+		}
+		var metadata string
+		if agentJSON, err := json.Marshal(map[string]interface{}{"agents": agents}); err == nil {
+			metadata = string(agentJSON)
+		}
+		if err := al.storage.SaveMessageForUser(al.userID, opts.SessionKey, "assistant", finalContent, metadata); err != nil {
 			logger.ErrorCF("agent", "Failed to save assistant message to storage", map[string]interface{}{"error": err.Error()})
 		}
 	}
@@ -1288,7 +1425,7 @@ func formatMessagesForLog(messages []providers.Message) string {
 	result += "[\n"
 	for i, msg := range messages {
 		result += fmt.Sprintf("  [%d] Role: %s\n", i, msg.Role)
-		if msg.ToolCalls != nil && len(msg.ToolCalls) > 0 {
+		if len(msg.ToolCalls) > 0 {
 			result += "  ToolCalls:\n"
 			for _, tc := range msg.ToolCalls {
 				result += fmt.Sprintf("    - ID: %s, Type: %s, Name: %s\n", tc.ID, tc.Type, tc.Name)
@@ -1433,3 +1570,5 @@ func (al *AgentLoop) estimateTokens(messages []providers.Message) int {
 	}
 	return total
 }
+
+

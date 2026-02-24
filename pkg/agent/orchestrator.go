@@ -193,6 +193,13 @@ func (oa *OrchestratorAgent) processSpecialistTask(ctx context.Context, speciali
 		return "", fmt.Errorf("specialist processing error: %w", err)
 	}
 
+	// Register that this specialist was involved in the response
+	// Register orchestrator if not already registered
+	if len(oa.AgentLoop.GetInvolvedAgents()) == 0 {
+		oa.AgentLoop.AddInvolvedAgent("orchestrator")
+	}
+	oa.AgentLoop.AddInvolvedAgent(specialistName)
+
 	return result, nil
 }
 

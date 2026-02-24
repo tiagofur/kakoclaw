@@ -258,7 +258,7 @@ func LoadSpecialistsFromConfig(
 ) (*SpecialistRegistry, error) {
 	registry := NewSpecialistRegistry()
 
-	if cfg.Agents.Specialists == nil || len(cfg.Agents.Specialists) == 0 {
+	if len(cfg.Agents.Specialists) == 0 {
 		logger.DebugCF("agent", "No specialists configured", map[string]interface{}{})
 		return registry, nil
 	}

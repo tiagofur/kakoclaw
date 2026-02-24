@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
+import { useOnboardingStore } from '../stores/onboardingStore'
 import LandingPage from '../views/LandingPage.vue'
 import LoginPage from '../views/LoginPage.vue'
 import SignupPage from '../views/SignupPage.vue'
@@ -151,8 +152,9 @@ const router = createRouter({
 })
 
 // Navigation guard
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
+  const onboardingStore = useOnboardingStore()
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
 
   // Check if session is expired
@@ -164,6 +166,22 @@ router.beforeEach((to, from, next) => {
     next('/landing')
   } else if (!requiresAuth && authStore.isAuthenticated && ['login', 'signup', 'landing'].includes(to.name)) {
     next('/')
+  } else if (authStore.isAuthenticated && requiresAuth) {
+    // Check if onboarding is needed (only for authenticated users)
+    // Skip onboarding check if already on onboarding page or certain exception routes
+    const skipOnboardingCheck = ['onboarding', 'setup', 'logout'].includes(to.name) || to.path.startsWith('/api')
+    
+    if (!skipOnboardingCheck) {
+      // Ensure onboarding status has been fetched from the server before deciding
+      if (!onboardingStore.statusChecked && !onboardingStore.loading) {
+        await onboardingStore.checkOnboardingStatus()
+      }
+      if (onboardingStore.needsOnboarding) {
+        next('/onboarding')
+        return
+      }
+    }
+    next()
   } else {
     next()
   }

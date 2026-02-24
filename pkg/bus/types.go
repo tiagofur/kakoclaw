@@ -12,10 +12,11 @@ type InboundMessage struct {
 }
 
 type OutboundMessage struct {
-	UserID  int64  `json:"user_id"` // User ID for routing
-	Channel string `json:"channel"`
-	ChatID  string `json:"chat_id"`
-	Content string `json:"content"`
+	UserID   int64             `json:"user_id"` // User ID for routing
+	Channel  string            `json:"channel"`
+	ChatID   string            `json:"chat_id"`
+	Content  string            `json:"content"`
+	Metadata map[string]string `json:"metadata,omitempty"` // Agent attribution metadata
 }
 
 type MessageHandler func(InboundMessage) error

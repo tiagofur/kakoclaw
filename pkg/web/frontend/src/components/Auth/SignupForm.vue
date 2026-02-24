@@ -223,11 +223,28 @@ const handleSignup = async () => {
     })
 
     if (!response.ok) {
-      const data = await response.json().catch(() => ({ error: 'Registration failed' }))
+      // Try to parse JSON, fallback to text response
+      let data
+      const contentType = response.headers.get('content-type')
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json().catch(() => ({ error: 'Registration failed' }))
+      } else {
+        const text = await response.text().catch(() => 'Registration failed')
+        data = { error: text }
+      }
       
       // Check if it's a blocked email error
       const isBlocked = data.blocked === true
-      const errorMsg = data.error || 'Registration failed'
+      let errorMsg = data.error || 'Registration failed'
+      
+      // Handle specific error types
+      if (response.status === 409) {
+        errorMsg = data.error || 'Username or email already exists. Please try different credentials.'
+      } else if (response.status === 429) {
+        errorMsg = 'Too many registration attempts. Please try again later.'
+      } else if (response.status === 400) {
+        errorMsg = data.error || 'Invalid registration data. Please check your input.'
+      }
       
       errorMessage.value = errorMsg
       isBlockedError.value = isBlocked

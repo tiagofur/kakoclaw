@@ -53,7 +53,7 @@ func (am *AgentManager) InitializeOrchestrator(
 	}
 
 	// Check if there are any specialists configured
-	if cfg.Agents.Specialists == nil || len(cfg.Agents.Specialists) == 0 {
+	if len(cfg.Agents.Specialists) == 0 {
 		logger.WarnCF("agent", "Orchestrator enabled but no specialists configured", map[string]interface{}{})
 		return nil
 	}
@@ -110,9 +110,6 @@ func (am *AgentManager) IsOrchestrated() bool {
 
 // AddOrUpdateSpecialist registers a specialist from config, replacing any existing entry.
 func (am *AgentManager) AddOrUpdateSpecialist(name string, cfg *config.SpecialistConfig, globalCfg *config.Config, store *storage.Storage) (*SpecialistAgent, error) {
-	if !am.IsReady() {
-		return nil, fmt.Errorf("agent manager not ready: no LLM provider configured")
-	}
 	if cfg == nil {
 		return nil, fmt.Errorf("specialist config is required")
 	}
@@ -121,6 +118,13 @@ func (am *AgentManager) AddOrUpdateSpecialist(name string, cfg *config.Specialis
 	}
 	if cfg.Name == "" {
 		return nil, fmt.Errorf("specialist name is required")
+	}
+
+	if !am.IsReady() {
+		logger.InfoCF("agent", "Specialist config saved but runtime registration skipped (degraded mode)", map[string]interface{}{
+			"specialist": cfg.Name,
+		})
+		return nil, nil
 	}
 
 	baseProvider := am.defaultAgent.provider
@@ -145,3 +149,7 @@ func (am *AgentManager) RemoveSpecialist(name string) bool {
 	}
 	return am.specialistReg.RemoveSpecialist(name)
 }
+
+
+
+
