@@ -883,58 +883,58 @@ func gatewayCmd() {
 
 	var webServer *web.Server
 	if cfg.Web.Enabled {
-		// Use default agent loop for web panel (backward compatibility)
-		// Individual users will use their own agent loops via MultiUserChannelManager
+		// Web panel always starts in gateway mode.
+		// Each user has their own agent loop via MultiUserChannelManager;
+		// the global defaultAgentLoop may be nil when no global provider is configured
+		// (per-user degraded mode). The web server supports nil agentLoop gracefully.
 		if defaultAgentLoop == nil {
-			fmt.Printf("Error: Cannot create web server without a valid agent loop\n")
-			fmt.Printf("Please configure a valid LLM provider or agent model\n")
+			fmt.Println("⚠ No global LLM provider configured — web panel starting in per-user mode")
+			fmt.Println("  Users with a provider configured in their own settings will have full agent access")
+		}
+		webServer = web.NewServerWithWorkspace(cfg.Web, defaultAgentLoop, cfg.WorkspacePath())
+		webServer.SetBus(msgBus)
+
+		// Initialize storage for tasks, chat history, etc.
+		if channelStore != nil {
+			webServer.SetStorage(channelStore)
+		}
+		// Wire central and per-user storage for multi-user isolation
+		if centralStore != nil {
+			webServer.SetCentralStorage(centralStore)
+		}
+		if userMgr != nil {
+			webServer.SetUserStorageManager(userMgr)
+		}
+
+		// Wire additional services for advanced REST endpoints
+		if agentManager != nil {
+			webServer.SetAgentManager(agentManager)
+		}
+		webServer.SetMultiUserChannelManager(multiChannelManager)
+		webServer.SetFullConfig(cfg)
+		if transcriber != nil {
+			webServer.SetTranscriber(transcriber)
+		}
+		if mcpManager != nil {
+			webServer.SetMCPManager(mcpManager)
+		}
+		home, _ := os.UserHomeDir()
+		skillsLoader := skills.NewSkillsLoader(
+			cfg.WorkspacePath(),
+			filepath.Join(home, ".MakoClaw", "skills"),
+			"",
+		)
+		skillInstaller := skills.NewSkillInstaller(cfg.WorkspacePath())
+		webServer.SetSkills(skillsLoader, skillInstaller)
+		// Wire workflow engine only when a global agent loop is available
+		if channelStore != nil && defaultAgentLoop != nil {
+			wfEngine := workflow.NewEngine(defaultAgentLoop, defaultAgentLoop.ToolRegistry(), channelStore)
+			webServer.SetWorkflowEngine(wfEngine)
+		}
+		if err := webServer.Start(ctx); err != nil {
+			fmt.Printf("Error starting web server: %v\n", err)
 		} else {
-			webServer = web.NewServerWithWorkspace(cfg.Web, defaultAgentLoop, cfg.WorkspacePath())
-			webServer.SetBus(msgBus)
-
-			// Initialize storage for tasks, chat history, etc.
-			if channelStore != nil {
-				webServer.SetStorage(channelStore)
-			}
-			// Wire central and per-user storage for multi-user isolation
-			if centralStore != nil {
-				webServer.SetCentralStorage(centralStore)
-			}
-			if userMgr != nil {
-				webServer.SetUserStorageManager(userMgr)
-			}
-
-			// Wire additional services for advanced REST endpoints
-			if agentManager != nil {
-				webServer.SetAgentManager(agentManager)
-			}
-			webServer.SetMultiUserChannelManager(multiChannelManager)
-			webServer.SetFullConfig(cfg)
-			if transcriber != nil {
-				webServer.SetTranscriber(transcriber)
-			}
-			if mcpManager != nil {
-				webServer.SetMCPManager(mcpManager)
-			}
-			home, _ := os.UserHomeDir()
-			skillsLoader := skills.NewSkillsLoader(
-				cfg.WorkspacePath(),
-				filepath.Join(home, ".MakoClaw", "skills"),
-				"",
-			)
-			skillInstaller := skills.NewSkillInstaller(cfg.WorkspacePath())
-			webServer.SetSkills(skillsLoader, skillInstaller)
-			// Wire workflow engine (uses default agent for now)
-			// TODO: Make workflow engine per-user
-			if channelStore != nil {
-				wfEngine := workflow.NewEngine(defaultAgentLoop, defaultAgentLoop.ToolRegistry(), channelStore)
-				webServer.SetWorkflowEngine(wfEngine)
-			}
-			if err := webServer.Start(ctx); err != nil {
-				fmt.Printf("Error starting web server: %v\n", err)
-			} else {
-				fmt.Printf("✓ Web panel started on %s:%d\n", cfg.Web.Host, cfg.Web.Port)
-			}
+			fmt.Printf("✓ Web panel started on %s:%d\n", cfg.Web.Host, cfg.Web.Port)
 		}
 	}
 
