@@ -98,28 +98,62 @@ func (c *TelegramChannel) cleanupThinking(chatID string) {
 func (c *TelegramChannel) Start(ctx context.Context) error {
 	logger.InfoC("telegram", "Starting Telegram bot (polling mode)...")
 
-	updates, err := c.bot.UpdatesViaLongPolling(ctx, &telego.GetUpdatesParams{
-		Timeout: 30,
-	})
+	// Verify connectivity via getMe
+	me, err := c.bot.GetMe(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to start long polling: %w", err)
+		return fmt.Errorf("failed to connect to Telegram: %w", err)
 	}
 
 	c.setRunning(true)
 	logger.InfoCF("telegram", "Telegram bot connected", map[string]interface{}{
-		"username": c.bot.Username(),
+		"username": me.Username,
+		"id":       me.ID,
 	})
 
 	go func() {
+		var offset int
 		for {
 			select {
 			case <-ctx.Done():
+				logger.InfoC("telegram", "Polling stopped (context cancelled)")
 				return
-			case update, ok := <-updates:
-				if !ok {
-					logger.InfoC("telegram", "Updates channel closed, reconnecting...")
+			default:
+			}
+
+			logger.InfoCF("telegram", "Calling getUpdates", map[string]interface{}{
+				"offset": offset,
+			})
+
+			result, err := c.bot.GetUpdates(ctx, &telego.GetUpdatesParams{
+				Offset:  offset,
+				Timeout: 30,
+				Limit:   100,
+			})
+			if err != nil {
+				if ctx.Err() != nil {
 					return
 				}
+				logger.WarnCF("telegram", "getUpdates error, retrying in 5s", map[string]interface{}{
+					"error": err.Error(),
+				})
+				time.Sleep(5 * time.Second)
+				continue
+			}
+
+			logger.InfoCF("telegram", "getUpdates returned", map[string]interface{}{
+				"count": len(result),
+			})
+
+			for _, update := range result {
+				if update.UpdateID >= offset {
+					offset = update.UpdateID + 1
+				}
+				logger.InfoCF("telegram", "Processing update", map[string]interface{}{
+					"update_id":    update.UpdateID,
+					"has_message":  update.Message != nil,
+					"has_edited":   update.EditedMessage != nil,
+					"has_callback": update.CallbackQuery != nil,
+				})
 				if update.Message != nil {
 					c.handleMessage(ctx, update)
 				}
@@ -196,10 +230,16 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, update telego.Updat
 		senderID = fmt.Sprintf("%d|%s", user.ID, user.Username)
 	}
 
+	logger.InfoCF("telegram", "Incoming message", map[string]interface{}{
+		"sender_id": senderID,
+		"chat_id":   fmt.Sprintf("%d", message.Chat.ID),
+		"text":      utils.Truncate(message.Text, 50),
+	})
+
 	// 检查白名单，避免为被拒绝的用户下载附件
 	if !c.IsAllowed(senderID) {
-		logger.DebugCF("telegram", "Message rejected by allowlist", map[string]interface{}{
-			"user_id": senderID,
+		logger.InfoCF("telegram", "Message rejected by allowlist", map[string]interface{}{
+			"sender_id": senderID,
 		})
 		return
 	}
@@ -335,7 +375,7 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, update telego.Updat
 		content = "[empty message]"
 	}
 
-	logger.DebugCF("telegram", "Received message", map[string]interface{}{
+	logger.InfoCF("telegram", "Received message", map[string]interface{}{
 		"sender_id": senderID,
 		"chat_id":   fmt.Sprintf("%d", chatID),
 		"preview":   utils.Truncate(content, 50),
@@ -409,7 +449,7 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, update telego.Updat
 		"is_group":   fmt.Sprintf("%t", message.Chat.Type != "private"),
 	}
 
-	_ = c.HandleMessage(fmt.Sprintf("%d", user.ID), fmt.Sprintf("%d", chatID), content, mediaPaths, metadata)
+	_ = c.HandleMessage(senderID, fmt.Sprintf("%d", chatID), content, mediaPaths, metadata)
 }
 
 func (c *TelegramChannel) downloadPhoto(ctx context.Context, fileID string) string {

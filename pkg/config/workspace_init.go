@@ -12,12 +12,8 @@ func EnsureUserWorkspace(userUUID string) (string, error) {
 		return "", fmt.Errorf("user UUID is required")
 	}
 
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-
-	userRoot := filepath.Join(home, ".makoclaw", "users", userUUID)
+	baseDir := getDataDir()
+	userRoot := filepath.Join(baseDir, "users", userUUID)
 	workspace := filepath.Join(userRoot, "workspace")
 
 	// Core directories

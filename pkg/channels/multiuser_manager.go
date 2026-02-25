@@ -340,9 +340,25 @@ func (m *MultiUserChannelManager) migrateLegacyCronStore() error {
 		}
 		user, err := m.centralStore.GetUserByID(job.UserID)
 		if err != nil || user == nil || user.UUID == "" {
-			logger.WarnCF("multiuser", "Skipping cron job migration for unknown user", map[string]interface{}{
-				"user_id": job.UserID,
+			// Fallback: assign to first available user rather than silently discard
+			allUsers, listErr := m.centralStore.ListUsers()
+			if listErr != nil || len(allUsers) == 0 {
+				logger.WarnCF("multiuser", "Skipping cron job migration - user not found and no fallback available", map[string]interface{}{
+					"user_id": job.UserID,
+					"job_id":  job.ID,
+					"job_name": job.Name,
+				})
+				continue
+			}
+			fallback := allUsers[0]
+			logger.WarnCF("multiuser", "Cron job user not found, migrating to first user as fallback", map[string]interface{}{
+				"original_user_id": job.UserID,
+				"fallback_uuid":    fallback.UUID,
+				"job_id":           job.ID,
+				"job_name":         job.Name,
 			})
+			job.UserID = fallback.ID
+			jobsByUser[fallback.UUID] = append(jobsByUser[fallback.UUID], job)
 			continue
 		}
 		jobsByUser[user.UUID] = append(jobsByUser[user.UUID], job)
