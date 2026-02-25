@@ -1093,7 +1093,7 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 			sessionID = "web:chat"
 		}
 
-		if handled, response := s.handleTaskChatCommand(userID, input); handled {
+		if handled, response := s.handleTaskChatCommand(userID, userStore, input); handled {
 			wsMu.Lock()
 			_ = conn.WriteJSON(chatResponse{Role: "assistant", Content: response})
 			wsMu.Unlock()
@@ -1232,8 +1232,8 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) handleTaskChatCommand(userID int64, input string) (bool, string) {
-	if s.store == nil {
+func (s *Server) handleTaskChatCommand(userID int64, store *storage.Storage, input string) (bool, string) {
+	if store == nil {
 		return false, ""
 	}
 	lower := strings.ToLower(strings.TrimSpace(input))
@@ -1242,12 +1242,12 @@ func (s *Server) handleTaskChatCommand(userID int64, input string) (bool, string
 		if title == "" {
 			return true, "Uso: /task create <titulo>"
 		}
-		id, err := s.store.CreateTaskForUser(userID, title, "", "todo")
+		id, err := store.CreateTaskForUser(userID, title, "", "todo")
 		if err != nil {
 			return true, "No pude crear la tarea."
 		}
 
-		created, err := s.store.GetTaskForUser(userID, id)
+		created, err := store.GetTaskForUser(userID, id)
 		if err != nil {
 			return true, "Tarea creada pero fallé al recuperarla via ID."
 		}
@@ -1267,7 +1267,7 @@ func (s *Server) handleTaskChatCommand(userID int64, input string) (bool, string
 	}
 
 	if lower == "/task list" || lower == "/list" {
-		tasks, err := s.store.ListTasksForUser(userID, false)
+		tasks, err := store.ListTasksForUser(userID, false)
 		if err != nil {
 			return true, "No pude listar tareas."
 		}
@@ -1294,7 +1294,7 @@ func (s *Server) handleTaskChatCommand(userID int64, input string) (bool, string
 			return true, "ID inválido"
 		}
 
-		updated, err := s.store.UpdateTaskStatusForUser(userID, id, "todo")
+		updated, err := store.UpdateTaskStatusForUser(userID, id, "todo")
 		if err != nil {
 			return true, "No encontré esa tarea."
 		}
@@ -1327,7 +1327,7 @@ func (s *Server) handleTaskChatCommand(userID int64, input string) (bool, string
 		if !ok {
 			return true, "Estado inválido. Usa: backlog|todo|in_progress|review|done"
 		}
-		updated, err := s.store.UpdateTaskStatusForUser(userID, id, status)
+		updated, err := store.UpdateTaskStatusForUser(userID, id, status)
 		if err != nil {
 			return true, "No encontré esa tarea."
 		}
@@ -1355,7 +1355,7 @@ func (s *Server) handleTaskChatCommand(userID int64, input string) (bool, string
 		if err != nil {
 			return true, "ID inválido"
 		}
-		if err := s.store.ArchiveTaskForUser(userID, id); err != nil {
+		if err := store.ArchiveTaskForUser(userID, id); err != nil {
 			return true, "Error al archivar la tarea."
 		}
 		// Broadcast delete to frontend

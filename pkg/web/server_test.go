@@ -219,26 +219,47 @@ func TestHandleTaskLogsEndpoint(t *testing.T) {
 
 func TestTaskChatCommands(t *testing.T) {
 	s := newTestServer(t)
-	ok, msg := s.handleTaskChatCommand(1, "/task create revisar logs")
+
+	// Get per-user storage for the admin user
+	user, err := s.centralStore.GetUserByUsername("admin")
+	if err != nil {
+		user, err = s.centralStore.CreateUser("admin", "StrongPassword123!", "admin")
+		if err != nil && err != storage.ErrUserExists {
+			t.Fatalf("failed to create admin user: %v", err)
+		}
+		user, err = s.centralStore.GetUserByUsername("admin")
+		if err != nil {
+			t.Fatalf("failed to get admin user: %v", err)
+		}
+	}
+	if user == nil {
+		t.Fatal("admin user not found")
+	}
+	userStore, err := s.userMgr.GetOrCreate(user.UUID)
+	if err != nil {
+		t.Fatalf("failed to get per-user store: %v", err)
+	}
+
+	ok, msg := s.handleTaskChatCommand(user.ID, userStore, "/task create revisar logs")
 	if !ok || !strings.Contains(msg, "Tarea creada") {
 		t.Fatalf("expected create command handled, got ok=%v msg=%q", ok, msg)
 	}
 
-	ok, msg = s.handleTaskChatCommand(1, "/task list")
+	ok, msg = s.handleTaskChatCommand(user.ID, userStore, "/task list")
 	if !ok || !strings.Contains(msg, "revisar logs") {
 		t.Fatalf("expected list command output, got ok=%v msg=%q", ok, msg)
 	}
 
-	createdID, err := s.store.CreateTaskForUser(1, "mover estado", "", "backlog")
+	createdID, err := userStore.CreateTaskForUser(user.ID, "mover estado", "", "backlog")
 	if err != nil {
 		t.Fatalf("create task for move command failed: %v", err)
 	}
 	idStr := toString(createdID)
-	ok, msg = s.handleTaskChatCommand(1, "/task move "+idStr+" done")
+	ok, msg = s.handleTaskChatCommand(user.ID, userStore, "/task move "+idStr+" done")
 	if !ok || !strings.Contains(msg, "movida a done") {
 		t.Fatalf("expected move command output, got ok=%v msg=%q", ok, msg)
 	}
-	got, err := s.store.GetTaskForUser(1, createdID)
+	got, err := userStore.GetTaskForUser(user.ID, createdID)
 	if err != nil {
 		t.Fatalf("get moved task failed: %v", err)
 	}

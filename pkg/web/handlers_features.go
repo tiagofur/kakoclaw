@@ -20,14 +20,15 @@ import (
 func (s *Server) handlePrompts(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	if s.store == nil {
-		http.Error(w, "storage not available", http.StatusServiceUnavailable)
+	store, _, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized or storage unavailable", http.StatusUnauthorized)
 		return
 	}
 
 	switch r.Method {
 	case http.MethodGet:
-		prompts, err := s.store.ListPrompts()
+		prompts, err := store.ListPrompts()
 		if err != nil {
 			http.Error(w, "failed to list prompts: "+err.Error(), http.StatusInternalServerError)
 			return
@@ -52,7 +53,7 @@ func (s *Server) handlePrompts(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "title and content are required", http.StatusBadRequest)
 			return
 		}
-		p, err := s.store.CreatePrompt(req.Title, req.Content, req.Description, req.Tags)
+		p, err := store.CreatePrompt(req.Title, req.Content, req.Description, req.Tags)
 		if err != nil {
 			http.Error(w, "failed to create prompt: "+err.Error(), http.StatusInternalServerError)
 			return
@@ -69,8 +70,9 @@ func (s *Server) handlePrompts(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handlePromptAction(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	if s.store == nil {
-		http.Error(w, "storage not available", http.StatusServiceUnavailable)
+	store, _, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized or storage unavailable", http.StatusUnauthorized)
 		return
 	}
 
@@ -93,15 +95,15 @@ func (s *Server) handlePromptAction(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "invalid JSON", http.StatusBadRequest)
 			return
 		}
-		if err := s.store.UpdatePrompt(id, req.Title, req.Content, req.Description, req.Tags); err != nil {
+		if err := store.UpdatePrompt(id, req.Title, req.Content, req.Description, req.Tags); err != nil {
 			http.Error(w, "failed to update prompt: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		p, _ := s.store.GetPrompt(id)
+		p, _ := store.GetPrompt(id)
 		_ = json.NewEncoder(w).Encode(p)
 
 	case http.MethodDelete:
-		if err := s.store.DeletePrompt(id); err != nil {
+		if err := store.DeletePrompt(id); err != nil {
 			http.Error(w, "failed to delete prompt: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
