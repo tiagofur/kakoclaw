@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -64,7 +65,7 @@ func DownloadFile(url, filename string, opts DownloadOptions) string {
 		opts.LoggerPrefix = "utils"
 	}
 
-	mediaDir := filepath.Join(os.TempDir(), "makoclaw_media")
+	mediaDir := filepath.Join(os.TempDir(), fmt.Sprintf("makoclaw_media_%d", os.Getpid()))
 	if err := os.MkdirAll(mediaDir, 0700); err != nil {
 		logger.ErrorCF(opts.LoggerPrefix, "Failed to create media directory", map[string]interface{}{
 			"error": err.Error(),
@@ -141,4 +142,3 @@ func DownloadFileSimple(url, filename string) string {
 		LoggerPrefix: "media",
 	})
 }
-

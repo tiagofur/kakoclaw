@@ -60,6 +60,9 @@ func NewOllamaProvider(baseURL string) *OllamaProvider {
 		baseURL: baseURL,
 		client: &http.Client{
 			Timeout: 120 * time.Second,
+			Transport: &http.Transport{
+				IdleConnTimeout: 30 * time.Second,
+			},
 		},
 	}
 }

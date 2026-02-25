@@ -36,7 +36,7 @@ func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request) {
 			u.PasswordHash = ""
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(users)
+		writeJSONResponse(w, users)
 		return
 	}
 
@@ -52,6 +52,10 @@ func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request) {
 		}
 		if in.Role == "" {
 			in.Role = "user"
+		}
+		if len(in.Username) > 64 {
+			http.Error(w, "username too long (max 64 chars)", http.StatusBadRequest)
+			return
 		}
 
 		var user *storage.User
@@ -98,7 +102,7 @@ func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request) {
 		user.PasswordHash = ""
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		_ = json.NewEncoder(w).Encode(user)
+		writeJSONResponse(w, user)
 		return
 	}
 
@@ -166,7 +170,7 @@ func (s *Server) handleUserAction(w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		writeJSONResponse(w, map[string]string{"status": "ok"})
 		return
 	}
 
@@ -221,7 +225,7 @@ func (s *Server) handleUserAction(w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		writeJSONResponse(w, map[string]string{"status": "ok"})
 		return
 	}
 
@@ -313,7 +317,7 @@ func (s *Server) handleBlockUser(w http.ResponseWriter, r *http.Request) {
 	user.PasswordHash = ""
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(user)
+	writeJSONResponse(w, user)
 }
 
 func (s *Server) handleUnblockUser(w http.ResponseWriter, r *http.Request) {
@@ -366,5 +370,5 @@ func (s *Server) handleUnblockUser(w http.ResponseWriter, r *http.Request) {
 	user.PasswordHash = ""
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(user)
+	writeJSONResponse(w, user)
 }

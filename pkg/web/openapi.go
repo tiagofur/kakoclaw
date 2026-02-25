@@ -682,4 +682,3 @@ const openAPISpec = `{
     }
   }
 }`
-

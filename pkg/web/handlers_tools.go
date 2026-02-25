@@ -27,7 +27,7 @@ func (s *Server) handleToolPermissions(w http.ResponseWriter, r *http.Request) {
 		s.fullConfig.RUnlock()
 
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		writeJSONResponse(w, map[string]interface{}{
 			"role_defaults":          permissions.RoleDefaults,
 			"allowed_shell_commands": permissions.AllowedShellCommands,
 			"user_overrides":         permissions.UserOverrides,
@@ -139,7 +139,7 @@ func (s *Server) handleUserTools(w http.ResponseWriter, r *http.Request) {
 			effectiveTools := targetUser.GetEffectiveToolPermissions(roleDefaults)
 
 			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSONResponse(w, map[string]interface{}{
 				"user_id":         targetUser.ID,
 				"username":        targetUser.Username,
 				"role":            targetUser.Role,
@@ -226,7 +226,7 @@ func (s *Server) handleUserTools(w http.ResponseWriter, r *http.Request) {
 		effectiveTools := targetUser.GetEffectiveToolPermissions(roleDefaults)
 
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		writeJSONResponse(w, map[string]interface{}{
 			"user_id":         targetUser.ID,
 			"username":        targetUser.Username,
 			"role":            targetUser.Role,
@@ -373,7 +373,7 @@ func (s *Server) handleToolAudit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSONResponse(w, map[string]interface{}{
 		"logs":  logs,
 		"count": len(logs),
 		"filters": map[string]interface{}{

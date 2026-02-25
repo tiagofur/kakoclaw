@@ -45,7 +45,7 @@ func (s *Server) handleSetupInitialize(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSONResponse(w, map[string]interface{}{
 		"token":      session.Token,
 		"expires_at": session.ExpiresAt,
 		"setup_url":  fmt.Sprintf("%s/onboarding?token=%s", getWebBaseURL(), session.Token),
@@ -81,7 +81,7 @@ func (s *Server) handleSetupValidate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSONResponse(w, map[string]interface{}{
 		"valid":     true,
 		"channel":   session.Channel,
 		"sender_id": session.SenderID,
@@ -158,7 +158,7 @@ func (s *Server) handleSetupComplete(w http.ResponseWriter, r *http.Request) {
 	})
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSONResponse(w, map[string]interface{}{
 		"success": true,
 		"message": "Setup completed successfully",
 	})

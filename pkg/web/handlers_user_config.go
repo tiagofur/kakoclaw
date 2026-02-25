@@ -1,7 +1,6 @@
 package web
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -50,70 +49,70 @@ func (s *Server) handleGetUserConfig(w http.ResponseWriter, r *http.Request) {
 
 	// Build redacted view using existing functions
 	redacted := map[string]interface{}{
-		"agents":    mergedCfg.Agents,
+		"agents": mergedCfg.Agents,
 		"providers": map[string]interface{}{
 			"anthropic": map[string]interface{}{
-				"api_key":  redactKey(mergedCfg.Providers.Anthropic.APIKey),
-				"api_base": mergedCfg.Providers.Anthropic.APIBase,
-				"models":   mergedCfg.Providers.Anthropic.Models,
+				"api_key":    redactKey(mergedCfg.Providers.Anthropic.APIKey),
+				"api_base":   mergedCfg.Providers.Anthropic.APIBase,
+				"models":     mergedCfg.Providers.Anthropic.Models,
 				"configured": mergedCfg.ValidateProviderConfig("anthropic") == nil,
 			},
 			"openai": map[string]interface{}{
-				"api_key":  redactKey(mergedCfg.Providers.OpenAI.APIKey),
-				"api_base": mergedCfg.Providers.OpenAI.APIBase,
-				"models":   mergedCfg.Providers.OpenAI.Models,
+				"api_key":    redactKey(mergedCfg.Providers.OpenAI.APIKey),
+				"api_base":   mergedCfg.Providers.OpenAI.APIBase,
+				"models":     mergedCfg.Providers.OpenAI.Models,
 				"configured": mergedCfg.ValidateProviderConfig("openai") == nil,
 			},
 			"openrouter": map[string]interface{}{
-				"api_key":  redactKey(mergedCfg.Providers.OpenRouter.APIKey),
-				"api_base": mergedCfg.Providers.OpenRouter.APIBase,
-				"models":   mergedCfg.Providers.OpenRouter.Models,
+				"api_key":    redactKey(mergedCfg.Providers.OpenRouter.APIKey),
+				"api_base":   mergedCfg.Providers.OpenRouter.APIBase,
+				"models":     mergedCfg.Providers.OpenRouter.Models,
 				"configured": mergedCfg.ValidateProviderConfig("openrouter") == nil,
 			},
 			"groq": map[string]interface{}{
-				"api_key":  redactKey(mergedCfg.Providers.Groq.APIKey),
-				"api_base": mergedCfg.Providers.Groq.APIBase,
-				"models":   mergedCfg.Providers.Groq.Models,
+				"api_key":    redactKey(mergedCfg.Providers.Groq.APIKey),
+				"api_base":   mergedCfg.Providers.Groq.APIBase,
+				"models":     mergedCfg.Providers.Groq.Models,
 				"configured": mergedCfg.ValidateProviderConfig("groq") == nil,
 			},
 			"zhipu": map[string]interface{}{
-				"api_key":  redactKey(mergedCfg.Providers.Zhipu.APIKey),
-				"api_base": mergedCfg.Providers.Zhipu.APIBase,
-				"models":   mergedCfg.Providers.Zhipu.Models,
+				"api_key":    redactKey(mergedCfg.Providers.Zhipu.APIKey),
+				"api_base":   mergedCfg.Providers.Zhipu.APIBase,
+				"models":     mergedCfg.Providers.Zhipu.Models,
 				"configured": mergedCfg.ValidateProviderConfig("zhipu") == nil,
 			},
 			"vllm": map[string]interface{}{
-				"api_key":  redactKey(mergedCfg.Providers.VLLM.APIKey),
-				"api_base": mergedCfg.Providers.VLLM.APIBase,
-				"models":   mergedCfg.Providers.VLLM.Models,
+				"api_key":    redactKey(mergedCfg.Providers.VLLM.APIKey),
+				"api_base":   mergedCfg.Providers.VLLM.APIBase,
+				"models":     mergedCfg.Providers.VLLM.Models,
 				"configured": mergedCfg.ValidateProviderConfig("vllm") == nil,
 			},
 			"gemini": map[string]interface{}{
-				"api_key":  redactKey(mergedCfg.Providers.Gemini.APIKey),
-				"api_base": mergedCfg.Providers.Gemini.APIBase,
-				"models":   mergedCfg.Providers.Gemini.Models,
+				"api_key":    redactKey(mergedCfg.Providers.Gemini.APIKey),
+				"api_base":   mergedCfg.Providers.Gemini.APIBase,
+				"models":     mergedCfg.Providers.Gemini.Models,
 				"configured": mergedCfg.ValidateProviderConfig("gemini") == nil,
 			},
 			"nvidia": map[string]interface{}{
-				"api_key":  redactKey(mergedCfg.Providers.Nvidia.APIKey),
-				"api_base": mergedCfg.Providers.Nvidia.APIBase,
-				"models":   mergedCfg.Providers.Nvidia.Models,
+				"api_key":    redactKey(mergedCfg.Providers.Nvidia.APIKey),
+				"api_base":   mergedCfg.Providers.Nvidia.APIBase,
+				"models":     mergedCfg.Providers.Nvidia.Models,
 				"configured": mergedCfg.ValidateProviderConfig("nvidia") == nil,
 			},
 			"moonshot": map[string]interface{}{
-				"api_key":  redactKey(mergedCfg.Providers.Moonshot.APIKey),
-				"api_base": mergedCfg.Providers.Moonshot.APIBase,
-				"models":   mergedCfg.Providers.Moonshot.Models,
+				"api_key":    redactKey(mergedCfg.Providers.Moonshot.APIKey),
+				"api_base":   mergedCfg.Providers.Moonshot.APIBase,
+				"models":     mergedCfg.Providers.Moonshot.Models,
 				"configured": mergedCfg.ValidateProviderConfig("moonshot") == nil,
 			},
 			"ollama": map[string]interface{}{
-				"api_key":  redactKey(mergedCfg.Providers.Ollama.APIKey),
-				"api_base": mergedCfg.Providers.Ollama.APIBase,
-				"models":   mergedCfg.Providers.Ollama.Models,
+				"api_key":    redactKey(mergedCfg.Providers.Ollama.APIKey),
+				"api_base":   mergedCfg.Providers.Ollama.APIBase,
+				"models":     mergedCfg.Providers.Ollama.Models,
 				"configured": mergedCfg.ValidateProviderConfig("ollama") == nil,
 			},
 		},
-		"channels":  redactChannels(mergedCfg),
+		"channels": redactChannels(mergedCfg),
 		"tools": map[string]interface{}{
 			"web": map[string]interface{}{
 				"search": map[string]interface{}{
@@ -148,7 +147,7 @@ func (s *Server) handleGetUserConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	writeJSONResponse(w, response)
 }
 
 // handleUpdateUserConfig updates a user's config section
@@ -201,8 +200,7 @@ func (s *Server) handleUpdateUserConfig(w http.ResponseWriter, r *http.Request) 
 	// Restart user's channels asynchronously to avoid blocking the response
 	if s.multiUserChannelManager != nil {
 		go func() {
-			ctx := context.Background()
-			if err := s.multiUserChannelManager.RestartUserChannels(ctx, userUUID); err != nil {
+			if err := s.multiUserChannelManager.RestartUserChannels(r.Context(), userUUID); err != nil {
 				logger.WarnCF("web", "Failed to restart user channels after config update", map[string]interface{}{
 					"user_uuid": userUUID,
 					"error":     err.Error(),
@@ -216,7 +214,7 @@ func (s *Server) handleUpdateUserConfig(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSONResponse(w, map[string]interface{}{
 		"success": true,
 		"message": "Configuration updated successfully",
 	})
@@ -241,7 +239,7 @@ func (s *Server) handleDeleteUserConfigSection(w http.ResponseWriter, r *http.Re
 	if userCfg == nil {
 		// Nothing to delete
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		writeJSONResponse(w, map[string]interface{}{
 			"success": true,
 			"message": "No override to remove",
 		})
@@ -280,7 +278,7 @@ func (s *Server) handleDeleteUserConfigSection(w http.ResponseWriter, r *http.Re
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSONResponse(w, map[string]interface{}{
 		"success": true,
 		"message": fmt.Sprintf("Section '%s' reset to global default", section),
 	})
@@ -764,7 +762,7 @@ func (s *Server) handleGetUserProviders(w http.ResponseWriter, r *http.Request) 
 	response := redactUserProviders(cfg)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	writeJSONResponse(w, response)
 }
 
 // handleUpdateUserProvider updates a specific provider configuration for the user
@@ -818,7 +816,7 @@ func (s *Server) handleUpdateUserProvider(w http.ResponseWriter, r *http.Request
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
+	writeJSONResponse(w, map[string]string{
 		"message":  fmt.Sprintf("Provider '%s' configuration updated", providerName),
 		"provider": providerName,
 	})
@@ -868,7 +866,7 @@ func (s *Server) handleGetUserChannels(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	writeJSONResponse(w, response)
 }
 
 // getMapKeysFromMap returns the keys of a map as a string slice

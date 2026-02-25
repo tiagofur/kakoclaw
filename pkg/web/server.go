@@ -8,8 +8,10 @@ import (
 	"io"
 	"io/fs"
 	"mime"
+	"net"
 	"net/http"
 	"net/mail"
+	"net/url"
 
 	"os"
 	"path/filepath"
@@ -57,6 +59,7 @@ type Server struct {
 	centralStore            *storage.CentralStorage     // central DB: users, settings, channel mappings
 	userMgr                 *storage.UserStorageManager // per-user DB manager
 	loginLimit              *ratelimit.RateLimiter
+	apiRateLimit            *ratelimit.RateLimiter
 	tasksMu                 sync.RWMutex
 	tasksClients            map[*websocket.Conn]struct{}
 	connMu                  map[*websocket.Conn]*sync.Mutex
@@ -72,6 +75,8 @@ type Server struct {
 	execMu                  sync.RWMutex
 	activeExecs             map[string]*activeExecution
 	msgBus                  *bus.MessageBus
+	ctx                     context.Context
+	allowedOrigins          []string
 }
 
 type taskItem struct {
@@ -88,6 +93,34 @@ var wsUpgrader = websocket.Upgrader{
 	CheckOrigin: checkWebSocketOrigin,
 }
 
+func (s *Server) checkOrigin(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return true
+	}
+	requestHost := r.Host
+	if h, _, err := net.SplitHostPort(requestHost); err == nil {
+		requestHost = h
+	}
+	originURL, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+	originHost := originURL.Hostname()
+	if originHost == requestHost {
+		return true
+	}
+	if len(s.allowedOrigins) > 0 {
+		for _, allowed := range s.allowedOrigins {
+			if allowed == origin {
+				return true
+			}
+		}
+		return false
+	}
+	return true
+}
+
 func NewServer(cfg config.WebConfig, agentLoop *agent.AgentLoop, store *storage.Storage) *Server {
 	workspace := defaultWorkspace()
 	return &Server{
@@ -96,6 +129,7 @@ func NewServer(cfg config.WebConfig, agentLoop *agent.AgentLoop, store *storage.
 		agentLoop:    agentLoop,
 		store:        store,
 		loginLimit:   ratelimit.NewRateLimiter(),
+		apiRateLimit: ratelimit.NewRateLimiter(),
 		tasksClients: make(map[*websocket.Conn]struct{}),
 		connMu:       make(map[*websocket.Conn]*sync.Mutex),
 		memory:       agent.NewMemoryStore(workspace),
@@ -197,6 +231,7 @@ func (s *Server) Start(ctx context.Context) error {
 		return err
 	}
 	s.authManager = authManager
+	s.ctx = ctx
 
 	// Ensure storage is available
 	if s.store == nil {
@@ -324,7 +359,7 @@ func (s *Server) Start(ctx context.Context) error {
 
 	s.server = &http.Server{
 		Addr:    s.cfg.Host + ":" + toString(int64(s.cfg.Port)),
-		Handler: s.authMiddleware(mux),
+		Handler: s.recoveryMiddleware(s.authMiddleware(s.apiRateLimitMiddleware(mux))),
 	}
 
 	go func() {
@@ -450,7 +485,7 @@ func (s *Server) authMiddleware(next http.Handler) http.HandlerFunc {
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
-		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net blob:; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss: https://cdn.jsdelivr.net; worker-src 'self' blob:")
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'strict-dynamic' 'unsafe-inline' https://cdn.jsdelivr.net blob:; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss: https://cdn.jsdelivr.net; worker-src 'self' blob:; upgrade-insecure-requests")
 
 		if strings.HasPrefix(r.URL.Path, "/api/v1/auth/login") {
 			next.ServeHTTP(w, r)
@@ -486,7 +521,7 @@ func (s *Server) authMiddleware(next http.Handler) http.HandlerFunc {
 			if !ok {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusUnauthorized)
-				_ = json.NewEncoder(w).Encode(map[string]string{
+				writeJSONResponse(w, map[string]string{
 					"error": "unauthorized",
 				})
 				return
@@ -497,7 +532,7 @@ func (s *Server) authMiddleware(next http.Handler) http.HandlerFunc {
 				if err == nil && user.Blocked {
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusForbidden)
-					_ = json.NewEncoder(w).Encode(map[string]interface{}{
+					writeJSONResponse(w, map[string]interface{}{
 						"error":   fmt.Sprintf("Usuario bloqueado. Motivo: %s. Contacte soporte.", user.BlockedReason),
 						"blocked": true,
 					})
@@ -508,7 +543,7 @@ func (s *Server) authMiddleware(next http.Handler) http.HandlerFunc {
 				if err == nil && user.Blocked {
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusForbidden)
-					_ = json.NewEncoder(w).Encode(map[string]interface{}{
+					writeJSONResponse(w, map[string]interface{}{
 						"error":   fmt.Sprintf("Usuario bloqueado. Motivo: %s. Contacte soporte.", user.BlockedReason),
 						"blocked": true,
 					})
@@ -540,7 +575,7 @@ func (s *Server) extractClaims(r *http.Request) (*jwtClaims, bool) {
 			return claims, true
 		}
 	}
-	if strings.HasPrefix(r.URL.Path, "/ws/") || strings.HasPrefix(r.URL.Path, "/api/") {
+	if strings.HasPrefix(r.URL.Path, "/ws/") {
 		token := strings.TrimSpace(r.URL.Query().Get("token"))
 		if claims, err := s.authManager.verifyToken(token); err == nil && token != "" {
 			return claims, true
@@ -715,7 +750,7 @@ func (s *Server) resolveUserByID(id int64) (*storage.User, error) {
 
 func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{
+	writeJSONResponse(w, map[string]string{
 		"status": "ok",
 	})
 }
@@ -754,7 +789,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 			}
 
 			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{"tasks": items})
+			writeJSONResponse(w, map[string]interface{}{"tasks": items})
 		case http.MethodPost:
 			var in taskItem
 			if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
@@ -763,6 +798,14 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 			}
 			if strings.TrimSpace(in.Title) == "" {
 				http.Error(w, "title is required", http.StatusBadRequest)
+				return
+			}
+			if len(in.Title) > 255 {
+				http.Error(w, "title too long (max 255 chars)", http.StatusBadRequest)
+				return
+			}
+			if len(in.Description) > 2000 {
+				http.Error(w, "description too long (max 2000 chars)", http.StatusBadRequest)
 				return
 			}
 			status, ok := normalizeTaskStatus(in.Status)
@@ -796,7 +839,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 			s.broadcastTaskEvent("created", item)
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusCreated)
-			_ = json.NewEncoder(w).Encode(item)
+			writeJSONResponse(w, item)
 		default:
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		}
@@ -847,7 +890,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 
 		s.broadcastTaskEvent("status_changed", item)
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(item)
+		writeJSONResponse(w, item)
 		return
 	}
 
@@ -885,7 +928,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		writeJSONResponse(w, map[string]string{"status": "ok"})
 		return
 	}
 
@@ -923,7 +966,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		writeJSONResponse(w, map[string]string{"status": "ok"})
 		return
 	}
 
@@ -945,7 +988,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 			logs = []storage.TaskLog{}
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{"logs": logs})
+		writeJSONResponse(w, map[string]interface{}{"logs": logs})
 		return
 	}
 
@@ -1003,7 +1046,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 
 		s.broadcastTaskEvent("updated", item)
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(item)
+		writeJSONResponse(w, item)
 	case http.MethodDelete:
 		if err := store.DeleteTaskForUser(userID, id); err != nil {
 			http.Error(w, "failed to delete task", http.StatusInternalServerError)
@@ -1011,7 +1054,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		}
 		s.broadcastTaskEvent("deleted", taskItem{ID: idStr})
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		writeJSONResponse(w, map[string]string{"status": "ok"})
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
@@ -1052,7 +1095,8 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 	}
 	defer activeAgentLoop.Stop()
 
-	conn, err := wsUpgrader.Upgrade(w, r, nil)
+	upgrader := websocket.Upgrader{CheckOrigin: s.checkOrigin}
+	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return
 	}
@@ -1401,7 +1445,7 @@ func (s *Server) handleChatCancel(w http.ResponseWriter, r *http.Request) {
 	s.execMu.Unlock()
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSONResponse(w, map[string]interface{}{
 		"canceled": canceled,
 		"message":  fmt.Sprintf("Canceled %d execution(s)", canceled),
 	})
@@ -1427,7 +1471,7 @@ func (s *Server) handleChatActive(w http.ResponseWriter, r *http.Request) {
 	s.execMu.RUnlock()
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(active)
+	writeJSONResponse(w, active)
 }
 
 func (s *Server) handleTasksWS(w http.ResponseWriter, r *http.Request) {
@@ -1439,7 +1483,8 @@ func (s *Server) handleTasksWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conn, err := wsUpgrader.Upgrade(w, r, nil)
+	taskUpgrader := websocket.Upgrader{CheckOrigin: s.checkOrigin}
+	conn, err := taskUpgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return
 	}
@@ -1505,7 +1550,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(err.Error(), "bloqueado") || strings.Contains(err.Error(), "blocked") {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusForbidden)
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSONResponse(w, map[string]interface{}{
 				"error":   err.Error(),
 				"blocked": true,
 			})
@@ -1516,7 +1561,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"token": token})
+	writeJSONResponse(w, map[string]string{"token": token})
 }
 
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
@@ -1580,7 +1625,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	if blocked, err := s.centralStore.IsEmailBlocked(in.Email); err == nil && blocked {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusForbidden)
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		writeJSONResponse(w, map[string]interface{}{
 			"error":   "No se puede registrar. Contacte soporte.",
 			"blocked": true,
 		})
@@ -1593,7 +1638,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		if err == storage.ErrUserExists {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusConflict)
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSONResponse(w, map[string]interface{}{
 				"error": "Username or email already exists. Please try a different username or email.",
 			})
 			return
@@ -1634,7 +1679,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSONResponse(w, map[string]interface{}{
 		"token": token,
 		"user": map[string]interface{}{
 			"username": user.Username,
@@ -1678,7 +1723,7 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	writeJSONResponse(w, map[string]string{"status": "ok"})
 }
 
 func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
@@ -1707,7 +1752,7 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 		}
 		user.PasswordHash = "" // Redact password hash
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(user)
+		writeJSONResponse(w, user)
 		return
 	}
 
@@ -1797,7 +1842,7 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 		if newToken != "" {
 			response["token"] = newToken
 		}
-		_ = json.NewEncoder(w).Encode(response)
+		writeJSONResponse(w, response)
 		return
 	}
 
@@ -1821,7 +1866,7 @@ func (s *Server) handleTaskSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{"tasks": results})
+	writeJSONResponse(w, map[string]interface{}{"tasks": results})
 }
 
 func (s *Server) handleChatSessions(w http.ResponseWriter, r *http.Request) {
@@ -1857,7 +1902,7 @@ func (s *Server) handleChatSessions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{"sessions": sessions})
+	writeJSONResponse(w, map[string]interface{}{"sessions": sessions})
 }
 
 func (s *Server) handleChatSessionMessages(w http.ResponseWriter, r *http.Request) {
@@ -1885,7 +1930,7 @@ func (s *Server) handleChatSessionMessages(w http.ResponseWriter, r *http.Reques
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{"messages": messages})
+		writeJSONResponse(w, map[string]interface{}{"messages": messages})
 
 	case http.MethodDelete:
 		if err := store.DeleteSessionForUser(userID, id); err != nil {
@@ -1893,7 +1938,7 @@ func (s *Server) handleChatSessionMessages(w http.ResponseWriter, r *http.Reques
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		writeJSONResponse(w, map[string]string{"status": "ok"})
 
 	case http.MethodPatch:
 		var payload struct {
@@ -1914,7 +1959,7 @@ func (s *Server) handleChatSessionMessages(w http.ResponseWriter, r *http.Reques
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(sess)
+		writeJSONResponse(w, sess)
 
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -1938,7 +1983,7 @@ func (s *Server) handleChatSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{"messages": results})
+	writeJSONResponse(w, map[string]interface{}{"messages": results})
 }
 
 func (s *Server) handleChatFork(w http.ResponseWriter, r *http.Request) {
@@ -1975,7 +2020,7 @@ func (s *Server) handleChatFork(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSONResponse(w, map[string]interface{}{
 		"ok":              true,
 		"new_session_id":  newSessionID,
 		"messages_copied": count,
@@ -2003,7 +2048,7 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSONResponse(w, map[string]interface{}{
 		"username":             claims.Sub,
 		"role":                 claims.Role,
 		"user_uuid":            claims.UUID,
@@ -2052,7 +2097,7 @@ func (s *Server) handleCompleteOnboarding(w http.ResponseWriter, r *http.Request
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSONResponse(w, map[string]interface{}{
 		"success": true,
 		"message": "Onboarding completed successfully",
 	})
@@ -2187,7 +2232,7 @@ Use this file to keep track of important information, ideas, and reminders.
 	})
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSONResponse(w, map[string]interface{}{
 		"success": true,
 		"installed": map[string]interface{}{
 			"skills": installedSkills,
@@ -2679,7 +2724,7 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSONResponse(w, map[string]interface{}{
 		"current_model":    currentModel,
 		"current_provider": currentProvider,
 		"providers":        providersList,
@@ -2945,7 +2990,7 @@ func (s *Server) handleProvidersCatalog(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSONResponse(w, map[string]interface{}{
 		"providers": catalog,
 	})
 }
@@ -2979,7 +3024,7 @@ func (s *Server) handleLongTermMemory(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		content := userMemory.ReadLongTerm()
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]string{"content": content})
+		writeJSONResponse(w, map[string]string{"content": content})
 	case http.MethodPost:
 		var in struct {
 			Content string `json:"content"`
@@ -2993,7 +3038,7 @@ func (s *Server) handleLongTermMemory(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		writeJSONResponse(w, map[string]string{"status": "ok"})
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
@@ -3039,7 +3084,7 @@ func (s *Server) handleDailyNotes(w http.ResponseWriter, r *http.Request) {
 
 	content := userMemory.GetRecentDailyNotes(days)
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"content": content})
+	writeJSONResponse(w, map[string]string{"content": content})
 }
 
 // handleVoiceTranscribe handles POST /api/v1/voice/transcribe
@@ -3054,7 +3099,7 @@ func (s *Server) handleVoiceTranscribe(w http.ResponseWriter, r *http.Request) {
 	if s.transcriber == nil || !s.transcriber.IsAvailable() {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusServiceUnavailable)
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		writeJSONResponse(w, map[string]string{
 			"error": "Voice transcription not available. Configure Groq API key.",
 		})
 		return
@@ -3067,7 +3112,7 @@ func (s *Server) handleVoiceTranscribe(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		writeJSONResponse(w, map[string]string{
 			"error": "Failed to parse form. File may be too large (max 25MB).",
 		})
 		return
@@ -3077,7 +3122,7 @@ func (s *Server) handleVoiceTranscribe(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		writeJSONResponse(w, map[string]string{
 			"error": "Missing 'audio' file in request.",
 		})
 		return
@@ -3110,14 +3155,14 @@ func (s *Server) handleVoiceTranscribe(w http.ResponseWriter, r *http.Request) {
 		logger.ErrorCF("web", "Voice transcription failed", map[string]interface{}{"error": err.Error()})
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		writeJSONResponse(w, map[string]string{
 			"error": "Transcription failed: " + err.Error(),
 		})
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(result)
+	writeJSONResponse(w, result)
 }
 
 // handleMetrics returns in-process observability metrics (LLM calls, tool calls, agent runs).
@@ -3128,7 +3173,7 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 	snapshot := observability.Global().Snapshot()
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(snapshot)
+	writeJSONResponse(w, snapshot)
 }
 
 // handleAgents returns information about configured specialist agents
@@ -3194,7 +3239,7 @@ func (s *Server) handleAgents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSONResponse(w, map[string]interface{}{
 		"orchestrated": orchestrated,
 		"orchestrator": orchestratorConfig,
 		"specialists":  agentsList,
@@ -3241,7 +3286,7 @@ func (s *Server) handleAgentDetails(w http.ResponseWriter, r *http.Request, agen
 	if s.agentManager == nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		writeJSONResponse(w, map[string]string{
 			"error": "agent manager not available",
 		})
 		return
@@ -3252,14 +3297,14 @@ func (s *Server) handleAgentDetails(w http.ResponseWriter, r *http.Request, agen
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		writeJSONResponse(w, map[string]string{
 			"error": err.Error(),
 		})
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(info)
+	writeJSONResponse(w, info)
 }
 
 // handleAgentSessions returns sessions handled by a specific agent
@@ -3272,7 +3317,7 @@ func (s *Server) handleAgentSessions(w http.ResponseWriter, r *http.Request, age
 	if s.agentManager == nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		writeJSONResponse(w, map[string]string{
 			"error": "agent manager not available",
 		})
 		return
@@ -3286,7 +3331,7 @@ func (s *Server) handleAgentSessions(w http.ResponseWriter, r *http.Request, age
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(response)
+	writeJSONResponse(w, response)
 }
 
 // handleAgentConfigUpdate updates an agent's configuration
@@ -3299,7 +3344,7 @@ func (s *Server) handleAgentConfigUpdate(w http.ResponseWriter, r *http.Request,
 	if s.agentManager == nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		writeJSONResponse(w, map[string]string{
 			"error": "agent manager not available",
 		})
 		return
@@ -3309,7 +3354,7 @@ func (s *Server) handleAgentConfigUpdate(w http.ResponseWriter, r *http.Request,
 	if err := json.NewDecoder(r.Body).Decode(&updateReq); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		writeJSONResponse(w, map[string]string{
 			"error": "invalid request body",
 		})
 		return
@@ -3323,7 +3368,7 @@ func (s *Server) handleAgentConfigUpdate(w http.ResponseWriter, r *http.Request,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(response)
+	writeJSONResponse(w, response)
 }
 
 // handleSpecialistCreate creates a new specialist agent
@@ -3336,7 +3381,7 @@ func (s *Server) handleSpecialistCreate(w http.ResponseWriter, r *http.Request) 
 	if s.agentManager == nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusServiceUnavailable)
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		writeJSONResponse(w, map[string]string{
 			"error": "agent manager not available",
 		})
 		return
@@ -3358,7 +3403,7 @@ func (s *Server) handleSpecialistCreate(w http.ResponseWriter, r *http.Request) 
 	if err := json.NewDecoder(r.Body).Decode(&specialistReq); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		writeJSONResponse(w, map[string]string{
 			"error": "invalid request body: " + err.Error(),
 		})
 		return
@@ -3367,7 +3412,7 @@ func (s *Server) handleSpecialistCreate(w http.ResponseWriter, r *http.Request) 
 	if specialistReq.Name == "" {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		writeJSONResponse(w, map[string]string{
 			"error": "name is required",
 		})
 		return
@@ -3377,14 +3422,14 @@ func (s *Server) handleSpecialistCreate(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+		writeJSONResponse(w, map[string]string{"error": "unauthorized"})
 		return
 	}
 
 	if userUUID == "" {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "user UUID is empty - please re-login or contact support"})
+		writeJSONResponse(w, map[string]string{"error": "user UUID is empty - please re-login or contact support"})
 		return
 	}
 
@@ -3427,7 +3472,7 @@ func (s *Server) handleSpecialistCreate(w http.ResponseWriter, r *http.Request) 
 		})
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		writeJSONResponse(w, map[string]string{
 			"error": "failed to save config: " + err.Error(),
 		})
 		return
@@ -3436,7 +3481,7 @@ func (s *Server) handleSpecialistCreate(w http.ResponseWriter, r *http.Request) 
 	if _, err := s.agentManager.AddOrUpdateSpecialist(specialistReq.Name, &specCfg, userCfg, store); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		writeJSONResponse(w, map[string]string{
 			"error": "failed to register specialist: " + err.Error(),
 		})
 		return
@@ -3456,8 +3501,7 @@ func (s *Server) handleSpecialistCreate(w http.ResponseWriter, r *http.Request) 
 
 	if s.multiUserChannelManager != nil {
 		go func() {
-			ctx := context.Background()
-			if err := s.multiUserChannelManager.RestartUserChannels(ctx, userUUID); err != nil {
+			if err := s.multiUserChannelManager.RestartUserChannels(s.ctx, userUUID); err != nil {
 				logger.WarnCF("web", "Failed to restart user channels after specialist create", map[string]interface{}{
 					"user_uuid": userUUID,
 					"error":     err.Error(),
@@ -3473,7 +3517,7 @@ func (s *Server) handleSpecialistCreate(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(response)
+	writeJSONResponse(w, response)
 }
 
 // handleSpecialistAction handles PUT/DELETE for individual specialists
@@ -3503,7 +3547,7 @@ func (s *Server) handleSpecialistUpdate(w http.ResponseWriter, r *http.Request, 
 	if s.agentManager == nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusServiceUnavailable)
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		writeJSONResponse(w, map[string]string{
 			"error": "agent manager not available",
 		})
 		return
@@ -3524,7 +3568,7 @@ func (s *Server) handleSpecialistUpdate(w http.ResponseWriter, r *http.Request, 
 	if err := json.NewDecoder(r.Body).Decode(&updateReq); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		writeJSONResponse(w, map[string]string{
 			"error": "invalid request body: " + err.Error(),
 		})
 		return
@@ -3580,7 +3624,7 @@ func (s *Server) handleSpecialistUpdate(w http.ResponseWriter, r *http.Request, 
 	if _, err := s.agentManager.AddOrUpdateSpecialist(specialistName, &specCfg, userCfg, store); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		writeJSONResponse(w, map[string]string{
 			"error": "failed to update specialist: " + err.Error(),
 		})
 		return
@@ -3610,7 +3654,7 @@ func (s *Server) handleSpecialistUpdate(w http.ResponseWriter, r *http.Request, 
 	})
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(response)
+	writeJSONResponse(w, response)
 }
 
 // handleSpecialistDelete deletes a specialist
@@ -3618,7 +3662,7 @@ func (s *Server) handleSpecialistDelete(w http.ResponseWriter, r *http.Request, 
 	if s.agentManager == nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusServiceUnavailable)
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		writeJSONResponse(w, map[string]string{
 			"error": "agent manager not available",
 		})
 		return
@@ -3634,7 +3678,7 @@ func (s *Server) handleSpecialistDelete(w http.ResponseWriter, r *http.Request, 
 	if userCfg == nil || userCfg.Agents.Specialists == nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		writeJSONResponse(w, map[string]string{
 			"error": "specialist not found",
 		})
 		return
@@ -3643,7 +3687,7 @@ func (s *Server) handleSpecialistDelete(w http.ResponseWriter, r *http.Request, 
 	if _, exists := userCfg.Agents.Specialists[specialistName]; !exists {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		writeJSONResponse(w, map[string]string{
 			"error": "specialist not found",
 		})
 		return
@@ -3697,7 +3741,7 @@ func (s *Server) handleSpecialistDelete(w http.ResponseWriter, r *http.Request, 
 	})
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(response)
+	writeJSONResponse(w, response)
 }
 
 // handleSpecialistGenerate generates a specialist configuration using AI
@@ -3714,7 +3758,7 @@ func (s *Server) handleSpecialistGenerate(w http.ResponseWriter, r *http.Request
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		writeJSONResponse(w, map[string]string{
 			"error": "invalid request body: " + err.Error(),
 		})
 		return
@@ -3723,7 +3767,7 @@ func (s *Server) handleSpecialistGenerate(w http.ResponseWriter, r *http.Request
 	if req.Description == "" {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		writeJSONResponse(w, map[string]string{
 			"error": "description is required",
 		})
 		return
@@ -3800,7 +3844,7 @@ func (s *Server) handleSpecialistGenerate(w http.ResponseWriter, r *http.Request
 	})
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(response)
+	writeJSONResponse(w, response)
 }
 
 // handleOrchestratorConfig updates the orchestrator configuration
@@ -3813,7 +3857,7 @@ func (s *Server) handleOrchestratorConfig(w http.ResponseWriter, r *http.Request
 	if s.agentManager == nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusServiceUnavailable)
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		writeJSONResponse(w, map[string]string{
 			"error": "agent manager not available",
 		})
 		return
@@ -3833,7 +3877,7 @@ func (s *Server) handleOrchestratorConfig(w http.ResponseWriter, r *http.Request
 	if err := json.NewDecoder(r.Body).Decode(&updateReq); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		writeJSONResponse(w, map[string]string{
 			"error": "invalid request body: " + err.Error(),
 		})
 		return
@@ -3906,7 +3950,7 @@ func (s *Server) handleOrchestratorConfig(w http.ResponseWriter, r *http.Request
 	})
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(response)
+	writeJSONResponse(w, response)
 }
 
 // handleAgentTest tests a specialist with a message
@@ -3919,7 +3963,7 @@ func (s *Server) handleAgentTest(w http.ResponseWriter, r *http.Request, special
 	if s.agentManager == nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusServiceUnavailable)
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		writeJSONResponse(w, map[string]string{
 			"error": "agent manager not available",
 		})
 		return
@@ -3932,7 +3976,7 @@ func (s *Server) handleAgentTest(w http.ResponseWriter, r *http.Request, special
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		writeJSONResponse(w, map[string]string{
 			"error": "invalid request body: " + err.Error(),
 		})
 		return
@@ -3941,7 +3985,7 @@ func (s *Server) handleAgentTest(w http.ResponseWriter, r *http.Request, special
 	if req.Message == "" {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		writeJSONResponse(w, map[string]string{
 			"error": "message is required",
 		})
 		return
@@ -3958,7 +4002,7 @@ func (s *Server) handleAgentTest(w http.ResponseWriter, r *http.Request, special
 	})
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(response)
+	writeJSONResponse(w, response)
 }
 
 // handleAgentMetrics returns cost metrics for specialists
@@ -4007,7 +4051,7 @@ func (s *Server) handleAgentMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(response)
+	writeJSONResponse(w, response)
 }
 
 // handleConfigStatus returns the current configuration status including degraded mode
@@ -4058,7 +4102,7 @@ func (s *Server) handleConfigStatus(w http.ResponseWriter, r *http.Request) {
 	status["activeProviders"] = activeProviders
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(status)
+	writeJSONResponse(w, status)
 }
 
 // handleConfigProvider updates the provider configuration
@@ -4197,7 +4241,7 @@ func (s *Server) handleConfigProvider(w http.ResponseWriter, r *http.Request) {
 	})
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSONResponse(w, map[string]interface{}{
 		"success": true,
 		"message": "Provider configuration saved. Restart the application to apply changes.",
 	})
@@ -4260,7 +4304,7 @@ func (s *Server) handleConfigValidate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(response)
+	writeJSONResponse(w, response)
 }
 
 // handleTestTelegram tests a Telegram bot token by calling the Telegram API
@@ -4295,7 +4339,7 @@ func (s *Server) handleTestTelegram(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		writeJSONResponse(w, map[string]interface{}{
 			"success": false,
 			"message": fmt.Sprintf("Connection test failed: %v", err),
 		})
@@ -4316,7 +4360,7 @@ func (s *Server) handleTestTelegram(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(resp.Body).Decode(&telegramResp); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		writeJSONResponse(w, map[string]interface{}{
 			"success": false,
 			"message": "Failed to parse Telegram response",
 		})
@@ -4327,7 +4371,7 @@ func (s *Server) handleTestTelegram(w http.ResponseWriter, r *http.Request) {
 
 	if !telegramResp.Ok {
 		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		writeJSONResponse(w, map[string]interface{}{
 			"success": false,
 			"message": fmt.Sprintf("Invalid bot token: %s", telegramResp.Description),
 		})
@@ -4335,7 +4379,7 @@ func (s *Server) handleTestTelegram(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSONResponse(w, map[string]interface{}{
 		"success": true,
 		"message": fmt.Sprintf("✓ Connected to bot @%s (ID: %d)", telegramResp.Result.Username, telegramResp.Result.ID),
 		"bot": map[string]interface{}{
@@ -4343,5 +4387,51 @@ func (s *Server) handleTestTelegram(w http.ResponseWriter, r *http.Request) {
 			"username": telegramResp.Result.Username,
 			"is_bot":   telegramResp.Result.IsBot,
 		},
+	})
+}
+
+// writeJSONResponse is a helper to encode JSON and log any encoding errors (Fixes P30)
+func writeJSONResponse(w http.ResponseWriter, data interface{}) {
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		logger.WarnCF("web", "failed to encode response", map[string]interface{}{"error": err.Error()})
+	}
+}
+
+// recoveryMiddleware captures panics in HTTP handlers and returns a 500 status (Fixes P26)
+func (s *Server) recoveryMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				logger.ErrorCF("web", "Panic recovered in HTTP handler", map[string]interface{}{
+					"error": fmt.Sprintf("%v", err),
+					"path":  r.URL.Path,
+				})
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			}
+		}()
+		next.ServeHTTP(w, r)
+	})
+}
+
+// apiRateLimitMiddleware enforces per-user rate limiting (100 req/min) on authenticated API routes.
+// Unauthenticated routes are skipped because they are already handled by loginLimit.
+func (s *Server) apiRateLimitMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/ws/") {
+			claims, ok := r.Context().Value(userClaimsKey).(*jwtClaims)
+			if ok && claims != nil {
+				key := "api:user:" + claims.Sub
+				s.apiRateLimit.SetLimit(key, 100, time.Minute)
+				allowed, waitTime := s.apiRateLimit.AllowWithWait(key)
+				if !allowed {
+					w.Header().Set("Retry-After", fmt.Sprintf("%.0f", waitTime.Seconds()))
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusTooManyRequests)
+					writeJSONResponse(w, map[string]string{"error": "rate limit exceeded, please slow down"})
+					return
+				}
+			}
+		}
+		next.ServeHTTP(w, r)
 	})
 }

@@ -293,8 +293,8 @@ func TestConvertConfig(t *testing.T) {
 		if len(warnings) != 0 {
 			t.Errorf("expected no warnings, got %v", warnings)
 		}
-		if cfg.Agents.Defaults.Model != "openrouter/free" {
-			t.Errorf("default model should be openrouter/free, got %q", cfg.Agents.Defaults.Model)
+		if cfg.Agents.Defaults.Model != "" {
+			t.Errorf("default model should be empty, got %q", cfg.Agents.Defaults.Model)
 		}
 	})
 }

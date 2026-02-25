@@ -1,0 +1,46 @@
+# openspec/config.yaml
+schema: spec-driven
+
+context: |
+  Project: MakoClaw (github.com/sipeed/makoclaw) — ultra-efficient AI agent framework for resource-constrained hardware
+  Backend: Go 1.26, SQLite (modernc.org/sqlite), gorilla/websocket, Anthropic SDK, OpenAI SDK
+  Frontend: Vue 3 + Vite 5 + Tailwind CSS 3 + Pinia + Vue Router + Playwright E2E
+  Architecture: Channel-centric message bus → Agent Manager → LLM Provider → Tools → Response
+  Channels: Telegram, Discord, Slack, WhatsApp, Signal, QQ, DingTalk, Feishu, MaixCam
+  Testing: `go test ./...` (backend, race: `go test -race ./...`), Playwright (frontend)
+  Build: Makefile — `make build`, `make build-all`, `make fmt`, `make vet`, `make security`
+  Logging: `logger.InfoCF("component", "msg", fields)` — component-based structured logging
+  Config: `~/.MakoClaw/config.json`, env prefix `MAKOCLAW_`, multi-user per-uuid workspaces
+  CI: GitHub Actions on push/PR to main — runs `make build-all` (linux-amd64/arm64/riscv64, windows-amd64)
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+    - Identify affected packages (pkg/agent, pkg/tools, pkg/channels, pkg/web, pkg/storage, etc.)
+    - Note whether change is breaking for multi-user or single-user deployments
+  specs:
+    - Use Given/When/Then format for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+    - Call out security implications (auth, tool permissions, audit logging)
+  design:
+    - Include sequence diagrams for complex flows (message bus, agent loop, tool execution)
+    - Document architecture decisions with rationale
+    - Respect the Tool interface and ContextualTool/WorkspaceTool/UserAwareTool extension patterns
+  tasks:
+    - Group tasks by phase (infrastructure, implementation, testing, docs)
+    - Use hierarchical numbering (1.1, 1.2, etc.)
+    - Keep tasks small enough to complete in one session
+    - Flag tasks that touch security-sensitive paths (auth, shell exec, file access)
+  apply:
+    - Follow existing code patterns and conventions (Tool interface, BaseChannel embed, ContextBuilder)
+    - Use component-based structured logging (logger.InfoCF / logger.InfoC)
+    - Load relevant coding skills for Go backend or Vue 3 frontend as needed
+    - Run `make fmt && make vet` before considering implementation done
+  verify:
+    - Run `go test ./...` (and `-race` for concurrency changes)
+    - Run `make vet` and `make security` for security-impacting changes
+    - Compare implementation against every spec scenario
+    - For frontend changes, run Playwright tests
+  archive:
+    - Warn before merging destructive deltas (large removals, schema migrations)
+    - Note any config.json schema changes for operator awareness

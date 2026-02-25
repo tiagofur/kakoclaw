@@ -149,7 +149,3 @@ func (am *AgentManager) RemoveSpecialist(name string) bool {
 	}
 	return am.specialistReg.RemoveSpecialist(name)
 }
-
-
-
-

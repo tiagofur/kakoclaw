@@ -190,6 +190,10 @@ func (t *ExecTool) guardCommand(command, cwd string) string {
 		if !allowed {
 			return "Command blocked by safety guard (not in allowlist)"
 		}
+
+		if strings.ContainsAny(cmd, "|;&`") || strings.Contains(cmd, "$(") {
+			return "Command blocked by safety guard (chaining operators not allowed)"
+		}
 	}
 
 	if t.restrictToWorkspace {

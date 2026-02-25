@@ -56,16 +56,12 @@ func (c *DiscordChannel) SetCommandHandler(handler *CommandHandler) {
 }
 
 func (c *DiscordChannel) getContext() context.Context {
-	if c.ctx == nil {
-		return context.Background()
-	}
-	return c.ctx
+	return context.Background()
 }
 
 func (c *DiscordChannel) Start(ctx context.Context) error {
 	logger.InfoC("discord", "Starting Discord bot")
 
-	c.ctx = ctx
 	c.session.AddHandler(c.handleMessage)
 
 	if err := c.session.Open(); err != nil {
@@ -109,7 +105,7 @@ func (c *DiscordChannel) Send(ctx context.Context, msg bus.OutboundMessage) erro
 
 	message := msg.Content
 
-	// 使用传入的 ctx 进行超时控制
+	// Use passed context for timeout control
 	sendCtx, cancel := context.WithTimeout(ctx, sendTimeout)
 	defer cancel()
 

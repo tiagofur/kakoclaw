@@ -373,9 +373,13 @@ func (m *Metrics) Snapshot() map[string]interface{} {
 
 func (m *Metrics) addEvent(evt Event) {
 	if len(m.RecentEvents) >= maxRecentEvents {
-		m.RecentEvents = m.RecentEvents[1:]
+		// Shift elements left by 1 to make room at the end, preventing memory leak
+		// from continuous reslicing which keeps the original backing array growing.
+		copy(m.RecentEvents, m.RecentEvents[1:])
+		m.RecentEvents[len(m.RecentEvents)-1] = evt
+	} else {
+		m.RecentEvents = append(m.RecentEvents, evt)
 	}
-	m.RecentEvents = append(m.RecentEvents, evt)
 }
 
 func avgMs(totalMs, count int64) int64 {

@@ -80,7 +80,7 @@ func (h *ProvidersHandler) GetProvidersConfig(w http.ResponseWriter, r *http.Req
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	writeJSONResponse(w, response)
 }
 
 // UpdateProviderConfig updates a specific provider configuration
@@ -124,7 +124,7 @@ func (h *ProvidersHandler) UpdateProviderConfig(w http.ResponseWriter, r *http.R
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
+	writeJSONResponse(w, map[string]string{
 		"message":  fmt.Sprintf("Provider '%s' configuration updated", providerName),
 		"provider": providerName,
 	})
@@ -133,7 +133,7 @@ func (h *ProvidersHandler) UpdateProviderConfig(w http.ResponseWriter, r *http.R
 // Helper function to convert storage ProviderConfig to response format
 func convertProviderConfig(cfg storage.ProviderConfig) ProviderResponse {
 	return ProviderResponse{
-		APIKey:     cfg.APIKey,
+		APIKey:     redactKey(cfg.APIKey),
 		APIBase:    cfg.APIBase,
 		Proxy:      cfg.Proxy,
 		AuthMethod: cfg.AuthMethod,

@@ -259,7 +259,7 @@ type Attachment struct {
 // downloadAttachment downloads an attachment to a temporary file
 func (c *SignalChannel) downloadAttachment(attachmentID string) (string, error) {
 	// Create temp directory
-	tmpDir := filepath.Join(os.TempDir(), "makoclaw-signal")
+	tmpDir := filepath.Join(os.TempDir(), fmt.Sprintf("makoclaw-signal-%d", os.Getpid()))
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create temp dir: %w", err)
 	}

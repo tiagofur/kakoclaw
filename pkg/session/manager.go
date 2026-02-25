@@ -156,6 +156,9 @@ func (sm *SessionManager) AddFullMessageForUser(userID int64, sessionKey string,
 	}
 
 	session.Messages = append(session.Messages, msg)
+	if len(session.Messages) > 500 {
+		session.Messages = session.Messages[len(session.Messages)-500:]
+	}
 	session.Updated = time.Now()
 }
 

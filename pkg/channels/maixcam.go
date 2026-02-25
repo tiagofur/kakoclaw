@@ -12,6 +12,8 @@ import (
 	"github.com/sipeed/makoclaw/pkg/logger"
 )
 
+const maxMaixCamConnections = 10
+
 type MaixCamChannel struct {
 	*BaseChannel
 	config     config.MaixCamConfig
@@ -19,6 +21,7 @@ type MaixCamChannel struct {
 	clients    map[net.Conn]bool
 	clientsMux sync.RWMutex
 	running    bool
+	sem        chan struct{}
 }
 
 type MaixCamMessage struct {
@@ -36,6 +39,7 @@ func NewMaixCamChannel(cfg config.MaixCamConfig, bus *bus.MessageBus) (*MaixCamC
 		config:      cfg,
 		clients:     make(map[net.Conn]bool),
 		running:     false,
+		sem:         make(chan struct{}, maxMaixCamConnections),
 	}, nil
 }
 
@@ -84,11 +88,25 @@ func (c *MaixCamChannel) acceptConnections(ctx context.Context) {
 				"remote_addr": conn.RemoteAddr().String(),
 			})
 
+			select {
+			case c.sem <- struct{}{}:
+			default:
+				logger.WarnCF("maixcam", "Connection limit reached, rejecting connection", map[string]interface{}{
+					"remote_addr": conn.RemoteAddr().String(),
+					"limit":       maxMaixCamConnections,
+				})
+				conn.Close()
+				continue
+			}
+
 			c.clientsMux.Lock()
 			c.clients[conn] = true
 			c.clientsMux.Unlock()
 
-			go c.handleConnection(conn, ctx)
+			go func() {
+				defer func() { <-c.sem }()
+				c.handleConnection(conn, ctx)
+			}()
 		}
 	}
 }

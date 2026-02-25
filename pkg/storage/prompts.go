@@ -54,7 +54,10 @@ func (s *Storage) CreatePrompt(title, content, description, tags string) (*Promp
 	if err != nil {
 		return nil, fmt.Errorf("creating prompt: %w", err)
 	}
-	id, _ := res.LastInsertId()
+	id, err := res.LastInsertId()
+	if err != nil {
+		return nil, fmt.Errorf("getting insert id: %w", err)
+	}
 	p, err := s.GetPrompt(id)
 	if err != nil {
 		return nil, err

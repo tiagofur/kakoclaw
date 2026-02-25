@@ -11,7 +11,7 @@ type MessageBus struct {
 	handlers map[string]MessageHandler
 	mu       sync.RWMutex
 	closed   chan struct{} // Signals that the bus has been closed
-	once     sync.Once    // Ensures Close is called only once
+	once     sync.Once     // Ensures Close is called only once
 }
 
 func NewMessageBus() *MessageBus {

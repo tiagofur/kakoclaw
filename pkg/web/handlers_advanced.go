@@ -33,20 +33,20 @@ func (s *Server) handleSkills(w http.ResponseWriter, r *http.Request) {
 		if q == "available" {
 			// Marketplace: list available skills from remote registry
 			if s.skillInstaller == nil {
-				_ = json.NewEncoder(w).Encode(map[string]interface{}{"skills": []interface{}{}})
+				writeJSONResponse(w, map[string]interface{}{"skills": []interface{}{}})
 				return
 			}
 			ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 			defer cancel()
 			available, err := s.skillInstaller.ListAvailableSkills(ctx)
 			if err != nil {
-				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				writeJSONResponse(w, map[string]interface{}{
 					"skills":  []interface{}{},
 					"warning": "marketplace unavailable",
 				})
 				return
 			}
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{"skills": available})
+			writeJSONResponse(w, map[string]interface{}{"skills": available})
 			return
 		}
 
@@ -69,7 +69,7 @@ func (s *Server) handleSkills(w http.ResponseWriter, r *http.Request) {
 		userLoader := skills.NewSkillsLoader(userWorkspace, globalSkillsDir, builtinSkillsDir)
 
 		installed := userLoader.ListSkills()
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{"skills": installed})
+		writeJSONResponse(w, map[string]interface{}{"skills": installed})
 		return
 	}
 
@@ -122,7 +122,7 @@ func (s *Server) handleSkillAction(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "invalid generated skill draft: "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		writeJSONResponse(w, map[string]interface{}{
 			"name":  skillName,
 			"draft": draft,
 		})
@@ -175,7 +175,7 @@ func (s *Server) handleSkillAction(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "failed to save skill", http.StatusInternalServerError)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		writeJSONResponse(w, map[string]interface{}{
 			"status": "created",
 			"skill": map[string]string{
 				"name": skillName,
@@ -215,7 +215,7 @@ func (s *Server) handleSkillAction(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "install failed: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "installed", "repository": body.Repository})
+		writeJSONResponse(w, map[string]string{"status": "installed", "repository": body.Repository})
 
 	case r.Method == http.MethodDelete:
 		// DELETE /api/v1/skills/{name}
@@ -245,7 +245,7 @@ func (s *Server) handleSkillAction(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "uninstall failed: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "uninstalled", "name": skillName})
+		writeJSONResponse(w, map[string]string{"status": "uninstalled", "name": skillName})
 
 	case r.Method == http.MethodGet:
 		// GET /api/v1/skills/{name} — view skill content
@@ -278,7 +278,7 @@ func (s *Server) handleSkillAction(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "skill not found", http.StatusNotFound)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]string{"name": skillName, "content": content})
+		writeJSONResponse(w, map[string]string{"name": skillName, "content": content})
 
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -387,7 +387,7 @@ func (s *Server) handleCron(w http.ResponseWriter, r *http.Request) {
 	}
 	if cronService == nil {
 		if r.Method == http.MethodGet {
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSONResponse(w, map[string]interface{}{
 				"jobs": []interface{}{},
 				"status": map[string]interface{}{
 					"enabled": false,
@@ -405,7 +405,7 @@ func (s *Server) handleCron(w http.ResponseWriter, r *http.Request) {
 		includeDisabled := r.URL.Query().Get("include_disabled") == "true"
 		jobs := cronService.ListJobsForUser(userID, includeDisabled)
 		status := cronService.Status()
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{"jobs": jobs, "status": status})
+		writeJSONResponse(w, map[string]interface{}{"jobs": jobs, "status": status})
 
 	case http.MethodPost:
 		var body struct {
@@ -440,7 +440,7 @@ func (s *Server) handleCron(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "failed to create job: "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{"job": job})
+		writeJSONResponse(w, map[string]interface{}{"job": job})
 
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -473,7 +473,7 @@ func (s *Server) handleCronAction(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "job not found", http.StatusNotFound)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "removed"})
+		writeJSONResponse(w, map[string]string{"status": "removed"})
 
 	case r.Method == http.MethodPatch:
 		// PATCH /api/v1/cron/{id}  body: {"enabled": true/false}
@@ -494,7 +494,7 @@ func (s *Server) handleCronAction(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "job not found", http.StatusNotFound)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{"job": job})
+		writeJSONResponse(w, map[string]interface{}{"job": job})
 
 	case r.Method == http.MethodPut:
 		// PUT /api/v1/cron/{id}  — full update of a job
@@ -537,7 +537,7 @@ func (s *Server) handleCronAction(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "job not found", http.StatusNotFound)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{"job": job})
+		writeJSONResponse(w, map[string]interface{}{"job": job})
 
 	case r.Method == http.MethodPost && strings.HasSuffix(path, "/run"):
 		jobID := strings.TrimSpace(strings.TrimSuffix(path, "/run"))
@@ -553,7 +553,7 @@ func (s *Server) handleCronAction(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), statusCode)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "triggered"})
+		writeJSONResponse(w, map[string]string{"status": "triggered"})
 
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -571,7 +571,7 @@ func (s *Server) handleChannels(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if s.channelManager == nil {
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		writeJSONResponse(w, map[string]interface{}{
 			"channels": map[string]interface{}{},
 			"enabled":  []string{},
 		})
@@ -580,7 +580,7 @@ func (s *Server) handleChannels(w http.ResponseWriter, r *http.Request) {
 
 	status := s.channelManager.GetStatus()
 	enabled := s.channelManager.GetEnabledChannels()
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSONResponse(w, map[string]interface{}{
 		"channels": status,
 		"enabled":  enabled,
 	})
@@ -676,7 +676,7 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if s.fullConfig == nil {
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{"config": map[string]interface{}{"error": "config not available"}})
+		writeJSONResponse(w, map[string]interface{}{"config": map[string]interface{}{"error": "config not available"}})
 		return
 	}
 
@@ -722,7 +722,7 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{"config": redacted})
+	writeJSONResponse(w, map[string]interface{}{"config": redacted})
 }
 
 // ==================== FILE BROWSER ====================
@@ -810,7 +810,7 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		writeJSONResponse(w, map[string]string{
 			"status": "uploaded",
 			"name":   header.Filename,
 			"path":   filepath.ToSlash(strings.TrimPrefix(targetPath, userWorkspace)),
@@ -901,7 +901,7 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 			return files[i].Name < files[j].Name
 		})
 
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		writeJSONResponse(w, map[string]interface{}{
 			"path":    filepath.ToSlash(relPath),
 			"entries": files,
 		})
@@ -924,7 +924,7 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 
 	// It's a file — return content if small enough (<1MB)
 	if info.Size() > 1024*1024 {
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		writeJSONResponse(w, map[string]interface{}{
 			"path":  filepath.ToSlash(relPath),
 			"name":  info.Name(),
 			"size":  info.Size(),
@@ -939,7 +939,7 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSONResponse(w, map[string]interface{}{
 		"path":    filepath.ToSlash(relPath),
 		"name":    info.Name(),
 		"size":    info.Size(),
@@ -999,7 +999,7 @@ func (s *Server) handleExportTasks(w http.ResponseWriter, r *http.Request) {
 	default: // json
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Content-Disposition", "attachment; filename=tasks_export.json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		writeJSONResponse(w, map[string]interface{}{
 			"exported_at": time.Now().Format(time.RFC3339),
 			"count":       len(tasks),
 			"tasks":       tasks,
@@ -1030,7 +1030,7 @@ func (s *Server) handleExportChat(w http.ResponseWriter, r *http.Request) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Content-Disposition", "attachment; filename=chat_export.json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		writeJSONResponse(w, map[string]interface{}{
 			"exported_at": time.Now().Format(time.RFC3339),
 			"session_id":  sessionID,
 			"count":       len(messages),
@@ -1047,7 +1047,7 @@ func (s *Server) handleExportChat(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Content-Disposition", "attachment; filename=sessions_export.json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSONResponse(w, map[string]interface{}{
 		"exported_at": time.Now().Format(time.RFC3339),
 		"count":       len(sessions),
 		"sessions":    sessions,
@@ -1167,7 +1167,7 @@ func (s *Server) handleKnowledge(w http.ResponseWriter, r *http.Request) {
 		s.handleKnowledgeUpload(w, r)
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "method not allowed"})
+		writeJSONResponse(w, map[string]string{"error": "method not allowed"})
 	}
 }
 
@@ -1178,7 +1178,7 @@ func (s *Server) handleKnowledgeAction(w http.ResponseWriter, r *http.Request) {
 	store, _, ok := s.getUserStorage(r)
 	if !ok {
 		w.WriteHeader(http.StatusUnauthorized)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+		writeJSONResponse(w, map[string]string{"error": "unauthorized"})
 		return
 	}
 
@@ -1186,24 +1186,24 @@ func (s *Server) handleKnowledgeAction(w http.ResponseWriter, r *http.Request) {
 	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/v1/knowledge/"), "/")
 	if len(pathParts) == 0 || pathParts[0] == "" {
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "document id required"})
+		writeJSONResponse(w, map[string]string{"error": "document id required"})
 		return
 	}
 
 	var docID int64
 	if _, err := fmt.Sscanf(pathParts[0], "%d", &docID); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid document id"})
+		writeJSONResponse(w, map[string]string{"error": "invalid document id"})
 		return
 	}
 
 	if r.Method == http.MethodDelete {
 		if err := store.DeleteKnowledgeDocument(0, docID); err != nil {
 			w.WriteHeader(http.StatusNotFound)
-			_ = json.NewEncoder(w).Encode(map[string]string{"error": "document not found"})
+			writeJSONResponse(w, map[string]string{"error": "document not found"})
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
+		writeJSONResponse(w, map[string]string{"status": "deleted"})
 		return
 	}
 
@@ -1211,15 +1211,15 @@ func (s *Server) handleKnowledgeAction(w http.ResponseWriter, r *http.Request) {
 		chunks, err := store.GetKnowledgeDocumentChunks(0, docID)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			_ = json.NewEncoder(w).Encode(map[string]string{"error": "failed to get chunks: " + err.Error()})
+			writeJSONResponse(w, map[string]string{"error": "failed to get chunks: " + err.Error()})
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"chunks": chunks})
+		writeJSONResponse(w, map[string]any{"chunks": chunks})
 		return
 	}
 
 	w.WriteHeader(http.StatusMethodNotAllowed)
-	_ = json.NewEncoder(w).Encode(map[string]string{"error": "method not allowed"})
+	writeJSONResponse(w, map[string]string{"error": "method not allowed"})
 }
 
 // handleKnowledgeChunkAction handles PUT /api/v1/knowledge/chunks/{id}
@@ -1229,21 +1229,21 @@ func (s *Server) handleKnowledgeChunkAction(w http.ResponseWriter, r *http.Reque
 	store, _, ok := s.getUserStorage(r)
 	if !ok {
 		w.WriteHeader(http.StatusUnauthorized)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+		writeJSONResponse(w, map[string]string{"error": "unauthorized"})
 		return
 	}
 
 	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/v1/knowledge/chunks/"), "/")
 	if len(pathParts) == 0 || pathParts[0] == "" {
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "chunk id required"})
+		writeJSONResponse(w, map[string]string{"error": "chunk id required"})
 		return
 	}
 
 	var chunkID int64
 	if _, err := fmt.Sscanf(pathParts[0], "%d", &chunkID); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid chunk id"})
+		writeJSONResponse(w, map[string]string{"error": "invalid chunk id"})
 		return
 	}
 
@@ -1253,21 +1253,21 @@ func (s *Server) handleKnowledgeChunkAction(w http.ResponseWriter, r *http.Reque
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Content) == "" {
 			w.WriteHeader(http.StatusBadRequest)
-			_ = json.NewEncoder(w).Encode(map[string]string{"error": "valid chunk content required"})
+			writeJSONResponse(w, map[string]string{"error": "valid chunk content required"})
 			return
 		}
 
 		if err := store.UpdateKnowledgeChunk(0, chunkID, req.Content); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			_ = json.NewEncoder(w).Encode(map[string]string{"error": "failed to update chunk: " + err.Error()})
+			writeJSONResponse(w, map[string]string{"error": "failed to update chunk: " + err.Error()})
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "updated"})
+		writeJSONResponse(w, map[string]string{"status": "updated"})
 		return
 	}
 
 	w.WriteHeader(http.StatusMethodNotAllowed)
-	_ = json.NewEncoder(w).Encode(map[string]string{"error": "method not allowed"})
+	writeJSONResponse(w, map[string]string{"error": "method not allowed"})
 }
 
 // handleKnowledgeSearch handles GET /api/v1/knowledge/search?q=...
@@ -1277,25 +1277,25 @@ func (s *Server) handleKnowledgeSearch(w http.ResponseWriter, r *http.Request) {
 	store, _, ok := s.getUserStorage(r)
 	if !ok {
 		w.WriteHeader(http.StatusUnauthorized)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+		writeJSONResponse(w, map[string]string{"error": "unauthorized"})
 		return
 	}
 
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
 	if query == "" {
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "query parameter 'q' is required"})
+		writeJSONResponse(w, map[string]string{"error": "query parameter 'q' is required"})
 		return
 	}
 
 	results, err := store.SearchKnowledge(0, query, 10)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		writeJSONResponse(w, map[string]string{"error": err.Error()})
 		return
 	}
 
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSONResponse(w, map[string]interface{}{
 		"query":   query,
 		"count":   len(results),
 		"results": results,
@@ -1306,27 +1306,27 @@ func (s *Server) handleKnowledgeList(w http.ResponseWriter, r *http.Request) {
 	store, _, ok := s.getUserStorage(r)
 	if !ok {
 		w.WriteHeader(http.StatusUnauthorized)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+		writeJSONResponse(w, map[string]string{"error": "unauthorized"})
 		return
 	}
 
 	docs, err := store.ListKnowledgeDocuments(0)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		writeJSONResponse(w, map[string]string{"error": err.Error()})
 		return
 	}
 	if docs == nil {
 		docs = []storage.KnowledgeDocument{}
 	}
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{"documents": docs})
+	writeJSONResponse(w, map[string]interface{}{"documents": docs})
 }
 
 func (s *Server) handleKnowledgeUpload(w http.ResponseWriter, r *http.Request) {
 	store, _, ok := s.getUserStorage(r)
 	if !ok {
 		w.WriteHeader(http.StatusUnauthorized)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+		writeJSONResponse(w, map[string]string{"error": "unauthorized"})
 		return
 	}
 
@@ -1334,14 +1334,14 @@ func (s *Server) handleKnowledgeUpload(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 25<<20)
 	if err := r.ParseMultipartForm(25 << 20); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "file too large (max 25MB)"})
+		writeJSONResponse(w, map[string]string{"error": "file too large (max 25MB)"})
 		return
 	}
 
 	file, header, err := r.FormFile("file")
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "file field 'file' is required"})
+		writeJSONResponse(w, map[string]string{"error": "file field 'file' is required"})
 		return
 	}
 	defer file.Close()
@@ -1351,7 +1351,7 @@ func (s *Server) handleKnowledgeUpload(w http.ResponseWriter, r *http.Request) {
 	n, err := file.Read(content)
 	if err != nil && n == 0 {
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "failed to read file"})
+		writeJSONResponse(w, map[string]string{"error": "failed to read file"})
 		return
 	}
 	content = content[:n]
@@ -1382,19 +1382,19 @@ func (s *Server) handleKnowledgeUpload(w http.ResponseWriter, r *http.Request) {
 
 	if len(chunks) == 0 {
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "file contains no extractable text"})
+		writeJSONResponse(w, map[string]string{"error": "file contains no extractable text"})
 		return
 	}
 
 	doc, err := store.SaveKnowledgeDocument(0, header.Filename, mimeType, header.Size, chunks)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "failed to save document: " + err.Error()})
+		writeJSONResponse(w, map[string]string{"error": "failed to save document: " + err.Error()})
 		return
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(doc)
+	writeJSONResponse(w, doc)
 }
 
 // chunkText splits text into chunks of approximately maxChunkSize characters,
@@ -1508,7 +1508,7 @@ func (s *Server) handleMCPServers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	if s.mcpManager == nil {
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		writeJSONResponse(w, map[string]interface{}{
 			"servers": []interface{}{},
 			"message": "MCP not configured",
 		})
@@ -1516,7 +1516,7 @@ func (s *Server) handleMCPServers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	servers := s.mcpManager.ServerStatus()
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSONResponse(w, map[string]interface{}{
 		"servers": servers,
 	})
 }
@@ -1562,7 +1562,7 @@ func (s *Server) handleMCPServerInfo(w http.ResponseWriter, r *http.Request, nam
 
 	for _, srv := range s.mcpManager.ServerStatus() {
 		if srv.Name == name {
-			_ = json.NewEncoder(w).Encode(srv)
+			writeJSONResponse(w, srv)
 			return
 		}
 	}
@@ -1583,7 +1583,7 @@ func (s *Server) handleMCPReconnect(w http.ResponseWriter, r *http.Request, name
 
 	if err := s.mcpManager.Reconnect(ctx, name); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		writeJSONResponse(w, map[string]interface{}{
 			"ok":    false,
 			"error": err.Error(),
 		})
@@ -1597,7 +1597,7 @@ func (s *Server) handleMCPReconnect(w http.ResponseWriter, r *http.Request, name
 		}
 	}
 
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSONResponse(w, map[string]interface{}{
 		"ok":      true,
 		"message": fmt.Sprintf("Reconnected to MCP server %q", name),
 	})
@@ -1654,7 +1654,7 @@ func (s *Server) handleImportChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSONResponse(w, map[string]interface{}{
 		"ok":                true,
 		"sessions_imported": sessionsImported,
 		"messages_imported": totalImported,
@@ -2091,19 +2091,19 @@ func (s *Server) handleToolsList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.agentLoop == nil {
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{"tools": []string{}})
+		writeJSONResponse(w, map[string]interface{}{"tools": []string{}})
 		return
 	}
 	registry := s.agentLoop.ToolRegistry()
 	if registry == nil {
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{"tools": []string{}})
+		writeJSONResponse(w, map[string]interface{}{"tools": []string{}})
 		return
 	}
 	names := registry.List()
 	if names == nil {
 		names = []string{}
 	}
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{"tools": names})
+	writeJSONResponse(w, map[string]interface{}{"tools": names})
 }
 
 // ==================== WORKFLOWS ====================
@@ -2112,7 +2112,7 @@ func (s *Server) handleToolsList(w http.ResponseWriter, r *http.Request) {
 func writeJSONError(w http.ResponseWriter, msg string, code int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	_ = json.NewEncoder(w).Encode(map[string]string{"error": msg})
+	writeJSONResponse(w, map[string]string{"error": msg})
 }
 
 // handleWorkflows handles GET (list) and POST (create) for workflows.
@@ -2135,7 +2135,7 @@ func (s *Server) handleWorkflows(w http.ResponseWriter, r *http.Request) {
 		if workflows == nil {
 			workflows = []storage.Workflow{}
 		}
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{"workflows": workflows})
+		writeJSONResponse(w, map[string]interface{}{"workflows": workflows})
 
 	case http.MethodPost:
 		var body struct {
@@ -2160,7 +2160,7 @@ func (s *Server) handleWorkflows(w http.ResponseWriter, r *http.Request) {
 		}
 		wf, _ := store.GetWorkflow(id)
 		w.WriteHeader(http.StatusCreated)
-		_ = json.NewEncoder(w).Encode(wf)
+		writeJSONResponse(w, wf)
 
 	default:
 		writeJSONError(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -2209,7 +2209,7 @@ func (s *Server) handleWorkflowAction(w http.ResponseWriter, r *http.Request) {
 		if runs == nil {
 			runs = []storage.WorkflowRun{}
 		}
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{"runs": runs})
+		writeJSONResponse(w, map[string]interface{}{"runs": runs})
 
 	case action == "" && r.Method == http.MethodGet:
 		wf, err := store.GetWorkflow(workflowID)
@@ -2217,7 +2217,7 @@ func (s *Server) handleWorkflowAction(w http.ResponseWriter, r *http.Request) {
 			writeJSONError(w, "workflow not found", http.StatusNotFound)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(wf)
+		writeJSONResponse(w, wf)
 
 	case action == "" && r.Method == http.MethodPut:
 		var body struct {
@@ -2251,14 +2251,14 @@ func (s *Server) handleWorkflowAction(w http.ResponseWriter, r *http.Request) {
 			writeJSONError(w, "failed to update workflow: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(wf)
+		writeJSONResponse(w, wf)
 
 	case action == "" && r.Method == http.MethodDelete:
 		if err := store.DeleteWorkflow(workflowID); err != nil {
 			writeJSONError(w, "failed to delete: "+err.Error(), http.StatusNotFound)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
+		writeJSONResponse(w, map[string]string{"status": "deleted"})
 
 	default:
 		writeJSONError(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -2297,7 +2297,7 @@ func (s *Server) handleWorkflowRun(w http.ResponseWriter, r *http.Request, workf
 		return
 	}
 
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSONResponse(w, map[string]interface{}{
 		"ok":      true,
 		"results": results,
 	})

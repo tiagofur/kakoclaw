@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sipeed/makoclaw/pkg/logger"
 	"github.com/sipeed/makoclaw/pkg/storage"
 )
 
@@ -30,13 +31,14 @@ func (s *Server) handlePrompts(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		prompts, err := store.ListPrompts()
 		if err != nil {
-			http.Error(w, "failed to list prompts: "+err.Error(), http.StatusInternalServerError)
+			logger.ErrorCF("web", "failed to list prompts", map[string]interface{}{"error": err.Error()})
+			http.Error(w, "failed to list prompts", http.StatusInternalServerError)
 			return
 		}
 		if prompts == nil {
 			prompts = []storage.Prompt{}
 		}
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{"prompts": prompts})
+		writeJSONResponse(w, map[string]interface{}{"prompts": prompts})
 
 	case http.MethodPost:
 		var req struct {
@@ -53,13 +55,26 @@ func (s *Server) handlePrompts(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "title and content are required", http.StatusBadRequest)
 			return
 		}
+		if len(req.Title) > 255 {
+			http.Error(w, "title too long (max 255 chars)", http.StatusBadRequest)
+			return
+		}
+		if len(req.Description) > 2000 {
+			http.Error(w, "description too long (max 2000 chars)", http.StatusBadRequest)
+			return
+		}
+		if len(req.Content) > 100000 {
+			http.Error(w, "content too long (max 100000 chars)", http.StatusBadRequest)
+			return
+		}
 		p, err := store.CreatePrompt(req.Title, req.Content, req.Description, req.Tags)
 		if err != nil {
-			http.Error(w, "failed to create prompt: "+err.Error(), http.StatusInternalServerError)
+			logger.ErrorCF("web", "failed to create prompt", map[string]interface{}{"error": err.Error()})
+			http.Error(w, "failed to create prompt", http.StatusInternalServerError)
 			return
 		}
 		w.WriteHeader(http.StatusCreated)
-		_ = json.NewEncoder(w).Encode(p)
+		writeJSONResponse(w, p)
 
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -95,19 +110,33 @@ func (s *Server) handlePromptAction(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "invalid JSON", http.StatusBadRequest)
 			return
 		}
+		if len(req.Title) > 255 {
+			http.Error(w, "title too long (max 255 chars)", http.StatusBadRequest)
+			return
+		}
+		if len(req.Description) > 2000 {
+			http.Error(w, "description too long (max 2000 chars)", http.StatusBadRequest)
+			return
+		}
+		if len(req.Content) > 100000 {
+			http.Error(w, "content too long (max 100000 chars)", http.StatusBadRequest)
+			return
+		}
 		if err := store.UpdatePrompt(id, req.Title, req.Content, req.Description, req.Tags); err != nil {
-			http.Error(w, "failed to update prompt: "+err.Error(), http.StatusInternalServerError)
+			logger.ErrorCF("web", "failed to update prompt", map[string]interface{}{"id": id, "error": err.Error()})
+			http.Error(w, "failed to update prompt", http.StatusInternalServerError)
 			return
 		}
 		p, _ := store.GetPrompt(id)
-		_ = json.NewEncoder(w).Encode(p)
+		writeJSONResponse(w, p)
 
 	case http.MethodDelete:
 		if err := store.DeletePrompt(id); err != nil {
-			http.Error(w, "failed to delete prompt: "+err.Error(), http.StatusInternalServerError)
+			logger.ErrorCF("web", "failed to delete prompt", map[string]interface{}{"id": id, "error": err.Error()})
+			http.Error(w, "failed to delete prompt", http.StatusInternalServerError)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
+		writeJSONResponse(w, map[string]string{"status": "deleted"})
 
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -156,7 +185,8 @@ func (s *Server) handleChatAttachment(w http.ResponseWriter, r *http.Request) {
 
 	extractedText, mimeType, err := extractTextFromFile(data, ext, header.Filename)
 	if err != nil {
-		http.Error(w, "unsupported file type: "+err.Error(), http.StatusBadRequest)
+		logger.ErrorCF("web", "unsupported file type", map[string]interface{}{"filename": header.Filename, "ext": ext, "error": err.Error()})
+		http.Error(w, "unsupported file type", http.StatusBadRequest)
 		return
 	}
 
@@ -168,7 +198,7 @@ func (s *Server) handleChatAttachment(w http.ResponseWriter, r *http.Request) {
 		truncated = true
 	}
 
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSONResponse(w, map[string]interface{}{
 		"name":      name,
 		"size":      size,
 		"mime_type": mimeType,
@@ -261,7 +291,7 @@ func stripHTMLTags(s string) string {
 func extractPDFText(data []byte) string {
 	var buf strings.Builder
 	content := string(data)
-	
+
 	// Look for strings inside parentheses in PDF streams (very basic heuristic)
 	i := 0
 	for i < len(content) {
@@ -301,7 +331,7 @@ func extractPDFText(data []byte) string {
 			i++
 		}
 	}
-	
+
 	return strings.TrimSpace(buf.String())
 }
 

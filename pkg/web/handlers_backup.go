@@ -413,7 +413,10 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 	// Parse import options
 	var importOptions ImportOptions
 	if body := r.FormValue("options"); body != "" {
-		json.Unmarshal([]byte(body), &importOptions)
+		if err := json.Unmarshal([]byte(body), &importOptions); err != nil {
+			http.Error(w, "invalid import options", http.StatusBadRequest)
+			return
+		}
 	} else {
 		importOptions.ReplaceDatabase = true
 		importOptions.ReplaceWorkspace = true
@@ -621,7 +624,7 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 	})
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSONResponse(w, map[string]interface{}{
 		"ok":      len(importErrors) == 0,
 		"message": fmt.Sprintf("Imported %d files, %d sessions, %d messages, %d tasks", importedFiles, importedDBSessions, importedDBMessages, importedDBTasks),
 		"details": map[string]interface{}{
@@ -732,7 +735,7 @@ func (s *Server) handleBackupValidate(w http.ResponseWriter, r *http.Request) {
 
 	if !manifestFound {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		writeJSONResponse(w, map[string]interface{}{
 			"valid":   false,
 			"error":   "missing manifest.json",
 			"files":   len(zipReader.File),
@@ -759,7 +762,7 @@ func (s *Server) handleBackupValidate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSONResponse(w, map[string]interface{}{
 		"valid":                true,
 		"version":              manifest.Version,
 		"backup_type":          manifest.BackupType,

@@ -30,6 +30,8 @@ type BuiltinSkill struct {
 	Enabled bool   `json:"enabled"`
 }
 
+var installerHTTPClient = &http.Client{Timeout: 15 * time.Second}
+
 func NewSkillInstaller(workspace string) *SkillInstaller {
 	return &SkillInstaller{
 		workspace: workspace,
@@ -45,13 +47,12 @@ func (si *SkillInstaller) InstallFromGitHub(ctx context.Context, repo string) er
 
 	url := fmt.Sprintf("https://raw.githubusercontent.com/%s/main/SKILL.md", repo)
 
-	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
-	resp, err := client.Do(req)
+	resp, err := installerHTTPClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to fetch skill: %w", err)
 	}
@@ -95,13 +96,12 @@ func (si *SkillInstaller) Uninstall(skillName string) error {
 func (si *SkillInstaller) ListAvailableSkills(ctx context.Context) ([]AvailableSkill, error) {
 	url := "https://raw.githubusercontent.com/sipeed/makoclaw-skills/main/skills.json"
 
-	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	resp, err := client.Do(req)
+	resp, err := installerHTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch skills list: %w", err)
 	}

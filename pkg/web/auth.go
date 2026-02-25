@@ -73,8 +73,8 @@ func newAuthManager(store *storage.CentralStorage, cfgUsername, cfgPassword, cfg
 			username = "admin"
 		}
 		password := strings.TrimSpace(cfgPassword)
-		if password == "" {
-			return nil, errors.New("web admin bootstrap requires web.password when no admin user exists")
+		if len(password) < 8 {
+			return nil, errors.New("web admin bootstrap requires web.password of at least 8 characters when no admin user exists")
 		}
 
 		user, err := mgr.store.GetUserByUsername(username)
@@ -236,4 +236,3 @@ func (m *authManager) changePassword(username, oldPassword, newPassword string) 
 	}
 	return m.store.SetSetting("jwt_secret_b64", base64.RawURLEncoding.EncodeToString(newSecret))
 }
-

@@ -178,7 +178,7 @@ func (c *Client) Connect(ctx context.Context) error {
 	}
 
 	// Start reading responses in background
-	go c.readLoop()
+	go c.readLoop(ctx)
 
 	// Initialize the MCP protocol
 	initCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
@@ -388,38 +388,50 @@ func (c *Client) sendNotification(method string, params interface{}) {
 	c.writeMu.Unlock()
 }
 
-func (c *Client) readLoop() {
-	for {
-		line, err := c.stdout.ReadBytes('\n')
-		if err != nil {
-			if c.Connected() {
-				c.setError(fmt.Sprintf("read error: %v", err))
-				c.mu.Lock()
-				c.connected = false
-				c.mu.Unlock()
+func (c *Client) readLoop(ctx context.Context) {
+	errCh := make(chan error, 1)
+	go func() {
+		for {
+			line, err := c.stdout.ReadBytes('\n')
+			if err != nil {
+				errCh <- err
+				return
 			}
-			return
-		}
 
-		var resp jsonRPCResponse
-		if err := json.Unmarshal(line, &resp); err != nil {
-			// Could be a notification or malformed data; skip
-			continue
-		}
+			var resp jsonRPCResponse
+			if err := json.Unmarshal(line, &resp); err != nil {
+				// Could be a notification or malformed data; skip
+				continue
+			}
 
-		// Only route responses with an ID (not notifications from server)
-		if resp.ID == nil {
-			continue
-		}
+			// Only route responses with an ID (not notifications from server)
+			if resp.ID == nil {
+				continue
+			}
 
-		c.mu.Lock()
-		ch, ok := c.pending[*resp.ID]
-		if ok {
-			delete(c.pending, *resp.ID)
+			c.mu.Lock()
+			ch, ok := c.pending[*resp.ID]
+			c.mu.Unlock()
+			if ok {
+				ch <- &resp
+			}
 		}
-		c.mu.Unlock()
-		if ok {
-			ch <- &resp
+	}()
+
+	select {
+	case err := <-errCh:
+		if c.Connected() {
+			c.setError(fmt.Sprintf("read error: %v", err))
+			c.mu.Lock()
+			c.connected = false
+			c.mu.Unlock()
+		}
+	case <-ctx.Done():
+		if c.Connected() {
+			c.setError("client context cancelled")
+			c.mu.Lock()
+			c.connected = false
+			c.mu.Unlock()
 		}
 	}
 }

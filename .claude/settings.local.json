@@ -13,7 +13,12 @@
       "Bash(npm run build)",
       "Bash(npm install:*)",
       "Bash(ss:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(echo Exit: $?:*)",
+      "Bash(head:*)"
     ]
+  },
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true
   }
 }

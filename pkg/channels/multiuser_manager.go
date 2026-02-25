@@ -27,8 +27,8 @@ type MultiUserChannelManager struct {
 	cronJobs     map[string]*cron.CronService
 	globalCfg    *config.Config
 	bus          *bus.MessageBus
-	channelStore *storage.Storage          // For channel manager initialization
-	centralStore *storage.CentralStorage   // For user/cron management
+	channelStore *storage.Storage        // For channel manager initialization
+	centralStore *storage.CentralStorage // For user/cron management
 	mu           sync.RWMutex
 	ctx          context.Context
 	cancel       context.CancelFunc
@@ -90,7 +90,10 @@ func (m *MultiUserChannelManager) InitializeAllUsers() error {
 func (m *MultiUserChannelManager) GetOrCreateManagerForUser(userUUID string) (*Manager, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	return m.getOrCreateManagerForUserLocked(userUUID)
+}
 
+func (m *MultiUserChannelManager) getOrCreateManagerForUserLocked(userUUID string) (*Manager, error) {
 	// Return existing manager if already initialized
 	if mgr, exists := m.managers[userUUID]; exists {
 		return mgr, nil
@@ -112,7 +115,7 @@ func (m *MultiUserChannelManager) GetOrCreateManagerForUser(userUUID string) (*M
 	cronTool := tools.NewCronTool(cronService, agentLoop, m.bus)
 	agentLoop.RegisterTool(cronTool)
 	cronService.SetOnJob(func(job *cron.CronJob) (string, error) {
-		result := cronTool.ExecuteJob(context.Background(), job)
+		result := cronTool.ExecuteJob(m.ctx, job)
 		return result, nil
 	})
 
@@ -269,7 +272,7 @@ func (m *MultiUserChannelManager) RestartUserChannels(ctx context.Context, userU
 	delete(m.cronJobs, userUUID)
 
 	// Recreate with new config
-	mgr, err := m.GetOrCreateManagerForUser(userUUID)
+	mgr, err := m.getOrCreateManagerForUserLocked(userUUID)
 	if err != nil {
 		return fmt.Errorf("failed to recreate manager: %w", err)
 	}
@@ -344,8 +347,8 @@ func (m *MultiUserChannelManager) migrateLegacyCronStore() error {
 			allUsers, listErr := m.centralStore.ListUsers()
 			if listErr != nil || len(allUsers) == 0 {
 				logger.WarnCF("multiuser", "Skipping cron job migration - user not found and no fallback available", map[string]interface{}{
-					"user_id": job.UserID,
-					"job_id":  job.ID,
+					"user_id":  job.UserID,
+					"job_id":   job.ID,
 					"job_name": job.Name,
 				})
 				continue

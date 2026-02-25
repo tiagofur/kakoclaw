@@ -105,13 +105,18 @@ func (s *Storage) ExportUserData(userID int64) (*BackupUserData, error) {
 		rows, err = s.db.Query(querySess)
 	}
 
-	if err == nil {
+	if err != nil {
+		logger.WarnCF("backup", "Failed to query sessions for export", map[string]interface{}{"error": err.Error()})
+	} else {
 		for rows.Next() {
 			var sess BackupSession
 			if err := rows.Scan(&sess.SessionID, &sess.Title, &sess.Archived, &sess.CreatedAt, &sess.UpdatedAt); err != nil {
 				continue
 			}
 			data.Sessions = append(data.Sessions, sess)
+		}
+		if err := rows.Err(); err != nil {
+			logger.WarnCF("backup", "Error iterating sessions", map[string]interface{}{"error": err.Error()})
 		}
 		rows.Close()
 	}
@@ -129,13 +134,18 @@ func (s *Storage) ExportUserData(userID int64) (*BackupUserData, error) {
 		rows, err = s.db.Query(queryChat)
 	}
 
-	if err == nil {
+	if err != nil {
+		logger.WarnCF("backup", "Failed to query messages for export", map[string]interface{}{"error": err.Error()})
+	} else {
 		for rows.Next() { // Note: variable was msgRows in original, changing to rows for consistency
 			var msg BackupMessage
 			if err := rows.Scan(&msg.SessionID, &msg.Role, &msg.Content, &msg.CreatedAt); err != nil {
 				continue
 			}
 			data.Messages = append(data.Messages, msg)
+		}
+		if err := rows.Err(); err != nil {
+			logger.WarnCF("backup", "Error iterating messages", map[string]interface{}{"error": err.Error()})
 		}
 		rows.Close()
 	}
@@ -153,7 +163,9 @@ func (s *Storage) ExportUserData(userID int64) (*BackupUserData, error) {
 		rows, err = s.db.Query(queryTask)
 	}
 
-	if err == nil {
+	if err != nil {
+		logger.WarnCF("backup", "Failed to query tasks for export", map[string]interface{}{"error": err.Error()})
+	} else {
 		taskIDs := make(map[int64]string) // map task DB id -> title for log linking
 		for rows.Next() {
 			var t BackupTask
@@ -163,6 +175,9 @@ func (s *Storage) ExportUserData(userID int64) (*BackupUserData, error) {
 			}
 			data.Tasks = append(data.Tasks, t)
 			taskIDs[dbID] = t.Title
+		}
+		if err := rows.Err(); err != nil {
+			logger.WarnCF("backup", "Error iterating tasks", map[string]interface{}{"error": err.Error()})
 		}
 		rows.Close()
 
@@ -196,6 +211,9 @@ func (s *Storage) ExportUserData(userID int64) (*BackupUserData, error) {
 					log.TaskTitle = taskIDs[taskID]
 					data.TaskLogs = append(data.TaskLogs, log)
 				}
+				if err := logRows.Err(); err != nil {
+					logger.WarnCF("backup", "Error iterating task logs", map[string]interface{}{"error": err.Error()})
+				}
 			}
 		}
 	}
@@ -226,6 +244,9 @@ func (s *Storage) ExportUserData(userID int64) (*BackupUserData, error) {
 					Channel:  channel,
 					SenderID: senderID,
 				})
+			}
+			if err := chanRows.Err(); err != nil {
+				logger.WarnCF("backup", "Error iterating channel mappings", map[string]interface{}{"error": err.Error()})
 			}
 		}
 	}
@@ -493,6 +514,10 @@ func (s *Storage) hasTable(table string) bool {
 
 // hasColumn checks if a table has a specific column.
 func (s *Storage) hasColumn(table, column string) bool {
+	allowedTables := map[string]bool{"sessions": true, "chats": true, "tasks": true, "channel_users": true}
+	if !allowedTables[table] {
+		return false
+	}
 	query := fmt.Sprintf("PRAGMA table_info(%s)", table)
 	rows, err := s.db.Query(query)
 	if err != nil {
@@ -511,6 +536,13 @@ func (s *Storage) hasColumn(table, column string) bool {
 		if strings.EqualFold(name, column) {
 			return true
 		}
+	}
+	if err := rows.Err(); err != nil {
+		logger.WarnCF("storage", "error iterating columns", map[string]interface{}{
+			"table":  table,
+			"column": column,
+			"error":  err.Error(),
+		})
 	}
 	return false
 }

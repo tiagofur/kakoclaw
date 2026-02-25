@@ -53,6 +53,7 @@ type AgentLoop struct {
 	cfg              *config.Config           // Config for permission checks
 	involvedAgentsMu sync.Mutex               // Mutex for thread-safe agent tracking
 	involvedAgents   []string                 // Agents involved in current/last response
+	summarizeWg      sync.WaitGroup           // Tracks active summarization goroutines
 }
 
 // ToolRegistry returns the agent loop's tool registry so external
@@ -430,6 +431,7 @@ func (al *AgentLoop) Run(ctx context.Context) error {
 
 func (al *AgentLoop) Stop() {
 	al.running.Store(false)
+	al.summarizeWg.Wait()
 }
 
 func (al *AgentLoop) RegisterTool(tool tools.Tool) {
@@ -759,6 +761,8 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, opts processOptions) (str
 		var metadata string
 		if agentJSON, err := json.Marshal(map[string]interface{}{"agents": agents}); err == nil {
 			metadata = string(agentJSON)
+		} else {
+			logger.WarnCF("agent", "Failed to marshal agent metadata", map[string]interface{}{"error": err.Error()})
 		}
 		if err := al.storage.SaveMessageForUser(al.userID, opts.SessionKey, "assistant", finalContent, metadata); err != nil {
 			logger.ErrorCF("agent", "Failed to save assistant message to storage", map[string]interface{}{"error": err.Error()})
@@ -853,6 +857,8 @@ func (al *AgentLoop) runAgentLoopStream(ctx context.Context, opts processOptions
 		var metadata string
 		if agentJSON, err := json.Marshal(map[string]interface{}{"agents": agents}); err == nil {
 			metadata = string(agentJSON)
+		} else {
+			logger.WarnCF("agent", "Failed to marshal agent metadata", map[string]interface{}{"error": err.Error()})
 		}
 		if err := al.storage.SaveMessageForUser(al.userID, opts.SessionKey, "assistant", finalContent, metadata); err != nil {
 			logger.ErrorCF("agent", "Failed to save assistant message to storage", map[string]interface{}{"error": err.Error()})
@@ -1021,7 +1027,11 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 			Content: response.Content,
 		}
 		for _, tc := range response.ToolCalls {
-			argumentsJSON, _ := json.Marshal(tc.Arguments)
+			argumentsJSON, err := json.Marshal(tc.Arguments)
+			if err != nil {
+				logger.WarnCF("agent", "Failed to marshal tool arguments", map[string]interface{}{"tool": tc.Name, "error": err.Error()})
+				continue
+			}
 			assistantMsg.ToolCalls = append(assistantMsg.ToolCalls, providers.ToolCall{
 				ID:   tc.ID,
 				Type: "function",
@@ -1039,7 +1049,10 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 		// Execute tool calls
 		for _, tc := range response.ToolCalls {
 			// Log tool call with arguments preview
-			argsJSON, _ := json.Marshal(tc.Arguments)
+			argsJSON, err := json.Marshal(tc.Arguments)
+			if err != nil {
+				argsJSON = []byte(fmt.Sprintf("%v", tc.Arguments))
+			}
 			argsPreview := utils.Truncate(string(argsJSON), 200)
 			logger.InfoCF("agent", fmt.Sprintf("Tool call: %s(%s)", tc.Name, argsPreview),
 				map[string]interface{}{
@@ -1275,7 +1288,11 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 				Content: contentBuilder.String(),
 			}
 			for _, tc := range toolCalls {
-				argumentsJSON, _ := json.Marshal(tc.Arguments)
+				argumentsJSON, err := json.Marshal(tc.Arguments)
+				if err != nil {
+					logger.WarnCF("agent", "Failed to marshal tool arguments", map[string]interface{}{"tool": tc.Name, "error": err.Error()})
+					continue
+				}
 				assistantMsg.ToolCalls = append(assistantMsg.ToolCalls, providers.ToolCall{
 					ID:   tc.ID,
 					Type: "function",
@@ -1290,7 +1307,10 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 
 			// Execute tool calls
 			for _, tc := range toolCalls {
-				argsJSON, _ := json.Marshal(tc.Arguments)
+				argsJSON, err := json.Marshal(tc.Arguments)
+				if err != nil {
+					argsJSON = []byte(fmt.Sprintf("%v", tc.Arguments))
+				}
 				argsPreview := utils.Truncate(string(argsJSON), 200)
 				logger.InfoCF("agent", fmt.Sprintf("Tool call: %s(%s)", tc.Name, argsPreview),
 					map[string]interface{}{
@@ -1361,7 +1381,11 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 			Content: response.Content,
 		}
 		for _, tc := range response.ToolCalls {
-			argumentsJSON, _ := json.Marshal(tc.Arguments)
+			argumentsJSON, err := json.Marshal(tc.Arguments)
+			if err != nil {
+				logger.WarnCF("agent", "Failed to marshal tool arguments", map[string]interface{}{"tool": tc.Name, "error": err.Error()})
+				continue
+			}
 			assistantMsg.ToolCalls = append(assistantMsg.ToolCalls, providers.ToolCall{
 				ID:   tc.ID,
 				Type: "function",
@@ -1375,7 +1399,10 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 		al.sessions.AddFullMessageForUser(al.userID, opts.SessionKey, assistantMsg)
 
 		for _, tc := range response.ToolCalls {
-			argsJSON, _ := json.Marshal(tc.Arguments)
+			argsJSON, err := json.Marshal(tc.Arguments)
+			if err != nil {
+				argsJSON = []byte(fmt.Sprintf("%v", tc.Arguments))
+			}
 			argsPreview := utils.Truncate(string(argsJSON), 200)
 			logger.InfoCF("agent", fmt.Sprintf("Tool call: %s(%s)", tc.Name, argsPreview),
 				map[string]interface{}{
@@ -1426,7 +1453,9 @@ func (al *AgentLoop) maybeSummarize(sessionKey string) {
 
 	if len(newHistory) > 20 || tokenEstimate > threshold {
 		if _, loading := al.summarizing.LoadOrStore(sessionKey, true); !loading {
+			al.summarizeWg.Add(1)
 			go func() {
+				defer al.summarizeWg.Done()
 				defer al.summarizing.Delete(sessionKey)
 				al.summarizeSession(sessionKey)
 			}()
@@ -1606,5 +1635,3 @@ func (al *AgentLoop) estimateTokens(messages []providers.Message) int {
 	}
 	return total
 }
-
-

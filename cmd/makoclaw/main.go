@@ -634,8 +634,17 @@ func interactiveMode(agentLoop *agent.AgentLoop, sessionKey string) {
 	prompt := fmt.Sprintf("%s You: ", logo)
 
 	rl, err := readline.NewEx(&readline.Config{
-		Prompt:          prompt,
-		HistoryFile:     filepath.Join(os.TempDir(), ".makoclaw_history"),
+		Prompt: prompt,
+		HistoryFile: func() string {
+			if cacheDir, err := os.UserCacheDir(); err == nil {
+				_ = os.MkdirAll(filepath.Join(cacheDir, "makoclaw"), 0700)
+				return filepath.Join(cacheDir, "makoclaw", ".makoclaw_history")
+			}
+			if homeDir, err := os.UserHomeDir(); err == nil {
+				return filepath.Join(homeDir, ".makoclaw_history")
+			}
+			return filepath.Join(os.TempDir(), ".makoclaw_history")
+		}(),
 		HistoryLimit:    100,
 		InterruptPrompt: "^C",
 		EOFPrompt:       "exit",

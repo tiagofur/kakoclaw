@@ -16,6 +16,24 @@ const (
 	userAgent = "Mozilla/5.0 (compatible; makoclaw/1.0)"
 )
 
+var webSearchHTTPClient = &http.Client{Timeout: 10 * time.Second}
+
+var webFetchHTTPClient = &http.Client{
+	Timeout: 60 * time.Second,
+	Transport: &http.Transport{
+		MaxIdleConns:        10,
+		IdleConnTimeout:     30 * time.Second,
+		DisableCompression:  false,
+		TLSHandshakeTimeout: 15 * time.Second,
+	},
+	CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		if len(via) >= 5 {
+			return fmt.Errorf("stopped after 5 redirects")
+		}
+		return nil
+	},
+}
+
 type WebSearchTool struct {
 	apiKey     string
 	maxResults int
@@ -86,8 +104,7 @@ func (t *WebSearchTool) Execute(ctx context.Context, args map[string]interface{}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("X-Subscription-Token", t.apiKey)
 
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := webSearchHTTPClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("request failed: %w", err)
 	}
@@ -204,23 +221,7 @@ func (t *WebFetchTool) Execute(ctx context.Context, args map[string]interface{})
 
 	req.Header.Set("User-Agent", userAgent)
 
-	client := &http.Client{
-		Timeout: 60 * time.Second,
-		Transport: &http.Transport{
-			MaxIdleConns:        10,
-			IdleConnTimeout:     30 * time.Second,
-			DisableCompression:  false,
-			TLSHandshakeTimeout: 15 * time.Second,
-		},
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			if len(via) >= 5 {
-				return fmt.Errorf("stopped after 5 redirects")
-			}
-			return nil
-		},
-	}
-
-	resp, err := client.Do(req)
+	resp, err := webFetchHTTPClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("request failed: %w", err)
 	}

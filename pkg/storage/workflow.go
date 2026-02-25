@@ -88,7 +88,11 @@ func (s *Storage) CreateWorkflow(name, description string, steps, parameters, sc
 	if err != nil {
 		return 0, fmt.Errorf("creating workflow: %w", err)
 	}
-	return result.LastInsertId()
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("getting insert id: %w", err)
+	}
+	return id, nil
 }
 
 // GetWorkflow returns a single workflow by ID.
@@ -158,7 +162,10 @@ func (s *Storage) UpdateWorkflow(id int64, name, description string, enabled boo
 	if err != nil {
 		return nil, fmt.Errorf("updating workflow: %w", err)
 	}
-	n, _ := result.RowsAffected()
+	n, err := result.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("getting rows affected: %w", err)
+	}
 	if n == 0 {
 		return nil, fmt.Errorf("workflow not found")
 	}
@@ -171,7 +178,10 @@ func (s *Storage) DeleteWorkflow(id int64) error {
 	if err != nil {
 		return fmt.Errorf("deleting workflow: %w", err)
 	}
-	n, _ := result.RowsAffected()
+	n, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("getting rows affected: %w", err)
+	}
 	if n == 0 {
 		return fmt.Errorf("workflow not found")
 	}
@@ -184,7 +194,11 @@ func (s *Storage) CreateWorkflowRun(workflowID int64) (int64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("creating workflow run: %w", err)
 	}
-	return result.LastInsertId()
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("getting insert id: %w", err)
+	}
+	return id, nil
 }
 
 // UpdateWorkflowRun updates a run's status and results.

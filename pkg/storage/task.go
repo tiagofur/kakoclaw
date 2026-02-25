@@ -41,7 +41,11 @@ func (s *Storage) CreateTaskForUser(userKey interface{}, title, description, sta
 	if err != nil {
 		return 0, fmt.Errorf("creating task: %w", err)
 	}
-	return result.LastInsertId()
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("getting insert id: %w", err)
+	}
+	return id, nil
 }
 
 func (s *Storage) GetTask(id int64) (*Task, error) {
