@@ -2,24 +2,24 @@
 
 **Fecha:** Febrero 2026
 **Branch:** `claude/code-review-improvements-ZwCI6`
-**Revisión:** Auditoría completa del código fuente Go
+**Revisión:** Auditoría completa del código fuente Go (2 rondas)
 
 ---
 
 ## Resumen
 
-Se realizó una auditoría exhaustiva del código, identificando problemas de seguridad, race conditions, fugas de recursos y manejo de errores. Se corrigieron **35+ problemas** en 4 commits. A continuación se documenta cada problema, su estado actual, y los problemas pendientes que aún requieren atención.
+Se realizaron dos auditorías exhaustivas del código, identificando problemas de seguridad, race conditions, fugas de recursos, manejo de errores y calidad de código. Se corrigieron **38 problemas** en 4 commits. La segunda auditoría identificó **30 problemas pendientes adicionales** que requieren atención.
 
 ### Estadísticas
 
 | Categoría | Corregidos | Pendientes |
 |-----------|:----------:|:----------:|
-| Seguridad Crítica | 12 | 4 |
-| Race Conditions | 6 | 1 |
-| Fugas de Recursos | 3 | 2 |
-| Manejo de Errores | 10 | 3 |
-| Calidad de Código | 4 | 5 |
-| **Total** | **35** | **15** |
+| Seguridad | 16 | 8 |
+| Race Conditions / Concurrencia | 6 | 4 |
+| Fugas de Recursos | 2 | 4 |
+| Manejo de Errores / Integridad | 10 | 9 |
+| Calidad de Código | 4 | 9 |
+| **Total** | **38** | **34** |
 
 ---
 
@@ -369,104 +369,258 @@ Se realizó una auditoría exhaustiva del código, identificando problemas de se
 - **Problema:** La política Content-Security-Policy incluye `'unsafe-inline'` tanto para scripts como para estilos, debilitando la protección contra XSS.
 - **Recomendación:** Migrar a nonces o hashes para scripts inline. Para estilos, evaluar si es posible externalizar.
 
-### Race Conditions - Pendientes
+#### P5. Tabla no escapada en PRAGMA SQL (potencial inyección)
+- **Archivo:** `pkg/storage/backup.go:496`
+- **Severidad:** MEDIA
+- **Problema:** `hasColumn()` construye la query PRAGMA con `fmt.Sprintf("PRAGMA table_info(%s)", table)` sin validación del nombre de tabla. Aunque actualmente los nombres de tabla están hardcodeados (`sessions`, `chats`, `tasks`, `channel_users`), el patrón es inseguro y vulnerable si en el futuro se pasa input externo.
+- **Recomendación:** Implementar whitelist de tablas permitidas:
+  ```go
+  allowedTables := map[string]bool{"sessions": true, "chats": true, "tasks": true, "channel_users": true}
+  if !allowedTables[table] { return false }
+  ```
 
-#### P5. MCP readLoop puede enviar a canal después de cleanup en sendRequest
+#### P6. Sin validación de contraseña en bootstrap de admin
+- **Archivo:** `pkg/web/auth.go:70-111`
+- **Severidad:** BAJA
+- **Problema:** El bootstrap de admin en `newAuthManager()` solo verifica que la contraseña no esté vacía, sin aplicar la política de longitud mínima de 8 caracteres que sí aplican los endpoints de registro y cambio de contraseña.
+- **Recomendación:** Validar `len(password) >= 8` en el bootstrap también.
+
+#### P7. Sin protección CSRF en endpoints de estado
+- **Archivo:** `pkg/web/server.go`
+- **Severidad:** MEDIA
+- **Problema:** No existe middleware CSRF. Las operaciones de cambio de estado (POST, PUT, DELETE) dependen únicamente de JWT para autenticación. Si el token se filtra (ej. via query string), se exponen a CSRF.
+- **Recomendación:** Implementar doble-submit cookies o tokens CSRF. Aplicar `SameSite=Strict` en cookies.
+
+#### P8. Sin límites de longitud en campos de texto de API
+- **Archivos:** `pkg/web/handlers_features.go` y otros handlers
+- **Severidad:** BAJA
+- **Problema:** Los campos de texto (títulos, descripciones, contenido) de endpoints como prompts, tasks, y knowledge no tienen límite de longitud. No se aplica `http.MaxBytesReader` en todos los endpoints que lo necesitan, permitiendo payloads excesivos.
+- **Recomendación:** Añadir validación de longitud: título ≤ 255 chars, descripción ≤ 500 chars, contenido ≤ 100,000 chars. Aplicar `http.MaxBytesReader` consistentemente.
+
+### Race Conditions / Concurrencia - Pendientes
+
+#### P9. Deadlock por adquisición recursiva de lock en MultiUserChannelManager
+- **Archivo:** `pkg/channels/multiuser_manager.go:245-272`
+- **Severidad:** CRITICA
+- **Problema:** `RestartUserChannels()` adquiere `m.mu.Lock()` en línea 246, luego llama a `m.GetOrCreateManagerForUser(userUUID)` en línea 272. `GetOrCreateManagerForUser()` intenta adquirir el mismo lock en línea 91, causando deadlock en un mutex no recursivo.
+- **Recomendación:** Crear un método interno `getOrCreateManagerForUserLocked()` que asuma que el lock ya está adquirido. Llamar al método interno desde `RestartUserChannels()` y mantener el método público con lock para uso externo.
+
+#### P10. Data race en campo ctx de DiscordChannel
+- **Archivo:** `pkg/channels/discord.go:44, 59-62, 68`
+- **Severidad:** MEDIA
+- **Problema:** El campo `ctx` se escribe en `Start()` (línea 68) y se lee en `getContext()` (líneas 59-62) sin sincronización. El race detector de Go reportaría un data race entre estas operaciones.
+- **Recomendación:** Proteger `ctx` con `sync.RWMutex` o usar `atomic.Value` para el almacenamiento del contexto.
+
+#### P11. MCP readLoop puede enviar a canal después de cleanup en sendRequest
 - **Archivo:** `pkg/mcp/client.go:415-423`
 - **Severidad:** MEDIA
-- **Problema:** Hay un window entre `delete(c.pending, *resp.ID)` en readLoop (línea 418) y el `delete(c.pending, id)` en el defer de sendRequest (línea 335). Si readLoop encuentra la respuesta después de que sendRequest ha eliminado la entrada del mapa (por timeout), no hay race, pero si ambos ejecutan concurrentemente la lectura+delete, el channel send en línea 422 podría enviarse a un canal que nadie lee (buffered=1, así que no bloquea, pero el dato se pierde silenciosamente).
-- **Recomendación:** Considerar no eliminar del mapa en readLoop, y dejar que solo sendRequest maneje el cleanup.
+- **Problema:** Hay una ventana entre `delete(c.pending, *resp.ID)` en readLoop y el `delete(c.pending, id)` en el defer de sendRequest. El dato puede perderse silenciosamente si ambos ejecutan concurrentemente.
+- **Recomendación:** Dejar que solo sendRequest maneje el cleanup del mapa pending.
+
+#### P12. Goroutines con context.Background() sin cancelación
+- **Archivos:** `pkg/web/server.go:3458-3466`, `pkg/web/handlers_user_config.go:203-215`, `pkg/channels/multiuser_manager.go:115`, `pkg/agent/loop.go:1429-1432`
+- **Severidad:** MEDIA
+- **Problema:** Múltiples goroutines se lanzan con `context.Background()` sin mecanismo de cancelación. No se detienen cuando el servidor se apaga, dejando operaciones huérfanas.
+- **Recomendación:** Propagar el contexto del servidor a las goroutines. Usar `context.WithTimeout` para operaciones que no deban durar indefinidamente. Implementar WaitGroup para tracking.
 
 ### Fugas de Recursos - Pendientes
 
-#### P6. Goroutine leak en MCP client readLoop
+#### P13. Goroutine leak en MCP client readLoop
 - **Archivo:** `pkg/mcp/client.go:181, 391-425`
 - **Severidad:** ALTA
 - **Problema:** `readLoop()` se inicia como goroutine sin mecanismo de cancelación por contexto. Solo termina si la lectura del pipe retorna error. Si el proceso MCP queda colgado, la goroutine queda bloqueada indefinidamente en `ReadBytes()`.
-- **Recomendación:** Pasar contexto a readLoop. Usar `context.Done()` con un select, o asegurar que `Close()` siempre cierra el pipe de stdout para desbloquear la lectura.
+- **Recomendación:** Añadir `stopChan` al Client struct. Usar `context.Done()` con select en readLoop, o asegurar que `Close()` siempre cierra el pipe de stdout para desbloquear la lectura.
 
-#### P7. Goroutines con context.Background() que no se cancelan
-- **Archivos:** `pkg/web/server.go:3458-3466`, `pkg/agent/loop.go:1429-1432`, `pkg/observability/metrics.go:200-203`
+#### P14. Crecimiento no acotado del ring buffer de RecentEvents
+- **Archivo:** `pkg/observability/metrics.go:375-378`
 - **Severidad:** MEDIA
-- **Problema:** Múltiples goroutines se lanzan con `context.Background()` o sin contexto. No se cancelan cuando el servidor se apaga, potencialmente dejando operaciones huérfanas.
-- **Recomendación:** Propagar el contexto del servidor/parent a las goroutines lanzadas. Usar `context.WithTimeout` para operaciones que no deban durar indefinidamente.
+- **Problema:** El buffer de eventos recientes usa reslicing (`m.RecentEvents = m.RecentEvents[1:]`) que es ineficiente: el array subyacente no libera la memoria de los elementos eliminados. Con uso prolongado, esto genera memory leak sutil.
+- **Recomendación:** Implementar un buffer circular verdadero con array de tamaño fijo y tracking por índice.
 
-### Manejo de Errores - Pendientes
-
-#### P8. rows.Err() no verificado en backup export
-- **Archivo:** `pkg/storage/backup.go:108-117, 132-141, 156-167`
+#### P15. Sin límite de conexiones en servidor TCP de MaixCam
+- **Archivo:** `pkg/channels/maixcam.go:42-61`
 - **Severidad:** MEDIA
-- **Problema:** Después de iterar `rows.Next()` en las tres consultas de exportación (sessions, messages, tasks), no se verifica `rows.Err()`. Si ocurre un error durante la iteración, los datos parciales se retornan sin indicación de que están incompletos.
-- **Recomendación:** Añadir `if err := rows.Err(); err != nil { ... }` después de cada loop de iteración.
+- **Problema:** El servidor TCP acepta conexiones sin límite ni rate limiting, vulnerable a agotamiento de recursos.
+- **Recomendación:** Implementar semáforo para limitar conexiones concurrentes. Añadir timeouts de lectura/escritura.
 
-#### P9. Error de json.Unmarshal ignorado en import options
+#### P16. Busy-wait en listener de WhatsApp
+- **Archivo:** `pkg/channels/whatsapp.go:107-144`
+- **Severidad:** BAJA
+- **Problema:** `listen()` hace polling continuo con `time.Sleep(1s)` cuando la conexión es nil, y `time.Sleep(2s)` en errores de lectura, sin backoff exponencial.
+- **Recomendación:** Implementar backoff exponencial con tiempo máximo de espera. Usar un state machine de conexión.
+
+### Manejo de Errores / Integridad de Datos - Pendientes
+
+#### P17. rows.Err() no verificado en backup export (5 ubicaciones)
+- **Archivo:** `pkg/storage/backup.go:116, 140, 167, 189-199, 219-229`
+- **Severidad:** ALTA
+- **Problema:** Después de iterar `rows.Next()` en las cinco consultas de exportación (sessions, messages, tasks, task_logs, channel_mappings), no se verifica `rows.Err()`. Errores de iteración (I/O de disco, corrupción de BD) se ignoran silenciosamente, generando backups incompletos que se marcan como exitosos.
+- **Recomendación:** Añadir `if err := rows.Err(); err != nil { return data, fmt.Errorf("iterating X: %w", err) }` después de cada loop.
+
+#### P18. Error de json.Unmarshal ignorado en import options
 - **Archivo:** `pkg/web/handlers_backup.go:416`
 - **Severidad:** MEDIA
-- **Problema:** `json.Unmarshal([]byte(body), &importOptions)` ignora silenciosamente errores de parseo, causando que opciones inválidas se traten como defaults.
+- **Problema:** `json.Unmarshal([]byte(body), &importOptions)` ignora silenciosamente errores de parseo, causando que opciones inválidas se traten como defaults. El usuario puede creer que sus opciones se aplicaron cuando no fue así.
 - **Recomendación:** Verificar el error y retornar `400 Bad Request` si el JSON es inválido.
 
-#### P10. Errores silenciosos en queries de backup export
+#### P19. Errores silenciosos en queries de backup export
 - **Archivo:** `pkg/storage/backup.go:108, 132, 156`
 - **Severidad:** MEDIA
 - **Problema:** Si las queries de exportación fallan (`err != nil`), se ignora silenciosamente y se retorna datos vacíos sin indicar error.
 - **Recomendación:** Al menos logear los errores, o retornarlos al llamador.
 
+#### P20. Unchecked LastInsertId() en 4 ubicaciones
+- **Archivos:** `pkg/storage/prompts.go:57`, `pkg/storage/workflow.go:91, 187`, `pkg/storage/task.go:44`
+- **Severidad:** MEDIA
+- **Problema:** `LastInsertId()` puede retornar error (drivers que no lo soportan, fallos de BD). Sin verificación, se retorna id=0 al llamador que lo trata como éxito, corrompiendo lookups posteriores (ej. `GetPrompt(0)` busca un registro inexistente).
+- **Recomendación:**
+  ```go
+  id, err := result.LastInsertId()
+  if err != nil { return 0, fmt.Errorf("get insert id: %w", err) }
+  ```
+
+#### P21. Unchecked RowsAffected() en workflows
+- **Archivo:** `pkg/storage/workflow.go:161, 174`
+- **Severidad:** MEDIA
+- **Problema:** `RowsAffected()` puede retornar error en fallos de BD (disco lleno, permisos). Con el error ignorado, `n` defaultea a 0, que se confunde con "registro no encontrado" — enmascarando errores reales.
+- **Recomendación:** Verificar error de `RowsAffected()` antes de comparar con 0.
+
+#### P22. Errores de json.Marshal ignorados en agent loop (6 ubicaciones)
+- **Archivo:** `pkg/agent/loop.go:1024, 1042, 1278, 1293, 1364, 1378`
+- **Severidad:** MEDIA
+- **Problema:** `json.Marshal(tc.Arguments)` se llama sin verificar error en 6 ubicaciones donde se serializan argumentos de herramientas. Si falla (tipos no serializables), los argumentos se pierden en el historial de sesión.
+- **Recomendación:** Verificar el error y usar `{}` como fallback:
+  ```go
+  argumentsJSON, err := json.Marshal(tc.Arguments)
+  if err != nil {
+      logger.WarnCF("agent", "failed to marshal tool arguments", ...)
+      argumentsJSON = []byte("{}")
+  }
+  ```
+
+#### P23. rows.Err() no verificado en hasColumn PRAGMA query
+- **Archivo:** `pkg/storage/backup.go:503-514`
+- **Severidad:** MEDIA
+- **Problema:** Después del loop de iteración en `hasColumn()`, no se verifica `rows.Err()`. Un error de iteración retorna `false` silenciosamente (como si la columna no existiera), afectando la lógica de migración/import.
+- **Recomendación:** Añadir `rows.Err()` check o al menos logear el error.
+
+#### P24. Mensajes de error HTTP exponen detalles internos
+- **Archivos:** `pkg/web/handlers_features.go:33, 58, 99, 107, 159` y otros handlers
+- **Severidad:** BAJA
+- **Problema:** Mensajes de error como `http.Error(w, "failed to create prompt: "+err.Error(), 500)` pueden contener detalles de implementación (rutas de BD, mensajes de driver SQL).
+- **Recomendación:** Logear el error internamente y retornar un mensaje genérico al usuario.
+
+#### P25. Acumulación de mensajes sin límite en sesiones
+- **Archivo:** `pkg/session/manager.go:158`
+- **Severidad:** MEDIA
+- **Problema:** `session.Messages = append(session.Messages, msg)` crece indefinidamente. La sumarización existe pero es asíncrona. En sesiones de larga duración, la memoria crece sin control.
+- **Recomendación:** Implementar truncamiento automático: `if len(session.Messages) > 500 { session.Messages = session.Messages[len(session.Messages)-500:] }`.
+
 ### Calidad de Código - Pendientes
 
-#### P11. Directorios temporales predecibles
-- **Archivos:** `cmd/makoclaw/main.go:638`, `pkg/utils/media.go:67`, `pkg/channels/signal.go:262`
-- **Severidad:** MEDIA
-- **Problema:** Se usan rutas fijas en `/tmp/` (`makoclaw_history`, `makoclaw_media`, `makoclaw-signal`). En sistemas multi-usuario, otro usuario podría pre-crear estos directorios o symlinks maliciosos.
-- **Recomendación:** Usar `os.MkdirTemp()` para directorios, y añadir componentes aleatorios a los nombres de archivo. Para el historial CLI, usar el directorio home del usuario.
-
-#### P12. Sin recovery de panics en HTTP handlers
+#### P26. Sin recovery de panics en HTTP handlers
 - **Archivos:** Todos los handlers en `pkg/web/handlers_*.go`
 - **Severidad:** ALTA
 - **Problema:** No hay middleware de recovery. Un panic en cualquier handler HTTP crashea todo el proceso del servidor web.
 - **Recomendación:** Añadir un middleware `recoveryMiddleware` que capture panics con `defer recover()`, logee el stack trace, y retorne `500 Internal Server Error`.
 
-#### P13. Sin rate limiting en endpoints API (excepto login)
+#### P27. Sin rate limiting en endpoints API (excepto login)
 - **Archivo:** `pkg/web/server.go`
 - **Severidad:** MEDIA
-- **Problema:** Solo el endpoint de login tiene rate limiting. Endpoints como `/api/v1/chat`, `/api/v1/tasks`, `/api/v1/knowledge` no tienen límite, permitiendo abuso.
-- **Recomendación:** Implementar rate limiting global por usuario/IP para endpoints autenticados. Considerar un middleware basado en token bucket.
+- **Problema:** Solo el endpoint de login tiene rate limiting. Endpoints como `/api/v1/chat`, `/api/v1/tools/execute`, `/api/v1/knowledge/search` no tienen límite, permitiendo abuso y DoS.
+- **Recomendación:** Implementar rate limiting global por usuario/IP para endpoints autenticados. Considerar un middleware basado en token bucket con límites diferenciados según el costo de cada endpoint.
 
-#### P14. Mensajes de error HTTP exponen detalles internos
-- **Archivos:** `pkg/web/handlers_features.go` y otros handlers
-- **Severidad:** BAJA
-- **Problema:** Mensajes de error como `http.Error(w, "failed to create prompt: "+err.Error(), 500)` pueden contener detalles de implementación o rutas del sistema.
-- **Recomendación:** Logear el error internamente y retornar un mensaje genérico al usuario. Usar JSON consistente para respuestas de error.
-
-#### P15. Acumulación de mensajes sin límite en sesiones
-- **Archivo:** `pkg/session/manager.go`
+#### P28. Directorios temporales predecibles
+- **Archivos:** `cmd/makoclaw/main.go:638`, `pkg/utils/media.go:67`, `pkg/channels/signal.go:262`
 - **Severidad:** MEDIA
-- **Problema:** Los mensajes de sesión se acumulan sin límite estricto. La sumarización existe pero se ejecuta asíncronamente y puede no ser suficiente para sesiones de muy larga duración.
-- **Recomendación:** Implementar un hard limit de mensajes por sesión, truncando los más antiguos cuando se excede.
+- **Problema:** Se usan rutas fijas en `/tmp/` (`makoclaw_history`, `makoclaw_media`, `makoclaw-signal`). En sistemas multi-usuario, otro usuario podría pre-crear estos directorios o symlinks maliciosos (symlink attack).
+- **Recomendación:** Usar `os.MkdirTemp()` para directorios, y añadir componentes aleatorios a los nombres de archivo. Para el historial CLI, usar el directorio home del usuario.
+
+#### P29. HTTP Clients creados ad-hoc sin reusar conexiones
+- **Archivos:** `pkg/tools/web.go:89`, `pkg/skills/installer.go:48, 98`, `pkg/web/server.go:4289`
+- **Severidad:** BAJA
+- **Problema:** Se crean instancias `http.Client` nuevas en cada llamada, desperdiciando el pool de conexiones HTTP. Cada instancia crea un nuevo transport, anulando los beneficios de keep-alive.
+- **Recomendación:** Crear un `*http.Client` singleton por módulo con transport persistente reutilizable.
+
+#### P30. Errores de json.Encoder silenciados en respuestas HTTP
+- **Archivos:** `pkg/web/server.go` y todos los handlers
+- **Severidad:** BAJA
+- **Problema:** Decenas de ubicaciones usan `_ = json.NewEncoder(w).Encode(...)`, ignorando silenciosamente errores de encoding. Los clientes pueden recibir JSON incompleto o corrupto sin indicación de error.
+- **Recomendación:** Al mínimo, logear los errores de encoding:
+  ```go
+  if err := json.NewEncoder(w).Encode(...); err != nil {
+      logger.WarnCF("web", "failed to encode response", ...)
+  }
+  ```
+
+#### P31. Sin IdleConnTimeout en Ollama HTTP client
+- **Archivo:** `pkg/providers/ollama_provider.go:61-63`
+- **Severidad:** BAJA
+- **Problema:** El HTTP client de OllamaProvider tiene un `Timeout: 120s` global pero no configura `Transport.IdleConnTimeout`, permitiendo que conexiones idle se mantengan indefinidamente.
+- **Recomendación:** Añadir `Transport: &http.Transport{IdleConnTimeout: 30 * time.Second}`.
+
+#### P32. Goroutines de summarización sin tracking en AgentLoop
+- **Archivo:** `pkg/agent/loop.go:1429+`
+- **Severidad:** BAJA
+- **Problema:** Las goroutines de summarización y otras operaciones background se lanzan sin WaitGroup ni tracking. El shutdown del servidor puede interrumpirlas a mitad de operación.
+- **Recomendación:** Implementar `sync.WaitGroup` en AgentLoop para rastrear goroutines activas y esperarlas durante shutdown.
+
+#### P33. API keys de providers retornadas en respuestas API
+- **Archivo:** `pkg/web/providers_handler.go:69-83`
+- **Severidad:** MEDIA
+- **Problema:** El endpoint `GetProvidersConfig` retorna los API keys completos en la respuesta JSON, exponiéndolos al frontend y potencialmente a logs. Las claves deberían estar enmascaradas.
+- **Recomendación:** Enmascarar API keys en respuestas (ej. `sk-...abc` mostrando solo los últimos 3 caracteres). Implementar un endpoint separado y protegido para obtener claves completas si es necesario.
+
+#### P34. Errores de json.Marshal ignorados en OAuth
+- **Archivo:** `pkg/auth/oauth.go:173, 228`
+- **Severidad:** BAJA
+- **Problema:** `reqBody, _ := json.Marshal(...)` ignora errores. Aunque mapas de strings siempre marshalan correctamente, el patrón viola mejores prácticas de Go.
+- **Recomendación:** Verificar el error para mantener consistencia con el resto del código.
 
 ---
 
 ## Prioridades de Acción
 
-### Inmediato (Seguridad)
-1. **P2** - Fix de allowlist evadible (ALTA)
-2. **P12** - Recovery middleware para panics (ALTA)
-3. **P6** - Fix de goroutine leak en MCP (ALTA)
+### Inmediato (Crítico)
+1. **P9** - Fix de deadlock recursivo en MultiUserChannelManager (CRITICA)
+2. **P2** - Fix de allowlist evadible (ALTA)
+3. **P26** - Recovery middleware para panics (ALTA)
+4. **P13** - Fix de goroutine leak en MCP (ALTA)
+5. **P17** - Verificar rows.Err() en backup export (ALTA)
 
-### Corto Plazo
-4. **P1** - Migrar token JWT fuera de query string (ALTA)
-5. **P8/P10** - Verificar rows.Err() y errores en backup (MEDIA)
-6. **P13** - Rate limiting en API endpoints (MEDIA)
+### Corto Plazo (Alta/Media)
+6. **P1** - Migrar token JWT fuera de query string (ALTA)
+7. **P5** - Validar nombres de tabla en PRAGMA (MEDIA)
+8. **P20** - Verificar LastInsertId() en 4 ubicaciones (MEDIA)
+9. **P21** - Verificar RowsAffected() en workflows (MEDIA)
+10. **P27** - Rate limiting en API endpoints (MEDIA)
+11. **P33** - Enmascarar API keys en respuestas (MEDIA)
 
 ### Mediano Plazo
-7. **P3** - WebSocket origin validation (MEDIA)
-8. **P7** - Propagación de contexto a goroutines (MEDIA)
-9. **P11** - Directorios temporales seguros (MEDIA)
-10. **P5/P9** - Mejoras menores de manejo de errores (MEDIA)
+12. **P3** - WebSocket origin validation (MEDIA)
+13. **P7** - Protección CSRF (MEDIA)
+14. **P10** - Data race en DiscordChannel.ctx (MEDIA)
+15. **P12** - Propagación de contexto a goroutines (MEDIA)
+16. **P14** - Fix de ring buffer ineficiente (MEDIA)
+17. **P15** - Límite de conexiones en MaixCam (MEDIA)
+18. **P18/P19** - Mejoras en manejo de errores de backup (MEDIA)
+19. **P22** - json.Marshal errors en agent loop (MEDIA)
+20. **P25** - Hard limit en mensajes de sesión (MEDIA)
+21. **P28** - Directorios temporales seguros (MEDIA)
 
 ### Bajo Prioridad
-11. **P4** - Tightening de CSP (BAJA)
-12. **P14** - Sanitización de mensajes de error HTTP (BAJA)
-13. **P15** - Hard limit en mensajes de sesión (MEDIA-BAJA)
+22. **P4** - Tightening de CSP (BAJA)
+23. **P6** - Validación de contraseña en bootstrap (BAJA)
+24. **P8** - Límites de longitud en campos de texto (BAJA)
+25. **P11** - Cleanup de MCP pending map (MEDIA)
+26. **P16** - Backoff en WhatsApp listener (BAJA)
+27. **P23** - rows.Err() en hasColumn (MEDIA)
+28. **P24** - Sanitización de mensajes de error HTTP (BAJA)
+29. **P29** - HTTP Client reutilizable (BAJA)
+30. **P30** - Errores de json.Encoder (BAJA)
+31. **P31** - IdleConnTimeout en Ollama (BAJA)
+32. **P32** - WaitGroup para goroutines de summarización (BAJA)
+33. **P34** - json.Marshal en OAuth (BAJA)
 
 ---
 
@@ -479,4 +633,20 @@ Se realizó una auditoría exhaustiva del código, identificando problemas de se
 | `dcbda1d` | Fix critical security vulnerabilities and data integrity | 6 archivos |
 | `65c7b55` | Fix symlink exfiltration, spawn race, email validation | 4 archivos |
 
-**Total:** 33 archivos modificados, 620 líneas añadidas, 209 eliminadas.
+**Total correcciones:** 38 problemas corregidos en 33 archivos modificados, 620 líneas añadidas, 209 eliminadas.
+**Total pendientes:** 34 problemas identificados pendientes de corrección.
+
+---
+
+## Resumen por Archivos Más Afectados
+
+| Archivo | Corregidos | Pendientes | Prioridad |
+|---------|:----------:|:----------:|:---------:|
+| `pkg/storage/backup.go` | 1 | 5 | ALTA |
+| `pkg/web/server.go` | 3 | 6 | ALTA |
+| `pkg/mcp/client.go` | 1 | 3 | ALTA |
+| `pkg/channels/multiuser_manager.go` | 0 | 2 | CRITICA |
+| `pkg/agent/loop.go` | 2 | 2 | MEDIA |
+| `pkg/storage/workflow.go` | 0 | 3 | MEDIA |
+| `pkg/web/handlers_features.go` | 0 | 2 | MEDIA |
+| `pkg/web/auth.go` | 2 | 1 | BAJA |
