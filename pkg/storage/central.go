@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -575,11 +576,11 @@ func (cs *CentralStorage) CreateSetupSession(channel, senderID string, metadata 
 
 	metadataJSON := "{}"
 	if len(metadata) > 0 {
-		var entries []string
-		for k, v := range metadata {
-			entries = append(entries, fmt.Sprintf(`"%s":"%s"`, k, v))
+		b, err := json.Marshal(metadata)
+		if err != nil {
+			return nil, fmt.Errorf("marshaling metadata: %w", err)
 		}
-		metadataJSON = "{" + joinStrings(entries, ",") + "}"
+		metadataJSON = string(b)
 	}
 
 	var id int64

@@ -10,6 +10,8 @@ type MessageBus struct {
 	outbound chan OutboundMessage
 	handlers map[string]MessageHandler
 	mu       sync.RWMutex
+	closed   chan struct{} // Signals that the bus has been closed
+	once     sync.Once    // Ensures Close is called only once
 }
 
 func NewMessageBus() *MessageBus {
@@ -17,11 +19,15 @@ func NewMessageBus() *MessageBus {
 		inbound:  make(chan InboundMessage, 100),
 		outbound: make(chan OutboundMessage, 100),
 		handlers: make(map[string]MessageHandler),
+		closed:   make(chan struct{}),
 	}
 }
 
 func (mb *MessageBus) PublishInbound(msg InboundMessage) {
-	mb.inbound <- msg
+	select {
+	case mb.inbound <- msg:
+	case <-mb.closed:
+	}
 }
 
 func (mb *MessageBus) ConsumeInbound(ctx context.Context) (InboundMessage, bool) {
@@ -30,11 +36,16 @@ func (mb *MessageBus) ConsumeInbound(ctx context.Context) (InboundMessage, bool)
 		return msg, true
 	case <-ctx.Done():
 		return InboundMessage{}, false
+	case <-mb.closed:
+		return InboundMessage{}, false
 	}
 }
 
 func (mb *MessageBus) PublishOutbound(msg OutboundMessage) {
-	mb.outbound <- msg
+	select {
+	case mb.outbound <- msg:
+	case <-mb.closed:
+	}
 }
 
 func (mb *MessageBus) SubscribeOutbound(ctx context.Context) (OutboundMessage, bool) {
@@ -42,6 +53,8 @@ func (mb *MessageBus) SubscribeOutbound(ctx context.Context) (OutboundMessage, b
 	case msg := <-mb.outbound:
 		return msg, true
 	case <-ctx.Done():
+		return OutboundMessage{}, false
+	case <-mb.closed:
 		return OutboundMessage{}, false
 	}
 }
@@ -60,6 +73,7 @@ func (mb *MessageBus) GetHandler(channel string) (MessageHandler, bool) {
 }
 
 func (mb *MessageBus) Close() {
-	close(mb.inbound)
-	close(mb.outbound)
+	mb.once.Do(func() {
+		close(mb.closed)
+	})
 }

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/sipeed/makoclaw/pkg/logger"
 )
 
 // ==================== BACKUP DATA TYPES ====================
@@ -352,7 +354,10 @@ func (s *Storage) ImportUserData(userID int64, data *BackupUserData) (sessions, 
 			sessArgs = append(sessArgs, uid)
 		}
 		sessArgs = append(sessArgs, "", false, msg.CreatedAt, msg.CreatedAt)
-		stmtSess.Exec(sessArgs...)
+		// Session insert may fail if already exists (REPLACE handles duplicates); log but don't abort
+		if _, err := stmtSess.Exec(sessArgs...); err != nil {
+			logger.WarnCF("storage", "Failed to insert session during import", map[string]interface{}{"error": err.Error()})
+		}
 
 		// Insert message
 		var msgArgs []interface{}
@@ -414,7 +419,9 @@ func (s *Storage) ImportUserData(userID int64, data *BackupUserData) (sessions, 
 				if !ok {
 					continue
 				}
-				stmtLog.Exec(taskID, log.Event, log.Message, log.CreatedAt)
+				if _, err := stmtLog.Exec(taskID, log.Event, log.Message, log.CreatedAt); err != nil {
+					logger.WarnCF("storage", "Failed to insert task log during import", map[string]interface{}{"error": err.Error()})
+				}
 			}
 		}
 	}

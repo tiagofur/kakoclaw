@@ -129,13 +129,13 @@ func (m *authManager) login(username, password string) (string, error) {
 		}
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
-		return "", errors.New("invalid credentials")
-	}
-
-	// Check if user is blocked
+	// Check if user is blocked before verifying password to avoid timing attacks
 	if user.Blocked {
 		return "", fmt.Errorf("usuario bloqueado. Motivo: %s. Contacte soporte", user.BlockedReason)
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+		return "", errors.New("invalid credentials")
 	}
 
 	return m.signToken(user.Username, user.UUID, user.Role)

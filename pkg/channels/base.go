@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync/atomic"
 
 	"github.com/sipeed/makoclaw/pkg/bus"
 	"github.com/sipeed/makoclaw/pkg/storage"
@@ -24,7 +25,7 @@ type BaseChannel struct {
 	config       interface{}
 	bus          *bus.MessageBus
 	storage      *storage.Storage
-	running      bool
+	running      atomic.Bool
 	name         string
 	allowList    []string
 	userResolver func(senderID string) (int64, error)
@@ -37,7 +38,6 @@ func NewBaseChannel(name string, config interface{}, bus *bus.MessageBus, allowL
 		storage:   nil, // Will be set by calling SetStorage
 		name:      name,
 		allowList: allowList,
-		running:   false,
 	}
 }
 
@@ -46,7 +46,7 @@ func (c *BaseChannel) Name() string {
 }
 
 func (c *BaseChannel) IsRunning() bool {
-	return c.running
+	return c.running.Load()
 }
 
 // SetUserResolver sets a resolver for senderID -> userID mappings.
@@ -152,7 +152,7 @@ func (c *BaseChannel) HandleMessage(senderID, chatID, content string, media []st
 }
 
 func (c *BaseChannel) setRunning(running bool) {
-	c.running = running
+	c.running.Store(running)
 }
 
 // SetCommandHandler is a default no-op implementation

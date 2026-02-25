@@ -38,7 +38,9 @@ func NewSessionManager(storage string) *SessionManager {
 	}
 
 	if storage != "" {
-		os.MkdirAll(storage, 0755)
+		if err := os.MkdirAll(storage, 0755); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to create session storage directory %s: %v\n", storage, err)
+		}
 		sm.loadSessions()
 	}
 

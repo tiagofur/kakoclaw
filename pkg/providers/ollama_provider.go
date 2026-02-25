@@ -246,6 +246,9 @@ func (p *OllamaProvider) ChatStream(ctx context.Context, messages []Message, too
 
 			var ollamaResp OllamaResponse
 			if err := json.Unmarshal([]byte(line), &ollamaResp); err != nil {
+				logger.WarnCF("ollama", "Failed to parse streaming response", map[string]interface{}{
+					"error": err.Error(),
+				})
 				continue
 			}
 
@@ -272,6 +275,18 @@ func (p *OllamaProvider) ChatStream(ctx context.Context, messages []Message, too
 			if chunk.Done {
 				return
 			}
+		}
+
+		// Check for scanner errors (network failures, etc.)
+		if err := scanner.Err(); err != nil {
+			logger.ErrorCF("ollama", "Stream scanner error", map[string]interface{}{
+				"error": err.Error(),
+			})
+			select {
+			case ch <- StreamChunk{Done: true, FinishReason: "error", Error: err.Error()}:
+			case <-ctx.Done():
+			}
+			return
 		}
 
 		// If scanner exits without done, send final chunk

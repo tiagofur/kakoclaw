@@ -229,13 +229,16 @@ func (s *Storage) SearchMessagesForUser(userKey interface{}, query string) ([]Me
 	var sqlQuery string
 	var args []interface{}
 
+	// Escape LIKE wildcards in the user query to prevent unintended matches
+	escaped := escapeLikeQuery(query)
+
 	if s.isUserDB {
-		sqlQuery = `SELECT id, session_id, role, content, created_at FROM chats WHERE content LIKE ? ORDER BY created_at DESC LIMIT 50`
-		args = []interface{}{"%" + query + "%"}
+		sqlQuery = `SELECT id, session_id, role, content, created_at FROM chats WHERE content LIKE ? ESCAPE '\' ORDER BY created_at DESC LIMIT 50`
+		args = []interface{}{"%" + escaped + "%"}
 	} else {
 		uid := normalizeUserKey(userKey)
-		sqlQuery = `SELECT id, session_id, role, content, created_at FROM chats WHERE user_id = ? AND content LIKE ? ORDER BY created_at DESC LIMIT 50`
-		args = []interface{}{uid, "%" + query + "%"}
+		sqlQuery = `SELECT id, session_id, role, content, created_at FROM chats WHERE user_id = ? AND content LIKE ? ESCAPE '\' ORDER BY created_at DESC LIMIT 50`
+		args = []interface{}{uid, "%" + escaped + "%"}
 	}
 
 	rows, err := s.db.Query(sqlQuery, args...)
