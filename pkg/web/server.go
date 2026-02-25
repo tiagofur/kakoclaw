@@ -322,6 +322,8 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/agents/metrics", s.handleAgentMetrics)            // Agent cost metrics
 	mux.HandleFunc("/api/v1/agents/specialists", s.handleGetSpecialists)      // Get active specialists list
 	mux.HandleFunc("/api/v1/reports/email", s.handleSendReportEmail)         // Send report email directly
+	mux.HandleFunc("/api/v1/ai/fix-json", s.handleAIFixJson)                 // AI JSON fixer and validator
+	mux.HandleFunc("/api/v1/ai/create-cron", s.handleAICreateCron)           // AI cron job generator
 
 	// Setup/Onboarding flow (Phase 4)
 	mux.HandleFunc("/api/v1/setup/initialize", s.handleSetupInitialize)   // Create setup session

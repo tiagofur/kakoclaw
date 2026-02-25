@@ -343,6 +343,21 @@ export default {
       timeout: 30000 // 30s for email send
     })
     return response.data
+  },
+
+  // AI Services
+  fixJsonWithAI: async (content, type = 'generic') => {
+    const response = await client.post('/ai/fix-json', { content, type }, {
+      timeout: 45000 // 45s for AI processing
+    })
+    return response.data
+  },
+
+  createCronWithAI: async (prompt) => {
+    const response = await client.post('/ai/create-cron', { prompt }, {
+      timeout: 60000 // 60s for AI generation
+    })
+    return response.data
   }
 }
 

@@ -148,6 +148,12 @@
                   :title="'Double-click to rename'"
                 >{{ entry.name }}</span>
               </div>
+              <!-- System file badge -->
+              <span
+                v-if="entry.is_system"
+                class="px-1.5 py-0.5 text-xs rounded bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 flex-shrink-0 ml-2"
+                title="This is a system-managed file"
+              >🔒 System</span>
             </div>
             <span v-if="!entry.is_dir" class="text-xs text-makoclaw-text-secondary flex-shrink-0">{{ formatSize(entry.size) }}</span>
             <span class="text-xs text-makoclaw-text-secondary flex-shrink-0">{{ formatDate(entry.mod_time) }}</span>
@@ -157,8 +163,10 @@
               <!-- Rename button -->
               <button
                 @click.stop="startRename(entry)"
-                class="p-1.5 text-makoclaw-text-secondary hover:text-makoclaw-accent hover:bg-makoclaw-bg rounded-lg transition-all"
-                title="Rename"
+                :disabled="entry.is_read_only"
+                :title="entry.is_read_only ? 'System file (read-only)' : 'Rename'"
+                :class="entry.is_read_only ? 'opacity-30 cursor-not-allowed' : 'hover:text-makoclaw-accent hover:bg-makoclaw-bg'"
+                class="p-1.5 text-makoclaw-text-secondary rounded-lg transition-all disabled:pointer-events-none"
               >
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -177,9 +185,10 @@
               <!-- Delete button -->
               <button
                 @click.stop="confirmDelete(entry)"
-                :disabled="deletingPath === entry.path"
-                class="p-1.5 text-makoclaw-text-secondary hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all disabled:opacity-50"
-                title="Delete"
+                :disabled="deletingPath === entry.path || entry.is_read_only"
+                :title="entry.is_read_only ? 'System file (read-only)' : 'Delete'"
+                :class="entry.is_read_only ? 'opacity-30 cursor-not-allowed' : 'hover:text-red-400 hover:bg-red-500/10'"
+                class="p-1.5 text-makoclaw-text-secondary rounded-lg transition-all disabled:opacity-50 disabled:pointer-events-none"
               >
                 <svg v-if="deletingPath === entry.path" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -203,9 +212,17 @@
           <div class="flex items-center justify-between mb-4">
             <h3 class="font-semibold">{{ fileName }}</h3>
             <div class="flex items-center gap-4">
+              <!-- Read-only indicator for system files -->
+              <span
+                v-if="isFileReadOnly"
+                class="flex items-center gap-2 px-3 py-1.5 text-xs bg-yellow-500/10 text-yellow-400 rounded-lg border border-yellow-500/20"
+                title="This is a system-managed file and cannot be edited directly"
+              >
+                🔒 Read-only system file
+              </span>
               <!-- Edit button for text files -->
               <button
-                v-if="isTextFile && !isEditing"
+                v-else-if="isTextFile && !isEditing"
                 @click="startEditing"
                 class="flex items-center gap-2 px-3 py-1.5 text-sm bg-makoclaw-surface border border-makoclaw-border rounded-lg hover:bg-makoclaw-border transition-colors text-makoclaw-accent"
               >
@@ -383,6 +400,13 @@ const isTextFile = computed(() => {
   if (!fileName.value) return false
   const name = fileName.value.toLowerCase()
   return textExtensions.some(ext => name.endsWith(ext)) || !name.includes('.')
+})
+
+const isFileReadOnly = computed(() => {
+  const path = currentPath.value
+  const systemPaths = ['cron/jobs.json', 'database.db']
+  const systemDirs = ['sessions/', 'memory/', 'knowledge/', '.context/']
+  return systemPaths.includes(path) || systemDirs.some(dir => path.startsWith(dir))
 })
 
 // Watch for modal open to focus input

@@ -765,11 +765,38 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 // ==================== FILE BROWSER ====================
 
 type fileEntry struct {
-	Name    string    `json:"name"`
-	Path    string    `json:"path"`
-	IsDir   bool      `json:"is_dir"`
-	Size    int64     `json:"size"`
-	ModTime time.Time `json:"mod_time"`
+	Name       string    `json:"name"`
+	Path       string    `json:"path"`
+	IsDir      bool      `json:"is_dir"`
+	Size       int64     `json:"size"`
+	ModTime    time.Time `json:"mod_time"`
+	IsSystem   bool      `json:"is_system"`
+	IsReadOnly bool      `json:"is_read_only"`
+}
+
+// isSystemFile checks if a file path corresponds to a system-managed file
+// that should be protected from direct editing
+func isSystemFile(relPath string) bool {
+	systemPaths := []string{
+		"cron/jobs.json",
+		"database.db",
+		"sessions/",
+		"memory/",
+		"knowledge/",
+		".context/",
+	}
+
+	// Bootstrap docs (AGENTS.md, SOUL.md, USER.md, IDENTITY.md) are NOT protected
+	// They are user-editable configuration files
+	relPath = filepath.ToSlash(relPath)
+
+	for _, sys := range systemPaths {
+		if strings.HasPrefix(relPath, sys) || relPath == strings.TrimSuffix(sys, "/") {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
@@ -865,6 +892,12 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 
 	// Handle Delete (DELETE)
 	if r.Method == http.MethodDelete {
+		// Security: prevent deletion of system files
+		if isSystemFile(relPath) {
+			http.Error(w, "cannot delete system files", http.StatusForbidden)
+			return
+		}
+
 		info, err := os.Stat(fullPath)
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -924,6 +957,12 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 				"message": "Created directory: " + filepath.ToSlash(relPath),
 				"path":    filepath.ToSlash(relPath),
 			})
+			return
+		}
+
+		// Security: prevent modification of system files
+		if isSystemFile(relPath) {
+			http.Error(w, "cannot modify system files", http.StatusForbidden)
 			return
 		}
 
@@ -1095,12 +1134,15 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			entryRelPath := filepath.Join(relPath, e.Name())
+			isSystemPath := isSystemFile(entryRelPath)
 			files = append(files, fileEntry{
-				Name:    e.Name(),
-				Path:    filepath.ToSlash(entryRelPath),
-				IsDir:   e.IsDir(),
-				Size:    eInfo.Size(),
-				ModTime: eInfo.ModTime(),
+				Name:       e.Name(),
+				Path:       filepath.ToSlash(entryRelPath),
+				IsDir:      e.IsDir(),
+				Size:       eInfo.Size(),
+				ModTime:    eInfo.ModTime(),
+				IsSystem:   isSystemPath,
+				IsReadOnly: isSystemPath,
 			})
 		}
 
@@ -3308,4 +3350,227 @@ func parseReportFromAddress(from, fallback string) (envelope, header string, err
 		return "", "", fmt.Errorf("invalid from address %q", from)
 	}
 	return trimmedFrom, trimmedFrom, nil
+}
+
+// handleAIFixJson uses AI to fix and validate JSON content
+func (s *Server) handleAIFixJson(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	var body struct {
+		Content string `json:"content"`
+		Type    string `json:"type"` // "cron_job", "config", "generic"
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if strings.TrimSpace(body.Content) == "" {
+		http.Error(w, "content is required", http.StatusBadRequest)
+		return
+	}
+
+	userID, ok := s.getUserIDFromClaims(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	prompt := fmt.Sprintf(`You are a JSON validator and fixer.
+
+The user has provided JSON for: %s
+
+Your task:
+1. Parse and validate the JSON
+2. Fix any syntax errors (missing commas, quotes, brackets)
+3. Fix any structural issues
+4. Preserve all data and intent
+5. Return ONLY the fixed JSON, no explanations
+
+If the JSON is already valid, return it unchanged.
+
+JSON to fix:
+%s`, body.Type, body.Content)
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	response, err := s.agentLoop.ProcessDirectWithUserAndModel(
+		ctx, userID, prompt,
+		fmt.Sprintf("web:ai:fixjson:%s", body.Type), "",
+	)
+	if err != nil {
+		http.Error(w, "AI processing failed: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Extract JSON from response (may be in code blocks)
+	fixedJson := extractJsonFromResponse(response)
+
+	// Validate
+	var validation interface{}
+	if err := json.Unmarshal([]byte(fixedJson), &validation); err != nil {
+		http.Error(w, "AI produced invalid JSON", http.StatusInternalServerError)
+		return
+	}
+
+	writeJSONResponse(w, map[string]interface{}{
+		"fixed_json": fixedJson,
+		"changes":    detectJsonChanges(body.Content, fixedJson),
+		"valid":      true,
+	})
+}
+
+// extractJsonFromResponse extracts JSON content from AI response, handling code blocks
+func extractJsonFromResponse(response string) string {
+	response = strings.TrimSpace(response)
+	if strings.Contains(response, "```json") {
+		start := strings.Index(response, "```json")
+		end := strings.LastIndex(response, "```")
+		if start != -1 && end != -1 && end > start {
+			response = response[start+7 : end]
+		}
+	} else if strings.Contains(response, "```") {
+		start := strings.Index(response, "```")
+		end := strings.LastIndex(response, "```")
+		if start != -1 && end != -1 && end > start {
+			response = response[start+3 : end]
+		}
+	}
+	return strings.TrimSpace(response)
+}
+
+// detectJsonChanges provides a simple description of changes made
+func detectJsonChanges(original, fixed string) string {
+	if strings.TrimSpace(original) == strings.TrimSpace(fixed) {
+		return ""
+	}
+	var origMap, fixedMap interface{}
+	origErr := json.Unmarshal([]byte(original), &origMap)
+	fixedErr := json.Unmarshal([]byte(fixed), &fixedMap)
+	if origErr != nil && fixedErr == nil {
+		return "Fixed syntax errors"
+	}
+	return "Applied fixes"
+}
+
+// handleAICreateCron generates cron jobs from natural language descriptions
+func (s *Server) handleAICreateCron(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	var body struct {
+		Prompt string `json:"prompt"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	userID, ok := s.getUserIDFromClaims(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	aiPrompt := fmt.Sprintf(`You are a cron job creation assistant for MakoClaw.
+
+The user wants to create a cron job with this description:
+"%s"
+
+Your task: Generate a complete cron job configuration.
+
+Return format:
+EXPLANATION: [Brief 1-sentence explanation]
+
+JSON:
+{
+  "name": "descriptive name",
+  "message": "what the agent should do",
+  "job_type": "task" or "reminder",
+  "channel": "telegram" (optional),
+  "to": "chat_id" (optional),
+  "schedule": {
+    "kind": "cron" | "every" | "at",
+    "expr": "0 9 * * *" (if cron),
+    "everyMs": milliseconds (if every),
+    "atMs": timestamp (if at),
+    "tz": "America/New_York" (optional)
+  }
+}
+
+Guidelines:
+- Use "task" by default, "reminder" only if user wants direct message
+- Daily: cron "0 9 * * *"
+- Weekly: cron "0 9 * * 1" (Monday)
+- Interval: every with everyMs
+- One-time: at with atMs
+
+Return only explanation and JSON.`, body.Prompt)
+
+	ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
+	defer cancel()
+
+	response, err := s.agentLoop.ProcessDirectWithUserAndModel(
+		ctx, userID, aiPrompt, "web:ai:create-cron", "",
+	)
+	if err != nil {
+		http.Error(w, "AI processing failed: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	jsonStr := extractJsonFromResponse(response)
+	var jobDraft map[string]interface{}
+	if err := json.Unmarshal([]byte(jsonStr), &jobDraft); err != nil {
+		http.Error(w, "AI produced invalid cron job format", http.StatusInternalServerError)
+		return
+	}
+
+	if jobDraft["name"] == nil || jobDraft["schedule"] == nil {
+		http.Error(w, "AI generated incomplete cron job", http.StatusBadRequest)
+		return
+	}
+
+	// Ensure message field exists (from payload or top-level)
+	if jobDraft["message"] == nil {
+		if payload, ok := jobDraft["payload"].(map[string]interface{}); ok {
+			if payload["message"] == nil {
+				http.Error(w, "AI generated cron job missing message", http.StatusBadRequest)
+				return
+			}
+		} else {
+			http.Error(w, "AI generated cron job missing message", http.StatusBadRequest)
+			return
+		}
+	}
+
+	writeJSONResponse(w, map[string]interface{}{
+		"job":         jobDraft,
+		"explanation": extractExplanation(response, jsonStr),
+	})
+}
+
+// extractExplanation pulls the explanation text from the AI response
+func extractExplanation(fullResponse, jsonPart string) string {
+	before := strings.Split(fullResponse, jsonPart)[0]
+	if strings.Contains(before, "EXPLANATION:") {
+		parts := strings.Split(before, "EXPLANATION:")
+		if len(parts) > 1 {
+			explanation := strings.TrimSpace(parts[1])
+			lines := strings.Split(explanation, "\n")
+			if len(lines) > 0 {
+				return strings.TrimSpace(lines[0])
+			}
+		}
+	}
+	return "AI-generated cron job"
 }

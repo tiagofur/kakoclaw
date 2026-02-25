@@ -6,13 +6,25 @@
         <h2 class="text-xl font-bold bg-gradient-to-r from-makoclaw-accent to-blue-500 bg-clip-text text-transparent">Cron Jobs</h2>
         <p class="text-sm text-makoclaw-text-secondary mt-1">Scheduled tasks and recurring automations</p>
       </div>
-      <button
-        @click="openCreateModal"
-        class="flex items-center gap-2 px-4 py-2 bg-makoclaw-accent text-white rounded-lg hover:bg-makoclaw-accent/90 transition-colors text-sm"
-      >
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-        New Job
-      </button>
+      <div class="flex items-center gap-2">
+        <button
+          @click="openAiCronModal"
+          class="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
+          title="Generate cron job from natural language"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+          </svg>
+          Create with AI
+        </button>
+        <button
+          @click="openCreateModal"
+          class="flex items-center gap-2 px-4 py-2 bg-makoclaw-accent text-white rounded-lg hover:bg-makoclaw-accent/90 transition-colors text-sm"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+          New Job
+        </button>
+      </div>
     </div>
 
     <!-- Content -->
@@ -91,7 +103,20 @@
     <!-- Create / Edit Job Modal -->
     <div v-if="showModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="showModal = false">
       <div class="bg-makoclaw-surface border border-makoclaw-border rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6">
-        <h3 class="font-semibold text-lg mb-4">{{ editingJobId ? 'Edit Cron Job' : 'Create Cron Job' }}</h3>
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-semibold text-lg">{{ editingJobId ? 'Edit Cron Job' : 'Create Cron Job' }}</h3>
+          <button
+            v-if="editingJobId"
+            @click="openJsonEditor"
+            class="flex items-center gap-2 px-3 py-1.5 text-xs text-makoclaw-accent bg-makoclaw-accent/10 rounded-lg hover:bg-makoclaw-accent/20 transition-colors"
+            title="Edit as JSON"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+            </svg>
+            Edit JSON
+          </button>
+        </div>
         <div class="space-y-4">
           <!-- Name -->
           <div>
@@ -276,6 +301,126 @@
         </div>
       </div>
     </div>
+
+    <!-- JSON Editor Modal -->
+    <div v-if="showJsonModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="showJsonModal = false">
+      <div class="bg-makoclaw-surface border border-makoclaw-border rounded-xl max-w-3xl w-full max-h-[90vh] flex flex-col">
+        <div class="p-4 border-b border-makoclaw-border flex justify-between items-center">
+          <h3 class="font-semibold text-lg">Edit Job as JSON</h3>
+          <button
+            @click="requestAiJsonFix"
+            :disabled="savingJson"
+            class="flex items-center gap-2 px-3 py-1.5 text-xs text-blue-400 bg-blue-500/10 rounded-lg hover:bg-blue-500/20 transition-colors disabled:opacity-50"
+            title="Use AI to fix JSON syntax and validation errors"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+            AI Fix JSON
+          </button>
+        </div>
+        <div class="p-4 flex-1 overflow-hidden flex flex-col">
+          <textarea
+            v-model="jsonEditContent"
+            class="w-full h-full font-mono text-sm px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg resize-none outline-none focus:border-makoclaw-accent min-h-[400px]"
+            placeholder="JSON content..."
+            spellcheck="false"
+          />
+          <div v-if="jsonEditError" class="mt-2 p-2 bg-red-500/10 text-red-400 text-xs rounded border border-red-500/20">
+            {{ jsonEditError }}
+          </div>
+        </div>
+        <div class="p-4 border-t border-makoclaw-border flex justify-end gap-3">
+          <button
+            @click="showJsonModal = false"
+            class="px-4 py-2 text-sm text-makoclaw-text-secondary hover:text-makoclaw-text transition-colors"
+          >Cancel</button>
+          <button
+            @click="saveFromJson"
+            :disabled="savingJson"
+            class="px-4 py-2 text-sm bg-makoclaw-accent text-white rounded-lg hover:bg-makoclaw-accent/80 transition-colors disabled:opacity-50"
+          >
+            {{ savingJson ? 'Saving...' : 'Save Changes' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Cron Creator Modal -->
+    <div v-if="showAiModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="closeAiModal">
+      <div class="bg-makoclaw-surface border border-makoclaw-border rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div class="p-4 border-b border-makoclaw-border">
+          <h3 class="font-semibold text-lg">Create Cron Job with AI</h3>
+          <p class="text-xs text-makoclaw-text-secondary mt-1">Describe what you want in plain language</p>
+        </div>
+        <div class="p-6 space-y-4">
+          <div>
+            <label class="block text-sm font-medium mb-2">What should this cron job do?</label>
+            <textarea
+              v-model="aiPrompt"
+              rows="3"
+              placeholder="e.g., Send me weather every day at 8am, or Backup my tasks every 2 hours"
+              class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent resize-none"
+              :disabled="aiGenerating"
+            />
+          </div>
+          <button
+            @click="generateCronWithAI"
+            :disabled="!aiPrompt.trim() || aiGenerating"
+            class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <svg v-if="aiGenerating" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+            {{ aiGenerating ? 'Generating...' : 'Generate Job' }}
+          </button>
+
+          <!-- AI Result Preview -->
+          <div v-if="aiResult" class="space-y-3 pt-4 border-t border-makoclaw-border">
+            <div class="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+              <p class="text-sm text-blue-400">{{ aiExplanation }}</p>
+            </div>
+            <div class="p-4 bg-makoclaw-bg border border-makoclaw-border rounded-lg space-y-2">
+              <div><span class="text-sm font-medium">Name:</span> <span class="text-sm text-makoclaw-text-secondary">{{ aiResult.name }}</span></div>
+              <div><span class="text-sm font-medium">Message:</span> <span class="text-sm text-makoclaw-text-secondary">{{ aiResult.message || aiResult.payload?.message }}</span></div>
+              <div><span class="text-sm font-medium">Schedule:</span> <span class="text-sm text-makoclaw-text-secondary">{{ formatSchedule(aiResult.schedule) }}</span></div>
+            </div>
+            <div class="flex gap-2">
+              <button
+                @click="editAiResult"
+                class="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-makoclaw-border rounded-lg hover:bg-makoclaw-bg transition-colors text-sm"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+                Edit Before Saving
+              </button>
+              <button
+                @click="saveAiResult"
+                class="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-makoclaw-accent text-white rounded-lg hover:bg-makoclaw-accent/80 transition-colors text-sm"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Create Job
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="p-4 border-t border-makoclaw-border flex justify-end">
+          <button
+            @click="closeAiModal"
+            class="px-4 py-2 text-sm text-makoclaw-text-secondary hover:text-makoclaw-text transition-colors"
+          >
+            {{ aiResult ? 'Cancel' : 'Close' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -292,6 +437,19 @@ const showModal = ref(false)
 const editingJobId = ref(null)
 const showDeleteConfirm = ref(false)
 const deletingJob = ref(null)
+
+// JSON Editor state
+const showJsonModal = ref(false)
+const jsonEditContent = ref('')
+const jsonEditError = ref(null)
+const savingJson = ref(false)
+
+// AI Cron Creator state
+const showAiModal = ref(false)
+const aiPrompt = ref('')
+const aiGenerating = ref(false)
+const aiResult = ref(null)
+const aiExplanation = ref('')
 
 const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
@@ -684,6 +842,184 @@ const executeDeleteJob = async () => {
     await loadJobs()
   } catch (err) {
     toast.error('Failed to delete job')
+  }
+}
+
+// JSON Editor methods
+const openJsonEditor = () => {
+  const job = jobs.value.find(j => j.id === editingJobId.value)
+  if (!job) {
+    toast.error('Job not found')
+    return
+  }
+  jsonEditContent.value = JSON.stringify(job, null, 2)
+  jsonEditError.value = null
+  showModal.value = false
+  showJsonModal.value = true
+}
+
+const saveFromJson = async () => {
+  try {
+    const parsed = JSON.parse(jsonEditContent.value)
+
+    // Validate required fields
+    if (!parsed.name || !parsed.schedule) {
+      jsonEditError.value = 'Invalid job structure: name and schedule are required'
+      return
+    }
+
+    // Validate payload structure
+    const payload = parsed.payload || {}
+    if (!payload.message && !parsed.message) {
+      jsonEditError.value = 'Invalid job structure: message is required'
+      return
+    }
+
+    savingJson.value = true
+    jsonEditError.value = null
+
+    // Construct API payload
+    const apiPayload = {
+      name: parsed.name,
+      message: payload.message || parsed.message,
+      job_type: payload.job_type || parsed.job_type || 'task',
+      channel: payload.channel || parsed.channel || '',
+      to: payload.to || parsed.to || '',
+      schedule: parsed.schedule
+    }
+
+    await advancedService.updateCronJob(editingJobId.value, apiPayload)
+    toast.success('Job updated from JSON')
+    showJsonModal.value = false
+    await loadJobs()
+  } catch (err) {
+    if (err instanceof SyntaxError) {
+      jsonEditError.value = `JSON Parse Error: ${err.message}`
+    } else {
+      jsonEditError.value = `Failed to save: ${err.response?.data?.error || err.message}`
+    }
+  } finally {
+    savingJson.value = false
+  }
+}
+
+const requestAiJsonFix = async () => {
+  if (!jsonEditContent.value.trim()) {
+    toast.error('No JSON content to fix')
+    return
+  }
+
+  savingJson.value = true
+  try {
+    const result = await advancedService.fixJsonWithAI(jsonEditContent.value, 'cron_job')
+    jsonEditContent.value = result.fixed_json
+    jsonEditError.value = null
+    toast.success(result.changes || 'AI validated JSON - no changes needed')
+  } catch (err) {
+    toast.error(err?.response?.data?.error || 'AI fix failed')
+  } finally {
+    savingJson.value = false
+  }
+}
+
+// AI Cron Creator methods
+const openAiCronModal = () => {
+  aiPrompt.value = ''
+  aiResult.value = null
+  aiExplanation.value = ''
+  aiGenerating.value = false
+  showAiModal.value = true
+}
+
+const closeAiModal = () => {
+  showAiModal.value = false
+  aiPrompt.value = ''
+  aiResult.value = null
+  aiExplanation.value = ''
+}
+
+const generateCronWithAI = async () => {
+  if (!aiPrompt.value.trim()) {
+    toast.error('Please enter a description')
+    return
+  }
+
+  aiGenerating.value = true
+  try {
+    const result = await advancedService.createCronWithAI(aiPrompt.value.trim())
+    aiResult.value = result.job
+    aiExplanation.value = result.explanation
+    toast.success('Cron job generated successfully')
+  } catch (err) {
+    toast.error(err?.response?.data?.error || 'AI generation failed')
+  } finally {
+    aiGenerating.value = false
+  }
+}
+
+const editAiResult = () => {
+  if (!aiResult.value) return
+
+  // Populate the form with AI-generated values
+  form.name = aiResult.value.name || ''
+  form.message = aiResult.value.message || aiResult.value.payload?.message || ''
+  form.job_type = aiResult.value.job_type || 'task'
+  form.channel = aiResult.value.channel || ''
+  form.to = aiResult.value.to || ''
+
+  // Parse schedule
+  const schedule = aiResult.value.schedule
+  if (schedule) {
+    if (schedule.kind === 'cron' && schedule.expr) {
+      const parsed = parseCronExpr(schedule.expr)
+      if (parsed) {
+        if (parsed.type === 'daily') {
+          form.scheduleType = 'daily'
+          form.time = parsed.time
+        } else if (parsed.type === 'weekly') {
+          form.scheduleType = 'weekly'
+          form.weekDays = parsed.weekDays
+          form.time = parsed.time
+        } else {
+          form.scheduleType = 'custom'
+          form.cronExpr = schedule.expr
+        }
+      }
+    } else if (schedule.kind === 'every' && schedule.everyMs) {
+      form.scheduleType = 'interval'
+      form.intervalMinutes = Math.round(schedule.everyMs / 60000)
+    }
+
+    if (schedule.tz) {
+      form.timezone = schedule.tz
+    }
+  }
+
+  // Close AI modal and open edit modal
+  showAiModal.value = false
+  editingJobId.value = null
+  showModal.value = true
+}
+
+const saveAiResult = async () => {
+  if (!aiResult.value) return
+
+  try {
+    const payload = {
+      name: aiResult.value.name,
+      message: aiResult.value.message || aiResult.value.payload?.message,
+      job_type: aiResult.value.job_type || 'task',
+      channel: aiResult.value.channel || '',
+      to: aiResult.value.to || '',
+      schedule: aiResult.value.schedule
+    }
+
+    await advancedService.createCronJob(payload)
+    toast.success('AI cron job created')
+    showAiModal.value = false
+    await loadJobs()
+  } catch (err) {
+    toast.error(err?.response?.data?.error || 'Failed to create job')
   }
 }
 
