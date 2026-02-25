@@ -211,6 +211,13 @@ func (s *Storage) migrateUserDB() error {
 	return nil
 }
 
+// escapeLikeQuery escapes SQL LIKE wildcards (%, _) in user-provided search terms
+// to prevent unintended pattern matching. Used with ESCAPE '\' clause.
+func escapeLikeQuery(query string) string {
+	r := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+	return r.Replace(query)
+}
+
 func (s *Storage) Close() error {
 	// Consolidate WAL into the main database file for a clean single-file state.
 	_, _ = s.db.Exec("PRAGMA wal_checkpoint(TRUNCATE)")

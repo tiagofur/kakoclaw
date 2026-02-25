@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -33,14 +34,14 @@ func (s *Storage) CreateSetupSession(channel, senderID string, metadata map[stri
 	// Token expires in 1 hour
 	expiresAt := time.Now().Add(1 * time.Hour)
 
-	// Serialize metadata as JSON
+	// Serialize metadata as JSON safely
 	metadataJSON := "{}"
 	if len(metadata) > 0 {
-		var entries []string
-		for k, v := range metadata {
-			entries = append(entries, fmt.Sprintf(`"%s":"%s"`, k, v))
+		b, err := json.Marshal(metadata)
+		if err != nil {
+			return nil, fmt.Errorf("marshaling metadata: %w", err)
 		}
-		metadataJSON = "{" + joinStrings(entries, ",") + "}"
+		metadataJSON = string(b)
 	}
 
 	var id int64
@@ -85,8 +86,7 @@ func (s *Storage) GetSetupSession(token string) (*SetupSession, error) {
 
 	session.Metadata = make(map[string]string)
 	if metadataJSON != "{}" && metadataJSON != "" {
-		// Simple JSON parsing (could use json.Unmarshal for robustness)
-		// For now, store as is and let frontend/handler deal with it
+		_ = json.Unmarshal([]byte(metadataJSON), &session.Metadata)
 	}
 
 	if usedAtSQL.Valid {

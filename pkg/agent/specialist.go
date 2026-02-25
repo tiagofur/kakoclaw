@@ -22,6 +22,7 @@ type SpecialistAgent struct {
 	allowedTools map[string]bool
 	keywords     []string
 	providerName string
+	processMu    sync.Mutex // guards tool-swap in ProcessWithSpeciality
 }
 
 // SpecialistRegistry manages all configured specialist agents
@@ -230,7 +231,8 @@ func (sa *SpecialistAgent) ToolFilter() *tools.ToolRegistry {
 	return filteredRegistry
 }
 
-// ProcessWithSpeciality processes a message using this specialist's configuration
+// ProcessWithSpeciality processes a message using this specialist's configuration.
+// Uses a mutex to serialize concurrent calls that swap the tool registry.
 func (sa *SpecialistAgent) ProcessWithSpeciality(ctx context.Context, userMessage string) (string, error) {
 	// Build a specialized message with the specialist's prompt
 	fullMessage := userMessage
@@ -238,11 +240,16 @@ func (sa *SpecialistAgent) ProcessWithSpeciality(ctx context.Context, userMessag
 		fullMessage = sa.prompt + "\n\n" + userMessage
 	}
 
-	// Use the specialist's filtered tools
+	// Serialize access to tool-swap to prevent concurrent modifications
+	sa.processMu.Lock()
 	originalTools := sa.tools
 	sa.tools = sa.ToolFilter()
+	sa.processMu.Unlock()
+
 	defer func() {
+		sa.processMu.Lock()
 		sa.tools = originalTools
+		sa.processMu.Unlock()
 	}()
 
 	// Process the message using ProcessDirect

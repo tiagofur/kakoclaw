@@ -3,12 +3,14 @@ package tools
 import (
 	"context"
 	"fmt"
+	"sync"
 )
 
 type SpawnTool struct {
 	manager       *SubagentManager
 	originChannel string
 	originChatID  string
+	mu            sync.Mutex
 }
 
 func NewSpawnTool(manager *SubagentManager) *SpawnTool {
@@ -45,8 +47,10 @@ func (t *SpawnTool) Parameters() map[string]interface{} {
 }
 
 func (t *SpawnTool) SetContext(channel, chatID string) {
+	t.mu.Lock()
 	t.originChannel = channel
 	t.originChatID = chatID
+	t.mu.Unlock()
 }
 
 func (t *SpawnTool) Execute(ctx context.Context, args map[string]interface{}) (string, error) {
@@ -61,7 +65,11 @@ func (t *SpawnTool) Execute(ctx context.Context, args map[string]interface{}) (s
 		return "Error: Subagent manager not configured", nil
 	}
 
-	result, err := t.manager.Spawn(ctx, task, label, t.originChannel, t.originChatID)
+	t.mu.Lock()
+	channel, chatID := t.originChannel, t.originChatID
+	t.mu.Unlock()
+
+	result, err := t.manager.Spawn(ctx, task, label, channel, chatID)
 	if err != nil {
 		return "", fmt.Errorf("failed to spawn subagent: %w", err)
 	}

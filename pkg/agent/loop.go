@@ -911,7 +911,14 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 		toolDefs := al.tools.GetDefinitions()
 		providerToolDefs := make([]providers.ToolDefinition, 0, len(toolDefs))
 		for _, td := range toolDefs {
-			toolName := td["function"].(map[string]interface{})["name"].(string)
+			fnMap, ok := td["function"].(map[string]interface{})
+			if !ok {
+				continue
+			}
+			toolName, _ := fnMap["name"].(string)
+			if toolName == "" {
+				continue
+			}
 			// Skip excluded tools (e.g., web_search when user toggles it off)
 			if len(opts.ExcludeTools) > 0 {
 				excluded := false
@@ -925,17 +932,24 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 					continue
 				}
 			}
+			tdType, _ := td["type"].(string)
+			desc, _ := fnMap["description"].(string)
+			params, _ := fnMap["parameters"].(map[string]interface{})
 			providerToolDefs = append(providerToolDefs, providers.ToolDefinition{
-				Type: td["type"].(string),
+				Type: tdType,
 				Function: providers.ToolFunctionDefinition{
 					Name:        toolName,
-					Description: td["function"].(map[string]interface{})["description"].(string),
-					Parameters:  td["function"].(map[string]interface{})["parameters"].(map[string]interface{}),
+					Description: desc,
+					Parameters:  params,
 				},
 			})
 		}
 
 		// Log LLM request details
+		systemPromptLen := 0
+		if len(messages) > 0 {
+			systemPromptLen = len(messages[0].Content)
+		}
 		logger.DebugCF("agent", "LLM request",
 			map[string]interface{}{
 				"iteration":         iteration,
@@ -944,7 +958,7 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 				"tools_count":       len(providerToolDefs),
 				"max_tokens":        8192,
 				"temperature":       0.7,
-				"system_prompt_len": len(messages[0].Content),
+				"system_prompt_len": systemPromptLen,
 			})
 
 		// Log full messages (detailed)
@@ -1129,7 +1143,14 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 		toolDefs := al.tools.GetDefinitions()
 		providerToolDefs := make([]providers.ToolDefinition, 0, len(toolDefs))
 		for _, td := range toolDefs {
-			toolName := td["function"].(map[string]interface{})["name"].(string)
+			fnMap, ok := td["function"].(map[string]interface{})
+			if !ok {
+				continue
+			}
+			toolName, _ := fnMap["name"].(string)
+			if toolName == "" {
+				continue
+			}
 			// Skip excluded tools (e.g., web_search when user toggles it off)
 			if len(opts.ExcludeTools) > 0 {
 				excluded := false
@@ -1143,12 +1164,15 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 					continue
 				}
 			}
+			tdType, _ := td["type"].(string)
+			desc, _ := fnMap["description"].(string)
+			params, _ := fnMap["parameters"].(map[string]interface{})
 			providerToolDefs = append(providerToolDefs, providers.ToolDefinition{
-				Type: td["type"].(string),
+				Type: tdType,
 				Function: providers.ToolFunctionDefinition{
 					Name:        toolName,
-					Description: td["function"].(map[string]interface{})["description"].(string),
-					Parameters:  td["function"].(map[string]interface{})["parameters"].(map[string]interface{}),
+					Description: desc,
+					Parameters:  params,
 				},
 			})
 		}

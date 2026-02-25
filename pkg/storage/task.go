@@ -2,7 +2,6 @@ package storage
 
 import (
 	"fmt"
-	"strings"
 	"time"
 )
 
@@ -239,14 +238,14 @@ func (s *Storage) SearchTasks(query string) ([]Task, error) {
 func (s *Storage) SearchTasksForUser(userKey interface{}, query string) ([]Task, error) {
 	var sqlQuery string
 	var args []interface{}
-	searchTerm := "%" + strings.ReplaceAll(strings.ReplaceAll(query, "\\", "\\\\"), "%", "\\%") + "%"
+	searchTerm := "%" + escapeLikeQuery(query) + "%"
 
 	if s.isUserDB {
-		sqlQuery = `SELECT id, 0 as user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, created_at, updated_at FROM tasks WHERE (title LIKE ? OR description LIKE ?) AND archived = 0 ORDER BY created_at DESC`
+		sqlQuery = `SELECT id, 0 as user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, created_at, updated_at FROM tasks WHERE (title LIKE ? ESCAPE '\' OR description LIKE ? ESCAPE '\') AND archived = 0 ORDER BY created_at DESC`
 		args = []interface{}{searchTerm, searchTerm}
 	} else {
 		uid := normalizeUserKey(userKey)
-		sqlQuery = `SELECT id, user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, created_at, updated_at FROM tasks WHERE user_id = ? AND (title LIKE ? OR description LIKE ?) AND archived = 0 ORDER BY created_at DESC`
+		sqlQuery = `SELECT id, user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, created_at, updated_at FROM tasks WHERE user_id = ? AND (title LIKE ? ESCAPE '\' OR description LIKE ? ESCAPE '\') AND archived = 0 ORDER BY created_at DESC`
 		args = []interface{}{uid, searchTerm, searchTerm}
 	}
 

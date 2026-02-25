@@ -279,9 +279,9 @@ func (c *SlackChannel) handleMessageEvent(ev *slackevents.MessageEvent) {
 			mediaPaths = append(mediaPaths, localPath)
 
 			if utils.IsAudioFile(file.Name, file.Mimetype) && c.transcriber != nil && c.transcriber.IsAvailable() {
-				ctx, cancel := context.WithTimeout(c.ctx, 30*time.Second)
-				defer cancel()
-				result, err := c.transcriber.Transcribe(ctx, localPath)
+				tCtx, tCancel := context.WithTimeout(c.ctx, 30*time.Second)
+				result, err := c.transcriber.Transcribe(tCtx, localPath)
+				tCancel() // release context immediately, avoid accumulation in loop
 
 				if err != nil {
 					logger.ErrorCF("slack", "Voice transcription failed", map[string]interface{}{"error": err.Error()})

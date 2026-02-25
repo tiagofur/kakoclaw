@@ -301,7 +301,8 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/zip")
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+	sanitizedFilename := sanitizeFilename(filename)
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", sanitizedFilename))
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", mustGetSize(tempFile.Name())))
 	http.ServeFile(w, r, tempFile.Name())
 
@@ -792,13 +793,15 @@ func extractZipFile(f *zip.File, targetPath string) error {
 		return nil
 	}
 
-	// Security: prevent path traversal
-	cleanName := filepath.Clean(f.Name)
-	if strings.Contains(cleanName, "..") {
-		return fmt.Errorf("invalid path: %s", f.Name)
+	// Security: prevent path traversal — resolve the target path and verify
+	// it does not escape via ".." sequences. filepath.Clean resolves ".."
+	// components, so we check the raw relPath for traversal attempts.
+	cleanTarget := filepath.Clean(targetPath)
+	if strings.Contains(f.Name, "..") || strings.Contains(cleanTarget, "..") {
+		return fmt.Errorf("invalid path (traversal): %s", f.Name)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(cleanTarget), 0755); err != nil {
 		return fmt.Errorf("creating directory: %w", err)
 	}
 
@@ -863,6 +866,16 @@ func addDirToZipWithCounts(zipWriter *zip.Writer, dirPath, zipPath string) (int,
 	err := filepath.Walk(dirPath, func(filePath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
+		}
+
+		// Skip symlinks to prevent exfiltrating files outside the workspace.
+		// filepath.Walk resolves symlinks, so we use Lstat to detect them.
+		linfo, lerr := os.Lstat(filePath)
+		if lerr == nil && linfo.Mode()&os.ModeSymlink != 0 {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
 		}
 
 		relPath, err := filepath.Rel(dirPath, filePath)

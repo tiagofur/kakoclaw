@@ -68,6 +68,17 @@ func (t *EmailTool) Execute(ctx context.Context, args map[string]interface{}) (s
 		return "", fmt.Errorf("no recipient specified")
 	}
 
+	// Sanitize subject and recipient to prevent email header injection
+	subject = strings.ReplaceAll(subject, "\r", "")
+	subject = strings.ReplaceAll(subject, "\n", "")
+	to = strings.ReplaceAll(to, "\r", "")
+	to = strings.ReplaceAll(to, "\n", "")
+
+	// Validate recipient email format
+	if _, err := mail.ParseAddress(to); err != nil {
+		return "", fmt.Errorf("invalid recipient email address: %w", err)
+	}
+
 	// Construct email
 	from := t.cfg.From
 	if from == "" {

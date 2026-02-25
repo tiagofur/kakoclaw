@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"mime"
 	"net/http"
+	"net/mail"
 
 	"os"
 	"path/filepath"
@@ -1056,6 +1057,7 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer conn.Close()
+	conn.SetReadLimit(1 << 20) // 1 MB max message size to prevent memory DoS
 
 	// Mutex for thread-safe WebSocket writes (streaming callback writes from same goroutine,
 	// but we protect against concurrent request handling edge cases)
@@ -1441,6 +1443,7 @@ func (s *Server) handleTasksWS(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+	conn.SetReadLimit(1 << 20) // 1 MB max message size
 	mu := &sync.Mutex{}
 	s.tasksMu.Lock()
 	s.tasksClients[conn] = struct{}{}
@@ -1550,16 +1553,9 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	in.Email = strings.TrimSpace(in.Email)
 	in.Role = strings.TrimSpace(in.Role)
 
-	// Default role to "user" if not specified
-	if in.Role == "" {
-		in.Role = "user"
-	}
-
-	// Validate role
-	if in.Role != "user" && in.Role != "admin" {
-		http.Error(w, "role must be 'user' or 'admin'", http.StatusBadRequest)
-		return
-	}
+	// Force role to "user" for public registration — admin accounts must be
+	// created through other means (CLI, direct DB, or by an existing admin).
+	in.Role = "user"
 
 	if in.Username == "" {
 		http.Error(w, "username is required", http.StatusBadRequest)
@@ -1574,8 +1570,8 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Basic email validation
-	if !strings.Contains(in.Email, "@") || !strings.Contains(in.Email, ".") {
+	// Validate email format using RFC 5322 parser
+	if _, err := mail.ParseAddress(in.Email); err != nil {
 		http.Error(w, "invalid email format", http.StatusBadRequest)
 		return
 	}
@@ -2279,6 +2275,18 @@ func clientIP(r *http.Request) string {
 		return "unknown"
 	}
 	return hostPort
+}
+
+// sanitizeFilename strips characters unsafe for Content-Disposition headers.
+func sanitizeFilename(name string) string {
+	var b strings.Builder
+	for _, r := range name {
+		if r == '"' || r == '\\' || r == '/' || r == '\n' || r == '\r' {
+			continue
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
 }
 
 func normalizeTaskStatus(status string) (string, bool) {

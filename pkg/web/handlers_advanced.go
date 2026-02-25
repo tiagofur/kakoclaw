@@ -833,7 +833,7 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 				zipName = "workspace"
 			}
 			w.Header().Set("Content-Type", "application/zip")
-			w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.zip\"", zipName))
+			w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.zip\"", sanitizeFilename(zipName)))
 
 			zw := zip.NewWriter(w)
 			defer zw.Close()
@@ -909,7 +909,7 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if isDownload {
-		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", info.Name()))
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", sanitizeFilename(info.Name())))
 		w.Header().Set("Content-Type", "application/octet-stream")
 		// serve file content
 		file, err := os.Open(fullPath)

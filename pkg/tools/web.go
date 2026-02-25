@@ -93,7 +93,7 @@ func (t *WebSearchTool) Execute(ctx context.Context, args map[string]interface{}
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 5*1024*1024)) // 5 MB cap
 	if err != nil {
 		return "", fmt.Errorf("failed to read response: %w", err)
 	}
@@ -226,7 +226,9 @@ func (t *WebFetchTool) Execute(ctx context.Context, args map[string]interface{})
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	// Cap response body to 10 MB to prevent memory exhaustion
+	const maxBodySize = 10 * 1024 * 1024
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBodySize))
 	if err != nil {
 		return "", fmt.Errorf("failed to read response: %w", err)
 	}

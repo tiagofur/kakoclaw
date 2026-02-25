@@ -29,8 +29,32 @@ func validatePath(path, workspace string, restrict bool) (string, error) {
 		}
 	}
 
-	if restrict && !strings.HasPrefix(absPath, absWorkspace) {
-		return "", fmt.Errorf("access denied: path is outside the workspace")
+	if restrict {
+		// Resolve symlinks to prevent symlink-based path traversal
+		realWorkspace, err := filepath.EvalSymlinks(absWorkspace)
+		if err != nil {
+			// If workspace doesn't exist yet, fall back to Abs-based check
+			realWorkspace = absWorkspace
+		}
+
+		// Try to resolve symlinks on the target path; if the file doesn't
+		// exist yet (e.g. write_file creating a new file), resolve the parent.
+		realPath, err := filepath.EvalSymlinks(absPath)
+		if err != nil {
+			parentDir := filepath.Dir(absPath)
+			realParent, err2 := filepath.EvalSymlinks(parentDir)
+			if err2 != nil {
+				realPath = absPath
+			} else {
+				realPath = filepath.Join(realParent, filepath.Base(absPath))
+			}
+		}
+
+		// Use filepath.Rel to avoid prefix-based bypasses like /workspace-hack
+		rel, err := filepath.Rel(realWorkspace, realPath)
+		if err != nil || strings.HasPrefix(rel, "..") {
+			return "", fmt.Errorf("access denied: path is outside the workspace")
+		}
 	}
 
 	return absPath, nil

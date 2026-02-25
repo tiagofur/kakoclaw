@@ -278,7 +278,7 @@ func (p *HTTPProvider) ChatStream(ctx context.Context, messages []Message, tools
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
-		return nil, fmt.Errorf("API error: %s", string(body))
+		return nil, fmt.Errorf("API error (%d): %s", resp.StatusCode, string(body))
 	}
 
 	ch := make(chan StreamChunk, 64)
@@ -325,6 +325,9 @@ func (p *HTTPProvider) ChatStream(ctx context.Context, messages []Message, tools
 			}
 
 			if err := json.Unmarshal([]byte(data), &sseEvent); err != nil {
+				logger.WarnCF("provider", "Failed to parse SSE event", map[string]interface{}{
+					"error": err.Error(),
+				})
 				continue
 			}
 
@@ -371,6 +374,18 @@ func (p *HTTPProvider) ChatStream(ctx context.Context, messages []Message, tools
 			if chunk.Done {
 				return
 			}
+		}
+
+		// Check for scanner errors (network failures, etc.)
+		if err := scanner.Err(); err != nil {
+			logger.ErrorCF("provider", "Stream scanner error", map[string]interface{}{
+				"error": err.Error(),
+			})
+			select {
+			case ch <- StreamChunk{Done: true, FinishReason: "error", Error: err.Error()}:
+			case <-ctx.Done():
+			}
+			return
 		}
 
 		// If scanner exits without [DONE], send a final done chunk

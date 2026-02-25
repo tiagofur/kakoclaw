@@ -100,6 +100,19 @@ func (t *ExecTool) Execute(ctx context.Context, args map[string]interface{}) (st
 
 	cwd := t.workingDir
 	if wd, ok := args["working_dir"].(string); ok && wd != "" {
+		// Validate working_dir is within workspace when restricted
+		if t.restrictToWorkspace && t.workingDir != "" {
+			absWd, err := filepath.Abs(wd)
+			if err == nil {
+				absWorkspace, err2 := filepath.Abs(t.workingDir)
+				if err2 == nil {
+					rel, err3 := filepath.Rel(absWorkspace, absWd)
+					if err3 != nil || strings.HasPrefix(rel, "..") {
+						return "Error: working_dir is outside the workspace", nil
+					}
+				}
+			}
+		}
 		cwd = wd
 	}
 
@@ -186,7 +199,7 @@ func (t *ExecTool) guardCommand(command, cwd string) string {
 
 		cwdPath, err := filepath.Abs(cwd)
 		if err != nil {
-			return ""
+			return "Command blocked by safety guard (failed to resolve workspace path)"
 		}
 
 		pathPattern := regexp.MustCompile(`[A-Za-z]:\\[^\\\"']+|/[^\s\"']+`)

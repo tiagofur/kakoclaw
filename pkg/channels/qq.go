@@ -224,17 +224,11 @@ func (c *QQChannel) isDuplicate(messageID string) bool {
 
 	c.processedIDs[messageID] = true
 
-	// 简单清理：限制 map 大小
+	// Evict all entries when map grows too large. This is safe because
+	// duplicate messages only arrive within a short window; old entries
+	// are no longer needed.
 	if len(c.processedIDs) > 10000 {
-		// 清空一半
-		count := 0
-		for id := range c.processedIDs {
-			if count >= 5000 {
-				break
-			}
-			delete(c.processedIDs, id)
-			count++
-		}
+		c.processedIDs = map[string]bool{messageID: true}
 	}
 
 	return false
