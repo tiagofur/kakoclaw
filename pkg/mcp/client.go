@@ -256,10 +256,14 @@ func (c *Client) Close() {
 		_ = c.cmd.Wait()
 	}
 
-	// Drain all pending requests
+	// Drain all pending requests — send nil to unblock waiters instead of
+	// closing channels, which avoids a race where readLoop may still send.
 	c.mu.Lock()
 	for id, ch := range c.pending {
-		close(ch)
+		select {
+		case ch <- nil:
+		default:
+		}
 		delete(c.pending, id)
 	}
 	c.mu.Unlock()
@@ -347,8 +351,8 @@ func (c *Client) sendRequest(ctx context.Context, method string, params interfac
 
 	// Wait for response
 	select {
-	case resp, ok := <-respCh:
-		if !ok {
+	case resp := <-respCh:
+		if resp == nil {
 			return nil, fmt.Errorf("connection closed while waiting for response")
 		}
 		if resp.Error != nil {
@@ -410,6 +414,9 @@ func (c *Client) readLoop() {
 
 		c.mu.Lock()
 		ch, ok := c.pending[*resp.ID]
+		if ok {
+			delete(c.pending, *resp.ID)
+		}
 		c.mu.Unlock()
 		if ok {
 			ch <- &resp

@@ -72,9 +72,7 @@ func (sm *SubagentManager) Spawn(ctx context.Context, task, label, originChannel
 }
 
 func (sm *SubagentManager) runTask(ctx context.Context, task *SubagentTask) {
-	task.Status = "running"
-	task.Created = time.Now().UnixMilli()
-
+	// Status and Created are already set by Spawn under lock; no need to set again.
 	messages := []providers.Message{
 		{
 			Role:    "system",

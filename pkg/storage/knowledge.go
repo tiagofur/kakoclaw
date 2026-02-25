@@ -95,7 +95,10 @@ func (s *Storage) SaveKnowledgeDocument(userID int64, name, mimeType string, siz
 	if err != nil {
 		return nil, fmt.Errorf("insert document: %w", err)
 	}
-	docID, _ := res.LastInsertId()
+	docID, err := res.LastInsertId()
+	if err != nil {
+		return nil, fmt.Errorf("get document id: %w", err)
+	}
 
 	for i, chunk := range chunks {
 		chunk = strings.TrimSpace(chunk)
@@ -109,7 +112,10 @@ func (s *Storage) SaveKnowledgeDocument(userID int64, name, mimeType string, siz
 		if err != nil {
 			return nil, fmt.Errorf("insert chunk %d: %w", i, err)
 		}
-		chunkID, _ := cRes.LastInsertId()
+		chunkID, err := cRes.LastInsertId()
+		if err != nil {
+			return nil, fmt.Errorf("get chunk id for chunk %d: %w", i, err)
+		}
 		// Insert into FTS5 index (rowid must match knowledge_chunks.id)
 		if _, err := tx.Exec(`INSERT INTO knowledge_fts (rowid, content) VALUES (?, ?)`, chunkID, chunk); err != nil {
 			return nil, fmt.Errorf("insert fts chunk %d: %w", i, err)

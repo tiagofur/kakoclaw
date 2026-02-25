@@ -176,6 +176,7 @@ func (e *Engine) RunWithParams(ctx context.Context, wf *storage.Workflow, params
 	resultsJSON, marshalErr := json.Marshal(results)
 	if marshalErr != nil {
 		logger.ErrorCF("workflow", "Failed to marshal results", map[string]interface{}{"error": marshalErr.Error()})
+		resultsJSON = []byte("[]") // fallback so UpdateWorkflowRun gets valid JSON
 	}
 	status := "completed"
 	if ctx.Err() != nil {

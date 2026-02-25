@@ -301,7 +301,8 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/zip")
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+	sanitizedFilename := sanitizeFilename(filename)
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", sanitizedFilename))
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", mustGetSize(tempFile.Name())))
 	http.ServeFile(w, r, tempFile.Name())
 

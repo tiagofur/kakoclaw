@@ -2281,6 +2281,18 @@ func clientIP(r *http.Request) string {
 	return hostPort
 }
 
+// sanitizeFilename strips characters unsafe for Content-Disposition headers.
+func sanitizeFilename(name string) string {
+	var b strings.Builder
+	for _, r := range name {
+		if r == '"' || r == '\\' || r == '/' || r == '\n' || r == '\r' {
+			continue
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
+}
+
 func normalizeTaskStatus(status string) (string, bool) {
 	s := strings.TrimSpace(strings.ToLower(status))
 	if s == "" {
