@@ -167,6 +167,15 @@ func (s *Storage) DeleteKnowledgeDocument(userID, id int64) error {
 	}
 	defer tx.Rollback()
 
+	// Verify ownership FIRST before deleting any data
+	var count int
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM knowledge_documents WHERE id = ? AND user_id = ?`, id, userID).Scan(&count); err != nil {
+		return fmt.Errorf("verify document ownership: %w", err)
+	}
+	if count == 0 {
+		return sql.ErrNoRows
+	}
+
 	// Delete FTS entries for this document's chunks
 	if _, err := tx.Exec(
 		`DELETE FROM knowledge_fts WHERE rowid IN (SELECT id FROM knowledge_chunks WHERE document_id = ?)`, id,
@@ -179,14 +188,9 @@ func (s *Storage) DeleteKnowledgeDocument(userID, id int64) error {
 		return fmt.Errorf("delete chunks: %w", err)
 	}
 
-	// Delete document (verify ownership)
-	res, err := tx.Exec(`DELETE FROM knowledge_documents WHERE id = ? AND user_id = ?`, id, userID)
-	if err != nil {
+	// Delete the document
+	if _, err := tx.Exec(`DELETE FROM knowledge_documents WHERE id = ?`, id); err != nil {
 		return fmt.Errorf("delete document: %w", err)
-	}
-	affected, _ := res.RowsAffected()
-	if affected == 0 {
-		return sql.ErrNoRows
 	}
 
 	return tx.Commit()

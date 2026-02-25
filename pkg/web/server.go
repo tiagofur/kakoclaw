@@ -1056,6 +1056,7 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer conn.Close()
+	conn.SetReadLimit(1 << 20) // 1 MB max message size to prevent memory DoS
 
 	// Mutex for thread-safe WebSocket writes (streaming callback writes from same goroutine,
 	// but we protect against concurrent request handling edge cases)
@@ -1441,6 +1442,7 @@ func (s *Server) handleTasksWS(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+	conn.SetReadLimit(1 << 20) // 1 MB max message size
 	mu := &sync.Mutex{}
 	s.tasksMu.Lock()
 	s.tasksClients[conn] = struct{}{}
@@ -1550,16 +1552,9 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	in.Email = strings.TrimSpace(in.Email)
 	in.Role = strings.TrimSpace(in.Role)
 
-	// Default role to "user" if not specified
-	if in.Role == "" {
-		in.Role = "user"
-	}
-
-	// Validate role
-	if in.Role != "user" && in.Role != "admin" {
-		http.Error(w, "role must be 'user' or 'admin'", http.StatusBadRequest)
-		return
-	}
+	// Force role to "user" for public registration — admin accounts must be
+	// created through other means (CLI, direct DB, or by an existing admin).
+	in.Role = "user"
 
 	if in.Username == "" {
 		http.Error(w, "username is required", http.StatusBadRequest)

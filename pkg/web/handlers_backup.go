@@ -793,13 +793,15 @@ func extractZipFile(f *zip.File, targetPath string) error {
 		return nil
 	}
 
-	// Security: prevent path traversal
-	cleanName := filepath.Clean(f.Name)
-	if strings.Contains(cleanName, "..") {
-		return fmt.Errorf("invalid path: %s", f.Name)
+	// Security: prevent path traversal — resolve the target path and verify
+	// it does not escape via ".." sequences. filepath.Clean resolves ".."
+	// components, so we check the raw relPath for traversal attempts.
+	cleanTarget := filepath.Clean(targetPath)
+	if strings.Contains(f.Name, "..") || strings.Contains(cleanTarget, "..") {
+		return fmt.Errorf("invalid path (traversal): %s", f.Name)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(cleanTarget), 0755); err != nil {
 		return fmt.Errorf("creating directory: %w", err)
 	}
 

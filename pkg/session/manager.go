@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -83,6 +84,11 @@ func (sm *SessionManager) GetOrCreateForUser(userID int64, key string) *Session 
 
 	if !ok {
 		sm.mu.Lock()
+		// Double-check under write lock to prevent TOCTOU race
+		if existing, exists := sm.sessions[nsKey]; exists {
+			sm.mu.Unlock()
+			return existing
+		}
 		session = &Session{
 			Key:      nsKey,
 			Messages: []providers.Message{},
@@ -244,7 +250,12 @@ func (sm *SessionManager) SaveForUser(userID int64, session *Session) error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
-	sessionPath := filepath.Join(sm.storage, session.Key+".json")
+	// Sanitize session key to prevent path traversal
+	safeKey := sanitizeSessionKey(session.Key)
+	if safeKey == "" {
+		return fmt.Errorf("invalid session key")
+	}
+	sessionPath := filepath.Join(sm.storage, safeKey+".json")
 
 	data, err := json.MarshalIndent(session, "", "  ")
 	if err != nil {
@@ -284,4 +295,18 @@ func (sm *SessionManager) loadSessions() error {
 	}
 
 	return nil
+}
+
+// sanitizeSessionKey strips path separators and traversal sequences from a session key
+// to ensure it cannot escape the sessions directory.
+func sanitizeSessionKey(key string) string {
+	// Replace path separators with underscores (session keys use ":" as separator)
+	key = strings.ReplaceAll(key, "/", "_")
+	key = strings.ReplaceAll(key, "\\", "_")
+	key = strings.ReplaceAll(key, "..", "_")
+	key = strings.TrimSpace(key)
+	if key == "" || key == "." {
+		return ""
+	}
+	return key
 }
