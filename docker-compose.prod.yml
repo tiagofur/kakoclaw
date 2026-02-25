@@ -1,0 +1,106 @@
+version: '3.8'
+
+services:
+  makoclaw:
+    image: makoclaw:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    container_name: makoclaw_prod
+    command: ["makoclaw", "web"]
+    ports:
+      # Production: bind to specific IP or use reverse proxy
+      - "${MAKOCLAW_PORT:-127.0.0.1:18880}:18880"
+    environment:
+      # === REQUIRED CONFIGURATION ===
+      MAKOCLAW_WEB_PASSWORD: "${MAKOCLAW_WEB_PASSWORD}"
+      MAKOCLAW_WEB_USERNAME: "${MAKOCLAW_WEB_USERNAME:-admin}"
+
+      # === Web Server Configuration ===
+      MAKOCLAW_WEB_ENABLED: "true"
+      MAKOCLAW_WEB_HOST: 0.0.0.0
+      MAKOCLAW_WEB_PORT: "18880"
+
+      # === LLM Provider Configuration ===
+      MAKOCLAW_AGENTS_DEFAULTS_PROVIDER: "${MAKOCLAW_AGENTS_DEFAULTS_PROVIDER}"
+      MAKOCLAW_AGENTS_DEFAULTS_MODEL: "${MAKOCLAW_AGENTS_DEFAULTS_MODEL}"
+
+      # === Basic Configuration ===
+      MAKOCLAW_AGENTS_DEFAULTS_RESTRICT_TO_WORKSPACE: "true"
+      MAKOCLAW_AGENTS_DEFAULTS_WORKSPACE: "/home/makoclaw/.MakoClaw/workspace"
+      MAKOCLAW_STORAGE_PATH: "/home/makoclaw/.MakoClaw/MakoClaw.db"
+
+      # === Provider API Keys ===
+      MAKOCLAW_PROVIDERS_OPENROUTER_API_KEY: "${MAKOCLAW_PROVIDERS_OPENROUTER_API_KEY:-}"
+      MAKOCLAW_PROVIDERS_ANTHROPIC_API_KEY: "${MAKOCLAW_PROVIDERS_ANTHROPIC_API_KEY:-}"
+      MAKOCLAW_PROVIDERS_OPENAI_API_KEY: "${MAKOCLAW_PROVIDERS_OPENAI_API_KEY:-}"
+      MAKOCLAW_PROVIDERS_GROQ_API_KEY: "${MAKOCLAW_PROVIDERS_GROQ_API_KEY:-}"
+      MAKOCLAW_PROVIDERS_OLLAMA_API_BASE: "${MAKOCLAW_PROVIDERS_OLLAMA_API_BASE:-}"
+
+      # === Channel Configuration (Optional) ===
+      MAKOCLAW_CHANNELS_TELEGRAM_ENABLED: "${MAKOCLAW_CHANNELS_TELEGRAM_ENABLED:-false}"
+      MAKOCLAW_CHANNELS_TELEGRAM_TOKEN: "${MAKOCLAW_CHANNELS_TELEGRAM_TOKEN:-}"
+      MAKOCLAW_CHANNELS_DISCORD_ENABLED: "${MAKOCLAW_CHANNELS_DISCORD_ENABLED:-false}"
+      MAKOCLAW_CHANNELS_DISCORD_TOKEN: "${MAKOCLAW_CHANNELS_DISCORD_TOKEN:-}"
+
+      # === Email Tools (Optional) ===
+      MAKOCLAW_TOOLS_EMAIL_ENABLED: "${MAKOCLAW_TOOLS_EMAIL_ENABLED:-false}"
+      MAKOCLAW_TOOLS_EMAIL_HOST: "${MAKOCLAW_TOOLS_EMAIL_HOST:-smtp.gmail.com}"
+      MAKOCLAW_TOOLS_EMAIL_PORT: "${MAKOCLAW_TOOLS_EMAIL_PORT:-587}"
+      MAKOCLAW_TOOLS_EMAIL_USERNAME: "${MAKOCLAW_TOOLS_EMAIL_USERNAME:-}"
+      MAKOCLAW_TOOLS_EMAIL_PASSWORD: "${MAKOCLAW_TOOLS_EMAIL_PASSWORD:-}"
+
+      # === Timezone ===
+      TZ: "${TZ:-UTC}"
+
+    volumes:
+      - makoclaw_data:/home/makoclaw/.MakoClaw
+
+    restart: unless-stopped
+
+    networks:
+      - makoclaw_network
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:18880/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+    # Resource limits (adjust based on your VPS)
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+    read_only: false
+    tmpfs:
+      - /tmp
+
+volumes:
+  makoclaw_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${MAKOCLAW_DATA_PATH:-./MakoClaw-data}
+
+networks:
+  makoclaw_network:
+    driver: bridge

@@ -1,10 +1,61 @@
+# Version control
 .git
 .github
+.gitignore
+
+# IDEs
 .vscode
 .idea
+*.swp
+*.swo
+*~
+
+# Build artifacts
 *.exe
+*.dll
+*.so
+*.dylib
+bin/
+build/
+dist/
+build-cache/
+
+# Logs and data
 *.log
-picoclaw-data
-pkg/web/frontend/node_modules
-bin
-build-cache
+*.db
+*.db-journal
+picoclaw-data/
+MakoClaw-data/
+makoclaw-data/
+
+# Testing
+*.test
+coverage.*
+*.out
+
+# Node.js
+pkg/web/frontend/node_modules/
+pkg/web/frontend/dist/
+pkg/web/frontend/.nuxt/
+pkg/web/frontend/.output/
+*.tgz
+
+# Documentation and configs (keep in image but optimize)
+*.md
+!README.md
+.env*
+!.env.example
+
+# CI/CD
+.travis.yml
+.gitlab-ci.yml
+azure-pipelines.yml
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp

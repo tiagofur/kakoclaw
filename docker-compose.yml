@@ -1,9 +1,17 @@
+version: '3.8'
+
 services:
   makoclaw:
-    build: .
-    command: ["makoclaw", "gateway"]
+    image: makoclaw:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    container_name: makoclaw
+    command: ["makoclaw", "web"]
     ports:
-      - "127.0.0.1:18880:18880"
+      - "${MAKOCLAW_PORT:-127.0.0.1:18880}:18880"
     environment:
       # === REQUIRED CONFIGURATION ===
       # Web password for authentication (default: changeme - CHANGE IN PRODUCTION!)
@@ -63,5 +71,26 @@ services:
       #     workspace/    - per-user workspace files
       #     config.json   - per-user config (providers, channels)
       #   config.json     - server-level config
-      - ./MakoClaw-data:/home/makoclaw/.MakoClaw
+      - makoclaw_data:/home/makoclaw/.MakoClaw
     restart: unless-stopped
+    networks:
+      - makoclaw_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:18880/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  makoclaw_data:
+    driver: local
+
+networks:
+  makoclaw_network:
+    driver: bridge
