@@ -221,8 +221,8 @@ func (m *authManager) changePassword(username, oldPassword, newPassword string) 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(oldPassword)); err != nil {
 		return errors.New("invalid credentials")
 	}
-	if len(strings.TrimSpace(newPassword)) < 10 {
-		return errors.New("new password must be at least 10 characters")
+	if len(strings.TrimSpace(newPassword)) < 8 {
+		return errors.New("new password must be at least 8 characters")
 	}
 
 	if err := m.store.UpdateUserPassword(user.ID, newPassword); err != nil {

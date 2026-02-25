@@ -868,6 +868,16 @@ func addDirToZipWithCounts(zipWriter *zip.Writer, dirPath, zipPath string) (int,
 			return err
 		}
 
+		// Skip symlinks to prevent exfiltrating files outside the workspace.
+		// filepath.Walk resolves symlinks, so we use Lstat to detect them.
+		linfo, lerr := os.Lstat(filePath)
+		if lerr == nil && linfo.Mode()&os.ModeSymlink != 0 {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
 		relPath, err := filepath.Rel(dirPath, filePath)
 		if err != nil {
 			return err

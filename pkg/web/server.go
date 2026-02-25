@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"mime"
 	"net/http"
+	"net/mail"
 
 	"os"
 	"path/filepath"
@@ -1569,8 +1570,8 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Basic email validation
-	if !strings.Contains(in.Email, "@") || !strings.Contains(in.Email, ".") {
+	// Validate email format using RFC 5322 parser
+	if _, err := mail.ParseAddress(in.Email); err != nil {
 		http.Error(w, "invalid email format", http.StatusBadRequest)
 		return
 	}
