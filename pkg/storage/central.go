@@ -655,3 +655,24 @@ func (cs *CentralStorage) CleanupExpiredSetupSessions() error {
 	`)
 	return err
 }
+
+// UpdateUserTools updates the allowed_tools for a specific user.
+// Pass nil or empty slice to reset to role defaults.
+func (cs *CentralStorage) UpdateUserTools(userID int64, tools []string) error {
+	var toolsJSON *string
+	if len(tools) > 0 {
+		data, err := json.Marshal(tools)
+		if err != nil {
+			return err
+		}
+		str := string(data)
+		toolsJSON = &str
+	}
+
+	_, err := cs.db.Exec(`
+		UPDATE users
+		SET allowed_tools = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?`,
+		toolsJSON, userID)
+	return err
+}

@@ -414,14 +414,23 @@ func DefaultConfig() *Config {
 			RoleDefaults: map[string][]string{
 				"admin": {"*"}, // Admins get all tools
 				"user": {
+					// File operations (restricted to user workspace)
 					"read_file",
+					"write_file",
+					"edit_file",
+					"append_file",
 					"list_dir",
+					// Task and knowledge management
 					"task_manager",
 					"query_knowledge",
 					"memory",
+					// Web access
 					"web_search",
+					"web_fetch",
+					// Communication
 					"message",
-					"exec_restricted", // Limited shell access via allowlist
+					// Limited shell access via allowlist
+					"exec_restricted",
 				},
 			},
 			AllowedShellCommands: []string{

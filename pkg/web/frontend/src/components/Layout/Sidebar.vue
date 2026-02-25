@@ -12,14 +12,14 @@
       <div v-if="!uiStore.sidebarCollapsed" class="font-bold text-xl flex items-center gap-2 group cursor-pointer">
         <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-makoclaw-accent to-blue-600 flex items-center justify-center shadow-lg shadow-makoclaw-accent/20 transition-transform group-hover:rotate-12 duration-500">
            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12,4C9.5,4,7.25,5,5.5,6.5C4,7.8,3,9.5,3,11V16H2V18H4C4.5,19.2,5.5,20.2,6.8,20.8L8.3,16H15.7L17.2,20.8C18.5,20.2,19.5,19.2,20,18H22V16H21V11C21,9.5,20,7.8,18.5,6.5C16.8,5,14.5,4,12,4M8.5,8A1.5,1.5 0 0,1 10,9.5A1.5,1.5 0 0,1 8.5,11A1.5,1.5 0 0,1 7,9.5A1.5,1.5 0 0,1 8.5,8M15.5,8A1.5,1.5 0 0,1 17,9.5A1.5,1.5 0 0,1 15.5,11A1.5,1.5 0 0,1 14,9.5A1.5,1.5 0 0,1 15.5,8Z" />
+              <path d="M20.8,10c-0.5-1-1.5-1.5-2.5-1.5c-0.5,0-1,0.1-1.5,0.4L14,10.4L11,8L4,6v2l5.5,1.5L7,13l-2.5-1L2,11.5v2l2,1l1.5,0.5l-0.5,2h2l1-2h5l1,2h2l-0.5-2l1.5-0.5l2-1v-2l-2.5,0.5L14,13l-1.5-3.5l2.8-1.5c0.2-0.1,0.4-0.2,0.7-0.2c0.5,0,0.9,0.3,1.1,0.7c0.2,0.4,0.2,0.9,0,1.3L16,12l1.5,0.5l1-2.2C19.1,9.3,19.2,8.1,20.8,10z M10,9.5c-0.3,0-0.5,0.2-0.5,0.5s0.2,0.5,0.5,0.5s0.5-0.2,0.5-0.5S10.3,9.5,10,9.5z"/>
             </svg>
         </div>
         <span class="bg-gradient-to-r from-makoclaw-text to-makoclaw-text-secondary bg-clip-text text-transparent">makoclaw</span>
       </div>
       <div v-else class="w-8 h-8 rounded-lg bg-gradient-to-br from-makoclaw-accent to-blue-600 flex items-center justify-center mx-auto shadow-lg shadow-makoclaw-accent/20">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
-           <path d="M12,4C9.5,4,7.25,5,5.5,6.5C4,7.8,3,9.5,3,11V16H2V18H4C4.5,19.2,5.5,20.2,6.8,20.8L8.3,16H15.7L17.2,20.8C18.5,20.2,19.5,19.2,20,18H22V16H21V11C21,9.5,20,7.8,18.5,6.5C16.8,5,14.5,4,12,4M8.5,8A1.5,1.5 0 0,1 10,9.5A1.5,1.5 0 0,1 8.5,11A1.5,1.5 0 0,1 7,9.5A1.5,1.5 0 0,1 8.5,8M15.5,8A1.5,1.5 0 0,1 17,9.5A1.5,1.5 0 0,1 15.5,11A1.5,1.5 0 0,1 14,9.5A1.5,1.5 0 0,1 15.5,8Z" />
+           <path d="M20.8,10c-0.5-1-1.5-1.5-2.5-1.5c-0.5,0-1,0.1-1.5,0.4L14,10.4L11,8L4,6v2l5.5,1.5L7,13l-2.5-1L2,11.5v2l2,1l1.5,0.5l-0.5,2h2l1-2h5l1,2h2l-0.5-2l1.5-0.5l2-1v-2l-2.5,0.5L14,13l-1.5-3.5l2.8-1.5c0.2-0.1,0.4-0.2,0.7-0.2c0.5,0,0.9,0.3,1.1,0.7c0.2,0.4,0.2,0.9,0,1.3L16,12l1.5,0.5l1-2.2C19.1,9.3,19.2,8.1,20.8,10z M10,9.5c-0.3,0-0.5,0.2-0.5,0.5s0.2,0.5,0.5,0.5s0.5-0.2,0.5-0.5S10.3,9.5,10,9.5z"/>
          </svg>
       </div>
       <button

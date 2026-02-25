@@ -23,6 +23,7 @@ func NewEditFileTool(allowedDir string, restrict bool) *EditFileTool {
 }
 
 func (t *EditFileTool) SetWorkspace(workspace string) {
+	fmt.Printf("[DEBUG edit_file.SetWorkspace] OLD workspace=%s, NEW workspace=%s\n", t.allowedDir, workspace)
 	t.allowedDir = workspace
 }
 
@@ -76,6 +77,9 @@ func (t *EditFileTool) Execute(ctx context.Context, args map[string]interface{})
 		return "", err
 	}
 
+	// DIAGNOSTIC LOGGING: Track workspace being used
+	fmt.Printf("[DEBUG edit_file] workspace=%s, path=%s, resolvedPath=%s\n", t.allowedDir, path, resolvedPath)
+
 	info, err := os.Stat(resolvedPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -107,7 +111,7 @@ func (t *EditFileTool) Execute(ctx context.Context, args map[string]interface{})
 		return "", fmt.Errorf("failed to write file: %w", err)
 	}
 
-	return fmt.Sprintf("Successfully edited %s", path), nil
+	return fmt.Sprintf("Successfully edited %s (saved to %s)", path, resolvedPath), nil
 }
 
 type AppendFileTool struct {

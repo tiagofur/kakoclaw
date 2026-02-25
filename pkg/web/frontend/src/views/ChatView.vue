@@ -139,6 +139,11 @@
         </div>
       </div>
 
+      <!-- Specialists Panel -->
+      <div class="px-3 md:px-4 pt-3">
+        <SpecialistsPanel />
+      </div>
+
       <!-- Messages Area -->
       <div 
         ref="messagesContainer"
@@ -177,6 +182,11 @@
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- Agent Status Indicator -->
+      <div class="px-2.5 md:px-4">
+        <AgentStatusIndicator />
       </div>
 
       <!-- Input Area -->
@@ -401,6 +411,8 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { storeToRefs } from 'pinia'
 import MessageBubble from '../components/MessageBubble.vue'
+import AgentStatusIndicator from '../components/Chat/AgentStatusIndicator.vue'
+import SpecialistsPanel from '../components/Chat/SpecialistsPanel.vue'
 import PromptLibrary from '../components/PromptModal.vue'
 import { useChatStore } from '../stores/chatStore'
 import { getChatWebSocket } from '../services/websocketService'
@@ -707,6 +719,7 @@ const handleMessage = (message) => {
   }
   if (message.type === 'stream_start') {
     chatStore.startStreamingMessage()
+    chatStore.clearAgentStatus() // Resetear para nuevo mensaje
   }
   if (message.type === 'stream') {
     chatStore.appendStreamToken(message.content || '')
@@ -717,7 +730,19 @@ const handleMessage = (message) => {
     } else {
       chatStore.endStreamingMessage(message.content || '', message.agents || [])
     }
+    chatStore.clearAgentStatus() // Limpiar cuando termina
     fetchSessions()
+  }
+  if (message.type === 'agent_status') {
+    chatStore.setAgentStatus(
+      message.agent,
+      message.status,
+      message.specialist_name,
+      message.reason
+    )
+  }
+  if (message.type === 'content_segment') {
+    chatStore.addContentSegment(message)
   }
   if (message.type === 'tool_call') {
     chatStore.addToolCall(message)

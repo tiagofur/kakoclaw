@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/mail"
+	"net/smtp"
 	"os"
 	"path/filepath"
 	"sort"
@@ -19,6 +21,7 @@ import (
 	"github.com/sipeed/makoclaw/pkg/config"
 	"github.com/sipeed/makoclaw/pkg/cron"
 	"github.com/sipeed/makoclaw/pkg/logger"
+	"github.com/sipeed/makoclaw/pkg/mcp"
 	"github.com/sipeed/makoclaw/pkg/skills"
 	"github.com/sipeed/makoclaw/pkg/storage"
 )
@@ -418,7 +421,8 @@ func (s *Server) handleCron(w http.ResponseWriter, r *http.Request) {
 				TZ      string `json:"tz,omitempty"`
 			} `json:"schedule"`
 			Message string `json:"message"`
-			Deliver bool   `json:"deliver"`
+			JobType string `json:"job_type"`          // New field: "task" or "reminder"
+			Deliver bool   `json:"deliver,omitempty"` // Deprecated, for backward compatibility
 			Channel string `json:"channel,omitempty"`
 			To      string `json:"to,omitempty"`
 		}
@@ -431,10 +435,26 @@ func (s *Server) handleCron(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// Handle job_type with backward compatibility
+		jobType := body.JobType
+		if jobType == "" {
+			// Backward compatibility: convert from deliver field
+			if body.Deliver {
+				jobType = "reminder"
+			} else {
+				jobType = "task"
+			}
+		}
+		// Validate job_type
+		if jobType != "task" && jobType != "reminder" {
+			http.Error(w, "job_type must be 'task' or 'reminder'", http.StatusBadRequest)
+			return
+		}
+
 		// Import cron schedule type
 		schedule := cronScheduleFromBody(body.Schedule.Kind, body.Schedule.AtMS, body.Schedule.EveryMS, body.Schedule.Expr, body.Schedule.TZ)
 
-		job, err := cronService.AddJob(userID, body.Name, schedule, body.Message, body.Deliver, body.Channel, body.To)
+		job, err := cronService.AddJob(userID, body.Name, schedule, body.Message, jobType, body.Channel, body.To)
 		if err != nil {
 			// Validation errors from AddJob return 400
 			http.Error(w, "failed to create job: "+err.Error(), http.StatusBadRequest)
@@ -513,7 +533,8 @@ func (s *Server) handleCronAction(w http.ResponseWriter, r *http.Request) {
 				TZ      string `json:"tz,omitempty"`
 			} `json:"schedule"`
 			Message string `json:"message"`
-			Deliver bool   `json:"deliver"`
+			JobType string `json:"job_type"`          // New field: "task" or "reminder"
+			Deliver bool   `json:"deliver,omitempty"` // Deprecated, for backward compatibility
 			Channel string `json:"channel,omitempty"`
 			To      string `json:"to,omitempty"`
 		}
@@ -526,9 +547,25 @@ func (s *Server) handleCronAction(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// Handle job_type with backward compatibility
+		jobType := body.JobType
+		if jobType == "" {
+			// Backward compatibility: convert from deliver field
+			if body.Deliver {
+				jobType = "reminder"
+			} else {
+				jobType = "task"
+			}
+		}
+		// Validate job_type
+		if jobType != "task" && jobType != "reminder" {
+			http.Error(w, "job_type must be 'task' or 'reminder'", http.StatusBadRequest)
+			return
+		}
+
 		schedule := cronScheduleFromBody(body.Schedule.Kind, body.Schedule.AtMS, body.Schedule.EveryMS, body.Schedule.Expr, body.Schedule.TZ)
 
-		job, err := cronService.UpdateJobForUser(userID, jobID, body.Name, schedule, body.Message, body.Deliver, body.Channel, body.To)
+		job, err := cronService.UpdateJobForUser(userID, jobID, body.Name, schedule, body.Message, jobType, body.Channel, body.To)
 		if err != nil {
 			http.Error(w, "invalid job: "+err.Error(), http.StatusBadRequest)
 			return
@@ -738,7 +775,15 @@ type fileEntry struct {
 func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	if r.Method != http.MethodGet && r.Method != http.MethodPost {
+	// Supported methods: GET (list/read/search), POST (upload), DELETE (remove), PUT (create dir/update file), PATCH (rename)
+	supportedMethods := map[string]bool{
+		http.MethodGet:    true,
+		http.MethodPost:   true,
+		http.MethodDelete: true,
+		http.MethodPut:    true,
+		http.MethodPatch:  true,
+	}
+	if !supportedMethods[r.Method] {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -818,6 +863,172 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Handle Delete (DELETE)
+	if r.Method == http.MethodDelete {
+		info, err := os.Stat(fullPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				http.Error(w, "path not found", http.StatusNotFound)
+			} else {
+				http.Error(w, "failed to access path", http.StatusInternalServerError)
+			}
+			return
+		}
+
+		// Security: check for symlink attacks - don't follow symlinks outside workspace
+		if info.Mode()&os.ModeSymlink != 0 {
+			linkTarget, err := filepath.EvalSymlinks(fullPath)
+			if err != nil {
+				http.Error(w, "failed to resolve symlink", http.StatusInternalServerError)
+				return
+			}
+			absLinkTarget, _ := filepath.Abs(linkTarget)
+			if !strings.HasPrefix(absLinkTarget, absWorkspace) {
+				http.Error(w, "cannot delete symlinks pointing outside workspace", http.StatusForbidden)
+				return
+			}
+		}
+
+		if info.IsDir() {
+			// Recursive delete for directories
+			if err := os.RemoveAll(fullPath); err != nil {
+				http.Error(w, "failed to delete directory: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+		} else {
+			// Single file delete
+			if err := os.Remove(fullPath); err != nil {
+				http.Error(w, "failed to delete file: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
+
+		writeJSONResponse(w, map[string]interface{}{
+			"success": true,
+			"message": "Deleted: " + filepath.ToSlash(relPath),
+		})
+		return
+	}
+
+	// Handle Create Folder or Update File (PUT)
+	if r.Method == http.MethodPut {
+		// Check if this is a mkdir operation
+		if r.URL.Query().Get("mkdir") == "true" {
+			// Create directory
+			if err := os.MkdirAll(fullPath, 0755); err != nil {
+				http.Error(w, "failed to create directory: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+			writeJSONResponse(w, map[string]interface{}{
+				"success": true,
+				"message": "Created directory: " + filepath.ToSlash(relPath),
+				"path":    filepath.ToSlash(relPath),
+			})
+			return
+		}
+
+		// Update file content
+		// Limit request body to 5MB for text files
+		r.Body = http.MaxBytesReader(w, r.Body, 5<<20)
+
+		content, err := io.ReadAll(r.Body)
+		if err != nil {
+			if strings.Contains(err.Error(), "http: request body too large") {
+				http.Error(w, "file content too large (max 5MB)", http.StatusRequestEntityTooLarge)
+			} else {
+				http.Error(w, "failed to read request body", http.StatusBadRequest)
+			}
+			return
+		}
+
+		// Ensure parent directory exists
+		parentDir := filepath.Dir(fullPath)
+		if err := os.MkdirAll(parentDir, 0755); err != nil {
+			http.Error(w, "failed to create parent directory", http.StatusInternalServerError)
+			return
+		}
+
+		// Write the file
+		if err := os.WriteFile(fullPath, content, 0644); err != nil {
+			http.Error(w, "failed to write file: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		writeJSONResponse(w, map[string]interface{}{
+			"success": true,
+			"message": "Updated file: " + filepath.ToSlash(relPath),
+			"path":    filepath.ToSlash(relPath),
+			"size":    len(content),
+		})
+		return
+	}
+
+	// Handle Rename (PATCH)
+	if r.Method == http.MethodPatch {
+		var body struct {
+			NewName string `json:"new_name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+		if strings.TrimSpace(body.NewName) == "" {
+			http.Error(w, "new_name is required", http.StatusBadRequest)
+			return
+		}
+
+		// Validate new_name doesn't contain path separators or dangerous characters
+		if strings.ContainsAny(body.NewName, "/\\") {
+			http.Error(w, "new_name cannot contain path separators", http.StatusBadRequest)
+			return
+		}
+
+		// Check source exists
+		if _, err := os.Stat(fullPath); err != nil {
+			if os.IsNotExist(err) {
+				http.Error(w, "path not found", http.StatusNotFound)
+			} else {
+				http.Error(w, "failed to access path", http.StatusInternalServerError)
+			}
+			return
+		}
+
+		// Build new path (same directory, new name)
+		newPath := filepath.Join(filepath.Dir(fullPath), body.NewName)
+
+		// Security: verify new path is still in workspace
+		absNewPath, _ := filepath.Abs(newPath)
+		if !strings.HasPrefix(absNewPath, absWorkspace) {
+			http.Error(w, "invalid new name: would escape workspace", http.StatusForbidden)
+			return
+		}
+
+		// Check if target already exists
+		if _, err := os.Stat(newPath); err == nil {
+			http.Error(w, "a file or folder with that name already exists", http.StatusConflict)
+			return
+		}
+
+		// Perform rename
+		if err := os.Rename(fullPath, newPath); err != nil {
+			http.Error(w, "failed to rename: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// Calculate new relative path
+		newRelPath, _ := filepath.Rel(userWorkspace, newPath)
+		writeJSONResponse(w, map[string]interface{}{
+			"success":  true,
+			"message":  "Renamed to: " + body.NewName,
+			"old_path": filepath.ToSlash(relPath),
+			"new_path": filepath.ToSlash(newRelPath),
+		})
+		return
+	}
+
+	// =====================
+	// GET method handling
+	// =====================
 	info, err := os.Stat(fullPath)
 	if err != nil {
 		http.Error(w, "path not found", http.StatusNotFound)
@@ -901,10 +1112,27 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 			return files[i].Name < files[j].Name
 		})
 
-		writeJSONResponse(w, map[string]interface{}{
+		// Handle search filter if provided
+		searchQuery := strings.TrimSpace(r.URL.Query().Get("search"))
+		if searchQuery != "" {
+			searchLower := strings.ToLower(searchQuery)
+			var filtered []fileEntry
+			for _, f := range files {
+				if strings.Contains(strings.ToLower(f.Name), searchLower) {
+					filtered = append(filtered, f)
+				}
+			}
+			files = filtered
+		}
+
+		response := map[string]interface{}{
 			"path":    filepath.ToSlash(relPath),
 			"entries": files,
-		})
+		}
+		if searchQuery != "" {
+			response["search"] = searchQuery
+		}
+		writeJSONResponse(w, response)
 		return
 	}
 
@@ -1500,29 +1728,35 @@ func splitSentences(text string) []string {
 // ==================== MCP SERVERS ====================
 
 func (s *Server) handleMCPServers(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
+	switch r.Method {
+	case http.MethodGet:
+		// List all MCP servers
+		w.Header().Set("Content-Type", "application/json")
 
-	w.Header().Set("Content-Type", "application/json")
+		if s.mcpManager == nil {
+			writeJSONResponse(w, map[string]interface{}{
+				"servers": []interface{}{},
+				"message": "MCP not configured",
+			})
+			return
+		}
 
-	if s.mcpManager == nil {
+		servers := s.mcpManager.ServerStatus()
 		writeJSONResponse(w, map[string]interface{}{
-			"servers": []interface{}{},
-			"message": "MCP not configured",
+			"servers": servers,
 		})
-		return
-	}
 
-	servers := s.mcpManager.ServerStatus()
-	writeJSONResponse(w, map[string]interface{}{
-		"servers": servers,
-	})
+	case http.MethodPost:
+		// Create new MCP server
+		s.handleMCPCreate(w, r)
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 func (s *Server) handleMCPServerAction(w http.ResponseWriter, r *http.Request) {
-	// Extract server name from path: /api/v1/mcp/{name}/reconnect
+	// Extract server name from path: /api/v1/mcp/{name} or /api/v1/mcp/{name}/action
 	path := strings.TrimPrefix(r.URL.Path, "/api/v1/mcp/")
 	parts := strings.SplitN(path, "/", 2)
 	serverName := parts[0]
@@ -1532,24 +1766,32 @@ func (s *Server) handleMCPServerAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check for reconnect action
+	// Check for action suffix
 	action := ""
 	if len(parts) > 1 {
 		action = parts[1]
 	}
 
-	if action == "reconnect" && r.Method == http.MethodPost {
+	// Route based on action and method
+	switch {
+	case action == "reconnect" && r.Method == http.MethodPost:
 		s.handleMCPReconnect(w, r, serverName)
-		return
-	}
 
-	// Default: return info for specific server
-	if r.Method == http.MethodGet {
+	case action == "test" && r.Method == http.MethodPost:
+		s.handleMCPTest(w, r, serverName)
+
+	case action == "" && r.Method == http.MethodGet:
 		s.handleMCPServerInfo(w, r, serverName)
-		return
-	}
 
-	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	case action == "" && r.Method == http.MethodPut:
+		s.handleMCPUpdate(w, r, serverName)
+
+	case action == "" && r.Method == http.MethodDelete:
+		s.handleMCPDelete(w, r, serverName)
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 func (s *Server) handleMCPServerInfo(w http.ResponseWriter, r *http.Request, name string) {
@@ -1601,6 +1843,430 @@ func (s *Server) handleMCPReconnect(w http.ResponseWriter, r *http.Request, name
 		"ok":      true,
 		"message": fmt.Sprintf("Reconnected to MCP server %q", name),
 	})
+}
+
+// handleMCPReconnectAll handles POST /api/v1/mcp/reconnect-all - reconnects all MCP servers
+func (s *Server) handleMCPReconnectAll(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if s.mcpManager == nil {
+		writeJSONResponse(w, map[string]interface{}{
+			"success":     false,
+			"reconnected": []string{},
+			"failed":      []string{},
+			"error":       "MCP not configured",
+		})
+		return
+	}
+
+	servers := s.mcpManager.ServerStatus()
+	if len(servers) == 0 {
+		writeJSONResponse(w, map[string]interface{}{
+			"success":     true,
+			"reconnected": []string{},
+			"failed":      []string{},
+			"message":     "No MCP servers configured",
+		})
+		return
+	}
+
+	var reconnected []string
+	var failed []string
+
+	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+	defer cancel()
+
+	for _, srv := range servers {
+		if err := s.mcpManager.Reconnect(ctx, srv.Name); err != nil {
+			failed = append(failed, srv.Name)
+			logger.WarnC("mcp", "Failed to reconnect MCP server "+srv.Name+": "+err.Error())
+		} else {
+			reconnected = append(reconnected, srv.Name)
+		}
+	}
+
+	// Re-register MCP tools on the agent loop
+	if s.agentLoop != nil {
+		for _, tool := range s.mcpManager.GetTools() {
+			s.agentLoop.RegisterTool(tool)
+		}
+	}
+
+	writeJSONResponse(w, map[string]interface{}{
+		"success":     len(failed) == 0,
+		"reconnected": reconnected,
+		"failed":      failed,
+	})
+}
+
+// handleMCPCreate handles POST /api/v1/mcp - adds a new MCP server
+func (s *Server) handleMCPCreate(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// Get user UUID for multi-user config
+	_, userUUID, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Parse request body
+	var req struct {
+		Name    string            `json:"name"`
+		Enabled bool              `json:"enabled"`
+		Command string            `json:"command"`
+		Args    []string          `json:"args"`
+		Env     map[string]string `json:"env"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		writeJSONResponse(w, map[string]interface{}{
+			"ok":    false,
+			"error": "invalid request body: " + err.Error(),
+		})
+		return
+	}
+
+	// Validate name
+	if !isValidMCPServerName(req.Name) {
+		w.WriteHeader(http.StatusBadRequest)
+		writeJSONResponse(w, map[string]interface{}{
+			"ok":    false,
+			"error": "invalid server name: must be alphanumeric with hyphens/underscores only, 1-64 characters",
+		})
+		return
+	}
+
+	// Validate command
+	if strings.TrimSpace(req.Command) == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		writeJSONResponse(w, map[string]interface{}{
+			"ok":    false,
+			"error": "command is required",
+		})
+		return
+	}
+
+	// Load user config
+	cfg, err := config.LoadConfigForUser(userUUID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		writeJSONResponse(w, map[string]interface{}{
+			"ok":    false,
+			"error": "failed to load config: " + err.Error(),
+		})
+		return
+	}
+
+	// Initialize MCP config if needed
+	if cfg.Tools.MCP.Servers == nil {
+		cfg.Tools.MCP.Servers = make(map[string]config.MCPServerConfig)
+	}
+
+	// Check if server already exists
+	if _, exists := cfg.Tools.MCP.Servers[req.Name]; exists {
+		w.WriteHeader(http.StatusConflict)
+		writeJSONResponse(w, map[string]interface{}{
+			"ok":    false,
+			"error": "MCP server with this name already exists",
+		})
+		return
+	}
+
+	// Create server config
+	serverCfg := config.MCPServerConfig{
+		Enabled: req.Enabled,
+		Command: req.Command,
+		Args:    req.Args,
+		Env:     req.Env,
+	}
+
+	// Add to config
+	cfg.Tools.MCP.Servers[req.Name] = serverCfg
+
+	// Save config
+	if err := config.SaveConfigForUser(userUUID, cfg); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		writeJSONResponse(w, map[string]interface{}{
+			"ok":    false,
+			"error": "failed to save config: " + err.Error(),
+		})
+		return
+	}
+
+	// Add to running MCP manager if available
+	if s.mcpManager != nil {
+		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+		defer cancel()
+		if err := s.mcpManager.AddServer(ctx, req.Name, serverCfg, true); err != nil {
+			// Log but don't fail - config is saved
+			logger.WarnCF("mcp", "Failed to add server to running manager", map[string]interface{}{
+				"name":  req.Name,
+				"error": err.Error(),
+			})
+		}
+	}
+
+	writeJSONResponse(w, map[string]interface{}{
+		"ok": true,
+		"server": map[string]interface{}{
+			"name":    req.Name,
+			"enabled": serverCfg.Enabled,
+			"command": serverCfg.Command,
+			"args":    serverCfg.Args,
+		},
+	})
+}
+
+// handleMCPUpdate handles PUT /api/v1/mcp/{name} - updates an existing MCP server
+func (s *Server) handleMCPUpdate(w http.ResponseWriter, r *http.Request, name string) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// Get user UUID for multi-user config
+	_, userUUID, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Parse request body
+	var req struct {
+		Enabled *bool             `json:"enabled"`
+		Command string            `json:"command"`
+		Args    []string          `json:"args"`
+		Env     map[string]string `json:"env"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		writeJSONResponse(w, map[string]interface{}{
+			"ok":    false,
+			"error": "invalid request body: " + err.Error(),
+		})
+		return
+	}
+
+	// Load user config
+	cfg, err := config.LoadConfigForUser(userUUID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		writeJSONResponse(w, map[string]interface{}{
+			"ok":    false,
+			"error": "failed to load config: " + err.Error(),
+		})
+		return
+	}
+
+	// Check if server exists
+	existingCfg, exists := cfg.Tools.MCP.Servers[name]
+	if !exists {
+		w.WriteHeader(http.StatusNotFound)
+		writeJSONResponse(w, map[string]interface{}{
+			"ok":    false,
+			"error": "MCP server not found",
+		})
+		return
+	}
+
+	// Update fields
+	if req.Enabled != nil {
+		existingCfg.Enabled = *req.Enabled
+	}
+	if req.Command != "" {
+		existingCfg.Command = req.Command
+	}
+	if req.Args != nil {
+		existingCfg.Args = req.Args
+	}
+	if req.Env != nil {
+		existingCfg.Env = req.Env
+	}
+
+	// Save updated config
+	cfg.Tools.MCP.Servers[name] = existingCfg
+	if err := config.SaveConfigForUser(userUUID, cfg); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		writeJSONResponse(w, map[string]interface{}{
+			"ok":    false,
+			"error": "failed to save config: " + err.Error(),
+		})
+		return
+	}
+
+	// Update running MCP manager if available
+	if s.mcpManager != nil && s.mcpManager.HasServer(name) {
+		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+		defer cancel()
+		if err := s.mcpManager.UpdateServer(ctx, name, existingCfg); err != nil {
+			logger.WarnCF("mcp", "Failed to update server in running manager", map[string]interface{}{
+				"name":  name,
+				"error": err.Error(),
+			})
+		}
+	}
+
+	writeJSONResponse(w, map[string]interface{}{
+		"ok": true,
+		"server": map[string]interface{}{
+			"name":    name,
+			"enabled": existingCfg.Enabled,
+			"command": existingCfg.Command,
+			"args":    existingCfg.Args,
+		},
+	})
+}
+
+// handleMCPDelete handles DELETE /api/v1/mcp/{name} - removes an MCP server
+func (s *Server) handleMCPDelete(w http.ResponseWriter, r *http.Request, name string) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// Get user UUID for multi-user config
+	_, userUUID, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Load user config
+	cfg, err := config.LoadConfigForUser(userUUID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		writeJSONResponse(w, map[string]interface{}{
+			"ok":    false,
+			"error": "failed to load config: " + err.Error(),
+		})
+		return
+	}
+
+	// Check if server exists
+	if cfg.Tools.MCP.Servers == nil {
+		w.WriteHeader(http.StatusNotFound)
+		writeJSONResponse(w, map[string]interface{}{
+			"ok":    false,
+			"error": "MCP server not found",
+		})
+		return
+	}
+	if _, exists := cfg.Tools.MCP.Servers[name]; !exists {
+		w.WriteHeader(http.StatusNotFound)
+		writeJSONResponse(w, map[string]interface{}{
+			"ok":    false,
+			"error": "MCP server not found",
+		})
+		return
+	}
+
+	// Remove from config
+	delete(cfg.Tools.MCP.Servers, name)
+
+	// Save config
+	if err := config.SaveConfigForUser(userUUID, cfg); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		writeJSONResponse(w, map[string]interface{}{
+			"ok":    false,
+			"error": "failed to save config: " + err.Error(),
+		})
+		return
+	}
+
+	// Remove from running MCP manager if available
+	if s.mcpManager != nil && s.mcpManager.HasServer(name) {
+		if err := s.mcpManager.RemoveServer(name); err != nil {
+			logger.WarnCF("mcp", "Failed to remove server from running manager", map[string]interface{}{
+				"name":  name,
+				"error": err.Error(),
+			})
+		}
+	}
+
+	writeJSONResponse(w, map[string]interface{}{
+		"ok":      true,
+		"message": fmt.Sprintf("MCP server %q removed", name),
+	})
+}
+
+// handleMCPTest handles POST /api/v1/mcp/{name}/test - tests connection to an MCP server
+func (s *Server) handleMCPTest(w http.ResponseWriter, r *http.Request, name string) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// Get user UUID for multi-user config
+	_, userUUID, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Load user config
+	cfg, err := config.LoadConfigForUser(userUUID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		writeJSONResponse(w, map[string]interface{}{
+			"success":     false,
+			"tools_count": 0,
+			"error":       "failed to load config: " + err.Error(),
+		})
+		return
+	}
+
+	// Get server config
+	serverCfg, exists := cfg.Tools.MCP.Servers[name]
+	if !exists {
+		w.WriteHeader(http.StatusNotFound)
+		writeJSONResponse(w, map[string]interface{}{
+			"success":     false,
+			"tools_count": 0,
+			"error":       "MCP server not found",
+		})
+		return
+	}
+
+	// Create a temporary client for testing
+	env := make([]string, 0, len(serverCfg.Env))
+	for k, v := range serverCfg.Env {
+		env = append(env, k+"="+v)
+	}
+
+	testClient := mcp.NewClient(name, serverCfg.Command, serverCfg.Args, env)
+	defer testClient.Close()
+
+	// Try to connect with timeout
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+
+	if err := testClient.Connect(ctx); err != nil {
+		writeJSONResponse(w, map[string]interface{}{
+			"success":     false,
+			"tools_count": 0,
+			"error":       err.Error(),
+		})
+		return
+	}
+
+	// Success - return tool count
+	toolCount := len(testClient.Tools())
+	writeJSONResponse(w, map[string]interface{}{
+		"success":     true,
+		"tools_count": toolCount,
+		"error":       "",
+	})
+}
+
+
+// isValidMCPServerName validates MCP server names (alphanumeric + hyphens + underscores, 1-64 chars)
+func isValidMCPServerName(name string) bool {
+	if name == "" || len(name) > 64 {
+		return false
+	}
+	for _, r := range name {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_') {
+			return false
+		}
+	}
+	return true
 }
 
 // ==================== IMPORT CONVERSATIONS ====================
@@ -2444,4 +3110,202 @@ func getMapKeys(m map[string]interface{}) []string {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+// ==================== REPORTS EMAIL ====================
+
+// handleSendReportEmail handles POST /api/v1/reports/email - sends an email report directly
+func (s *Server) handleSendReportEmail(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	// Get user UUID for multi-user config
+	_, userUUID, ok := s.getUserStorage(r)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		writeJSONResponse(w, map[string]interface{}{
+			"success": false,
+			"error":   "unauthorized",
+		})
+		return
+	}
+
+	// Parse request body
+	var req struct {
+		To      string `json:"to"`
+		Subject string `json:"subject"`
+		Body    string `json:"body"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		writeJSONResponse(w, map[string]interface{}{
+			"success": false,
+			"error":   "invalid request body: " + err.Error(),
+		})
+		return
+	}
+
+	// Validate required fields
+	if strings.TrimSpace(req.Subject) == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		writeJSONResponse(w, map[string]interface{}{
+			"success": false,
+			"error":   "subject is required",
+		})
+		return
+	}
+	if strings.TrimSpace(req.Body) == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		writeJSONResponse(w, map[string]interface{}{
+			"success": false,
+			"error":   "body is required",
+		})
+		return
+	}
+
+	// Load user config (merged with global)
+	userCfg, _ := config.LoadConfigForUser(userUUID)
+	var emailCfg config.EmailToolsConfig
+	if userCfg != nil && s.fullConfig != nil {
+		merged := config.MergeConfigs(s.fullConfig, userCfg)
+		emailCfg = merged.Tools.Email
+	} else if s.fullConfig != nil {
+		s.fullConfig.RLock()
+		emailCfg = s.fullConfig.Tools.Email
+		s.fullConfig.RUnlock()
+	} else if userCfg != nil {
+		emailCfg = userCfg.Tools.Email
+	}
+
+	// Check if email is enabled
+	if !emailCfg.Enabled {
+		w.WriteHeader(http.StatusBadRequest)
+		writeJSONResponse(w, map[string]interface{}{
+			"success": false,
+			"error":   "email is not configured - please enable email in your settings",
+		})
+		return
+	}
+
+	// Check required SMTP settings
+	if emailCfg.Host == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		writeJSONResponse(w, map[string]interface{}{
+			"success": false,
+			"error":   "SMTP host is not configured",
+		})
+		return
+	}
+
+	// Determine recipient
+	to := strings.TrimSpace(req.To)
+	if to == "" {
+		to = emailCfg.To
+	}
+	if to == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		writeJSONResponse(w, map[string]interface{}{
+			"success": false,
+			"error":   "no recipient specified and no default recipient configured",
+		})
+		return
+	}
+
+	// Sanitize subject and recipient to prevent email header injection
+	subject := strings.ReplaceAll(req.Subject, "\r", "")
+	subject = strings.ReplaceAll(subject, "\n", "")
+	to = strings.ReplaceAll(to, "\r", "")
+	to = strings.ReplaceAll(to, "\n", "")
+
+	// Validate recipient email format
+	if _, err := mail.ParseAddress(to); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		writeJSONResponse(w, map[string]interface{}{
+			"success": false,
+			"error":   "invalid recipient email address: " + err.Error(),
+		})
+		return
+	}
+
+	// Determine from address
+	from := emailCfg.From
+	if from == "" {
+		from = emailCfg.Username
+	}
+	envelopeFrom, fromHeader, err := parseReportFromAddress(from, emailCfg.Username)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		writeJSONResponse(w, map[string]interface{}{
+			"success": false,
+			"error":   "invalid from address: " + err.Error(),
+		})
+		return
+	}
+
+	// Normalize password (Gmail app passwords may have spaces)
+	password := emailCfg.Password
+	if strings.EqualFold(strings.TrimSpace(emailCfg.Host), "smtp.gmail.com") {
+		password = strings.ReplaceAll(password, " ", "")
+	}
+
+	// Construct email message
+	msg := []byte("From: " + fromHeader + "\r\n" +
+		"To: " + to + "\r\n" +
+		"Subject: " + subject + "\r\n" +
+		"Content-Type: text/plain; charset=UTF-8\r\n" +
+		"\r\n" +
+		req.Body + "\r\n")
+
+	auth := smtp.PlainAuth("", emailCfg.Username, password, emailCfg.Host)
+	addr := fmt.Sprintf("%s:%d", emailCfg.Host, emailCfg.Port)
+
+	// Send email
+	if err := smtp.SendMail(addr, auth, envelopeFrom, []string{to}, msg); err != nil {
+		logger.ErrorCF("web", "Failed to send report email", map[string]interface{}{
+			"error": err.Error(),
+			"host":  emailCfg.Host,
+			"port":  emailCfg.Port,
+			"to":    to,
+		})
+		w.WriteHeader(http.StatusInternalServerError)
+		writeJSONResponse(w, map[string]interface{}{
+			"success": false,
+			"error":   "failed to send email: " + err.Error(),
+		})
+		return
+	}
+
+	logger.InfoCF("web", "Report email sent successfully", map[string]interface{}{
+		"to":      to,
+		"subject": subject,
+	})
+
+	writeJSONResponse(w, map[string]interface{}{
+		"success": true,
+		"message": "Email sent successfully to " + to,
+	})
+}
+
+// parseReportFromAddress parses and validates the from address
+func parseReportFromAddress(from, fallback string) (envelope, header string, err error) {
+	trimmedFrom := strings.TrimSpace(from)
+	if trimmedFrom == "" {
+		trimmedFrom = strings.TrimSpace(fallback)
+	}
+	if trimmedFrom == "" {
+		return "", "", fmt.Errorf("from address is required")
+	}
+
+	parsed, parseErr := mail.ParseAddress(trimmedFrom)
+	if parseErr == nil && parsed != nil {
+		return parsed.Address, parsed.String(), nil
+	}
+	if strings.Contains(trimmedFrom, "<") || strings.Contains(trimmedFrom, ">") {
+		return "", "", fmt.Errorf("invalid from address %q", from)
+	}
+	return trimmedFrom, trimmedFrom, nil
 }

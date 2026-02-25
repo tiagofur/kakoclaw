@@ -28,6 +28,14 @@ type UserAwareTool interface {
 	SetUserID(userID int64)
 }
 
+// UserConfigTool is for tools that need access to user config files.
+// Unlike UserAwareTool (which only provides userID for data filtering),
+// this interface provides the userUUID needed to locate config files.
+type UserConfigTool interface {
+	Tool
+	SetUserContext(userID int64, userUUID string)
+}
+
 func ToolToSchema(tool Tool) map[string]interface{} {
 	return map[string]interface{}{
 		"type": "function",

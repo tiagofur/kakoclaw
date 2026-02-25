@@ -6,22 +6,28 @@
         <h2 class="text-xl font-bold bg-gradient-to-r from-makoclaw-accent to-blue-500 bg-clip-text text-transparent">Skills</h2>
         <p class="text-sm text-makoclaw-text-secondary mt-1">Manage installed skills and browse the marketplace</p>
       </div>
-      <div class="flex bg-makoclaw-bg rounded-lg p-1 border border-makoclaw-border">
+      <div class="flex items-center gap-3">
         <button
-          @click="activeTab = 'installed'"
-          class="px-4 py-1.5 rounded-md text-sm font-medium transition-all"
-          :class="activeTab === 'installed' ? 'bg-white dark:bg-gray-700 shadow-sm text-makoclaw-accent' : 'text-makoclaw-text-secondary hover:text-makoclaw-text'"
-        >Installed</button>
-        <button
-          @click="activeTab = 'marketplace'; loadAvailable()"
-          class="px-4 py-1.5 rounded-md text-sm font-medium transition-all"
-          :class="activeTab === 'marketplace' ? 'bg-white dark:bg-gray-700 shadow-sm text-makoclaw-accent' : 'text-makoclaw-text-secondary hover:text-makoclaw-text'"
-        >Marketplace</button>
-        <button
-          @click="activeTab = 'create'"
-          class="px-4 py-1.5 rounded-md text-sm font-medium transition-all"
-          :class="activeTab === 'create' ? 'bg-white dark:bg-gray-700 shadow-sm text-makoclaw-accent' : 'text-makoclaw-text-secondary hover:text-makoclaw-text'"
-        >Create with AI</button>
+          @click="openGenerateModal"
+          class="px-4 py-2 text-sm font-medium bg-makoclaw-accent text-white rounded-lg hover:bg-makoclaw-accent-hover transition-colors flex items-center gap-2 shadow-sm"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+          Create Skill
+        </button>
+        <div class="flex bg-makoclaw-bg rounded-lg p-1 border border-makoclaw-border">
+          <button
+            @click="activeTab = 'installed'"
+            class="px-4 py-1.5 rounded-md text-sm font-medium transition-all"
+            :class="activeTab === 'installed' ? 'bg-white dark:bg-gray-700 shadow-sm text-makoclaw-accent' : 'text-makoclaw-text-secondary hover:text-makoclaw-text'"
+          >Installed</button>
+          <button
+            @click="activeTab = 'marketplace'; loadAvailable()"
+            class="px-4 py-1.5 rounded-md text-sm font-medium transition-all"
+            :class="activeTab === 'marketplace' ? 'bg-white dark:bg-gray-700 shadow-sm text-makoclaw-accent' : 'text-makoclaw-text-secondary hover:text-makoclaw-text'"
+          >Marketplace</button>
+        </div>
       </div>
     </div>
 
@@ -109,60 +115,128 @@
           </div>
         </div>
 
-        <!-- AI Creator -->
-        <div v-if="activeTab === 'create'" class="max-w-4xl mx-auto space-y-4">
-          <div class="bg-makoclaw-surface border border-makoclaw-border rounded-xl p-5 space-y-4">
-            <h3 class="font-semibold text-lg">Create local skill with AI</h3>
-            <p class="text-sm text-makoclaw-text-secondary">Generate a draft, review it, then save it to workspace skills.</p>
+      </template>
+    </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label class="text-xs text-makoclaw-text-secondary">Skill name (slug)</label>
-                <input v-model="creator.name" type="text" placeholder="e.g. jira-assistant" class="mt-1 w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm">
-              </div>
-              <div>
-                <label class="text-xs text-makoclaw-text-secondary">Goal *</label>
-                <input v-model="creator.goal" type="text" placeholder="What this skill should accomplish" class="mt-1 w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm">
-              </div>
-            </div>
+    <!-- Skill Generation Modal -->
+    <div v-if="showGenerateModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="closeGenerateModal">
+      <div class="bg-makoclaw-surface border border-makoclaw-border rounded-xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl">
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between p-4 border-b border-makoclaw-border">
+          <div class="flex items-center gap-2">
+            <svg class="w-5 h-5 text-makoclaw-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+            <h3 class="font-bold text-lg">Create New Skill</h3>
+          </div>
+          <button @click="closeGenerateModal" class="p-1.5 hover:bg-makoclaw-bg rounded-lg text-makoclaw-text-secondary hover:text-makoclaw-text transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
 
-            <div>
-              <label class="text-xs text-makoclaw-text-secondary">Capabilities</label>
-              <textarea v-model="creator.capabilities" rows="3" class="mt-1 w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm"></textarea>
-            </div>
-            <div>
-              <label class="text-xs text-makoclaw-text-secondary">Safety constraints</label>
-              <textarea v-model="creator.constraints" rows="3" class="mt-1 w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm"></textarea>
-            </div>
-            <div>
-              <label class="text-xs text-makoclaw-text-secondary">Tools available</label>
-              <input v-model="creator.tools" type="text" placeholder="e.g. shell, web_fetch, filesystem" class="mt-1 w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm">
-            </div>
-            <div>
-              <label class="text-xs text-makoclaw-text-secondary">Example interactions</label>
-              <textarea v-model="creator.examples" rows="3" class="mt-1 w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm"></textarea>
-            </div>
+        <!-- Modal Content -->
+        <div class="flex-1 overflow-auto p-5 custom-scrollbar">
+          <!-- Step 1: Input Form (before generation) -->
+          <div v-if="!generatedPreview" class="space-y-4">
+            <p class="text-sm text-makoclaw-text-secondary">Create a new skill by providing a name and description. The AI will generate a SKILL.md template that you can customize.</p>
 
-            <div class="flex items-center gap-2">
-              <button @click="generateDraft" :disabled="creatingDraft" class="px-4 py-2 text-sm bg-makoclaw-accent text-white rounded-lg hover:bg-makoclaw-accent/90 disabled:opacity-50">
-                <span v-if="creatingDraft">Generating...</span>
-                <span v-else>Generate draft</span>
-              </button>
-              <button v-if="draftContent" @click="saveSkill(false)" :disabled="savingSkill" class="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-500 disabled:opacity-50">
-                <span v-if="savingSkill">Saving...</span>
-                <span v-else>Save skill</span>
-              </button>
+            <!-- Skill Name -->
+            <div>
+              <label class="block text-sm font-medium mb-1.5">Skill Name <span class="text-red-400">*</span></label>
+              <input
+                v-model="generateForm.name"
+                type="text"
+                placeholder="e.g., jira-assistant, code-reviewer, deploy-helper"
+                class="w-full px-3 py-2.5 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent transition-all"
+                :class="{ 'border-red-400': generateFormErrors.name }"
+                @input="validateSkillName"
+              >
+              <p v-if="generateFormErrors.name" class="text-xs text-red-400 mt-1">{{ generateFormErrors.name }}</p>
+              <p v-else class="text-xs text-makoclaw-text-secondary mt-1">Use lowercase letters, numbers, and hyphens only</p>
             </div>
 
-            <p v-if="creatorError" class="text-sm text-red-400">{{ creatorError }}</p>
+            <!-- Description -->
+            <div>
+              <label class="block text-sm font-medium mb-1.5">Description <span class="text-red-400">*</span></label>
+              <textarea
+                v-model="generateForm.description"
+                rows="3"
+                placeholder="Describe what this skill does and when the agent should use it..."
+                class="w-full px-3 py-2.5 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent transition-all resize-none"
+                :class="{ 'border-red-400': generateFormErrors.description }"
+              ></textarea>
+              <p v-if="generateFormErrors.description" class="text-xs text-red-400 mt-1">{{ generateFormErrors.description }}</p>
+            </div>
+
+            <!-- Additional Context (Optional) -->
+            <div>
+              <label class="block text-sm font-medium mb-1.5">Additional Context <span class="text-makoclaw-text-secondary font-normal">(optional)</span></label>
+              <textarea
+                v-model="generateForm.prompt"
+                rows="4"
+                placeholder="Provide additional details: specific commands, example use cases, safety constraints, required tools..."
+                class="w-full px-3 py-2.5 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent transition-all resize-none"
+              ></textarea>
+            </div>
+
+            <!-- Error Message -->
+            <p v-if="generateError" class="text-sm text-red-400 bg-red-500/10 px-3 py-2 rounded-lg">{{ generateError }}</p>
           </div>
 
-          <div v-if="draftContent" class="bg-makoclaw-surface border border-makoclaw-border rounded-xl p-5">
-            <h4 class="font-medium mb-2">Draft preview (editable)</h4>
-            <textarea v-model="draftContent" rows="18" class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm font-mono"></textarea>
+          <!-- Step 2: Preview (after generation) -->
+          <div v-else class="space-y-4">
+            <div class="flex items-center justify-between">
+              <p class="text-sm text-makoclaw-text-secondary">Review and edit the generated SKILL.md before saving:</p>
+              <button
+                @click="generatedPreview = ''"
+                class="text-xs text-makoclaw-accent hover:text-makoclaw-accent-hover transition-colors"
+              >Back to form</button>
+            </div>
+            <textarea
+              v-model="generatedPreview"
+              rows="20"
+              class="w-full px-4 py-3 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm font-mono focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent transition-all resize-none custom-scrollbar"
+              spellcheck="false"
+            ></textarea>
           </div>
         </div>
-      </template>
+
+        <!-- Modal Footer -->
+        <div class="p-4 border-t border-makoclaw-border flex justify-end gap-3">
+          <button
+            @click="closeGenerateModal"
+            class="px-4 py-2 text-sm font-medium text-makoclaw-text-secondary hover:text-makoclaw-text transition-colors"
+          >Cancel</button>
+
+          <!-- Generate Button (Step 1) -->
+          <button
+            v-if="!generatedPreview"
+            @click="handleGenerate"
+            :disabled="generating || !generateForm.name || !generateForm.description"
+            class="px-5 py-2 text-sm font-semibold bg-makoclaw-accent text-white rounded-lg hover:bg-makoclaw-accent-hover shadow-lg shadow-makoclaw-accent/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+          >
+            <span v-if="generating" class="animate-spin h-4 w-4 border-2 border-white/30 border-t-white rounded-full"></span>
+            <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            {{ generating ? 'Generating...' : 'Generate Skill' }}
+          </button>
+
+          <!-- Save Button (Step 2) -->
+          <button
+            v-else
+            @click="handleSaveGenerated"
+            :disabled="savingGenerated || !generatedPreview.trim()"
+            class="px-5 py-2 text-sm font-semibold bg-green-600 text-white rounded-lg hover:bg-green-500 shadow-lg shadow-green-600/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+          >
+            <span v-if="savingGenerated" class="animate-spin h-4 w-4 border-2 border-white/30 border-t-white rounded-full"></span>
+            <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            {{ savingGenerated ? 'Saving...' : 'Save Skill' }}
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Skill Editor Modal -->
@@ -231,17 +305,22 @@ const installing = ref(null)
 const viewingSkill = ref(null)
 const editingSkill = ref(null)
 const editContent = ref('')
-const creatingDraft = ref(false)
 const savingSkill = ref(false)
-const creatorError = ref('')
-const draftContent = ref('')
-const creator = ref({
+
+// Generation Modal State
+const showGenerateModal = ref(false)
+const generating = ref(false)
+const savingGenerated = ref(false)
+const generateError = ref('')
+const generatedPreview = ref('')
+const generateForm = ref({
   name: '',
-  goal: '',
-  capabilities: '',
-  constraints: '',
-  tools: '',
-  examples: ''
+  description: '',
+  prompt: ''
+})
+const generateFormErrors = ref({
+  name: '',
+  description: ''
 })
 
 const loadSkills = async () => {
@@ -335,65 +414,123 @@ const uninstallSkill = async (name) => {
   }
 }
 
-const generateDraft = async () => {
-  creatorError.value = ''
-  if (!creator.value.goal.trim()) {
-    creatorError.value = 'Goal is required'
+// Generation Modal Functions
+const openGenerateModal = () => {
+  showGenerateModal.value = true
+  generateError.value = ''
+  generatedPreview.value = ''
+  generateForm.value = { name: '', description: '', prompt: '' }
+  generateFormErrors.value = { name: '', description: '' }
+}
+
+const closeGenerateModal = () => {
+  showGenerateModal.value = false
+  generating.value = false
+  savingGenerated.value = false
+}
+
+const validateSkillName = () => {
+  const name = generateForm.value.name.trim()
+  if (!name) {
+    generateFormErrors.value.name = ''
     return
   }
-  creatingDraft.value = true
-  try {
-    const data = await advancedService.generateSkillDraft({
-      name: creator.value.name,
-      goal: creator.value.goal,
-      capabilities: creator.value.capabilities,
-      constraints: creator.value.constraints,
-      tools: creator.value.tools,
-      examples: creator.value.examples
-    })
-    creator.value.name = data.name || creator.value.name
-    draftContent.value = data.draft || ''
-    toast.success('Draft generated')
-  } catch (err) {
-    creatorError.value = err?.response?.data || 'Failed to generate draft'
-  } finally {
-    creatingDraft.value = false
+  // Check for valid characters (lowercase, numbers, hyphens)
+  const validPattern = /^[a-z0-9]+(-[a-z0-9]+)*$/
+  if (!validPattern.test(name)) {
+    generateFormErrors.value.name = 'Use lowercase letters, numbers, and hyphens only (e.g., my-skill-name)'
+  } else if (name.length > 64) {
+    generateFormErrors.value.name = 'Name must be 64 characters or less'
+  } else {
+    generateFormErrors.value.name = ''
   }
 }
 
-const saveSkill = async (overwrite) => {
-  creatorError.value = ''
-  if (!creator.value.name.trim()) {
-    creatorError.value = 'Skill name is required'
+const handleGenerate = async () => {
+  // Validate form
+  generateError.value = ''
+  generateFormErrors.value = { name: '', description: '' }
+
+  const name = generateForm.value.name.trim()
+  const description = generateForm.value.description.trim()
+
+  if (!name) {
+    generateFormErrors.value.name = 'Skill name is required'
     return
   }
-  if (!draftContent.value.trim()) {
-    creatorError.value = 'Draft content is empty'
+
+  // Validate name format
+  const validPattern = /^[a-z0-9]+(-[a-z0-9]+)*$/
+  if (!validPattern.test(name)) {
+    generateFormErrors.value.name = 'Use lowercase letters, numbers, and hyphens only'
     return
   }
-  savingSkill.value = true
+
+  if (!description) {
+    generateFormErrors.value.description = 'Description is required'
+    return
+  }
+
+  generating.value = true
+  try {
+    // Build goal from description + optional prompt
+    let goal = description
+    if (generateForm.value.prompt.trim()) {
+      goal += '\n\nAdditional context:\n' + generateForm.value.prompt.trim()
+    }
+
+    const data = await advancedService.generateSkillDraft({
+      name: name,
+      goal: goal,
+      capabilities: '',
+      constraints: '',
+      tools: '',
+      examples: ''
+    })
+
+    // Update the form name if the backend normalized it
+    if (data.name) {
+      generateForm.value.name = data.name
+    }
+
+    generatedPreview.value = data.draft || ''
+    toast.success('Skill draft generated successfully')
+  } catch (err) {
+    generateError.value = err?.response?.data || 'Failed to generate skill draft. Please try again.'
+  } finally {
+    generating.value = false
+  }
+}
+
+const handleSaveGenerated = async (overwrite = false) => {
+  if (!generatedPreview.value.trim()) {
+    generateError.value = 'No content to save'
+    return
+  }
+
+  savingGenerated.value = true
+  generateError.value = ''
+
   try {
     await advancedService.createSkill({
-      name: creator.value.name,
-      content: draftContent.value,
+      name: generateForm.value.name,
+      content: generatedPreview.value,
       overwrite
     })
-    toast.success('Skill saved locally')
-    draftContent.value = ''
-    creator.value = { name: '', goal: '', capabilities: '', constraints: '', tools: '', examples: '' }
-    activeTab.value = 'installed'
+    toast.success('Skill created successfully!')
+    closeGenerateModal()
     await loadSkills()
   } catch (err) {
     if (err?.response?.status === 409 && !overwrite) {
-      const confirmed = confirm('Skill already exists. Overwrite it?')
+      const confirmed = confirm('A skill with this name already exists. Do you want to overwrite it?')
       if (confirmed) {
-        await saveSkill(true)
+        await handleSaveGenerated(true)
       }
       return
     }
-    creatorError.value = err?.response?.data || 'Failed to save skill'
+    generateError.value = err?.response?.data || 'Failed to save skill'
   } finally {
-    savingSkill.value = false
+    savingGenerated.value = false
   }
 }
 

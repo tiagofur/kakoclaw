@@ -25,7 +25,13 @@ type CronSchedule struct {
 type CronPayload struct {
 	Kind    string `json:"kind"`
 	Message string `json:"message"`
-	Deliver bool   `json:"deliver"`
+
+	// JobType determines execution mode: "task" (process through agent) or "reminder" (direct message)
+	JobType string `json:"job_type"` // "task" (default) or "reminder"
+
+	// DEPRECATED: Keep for backward compatibility, will be removed in future version
+	Deliver bool `json:"deliver,omitempty"`
+
 	Channel string `json:"channel,omitempty"`
 	To      string `json:"to,omitempty"`
 }
@@ -411,13 +417,21 @@ func (cs *CronService) ValidateSchedule(schedule *CronSchedule) error {
 	return nil
 }
 
-func (cs *CronService) AddJob(userID int64, name string, schedule CronSchedule, message string, deliver bool, channel, to string) (*CronJob, error) {
+func (cs *CronService) AddJob(userID int64, name string, schedule CronSchedule, message string, jobType string, channel, to string) (*CronJob, error) {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
 	// Validate schedule
 	if err := cs.ValidateSchedule(&schedule); err != nil {
 		return nil, fmt.Errorf("invalid schedule: %w", err)
+	}
+
+	// Validate and default job type
+	if jobType == "" {
+		jobType = "task" // Default to agent processing
+	}
+	if jobType != "task" && jobType != "reminder" {
+		return nil, fmt.Errorf("invalid job_type: must be 'task' or 'reminder'")
 	}
 
 	now := time.Now().UnixMilli()
@@ -439,7 +453,7 @@ func (cs *CronService) AddJob(userID int64, name string, schedule CronSchedule, 
 		Payload: CronPayload{
 			Kind:    "agent_turn",
 			Message: message,
-			Deliver: deliver,
+			JobType: jobType,
 			Channel: channel,
 			To:      to,
 		},
@@ -461,13 +475,21 @@ func (cs *CronService) AddJob(userID int64, name string, schedule CronSchedule, 
 
 // UpdateJob updates an existing job's name, schedule, and payload fields.
 // Returns the updated job, or nil if not found.
-func (cs *CronService) UpdateJob(jobID string, name string, schedule CronSchedule, message string, deliver bool, channel, to string) (*CronJob, error) {
+func (cs *CronService) UpdateJob(jobID string, name string, schedule CronSchedule, message string, jobType string, channel, to string) (*CronJob, error) {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
 	// Validate schedule
 	if err := cs.ValidateSchedule(&schedule); err != nil {
 		return nil, fmt.Errorf("invalid schedule: %w", err)
+	}
+
+	// Validate and default job type
+	if jobType == "" {
+		jobType = "task" // Default to agent processing
+	}
+	if jobType != "task" && jobType != "reminder" {
+		return nil, fmt.Errorf("invalid job_type: must be 'task' or 'reminder'")
 	}
 
 	for i := range cs.store.Jobs {
@@ -477,7 +499,7 @@ func (cs *CronService) UpdateJob(jobID string, name string, schedule CronSchedul
 			cs.store.Jobs[i].Name = name
 			cs.store.Jobs[i].Schedule = schedule
 			cs.store.Jobs[i].Payload.Message = message
-			cs.store.Jobs[i].Payload.Deliver = deliver
+			cs.store.Jobs[i].Payload.JobType = jobType
 			cs.store.Jobs[i].Payload.Channel = channel
 			cs.store.Jobs[i].Payload.To = to
 			cs.store.Jobs[i].UpdatedAtMS = now
@@ -501,7 +523,7 @@ func (cs *CronService) UpdateJob(jobID string, name string, schedule CronSchedul
 }
 
 // UpdateJobForUser updates a job only if it belongs to the specified user
-func (cs *CronService) UpdateJobForUser(userID int64, jobID string, name string, schedule CronSchedule, message string, deliver bool, channel, to string) (*CronJob, error) {
+func (cs *CronService) UpdateJobForUser(userID int64, jobID string, name string, schedule CronSchedule, message string, jobType string, channel, to string) (*CronJob, error) {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
@@ -515,6 +537,14 @@ func (cs *CronService) UpdateJobForUser(userID int64, jobID string, name string,
 		return nil, fmt.Errorf("invalid schedule: %w", err)
 	}
 
+	// Validate and default job type
+	if jobType == "" {
+		jobType = "task" // Default to agent processing
+	}
+	if jobType != "task" && jobType != "reminder" {
+		return nil, fmt.Errorf("invalid job_type: must be 'task' or 'reminder'")
+	}
+
 	for i := range cs.store.Jobs {
 		if cs.store.Jobs[i].ID == jobID && cs.store.Jobs[i].UserID == userID {
 			now := time.Now().UnixMilli()
@@ -522,7 +552,7 @@ func (cs *CronService) UpdateJobForUser(userID int64, jobID string, name string,
 			cs.store.Jobs[i].Name = name
 			cs.store.Jobs[i].Schedule = schedule
 			cs.store.Jobs[i].Payload.Message = message
-			cs.store.Jobs[i].Payload.Deliver = deliver
+			cs.store.Jobs[i].Payload.JobType = jobType
 			cs.store.Jobs[i].Payload.Channel = channel
 			cs.store.Jobs[i].Payload.To = to
 			cs.store.Jobs[i].UpdatedAtMS = now

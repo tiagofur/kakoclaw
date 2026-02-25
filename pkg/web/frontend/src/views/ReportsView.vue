@@ -15,15 +15,27 @@
             </svg>
             Agent Performance
           </h3>
-          <select
-            v-model="metricsPeriod"
-            @change="fetchAgentMetrics"
-            class="px-3 py-2 bg-makoclaw-bg/60 border border-makoclaw-border/50 rounded-lg text-sm focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent outline-none cursor-pointer"
-          >
-            <option value="24h">Last 24 Hours</option>
-            <option value="7d">Last 7 Days</option>
-            <option value="30d">Last 30 Days</option>
-          </select>
+          <div class="flex items-center gap-3">
+            <select
+              v-model="metricsPeriod"
+              @change="fetchAgentMetrics"
+              class="px-3 py-2 bg-makoclaw-bg/60 border border-makoclaw-border/50 rounded-lg text-sm focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent outline-none cursor-pointer"
+            >
+              <option value="24h">Last 24 Hours</option>
+              <option value="7d">Last 7 Days</option>
+              <option value="30d">Last 30 Days</option>
+            </select>
+            <button
+              @click="exportCSV"
+              :disabled="!hasSpecialistData"
+              class="flex items-center gap-2 px-3 py-2 text-sm bg-makoclaw-bg/60 border border-makoclaw-border/50 rounded-lg hover:border-makoclaw-accent/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Export CSV
+            </button>
+          </div>
         </div>
 
         <div v-if="loadingMetrics" class="flex items-center justify-center py-8">
@@ -51,9 +63,56 @@
             </div>
           </div>
 
+          <!-- Charts Section -->
+          <div v-if="hasSpecialistData" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Cost Breakdown Chart -->
+            <div class="p-4 bg-makoclaw-bg/30 rounded-lg">
+              <h4 class="font-bold text-makoclaw-text mb-4 text-sm">Cost by Specialist</h4>
+              <div class="space-y-3">
+                <div
+                  v-for="(metrics, name) in sortedByField('cost')"
+                  :key="'cost-' + name"
+                  class="flex items-center gap-3"
+                >
+                  <div class="w-20 text-xs text-makoclaw-text truncate capitalize">{{ name }}</div>
+                  <div class="flex-1 h-6 bg-makoclaw-bg/50 rounded overflow-hidden">
+                    <div
+                      :style="{ width: getCostPercentage(metrics.cost) + '%' }"
+                      :class="getBarColor(name)"
+                      class="h-full transition-all duration-300"
+                    ></div>
+                  </div>
+                  <div class="w-16 text-right text-xs font-medium text-makoclaw-text">{{ formatCost(metrics.cost) }}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Token Usage Chart -->
+            <div class="p-4 bg-makoclaw-bg/30 rounded-lg">
+              <h4 class="font-bold text-makoclaw-text mb-4 text-sm">Token Usage by Specialist</h4>
+              <div class="space-y-3">
+                <div
+                  v-for="(metrics, name) in sortedByField('tokens')"
+                  :key="'tokens-' + name"
+                  class="flex items-center gap-3"
+                >
+                  <div class="w-20 text-xs text-makoclaw-text truncate capitalize">{{ name }}</div>
+                  <div class="flex-1 h-6 bg-makoclaw-bg/50 rounded overflow-hidden">
+                    <div
+                      :style="{ width: getTokenPercentage(metrics.tokens) + '%' }"
+                      :class="getBarColor(name)"
+                      class="h-full transition-all duration-300"
+                    ></div>
+                  </div>
+                  <div class="w-20 text-right text-xs font-medium text-makoclaw-text">{{ formatCompact(metrics.tokens) }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Cost by Specialist Table -->
           <div>
-            <h4 class="font-bold text-makoclaw-text mb-3">Cost by Specialist</h4>
+            <h4 class="font-bold text-makoclaw-text mb-3">Detailed Breakdown</h4>
             <div class="overflow-x-auto">
               <table class="w-full text-sm">
                 <thead>
@@ -159,16 +218,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useChatStore } from '../stores/chatStore'
+import { ref, computed, onMounted } from 'vue'
 import { useAgentsStore } from '../stores/agentsStore'
-import { ChatWebSocket } from '../services/websocketService'
-import { useRouter } from 'vue-router'
 import { useToast } from '../composables/useToast'
+import advancedService from '../services/advancedService'
 
-const chatStore = useChatStore()
 const agentsStore = useAgentsStore()
-const router = useRouter()
 const toast = useToast()
 
 const to = ref('')
@@ -179,6 +234,31 @@ const metricsPeriod = ref('7d')
 const loadingMetrics = ref(false)
 const agentMetrics = ref(null)
 
+// Chart colors for specialists
+const specialistColors = {
+  orchestrator: 'bg-purple-500',
+  developer: 'bg-blue-500',
+  reviewer: 'bg-green-500',
+  researcher: 'bg-yellow-500',
+  writer: 'bg-pink-500',
+  analyst: 'bg-cyan-500',
+  default: 'bg-makoclaw-accent'
+}
+
+const hasSpecialistData = computed(() => {
+  return agentMetrics.value?.by_specialist && Object.keys(agentMetrics.value.by_specialist).length > 0
+})
+
+const maxCost = computed(() => {
+  if (!agentMetrics.value?.by_specialist) return 0
+  return Math.max(...Object.values(agentMetrics.value.by_specialist).map(m => m.cost || 0), 0.0001)
+})
+
+const maxTokens = computed(() => {
+  if (!agentMetrics.value?.by_specialist) return 0
+  return Math.max(...Object.values(agentMetrics.value.by_specialist).map(m => m.tokens || 0), 1)
+})
+
 onMounted(() => {
   fetchAgentMetrics()
 })
@@ -188,6 +268,29 @@ async function fetchAgentMetrics() {
   await agentsStore.fetchMetrics(metricsPeriod.value)
   agentMetrics.value = agentsStore.metrics
   loadingMetrics.value = false
+}
+
+function sortedByField(field) {
+  if (!agentMetrics.value?.by_specialist) return {}
+  const entries = Object.entries(agentMetrics.value.by_specialist)
+  entries.sort((a, b) => (b[1][field] || 0) - (a[1][field] || 0))
+  return Object.fromEntries(entries)
+}
+
+function getCostPercentage(cost) {
+  return Math.max(((cost || 0) / maxCost.value) * 100, 2)
+}
+
+function getTokenPercentage(tokens) {
+  return Math.max(((tokens || 0) / maxTokens.value) * 100, 2)
+}
+
+function getBarColor(name) {
+  const normalized = name.toLowerCase()
+  for (const [key, color] of Object.entries(specialistColors)) {
+    if (normalized.includes(key)) return color
+  }
+  return specialistColors.default
 }
 
 function getSpecialistIcon(name) {
@@ -212,53 +315,87 @@ function formatNumber(num) {
   return num.toLocaleString()
 }
 
+function formatCompact(num) {
+  if (!num) return '0'
+  if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M'
+  if (num >= 1000) return (num / 1000).toFixed(1) + 'K'
+  return num.toString()
+}
+
+function exportCSV() {
+  if (!agentMetrics.value?.by_specialist) {
+    toast.error('No metrics data to export')
+    return
+  }
+
+  const specialists = agentMetrics.value.by_specialist
+  const rows = [['Specialist', 'Calls', 'Tokens', 'Avg Cost', 'Total Cost']]
+
+  for (const [name, metrics] of Object.entries(specialists)) {
+    rows.push([
+      name,
+      (metrics.calls || 0).toString(),
+      (metrics.tokens || 0).toString(),
+      (metrics.avg_cost || 0).toFixed(4),
+      (metrics.cost || 0).toFixed(4)
+    ])
+  }
+
+  // Add totals row
+  rows.push([
+    'TOTAL',
+    (agentMetrics.value.total_calls || 0).toString(),
+    (agentMetrics.value.total_tokens || 0).toString(),
+    '',
+    (agentMetrics.value.total_cost || 0).toFixed(4)
+  ])
+
+  // Generate CSV content
+  const csvContent = rows.map(row => row.map(cell => {
+    // Escape cells containing commas or quotes
+    if (cell.includes(',') || cell.includes('"') || cell.includes('\n')) {
+      return '"' + cell.replace(/"/g, '""') + '"'
+    }
+    return cell
+  }).join(',')).join('\n')
+
+  // Create and download file
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `makoclaw-metrics-${metricsPeriod.value}.csv`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+
+  toast.success('CSV exported successfully')
+}
+
 const sendReport = async () => {
     if (!subject.value || !body.value) return
 
     sending.value = true
 
-    // We send a command to agent to use the email tool
-    const prompt = `Please send an email report using the 'send_email_report' tool.
-Subject: ${subject.value}
-To: ${to.value}
-Body:
-${body.value}`
-
     try {
-        // Show informative message about the process
-        toast.info('Sending report via AI agent...', { timeout: 3000 })
+        const result = await advancedService.sendReportEmail(to.value, subject.value, body.value)
 
-        // Try using existing chatStore WebSocket first
-        if (chatStore.sendMessage(prompt)) {
-            toast.success('Report queued! Check chat view for progress.', { timeout: 5000 })
-            // Delay redirect to show success message
-            setTimeout(() => {
-                router.push('/chat')
-            }, 1500)
-            return
+        if (result.success) {
+            toast.success(result.message || 'Report sent successfully!')
+            // Clear form on success
+            subject.value = ''
+            body.value = ''
+            to.value = ''
+        } else {
+            toast.error(result.error || 'Failed to send report')
         }
-
-        // If chatStore WS not connected, create a temporary one
-        const tempWs = new ChatWebSocket()
-        await tempWs.connect()
-        tempWs.send({
-            type: 'message',
-            content: prompt,
-            session_id: 'web:chat:report:' + Date.now().toString(36)
-        })
-        tempWs.disconnect()
-        toast.success('Report queued! Check chat view for progress.', { timeout: 5000 })
-        // Delay redirect to show success message
-        setTimeout(() => {
-            router.push('/chat')
-        }, 1500)
     } catch (err) {
-        console.error("Failed to send report command:", err)
-        toast.error('Failed to send command to agent. Make sure the chat is connected.')
+        console.error("Failed to send report:", err)
+        const errorMsg = err.response?.data?.error || err.message || 'Failed to send email'
+        toast.error(errorMsg)
     } finally {
         sending.value = false
     }
 }
 </script>
-
-

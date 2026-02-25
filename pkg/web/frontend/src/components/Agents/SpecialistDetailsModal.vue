@@ -117,6 +117,98 @@
             </div>
           </div>
         </div>
+
+        <!-- Test Specialist Section -->
+        <div class="glass-panel rounded-xl p-5 border border-makoclaw-border/50">
+          <h4 class="font-bold text-makoclaw-text mb-3 flex items-center gap-2">
+            <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Test Specialist
+          </h4>
+          <p class="text-sm text-makoclaw-text-secondary mb-4">Send a test message to this specialist and see the response</p>
+
+          <!-- Test Input -->
+          <div class="space-y-3">
+            <textarea
+              v-model="testPrompt"
+              placeholder="Enter a test message for the specialist..."
+              rows="3"
+              class="w-full px-4 py-3 bg-makoclaw-bg/60 border border-makoclaw-border/50 rounded-lg text-makoclaw-text placeholder-makoclaw-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-makoclaw-accent/50 focus:border-makoclaw-accent resize-none"
+              :disabled="testing"
+            ></textarea>
+
+            <div class="flex justify-end">
+              <button
+                @click="runTest"
+                :disabled="testing || !testPrompt.trim()"
+                class="px-5 py-2.5 text-sm font-bold bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-lg shadow-green-500/20 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <svg v-if="testing" class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {{ testing ? 'Running Test...' : 'Run Test' }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Test Result -->
+          <div v-if="testResult" class="mt-4 space-y-3">
+            <!-- Response -->
+            <div class="bg-makoclaw-bg/60 rounded-lg p-4 border border-green-500/30">
+              <div class="flex items-center gap-2 mb-2">
+                <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span class="text-xs font-bold uppercase tracking-wider text-green-400">Response</span>
+              </div>
+              <p class="text-sm text-makoclaw-text whitespace-pre-wrap">{{ testResult.response }}</p>
+            </div>
+
+            <!-- Metadata -->
+            <div class="grid grid-cols-2 gap-3">
+              <!-- Tools Available -->
+              <div class="bg-makoclaw-bg/40 rounded-lg p-3">
+                <p class="text-[10px] font-bold uppercase tracking-wider text-makoclaw-text-secondary mb-2">Tools Available</p>
+                <div class="flex flex-wrap gap-1">
+                  <span
+                    v-for="tool in (testResult.tools_used || [])"
+                    :key="tool"
+                    class="px-2 py-0.5 text-[10px] font-medium bg-blue-500/10 text-blue-400 rounded-full"
+                  >
+                    {{ tool }}
+                  </span>
+                  <span v-if="!testResult.tools_used || testResult.tools_used.length === 0" class="text-xs text-makoclaw-text-secondary">
+                    No tools
+                  </span>
+                </div>
+              </div>
+
+              <!-- Duration -->
+              <div class="bg-makoclaw-bg/40 rounded-lg p-3">
+                <p class="text-[10px] font-bold uppercase tracking-wider text-makoclaw-text-secondary mb-2">Duration</p>
+                <p class="text-sm font-bold text-makoclaw-text">{{ formatDuration(testResult.duration_ms) }}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Test Error -->
+          <div v-if="testError" class="mt-4 bg-red-500/10 rounded-lg p-4 border border-red-500/30">
+            <div class="flex items-center gap-2 mb-2">
+              <svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span class="text-xs font-bold uppercase tracking-wider text-red-400">Error</span>
+            </div>
+            <p class="text-sm text-red-300">{{ testError }}</p>
+          </div>
+        </div>
       </div>
 
       <!-- Footer -->
@@ -129,19 +221,10 @@
           Edit in Settings
         </router-link>
         <button
-          @click="testSpecialist"
-          :disabled="testing"
-          class="px-5 py-2.5 text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-500/20 transition-all flex items-center gap-2 disabled:opacity-50"
+          @click="close"
+          class="px-5 py-2.5 text-sm font-bold bg-makoclaw-accent hover:bg-makoclaw-accent-hover text-white rounded-xl shadow-lg shadow-makoclaw-accent/20 transition-all"
         >
-          <svg v-if="testing" class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          {{ testing ? 'Testing...' : 'Test Specialist' }}
+          Close
         </button>
       </div>
     </div>
@@ -149,7 +232,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useAgentsStore } from '../../stores/agentsStore'
 import { useToast } from '../../composables/useToast'
 
@@ -171,9 +254,27 @@ const emit = defineEmits(['close'])
 
 const testing = ref(false)
 const specialistMetrics = ref(null)
+const testPrompt = ref('')
+const testResult = ref(null)
+const testError = ref(null)
 
 onMounted(async () => {
   await fetchSpecialistMetrics()
+})
+
+// Reset test state when modal is opened/closed or specialist changes
+watch(() => props.show, (newVal) => {
+  if (newVal) {
+    testPrompt.value = ''
+    testResult.value = null
+    testError.value = null
+  }
+})
+
+watch(() => props.specialist, () => {
+  testPrompt.value = ''
+  testResult.value = null
+  testError.value = null
 })
 
 async function fetchSpecialistMetrics() {
@@ -183,13 +284,34 @@ async function fetchSpecialistMetrics() {
   }
 }
 
-async function testSpecialist() {
-  testing.value = true
-  const result = await agentsStore.testSpecialist(props.specialist.name, 'Hello, please introduce yourself and describe your capabilities.')
-  if (result) {
-    toast.success('Test completed! Check the response in chat.')
+async function runTest() {
+  if (!testPrompt.value.trim()) {
+    toast.warning('Please enter a test message')
+    return
   }
-  testing.value = false
+
+  testing.value = true
+  testResult.value = null
+  testError.value = null
+
+  try {
+    const result = await agentsStore.testSpecialist(props.specialist.name, testPrompt.value.trim())
+    if (result && result.success) {
+      testResult.value = result
+      toast.success('Test completed successfully!')
+    } else if (result && result.error) {
+      testError.value = result.error
+      toast.error('Test failed: ' + result.error)
+    } else {
+      testError.value = 'Unknown error occurred'
+      toast.error('Test failed')
+    }
+  } catch (error) {
+    testError.value = error.message || 'Failed to run test'
+    toast.error('Test failed: ' + (error.message || 'Unknown error'))
+  } finally {
+    testing.value = false
+  }
 }
 
 function formatCost(cost) {
@@ -200,6 +322,13 @@ function formatCost(cost) {
 function formatNumber(num) {
   if (!num) return '0'
   return num.toLocaleString()
+}
+
+function formatDuration(ms) {
+  if (!ms) return '0ms'
+  if (ms < 1000) return `${ms}ms`
+  if (ms < 60000) return `${(ms / 1000).toFixed(2)}s`
+  return `${(ms / 60000).toFixed(2)}m`
 }
 
 function close() {

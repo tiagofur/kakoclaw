@@ -1680,7 +1680,7 @@ func cronAddCmd(storePath string) {
 	message := ""
 	var everySec *int64
 	cronExpr := ""
-	deliver := false
+	jobType := "task" // Default to agent processing
 	channel := ""
 	to := ""
 
@@ -1709,8 +1709,14 @@ func cronAddCmd(storePath string) {
 				cronExpr = args[i+1]
 				i++
 			}
+		case "-t", "--type":
+			if i+1 < len(args) {
+				jobType = args[i+1]
+				i++
+			}
 		case "-d", "--deliver":
-			deliver = true
+			// Deprecated: for backward compatibility
+			jobType = "reminder"
 		case "--to":
 			if i+1 < len(args) {
 				to = args[i+1]
@@ -1754,7 +1760,7 @@ func cronAddCmd(storePath string) {
 	}
 
 	cs := cron.NewCronService(storePath, nil)
-	job, err := cs.AddJob(1, name, schedule, message, deliver, channel, to)
+	job, err := cs.AddJob(1, name, schedule, message, jobType, channel, to)
 	if err != nil {
 		fmt.Printf("Error adding job: %v\n", err)
 		return

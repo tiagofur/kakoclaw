@@ -123,6 +123,7 @@ func NewWriteFileTool(workspace string, restrict bool) *WriteFileTool {
 }
 
 func (t *WriteFileTool) SetWorkspace(workspace string) {
+	fmt.Printf("[DEBUG write_file.SetWorkspace] OLD workspace=%s, NEW workspace=%s\n", t.workspace, workspace)
 	t.workspace = workspace
 }
 
@@ -167,6 +168,9 @@ func (t *WriteFileTool) Execute(ctx context.Context, args map[string]interface{}
 		return "", err
 	}
 
+	// DIAGNOSTIC LOGGING: Track workspace being used
+	fmt.Printf("[DEBUG write_file] workspace=%s, path=%s, resolvedPath=%s\n", t.workspace, path, resolvedPath)
+
 	dir := filepath.Dir(resolvedPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create directory: %w", err)
@@ -176,7 +180,7 @@ func (t *WriteFileTool) Execute(ctx context.Context, args map[string]interface{}
 		return "", fmt.Errorf("failed to write file: %w", err)
 	}
 
-	return "File written successfully", nil
+	return fmt.Sprintf("File written successfully to %s", resolvedPath), nil
 }
 
 type ListDirTool struct {

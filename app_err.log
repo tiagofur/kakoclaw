@@ -1,5 +1,0 @@
-2026/02/23 17:55:22 [2026-02-23T23:55:22Z] [WARN] agent: Orchestrator enabled but no specialists configured
-2026/02/23 17:55:22 [2026-02-23T23:55:22Z] [INFO] channels: Initializing channel manager
-2026/02/23 17:55:22 [2026-02-23T23:55:22Z] [INFO] channels: Channel initialization completed {enabled_channels=0}
-2026/02/23 17:55:22 [2026-02-23T23:55:22Z] [WARN] channels: No channels enabled
-2026/02/23 17:55:22 [2026-02-23T23:55:22Z] [INFO] web: Web server starting {addr=127.0.0.1:18880, enabled=true}

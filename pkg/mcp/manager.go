@@ -136,3 +136,156 @@ type ServerInfo struct {
 	ToolCount     int      `json:"tool_count"`
 	Tools         []string `json:"tools,omitempty"`
 }
+
+// AddServer adds a new MCP server to the manager and optionally connects to it.
+// This does NOT persist the configuration - caller should save config separately.
+func (m *Manager) AddServer(ctx context.Context, name string, serverCfg config.MCPServerConfig, autoConnect bool) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Check if server already exists
+	if _, exists := m.clients[name]; exists {
+		return fmt.Errorf("MCP server %q already exists", name)
+	}
+
+	// Update internal config
+	if m.cfg.Servers == nil {
+		m.cfg.Servers = make(map[string]config.MCPServerConfig)
+	}
+	m.cfg.Servers[name] = serverCfg
+
+	// Create client
+	env := make([]string, 0, len(serverCfg.Env))
+	for k, v := range serverCfg.Env {
+		env = append(env, k+"="+v)
+	}
+	client := NewClient(name, serverCfg.Command, serverCfg.Args, env)
+	m.clients[name] = client
+
+	// Optionally connect
+	if autoConnect && serverCfg.Enabled {
+		// Unlock while connecting to avoid holding lock during I/O
+		m.mu.Unlock()
+		err := client.Connect(ctx)
+		m.mu.Lock()
+		if err != nil {
+			logger.WarnCF("mcp", "Failed to connect to new MCP server", map[string]interface{}{
+				"name":  name,
+				"error": err.Error(),
+			})
+			// Don't return error - server is added but not connected
+		}
+	}
+
+	return nil
+}
+
+// RemoveServer stops and removes an MCP server from the manager.
+// This does NOT persist the configuration - caller should save config separately.
+func (m *Manager) RemoveServer(name string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	client, exists := m.clients[name]
+	if !exists {
+		return fmt.Errorf("MCP server %q not found", name)
+	}
+
+	// Close the client
+	client.Close()
+
+	// Remove from internal state
+	delete(m.clients, name)
+	delete(m.cfg.Servers, name)
+
+	return nil
+}
+
+// UpdateServer updates an existing MCP server's configuration.
+// If the command or args changed and the server is running, it will be reconnected.
+// This does NOT persist the configuration - caller should save config separately.
+func (m *Manager) UpdateServer(ctx context.Context, name string, serverCfg config.MCPServerConfig) error {
+	m.mu.Lock()
+	client, exists := m.clients[name]
+	oldCfg, hadCfg := m.cfg.Servers[name]
+	m.mu.Unlock()
+
+	if !exists {
+		return fmt.Errorf("MCP server %q not found", name)
+	}
+
+	// Check if command/args changed
+	commandChanged := !hadCfg || oldCfg.Command != serverCfg.Command || !sliceEqual(oldCfg.Args, serverCfg.Args)
+	wasConnected := client.Connected()
+
+	// Update config
+	m.mu.Lock()
+	m.cfg.Servers[name] = serverCfg
+	m.mu.Unlock()
+
+	// If command/args changed and server was running, we need to restart it
+	if commandChanged && wasConnected {
+		// Close old client
+		client.Close()
+
+		// Create new client with updated config
+		env := make([]string, 0, len(serverCfg.Env))
+		for k, v := range serverCfg.Env {
+			env = append(env, k+"="+v)
+		}
+		newClient := NewClient(name, serverCfg.Command, serverCfg.Args, env)
+
+		m.mu.Lock()
+		m.clients[name] = newClient
+		m.mu.Unlock()
+
+		// Connect if enabled
+		if serverCfg.Enabled {
+			if err := newClient.Connect(ctx); err != nil {
+				return fmt.Errorf("failed to reconnect after update: %w", err)
+			}
+		}
+	} else if serverCfg.Enabled && !wasConnected {
+		// Server wasn't connected but is now enabled - try to connect
+		if err := client.Connect(ctx); err != nil {
+			logger.WarnCF("mcp", "Failed to connect MCP server after enabling", map[string]interface{}{
+				"name":  name,
+				"error": err.Error(),
+			})
+		}
+	} else if !serverCfg.Enabled && wasConnected {
+		// Server is being disabled - close connection
+		client.Close()
+	}
+
+	return nil
+}
+
+// GetServerConfig returns the configuration for a specific server
+func (m *Manager) GetServerConfig(name string) (config.MCPServerConfig, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	cfg, ok := m.cfg.Servers[name]
+	return cfg, ok
+}
+
+// HasServer checks if a server with the given name exists
+func (m *Manager) HasServer(name string) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	_, exists := m.clients[name]
+	return exists
+}
+
+// sliceEqual compares two string slices for equality
+func sliceEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, v := range a {
+		if v != b[i] {
+			return false
+		}
+	}
+	return true
+}

@@ -125,6 +125,43 @@ export default {
     return response.data
   },
 
+  // Delete file or folder
+  deleteFile: async (path) => {
+    const encodedPath = path.split('/').map(encodeURIComponent).join('/')
+    const response = await client.delete(`/files/${encodedPath}`)
+    return response.data
+  },
+
+  // Create folder
+  createFolder: async (path) => {
+    const encodedPath = path.split('/').map(encodeURIComponent).join('/')
+    const response = await client.put(`/files/${encodedPath}?mkdir=true`)
+    return response.data
+  },
+
+  // Update file content
+  updateFileContent: async (path, content) => {
+    const encodedPath = path.split('/').map(encodeURIComponent).join('/')
+    const response = await client.put(`/files/${encodedPath}`, content, {
+      headers: { 'Content-Type': 'text/plain' }
+    })
+    return response.data
+  },
+
+  // Rename file or folder
+  renameFile: async (path, newName) => {
+    const encodedPath = path.split('/').map(encodeURIComponent).join('/')
+    const response = await client.patch(`/files/${encodedPath}`, { new_name: newName })
+    return response.data
+  },
+
+  // Search files
+  searchFiles: async (path, query) => {
+    const encodedPath = path ? path.split('/').map(encodeURIComponent).join('/') : ''
+    const response = await client.get(`/files/${encodedPath}?search=${encodeURIComponent(query)}`)
+    return response.data
+  },
+
   // Export
   exportTasks: (format = 'json') => {
     const token = localStorage.getItem('auth.token')
@@ -157,6 +194,12 @@ export default {
   // Models
   fetchModels: async () => {
     const response = await client.get('/models')
+    return response.data
+  },
+
+  // Specialists
+  fetchSpecialists: async () => {
+    const response = await client.get('/agents/specialists')
     return response.data
   },
 
@@ -220,6 +263,40 @@ export default {
     return response.data
   },
 
+  // Add new MCP server
+  addMCPServer: async (config) => {
+    const response = await client.post('/mcp', config)
+    return response.data
+  },
+
+  // Update MCP server
+  updateMCPServer: async (name, config) => {
+    const response = await client.put(`/mcp/${encodeURIComponent(name)}`, config)
+    return response.data
+  },
+
+  // Delete MCP server
+  deleteMCPServer: async (name) => {
+    const response = await client.delete(`/mcp/${encodeURIComponent(name)}`)
+    return response.data
+  },
+
+  // Test MCP server connection
+  testMCPServer: async (name) => {
+    const response = await client.post(`/mcp/${encodeURIComponent(name)}/test`, {}, {
+      timeout: 35000 // 35s for MCP test (server has 30s timeout)
+    })
+    return response.data
+  },
+
+  // Reconnect all MCP servers
+  reconnectAllMCPServers: async () => {
+    const response = await client.post('/mcp/reconnect-all', {}, {
+      timeout: 65000 // 65s for reconnect all (server has 60s timeout)
+    })
+    return response.data
+  },
+
   // Observability Metrics
   fetchMetrics: async () => {
     const response = await client.get('/metrics')
@@ -256,6 +333,14 @@ export default {
     formData.append('file', file)
     const response = await client.post('/chat/attachments', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    return response.data
+  },
+
+  // Reports
+  sendReportEmail: async (to, subject, body) => {
+    const response = await client.post('/reports/email', { to, subject, body }, {
+      timeout: 30000 // 30s for email send
     })
     return response.data
   }

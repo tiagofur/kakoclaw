@@ -20,8 +20,12 @@ export const useChatStore = defineStore('chat', () => {
   const availableTools = ref([])      // All tools available from backend
   const enabledTools = ref([])        // Tools currently enabled by user
 
-  const orchestratorStatus = ref('idle') // idle, analyzing, delegating
-  const currentSpecialist = ref(null)    // Currently active specialist name
+  const orchestratorStatus = ref('idle') // 'idle', 'analyzing', 'delegating', 'working', 'complete'
+  const currentAgent = ref(null)         // Agente actualmente activo
+  const activeSpecialist = ref(null)     // Especialista activo cuando se delega
+  const delegationReason = ref('')       // Por qué el orchestrator delegó
+  const agentHistory = ref([])           // Historial de eventos de agentes
+  const currentSpecialist = ref(null)    // Currently active specialist name (legacy)
   const isMultiAgent = ref(false)         // Whether multi-agent mode is active
 
   function addMessage(message) {
@@ -41,7 +45,8 @@ export const useChatStore = defineStore('chat', () => {
       content: '',
       timestamp: new Date().toISOString(),
       streaming: true,
-      agents: [] // Initialize empty agents array
+      agents: [], // Initialize empty agents array
+      segments: [] // Initialize empty segments array
     })
     streamingMessageId.value = id
     isStreaming.value = true
@@ -82,6 +87,55 @@ export const useChatStore = defineStore('chat', () => {
     const msg = messages.value.find(m => m.id === messageId)
     if (msg) {
       msg.agents = agents || []
+    }
+  }
+
+  // Set agent status during execution
+  function setAgentStatus(agent, status, specialistName = null, reason = '') {
+    orchestratorStatus.value = status
+    currentAgent.value = agent
+
+    if (specialistName) {
+      activeSpecialist.value = specialistName
+    }
+
+    if (reason) {
+      delegationReason.value = reason
+    }
+
+    agentHistory.value.push({
+      agent,
+      status,
+      specialistName,
+      reason,
+      timestamp: new Date().toISOString()
+    })
+  }
+
+  // Clear agent status (call when execution completes)
+  function clearAgentStatus() {
+    orchestratorStatus.value = 'idle'
+    currentAgent.value = null
+    activeSpecialist.value = null
+    delegationReason.value = ''
+    agentHistory.value = []
+  }
+
+  // Add a content segment to the current streaming message
+  function addContentSegment(segment) {
+    if (!streamingMessageId.value) return
+    const msg = messages.value.find(m => m.id === streamingMessageId.value)
+    if (msg) {
+      if (!msg.segments) msg.segments = []
+      msg.segments.push({
+        agent: segment.agent,
+        content: segment.content,
+        segmentId: segment.segment_id
+      })
+      // Actualizar lista de agentes
+      if (!msg.agents.includes(segment.agent)) {
+        msg.agents.push(segment.agent)
+      }
     }
   }
 
@@ -282,6 +336,10 @@ export const useChatStore = defineStore('chat', () => {
     allModels,
     webSearchEnabled,
     orchestratorStatus,
+    currentAgent,
+    activeSpecialist,
+    delegationReason,
+    agentHistory,
     currentSpecialist,
     isMultiAgent,
     addMessage,
@@ -289,6 +347,9 @@ export const useChatStore = defineStore('chat', () => {
     appendStreamToken,
     endStreamingMessage,
     setAgentsForMessage,
+    setAgentStatus,
+    clearAgentStatus,
+    addContentSegment,
     addToolCall,
     setMessages,
     clearMessages,

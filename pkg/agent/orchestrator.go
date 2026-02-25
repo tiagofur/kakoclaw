@@ -29,6 +29,48 @@ func agentTrackerFromCtx(ctx context.Context) *AgentLoop {
 	return nil
 }
 
+// Context keys for callbacks
+type agentStatusCallbackKey struct{}
+type contentSegmentCallbackKey struct{}
+
+// ContextWithAgentStatusCallback embeds an AgentStatusCallback into the context
+func ContextWithAgentStatusCallback(ctx context.Context, callback AgentStatusCallback) context.Context {
+	return context.WithValue(ctx, agentStatusCallbackKey{}, callback)
+}
+
+func agentStatusCallbackFromCtx(ctx context.Context) AgentStatusCallback {
+	if v, ok := ctx.Value(agentStatusCallbackKey{}).(AgentStatusCallback); ok {
+		return v
+	}
+	return nil
+}
+
+// emitAgentStatus emits an agent status event if callback is available
+func emitAgentStatus(ctx context.Context, event AgentStatusEvent) {
+	if callback := agentStatusCallbackFromCtx(ctx); callback != nil {
+		_ = callback(event) // Ignore errors to not break execution flow
+	}
+}
+
+// ContextWithContentSegmentCallback embeds a ContentSegmentCallback into the context
+func ContextWithContentSegmentCallback(ctx context.Context, callback ContentSegmentCallback) context.Context {
+	return context.WithValue(ctx, contentSegmentCallbackKey{}, callback)
+}
+
+func contentSegmentCallbackFromCtx(ctx context.Context) ContentSegmentCallback {
+	if v, ok := ctx.Value(contentSegmentCallbackKey{}).(ContentSegmentCallback); ok {
+		return v
+	}
+	return nil
+}
+
+// emitContentSegment emits a content segment if callback is available
+func emitContentSegment(ctx context.Context, segment ContentSegment) {
+	if callback := contentSegmentCallbackFromCtx(ctx); callback != nil {
+		_ = callback(segment)
+	}
+}
+
 // OrchestratorAgent is a special agent that analyzes tasks and delegates to specialists
 type OrchestratorAgent struct {
 	*SpecialistAgent
@@ -173,10 +215,33 @@ func (dt *DelegationTool) Execute(ctx context.Context, args map[string]interface
 		fullTask = fmt.Sprintf("%s\n\nAdditional Context:\n%s", task, contextStr)
 	}
 
+	// Emit status: orchestrator analyzing
+	emitAgentStatus(ctx, AgentStatusEvent{
+		Agent:     "orchestrator",
+		Status:    "analyzing",
+		Timestamp: time.Now(),
+	})
+
+	// Emit status: delegating with reason
+	emitAgentStatus(ctx, AgentStatusEvent{
+		Agent:          "orchestrator",
+		Status:         "delegating",
+		SpecialistName: specialistName,
+		Reason:         generateDelegationReason(specialistName, task),
+		Timestamp:      time.Now(),
+	})
+
 	// Execute task through specialist
 	logger.DebugCF("agent", "Delegating to specialist", map[string]interface{}{
 		"specialist": specialistName,
 		"task":       truncate(task, 100),
+	})
+
+	// Emit status: specialist working
+	emitAgentStatus(ctx, AgentStatusEvent{
+		Agent:     specialistName,
+		Status:    "working",
+		Timestamp: time.Now(),
 	})
 
 	result, err := dt.orchestrator.processSpecialistTask(ctx, specialistName, fullTask)
@@ -187,6 +252,13 @@ func (dt *DelegationTool) Execute(ctx context.Context, args map[string]interface
 		})
 		return "", fmt.Errorf("specialist execution failed: %w", err)
 	}
+
+	// Emit status: specialist complete
+	emitAgentStatus(ctx, AgentStatusEvent{
+		Agent:     specialistName,
+		Status:    "complete",
+		Timestamp: time.Now(),
+	})
 
 	logger.DebugCF("agent", "Specialist task completed", map[string]interface{}{
 		"specialist": specialistName,
@@ -203,10 +275,47 @@ func (oa *OrchestratorAgent) processSpecialistTask(ctx context.Context, speciali
 		return "", err
 	}
 
-	// Process through specialist with its configuration
-	result, err := specialist.ProcessWithSpeciality(ctx, task)
-	if err != nil {
+	// Timeout configurable (default: 5 minutes)
+	timeout := 5 * time.Minute
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	// Execute in goroutine to detect timeout
+	resultChan := make(chan string, 1)
+	errChan := make(chan error, 1)
+
+	go func() {
+		result, err := specialist.ProcessWithSpeciality(ctxWithTimeout, task)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		resultChan <- result
+	}()
+
+	// Wait for result or timeout
+	var result string
+	select {
+	case result = <-resultChan:
+		// Success - emit content segment
+		emitContentSegment(ctx, ContentSegment{
+			Agent:     specialistName,
+			Content:   result,
+			SegmentID: fmt.Sprintf("seg_%s_%d", specialistName, time.Now().UnixNano()),
+			Timestamp: time.Now(),
+		})
+
+	case err := <-errChan:
 		return "", fmt.Errorf("specialist processing error: %w", err)
+
+	case <-ctxWithTimeout.Done():
+		// Emit timeout status
+		emitAgentStatus(ctx, AgentStatusEvent{
+			Agent:     specialistName,
+			Status:    "timeout",
+			Timestamp: time.Now(),
+		})
+		return "", fmt.Errorf("specialist %s timed out after %v", specialistName, timeout)
 	}
 
 	// Use tracker from context if available (web chat passes activeAgentLoop as tracker)
@@ -273,6 +382,24 @@ func (oa *OrchestratorAgent) BuildOrchestratorContext() string {
 	context.WriteString(oa.GetSpecialistsSummary())
 
 	return context.String()
+}
+
+// generateDelegationReason creates a human-readable explanation for delegation
+func generateDelegationReason(specialistName, task string) string {
+	reasonMap := map[string]string{
+		"developer":       "requires code implementation or modification",
+		"documentation":   "requires documentation updates",
+		"testing":         "requires test creation or QA",
+		"devops":          "requires infrastructure work",
+		"analyst":         "requires data analysis",
+		"researcher":      "requires investigation",
+	}
+
+	if reason, ok := reasonMap[specialistName]; ok {
+		return fmt.Sprintf("This task %s", reason)
+	}
+
+	return fmt.Sprintf("Delegating to %s specialist", specialistName)
 }
 
 // ProcessOrchestratorMessage processes a user message through the orchestrator

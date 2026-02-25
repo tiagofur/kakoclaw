@@ -87,9 +87,11 @@ func (t *CronTool) Parameters() map[string]interface{} {
 				"type":        "string",
 				"description": "Job ID (for remove/enable/disable)",
 			},
-			"deliver": map[string]interface{}{
-				"type":        "boolean",
-				"description": "If true, send message directly to channel. If false, let agent process the message (for complex tasks). Default: true",
+			"job_type": map[string]interface{}{
+				"type":        "string",
+				"enum":        []string{"task", "reminder"},
+				"default":     "task",
+				"description": "Job type: 'task' (default, process through agent for complex operations) or 'reminder' (send direct message without agent processing). Use 'task' when the prompt needs processing (e.g., 'check weather and summarize'), use 'reminder' for simple notifications (e.g., 'Meeting in 10 minutes').",
 			},
 		},
 		"required": []string{"action"},
@@ -172,10 +174,17 @@ func (t *CronTool) addJob(args map[string]interface{}) (string, error) {
 		return "Error: one of at_seconds, every_seconds, or cron_expr is required", nil
 	}
 
-	// Read deliver parameter, default to true
-	deliver := true
-	if d, ok := args["deliver"].(bool); ok {
-		deliver = d
+	// Read job_type parameter, default to "task"
+	jobType := "task" // Default to agent processing
+	if jt, ok := args["job_type"].(string); ok && jt != "" {
+		jobType = jt
+	} else if d, ok := args["deliver"].(bool); ok {
+		// Backward compatibility: if deliver is set, convert it
+		if d {
+			jobType = "reminder"
+		} else {
+			jobType = "task"
+		}
 	}
 
 	// Truncate message for job name (max 30 chars)
@@ -186,7 +195,7 @@ func (t *CronTool) addJob(args map[string]interface{}) (string, error) {
 		messagePreview,
 		schedule,
 		message,
-		deliver,
+		jobType,
 		channel,
 		chatID,
 	)
@@ -278,35 +287,50 @@ func (t *CronTool) ExecuteJob(ctx context.Context, job *cron.CronJob) string {
 		chatID = "direct"
 	}
 
-	// If deliver=true, send message directly without agent processing
-	if job.Payload.Deliver {
+	// Migrate old format if needed (backward compatibility)
+	jobType := job.Payload.JobType
+	if jobType == "" {
+		if job.Payload.Deliver {
+			jobType = "reminder"
+		} else {
+			jobType = "task"
+		}
+	}
+
+	// Execute based on job type
+	switch jobType {
+	case "reminder":
+		// Direct channel delivery (simple notification)
 		t.msgBus.PublishOutbound(bus.OutboundMessage{
 			UserID:  job.UserID,
 			Channel: channel,
 			ChatID:  chatID,
 			Content: job.Payload.Message,
 		})
-		return "ok"
+		return "delivered reminder"
+
+	case "task":
+		fallthrough
+	default:
+		// Process through agent (for complex tasks)
+		sessionKey := fmt.Sprintf("cron-%s", job.ID)
+
+		// Call agent with the job's message
+		response, err := t.executor.ProcessDirectWithChannelForUser(
+			ctx,
+			job.UserID,
+			job.Payload.Message,
+			sessionKey,
+			channel,
+			chatID,
+		)
+
+		if err != nil {
+			return fmt.Sprintf("Error: %v", err)
+		}
+
+		// Response is automatically sent via MessageBus by AgentLoop
+		_ = response // Will be sent by AgentLoop
+		return "task completed"
 	}
-
-	// For deliver=false, process through agent (for complex tasks)
-	sessionKey := fmt.Sprintf("cron-%s", job.ID)
-
-	// Call agent with the job's message
-	response, err := t.executor.ProcessDirectWithChannelForUser(
-		ctx,
-		job.UserID,
-		job.Payload.Message,
-		sessionKey,
-		channel,
-		chatID,
-	)
-
-	if err != nil {
-		return fmt.Sprintf("Error: %v", err)
-	}
-
-	// Response is automatically sent via MessageBus by AgentLoop
-	_ = response // Will be sent by AgentLoop
-	return "ok"
 }

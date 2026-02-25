@@ -7,6 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"os"
+	"path/filepath"
+
+	"github.com/sipeed/makoclaw/pkg/config"
 	"github.com/sipeed/makoclaw/pkg/logger"
 	"github.com/sipeed/makoclaw/pkg/storage"
 	"github.com/sipeed/makoclaw/pkg/tools"
@@ -71,12 +75,25 @@ func (s *Server) handleToolPermissions(w http.ResponseWriter, r *http.Request) {
 		}
 		s.fullConfig.Unlock()
 
-		// TODO: Save configuration to disk (needs Save() method implementation)
-		logger.InfoCF("web", "Tool permissions updated (config not persisted yet)", map[string]interface{}{
-			"admin": claims.Sub,
-		})
+		// Save configuration to disk
+		configPath := filepath.Join(os.Getenv("HOME"), ".MakoClaw", "config.json")
+		if path := os.Getenv("MAKOCLAW_CONFIG_PATH"); path != "" {
+			configPath = path
+		}
+		// Handle ~ home directory expansion
+		if home, err := os.UserHomeDir(); err == nil && strings.HasPrefix(configPath, "~") {
+			configPath = strings.Replace(configPath, "~", home, 1)
+		}
 
-		logger.InfoCF("web", "Tool permissions updated", map[string]interface{}{
+		if err := config.SaveConfig(configPath, s.fullConfig); err != nil {
+			logger.ErrorCF("web", "Failed to save config after tool permissions update", map[string]interface{}{
+				"error": err.Error(),
+			})
+			http.Error(w, "failed to save config: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		logger.InfoCF("web", "Tool permissions updated and persisted", map[string]interface{}{
 			"admin": claims.Sub,
 		})
 
@@ -170,26 +187,25 @@ func (s *Server) handleUserTools(w http.ResponseWriter, r *http.Request) {
 			if in.AllowedTools != nil {
 				toolsList = *in.AllowedTools
 			}
-			_ = toolsList // TODO: implement when UpdateUserTools is added to CentralStorage
 
-			// TODO: CentralStorage doesn't have UpdateUserTools yet - needs implementation
-			// if err := s.centralStore.UpdateUserTools(targetUserID, toolsList); err != nil {
-			logger.WarnCF("web", "UpdateUserTools not implemented for CentralStorage", map[string]interface{}{
-				"target_user_id": targetUserID,
-			})
-			http.Error(w, "tool permissions update not yet implemented for multi-user mode", http.StatusNotImplemented)
-			return
-			/*
-				logger.InfoCF("web", "User tool permissions updated", map[string]interface{}{
-					"admin":          claims.Sub,
+			if err := s.centralStore.UpdateUserTools(targetUserID, toolsList); err != nil {
+				logger.ErrorCF("web", "Failed to update user tools", map[string]interface{}{
 					"target_user_id": targetUserID,
-					"tools":          tools,
+					"error":          err.Error(),
 				})
-
-				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(`{"success": true}`))
+				http.Error(w, "failed to update user tools", http.StatusInternalServerError)
 				return
-			*/
+			}
+
+			logger.InfoCF("web", "User tool permissions updated", map[string]interface{}{
+				"admin":          claims.Sub,
+				"target_user_id": targetUserID,
+				"tools":          toolsList,
+			})
+
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"success": true}`))
+			return
 		}
 	} else {
 		store = s.store

@@ -149,3 +149,33 @@ func (am *AgentManager) RemoveSpecialist(name string) bool {
 	}
 	return am.specialistReg.RemoveSpecialist(name)
 }
+
+// GetSpecialistsList returns info about all registered specialists for the API
+func (am *AgentManager) GetSpecialistsList() []map[string]interface{} {
+	if am == nil || am.specialistReg == nil {
+		return []map[string]interface{}{}
+	}
+
+	specialists := am.specialistReg.ListSpecialists()
+	result := make([]map[string]interface{}, 0, len(specialists))
+
+	for name, spec := range specialists {
+		if name == "orchestrator" {
+			continue // Skip orchestrator itself
+		}
+
+		tools := make([]string, 0, len(spec.allowedTools))
+		for tool := range spec.allowedTools {
+			tools = append(tools, tool)
+		}
+
+		result = append(result, map[string]interface{}{
+			"name":        name,
+			"description": spec.description,
+			"tools":       tools,
+			"keywords":    spec.keywords,
+		})
+	}
+
+	return result
+}

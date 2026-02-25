@@ -20,10 +20,31 @@
           <ToolCallItem v-for="tc in msg.toolCalls" :key="tc.id" :tc="tc" />
         </div>
 
-        <!-- Streaming Content -->
-        <p v-if="msg.streaming" class="text-sm md:text-base whitespace-pre-wrap break-words leading-relaxed">{{ msg.content }}<span class="streaming-cursor"></span></p>
-        <!-- Final Markdown Content -->
-        <MarkdownRenderer v-else :content="msg.content" class="text-sm md:text-base" />
+        <!-- Contenido Segmentado (cuando hay múltiples agentes) -->
+        <div v-if="msg.segments && msg.segments.length > 0" class="segmented-content">
+          <div
+            v-for="segment in msg.segments"
+            :key="segment.segmentId"
+            class="content-segment mb-3 pb-3 border-b border-makoclaw-border/30 last:border-b-0"
+          >
+            <!-- Header de atribución -->
+            <div class="flex items-center gap-2 mb-2">
+              <SpecialistBadge :name="segment.agent" class="text-xs" />
+              <span class="text-xs text-makoclaw-text-secondary">contributed:</span>
+            </div>
+
+            <!-- Contenido del segmento -->
+            <MarkdownRenderer :content="segment.content" class="text-sm md:text-base pl-6" />
+          </div>
+        </div>
+
+        <!-- Fallback: contenido unificado (cuando no hay segmentos) -->
+        <div v-else>
+          <!-- Streaming Content -->
+          <p v-if="msg.streaming" class="text-sm md:text-base whitespace-pre-wrap break-words leading-relaxed">{{ msg.content }}<span class="streaming-cursor"></span></p>
+          <!-- Final Markdown Content -->
+          <MarkdownRenderer v-else :content="msg.content" class="text-sm md:text-base" />
+        </div>
       </template>
       
       <!-- Agent Badges -->

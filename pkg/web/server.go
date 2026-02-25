@@ -320,6 +320,8 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/agents/generate", s.handleSpecialistGenerate)     // Generate specialist with AI
 	mux.HandleFunc("/api/v1/agents/orchestrator", s.handleOrchestratorConfig) // Update orchestrator config
 	mux.HandleFunc("/api/v1/agents/metrics", s.handleAgentMetrics)            // Agent cost metrics
+	mux.HandleFunc("/api/v1/agents/specialists", s.handleGetSpecialists)      // Get active specialists list
+	mux.HandleFunc("/api/v1/reports/email", s.handleSendReportEmail)         // Send report email directly
 
 	// Setup/Onboarding flow (Phase 4)
 	mux.HandleFunc("/api/v1/setup/initialize", s.handleSetupInitialize)   // Create setup session
@@ -342,6 +344,7 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/openapi.json", s.handleOpenAPISpec)               // OpenAPI 3.0 spec (JSON)
 	mux.HandleFunc("/api/docs", s.handleAPIDocsUI)                            // Swagger UI
 	mux.HandleFunc("/api/v1/mcp", s.handleMCPServers)                         // MCP servers: list + status
+	mux.HandleFunc("/api/v1/mcp/reconnect-all", s.handleMCPReconnectAll)     // MCP: reconnect all servers
 	mux.HandleFunc("/api/v1/mcp/", s.handleMCPServerAction)                   // MCP server actions: reconnect
 	mux.HandleFunc("/api/v1/metrics", s.handleMetrics)                        // Observability metrics
 	mux.HandleFunc("/api/v1/tools", s.handleToolsList)                        // Available tools list
@@ -485,7 +488,7 @@ func (s *Server) authMiddleware(next http.Handler) http.HandlerFunc {
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
-		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'strict-dynamic' 'unsafe-inline' https://cdn.jsdelivr.net blob:; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss: https://cdn.jsdelivr.net; worker-src 'self' blob:; upgrade-insecure-requests")
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net blob:; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss: https://cdn.jsdelivr.net; worker-src 'self' blob:; upgrade-insecure-requests")
 
 		if strings.HasPrefix(r.URL.Path, "/api/v1/auth/login") {
 			next.ServeHTTP(w, r)
@@ -1186,6 +1189,33 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 				wsMu.Lock()
 				_ = conn.WriteJSON(map[string]interface{}{"type": "stream_start"})
 				wsMu.Unlock()
+
+				// Add agent status callback to context
+				ctx = agent.ContextWithAgentStatusCallback(ctx, func(ev agent.AgentStatusEvent) error {
+					wsMu.Lock()
+					defer wsMu.Unlock()
+					return conn.WriteJSON(map[string]interface{}{
+						"type":            "agent_status",
+						"agent":           ev.Agent,
+						"status":          ev.Status,
+						"specialist_name": ev.SpecialistName,
+						"reason":          ev.Reason,
+						"timestamp":       ev.Timestamp.Format(time.RFC3339),
+					})
+				})
+
+				// Add content segment callback to context
+				ctx = agent.ContextWithContentSegmentCallback(ctx, func(segment agent.ContentSegment) error {
+					wsMu.Lock()
+					defer wsMu.Unlock()
+					return conn.WriteJSON(map[string]interface{}{
+						"type":       "content_segment",
+						"agent":      segment.Agent,
+						"content":    segment.Content,
+						"segment_id": segment.SegmentID,
+						"timestamp":  segment.Timestamp.Format(time.RFC3339),
+					})
+				})
 
 				response, err := activeAgentLoop.ProcessDirectWithUserAndModelStream(
 					ctx, userID, input, sessionID, req.Model,
@@ -3247,6 +3277,26 @@ func (s *Server) handleAgents(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleAgentAction handles GET/POST for individual agents
+// handleGetSpecialists returns the list of active specialists for real-time UI display
+func (s *Server) handleGetSpecialists(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	specialists := []map[string]interface{}{}
+	if s.agentManager != nil {
+		specialists = s.agentManager.GetSpecialistsList()
+	}
+
+	response := map[string]interface{}{
+		"specialists": specialists,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
 func (s *Server) handleAgentAction(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/api/v1/agents/")
 	parts := strings.Split(path, "/")
@@ -3991,14 +4041,66 @@ func (s *Server) handleAgentTest(w http.ResponseWriter, r *http.Request, special
 		return
 	}
 
-	response := map[string]interface{}{
-		"success":    true,
-		"specialist": specialistName,
-		"response":   fmt.Sprintf("Test message sent to %s. Response: Hello! I'm a %s specialist ready to help you.", specialistName, specialistName),
+	// Get the specialist from the registry
+	registry := s.agentManager.GetSpecialistRegistry()
+	specialist, err := registry.GetSpecialist(specialistName)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		writeJSONResponse(w, map[string]string{
+			"error": fmt.Sprintf("specialist '%s' not found: %v", specialistName, err),
+		})
+		return
 	}
 
-	logger.InfoCF("web", "Tested specialist", map[string]interface{}{
-		"name": specialistName,
+	logger.InfoCF("web", "Testing specialist", map[string]interface{}{
+		"name":    specialistName,
+		"message": req.Message,
+	})
+
+	// Create a context with timeout for the test
+	ctx, cancel := context.WithTimeout(r.Context(), 120*time.Second)
+	defer cancel()
+
+	// Track tools used during the test
+	toolsUsed := []string{}
+	var toolsMu sync.Mutex
+
+	// Process the message through the specialist
+	startTime := time.Now()
+	result, err := specialist.ProcessWithSpeciality(ctx, req.Message)
+	duration := time.Since(startTime)
+
+	if err != nil {
+		logger.WarnCF("web", "Specialist test failed", map[string]interface{}{
+			"name":     specialistName,
+			"error":    err.Error(),
+			"duration": duration.String(),
+		})
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		writeJSONResponse(w, map[string]string{
+			"error": fmt.Sprintf("specialist processing failed: %v", err),
+		})
+		return
+	}
+
+	// Get tools used (from specialist's allowed tools that were available)
+	toolsMu.Lock()
+	toolsUsed = specialist.GetAllowedTools()
+	toolsMu.Unlock()
+
+	response := map[string]interface{}{
+		"success":      true,
+		"specialist":   specialistName,
+		"response":     result,
+		"tools_used":   toolsUsed,
+		"duration_ms":  duration.Milliseconds(),
+	}
+
+	logger.InfoCF("web", "Specialist test completed", map[string]interface{}{
+		"name":     specialistName,
+		"duration": duration.String(),
 	})
 
 	w.Header().Set("Content-Type", "application/json")

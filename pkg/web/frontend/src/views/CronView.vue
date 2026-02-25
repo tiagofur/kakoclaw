@@ -49,6 +49,9 @@
                     class="px-2 py-0.5 text-xs rounded-full"
                     :class="job.enabled ? 'bg-blue-500/10 text-blue-400' : 'bg-gray-500/10 text-gray-400'"
                   >{{ job.enabled ? 'Active' : 'Disabled' }}</span>
+                  <span class="px-2 py-0.5 text-xs rounded-full bg-gray-500/10 text-gray-400">
+                    {{ getJobTypeDisplay(job.payload) }}
+                  </span>
                 </div>
                 <p class="text-sm text-makoclaw-text-secondary mt-1">{{ job.payload.message }}</p>
               </div>
@@ -219,12 +222,20 @@
             </ul>
           </div>
 
-          <!-- Deliver to channel -->
-          <div class="flex items-center gap-2">
-            <input v-model="form.deliver" type="checkbox" id="deliver" class="rounded" />
-            <label for="deliver" class="text-sm">Deliver result to channel</label>
+          <!-- Job Type -->
+          <div>
+            <label class="block text-sm font-medium mb-2">Job Type</label>
+            <select v-model="form.job_type"
+              class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent">
+              <option value="task">🤖 Task (Process through agent)</option>
+              <option value="reminder">🔔 Reminder (Direct message)</option>
+            </select>
+            <p class="mt-1.5 text-xs text-makoclaw-text-secondary">
+              <strong>Task:</strong> Agent processes the prompt and sends the result (e.g., "Check weather" → "Today: Sunny, 22°C")<br>
+              <strong>Reminder:</strong> Sends the message directly without processing (e.g., "Meeting in 10 min!")
+            </p>
           </div>
-          <div v-if="form.deliver" class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="block text-sm font-medium mb-1">Channel</label>
               <input v-model="form.channel" type="text" placeholder="telegram"
@@ -319,7 +330,7 @@ const defaultForm = () => ({
   oneTimeDateTime: '',
   cronExpr: '',
   timezone: '',
-  deliver: false,
+  job_type: 'task', // Default to agent processing
   channel: '',
   to: ''
 })
@@ -406,7 +417,7 @@ function buildPayload() {
   const payload = {
     name: f.name.trim(),
     message: f.message.trim(),
-    deliver: f.deliver,
+    job_type: f.job_type || 'task', // Default to task
     channel: f.channel,
     to: f.to,
     schedule: {}
@@ -435,7 +446,14 @@ function jobToForm(job) {
   const f = defaultForm()
   f.name = job.name
   f.message = job.payload.message
-  f.deliver = job.payload.deliver || false
+  // Migrate old format if needed
+  if (job.payload.job_type) {
+    f.job_type = job.payload.job_type
+  } else if (job.payload.deliver !== undefined) {
+    f.job_type = job.payload.deliver ? 'reminder' : 'task'
+  } else {
+    f.job_type = 'task' // Default
+  }
   f.channel = job.payload.channel || ''
   f.to = job.payload.to || ''
   f.timezone = job.schedule.tz || ''
@@ -570,6 +588,18 @@ function matchField(field, value, min, max) {
     }
   }
   return vals.has(value)
+}
+
+function getJobTypeDisplay(payload) {
+  // Migrate old format if needed
+  let jobType = payload.job_type
+  if (!jobType && payload.deliver !== undefined) {
+    jobType = payload.deliver ? 'reminder' : 'task'
+  }
+  if (!jobType) {
+    jobType = 'task' // Default
+  }
+  return jobType === 'reminder' ? '🔔 Reminder' : '🤖 Task'
 }
 
 // ---- Actions ----

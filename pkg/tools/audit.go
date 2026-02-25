@@ -207,7 +207,44 @@ func sanitizeArguments(args map[string]interface{}) map[string]interface{} {
 		}
 	}
 
+	// Special handling for configure tool: check if "path" indicates a sensitive field
+	// and redact "value" accordingly
+	if path, ok := args["path"].(string); ok {
+		if _, hasValue := args["value"]; hasValue {
+			if isSensitiveConfigPath(path) {
+				sanitized["value"] = "[REDACTED]"
+			}
+		}
+	}
+
 	return sanitized
+}
+
+// isSensitiveConfigPath checks if a config path points to a sensitive field.
+// Used by sanitizeArguments to redact values in configure tool audit logs.
+func isSensitiveConfigPath(path string) bool {
+	// Extract the last segment of the path (the field name)
+	parts := strings.Split(path, ".")
+	if len(parts) == 0 {
+		return false
+	}
+	fieldName := parts[len(parts)-1]
+
+	// List of sensitive field name patterns
+	sensitivePatterns := []string{
+		"api_key", "apikey", "token", "password", "secret",
+		"private_key", "encrypt_key", "bot_token", "app_token",
+		"app_secret", "client_secret", "access_token", "refresh_token",
+		"verification_token",
+	}
+
+	nameLower := strings.ToLower(fieldName)
+	for _, pattern := range sensitivePatterns {
+		if strings.Contains(nameLower, pattern) {
+			return true
+		}
+	}
+	return false
 }
 
 // RestrictedTools defines which tools should be audited (high-risk tools)
@@ -219,6 +256,7 @@ var RestrictedTools = map[string]bool{
 	"edit_file":   true,
 	"append_file": true,
 	"web_fetch":   true,
+	"configure":   true,
 }
 
 // IsRestrictedTool checks if a tool should be audited

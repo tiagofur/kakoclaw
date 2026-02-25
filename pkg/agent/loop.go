@@ -93,17 +93,19 @@ func (al *AgentLoop) ClearInvolvedAgents() {
 
 // processOptions configures how a message is processed
 type processOptions struct {
-	SessionKey      string         // Session identifier for history/context
-	Channel         string         // Target channel for tool execution
-	ChatID          string         // Target chat ID for tool execution
-	UserMessage     string         // User message content (may include prefix)
-	DefaultResponse string         // Response when LLM returns empty
-	EnableSummary   bool           // Whether to trigger summarization
-	SendResponse    bool           // Whether to send response via bus
-	ModelOverride   string         // If set, use this model instead of the default for LLM calls
-	ExcludeTools    []string       // Tool names to exclude from this request (e.g., "web_search")
-	OnToken         StreamCallback // Optional callback for text tokens
-	OnTool          ToolCallback   // Optional callback for tool call updates
+	SessionKey         string                 // Session identifier for history/context
+	Channel            string                 // Target channel for tool execution
+	ChatID             string                 // Target chat ID for tool execution
+	UserMessage        string                 // User message content (may include prefix)
+	DefaultResponse    string                 // Response when LLM returns empty
+	EnableSummary      bool                   // Whether to trigger summarization
+	SendResponse       bool                   // Whether to send response via bus
+	ModelOverride      string                 // If set, use this model instead of the default for LLM calls
+	ExcludeTools       []string               // Tool names to exclude from this request (e.g., "web_search")
+	OnToken            StreamCallback         // Optional callback for text tokens
+	OnTool             ToolCallback           // Optional callback for tool call updates
+	OnAgentStatus      AgentStatusCallback    // Optional callback for agent status updates
+	OnContentSegment   ContentSegmentCallback // Optional callback for content segments
 }
 
 // ToolEvent represents a tool call update during agent execution.
@@ -116,6 +118,29 @@ type ToolEvent struct {
 
 // ToolCallback is called when a tool is about to be executed or starts/finishes.
 type ToolCallback func(ev ToolEvent) error
+
+// AgentStatusEvent represents agent status changes during execution
+type AgentStatusEvent struct {
+	Agent          string    `json:"agent"`
+	Status         string    `json:"status"` // "analyzing", "delegating", "working", "complete"
+	SpecialistName string    `json:"specialist_name,omitempty"`
+	Reason         string    `json:"reason,omitempty"`
+	Timestamp      time.Time `json:"timestamp"`
+}
+
+// AgentStatusCallback is called when agent status changes
+type AgentStatusCallback func(ev AgentStatusEvent) error
+
+// ContentSegment represents a piece of content attributed to an agent
+type ContentSegment struct {
+	Agent     string    `json:"agent"`
+	Content   string    `json:"content"`
+	SegmentID string    `json:"segment_id"`
+	Timestamp time.Time `json:"timestamp"`
+}
+
+// ContentSegmentCallback is called when content is produced by an agent
+type ContentSegmentCallback func(segment ContentSegment) error
 
 // NewAgentLoopForUser creates an agent loop for a specific user with their merged configuration.
 // It loads the user's config and merges it with the global config, then initializes the agent loop.
@@ -251,6 +276,10 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 		}
 	}
 
+	// Register configure tool for runtime config management
+	configureTool := tools.NewConfigureTool()
+	toolsRegistry.Register(configureTool)
+
 	sessionsManager := session.NewSessionManager(filepath.Join(workspace, "sessions"))
 
 	// Create context builder and set tools registry
@@ -348,6 +377,7 @@ func (al *AgentLoop) SetUserForAgent(userUUID string, userID int64) {
 
 	al.contextBuilder.WithUser(userUUID, userID)
 	al.updateToolsUser(userID)
+	al.updateToolsUserConfig(userID, userUUID)
 }
 
 // updateToolsWorkspace updates workspace paths for tools that depend on a workspace directory.
@@ -370,6 +400,19 @@ func (al *AgentLoop) updateToolsUser(userID int64) {
 	al.tools.ForEach(func(t tools.Tool) {
 		if ut, ok := t.(tools.UserAwareTool); ok {
 			ut.SetUserID(userID)
+		}
+	})
+}
+
+// updateToolsUserConfig propagates user context (userID + userUUID) to UserConfigTool implementations.
+// This is separate from updateToolsUser because it requires the userUUID for config file access.
+func (al *AgentLoop) updateToolsUserConfig(userID int64, userUUID string) {
+	if al.tools == nil {
+		return
+	}
+	al.tools.ForEach(func(t tools.Tool) {
+		if uct, ok := t.(tools.UserConfigTool); ok {
+			uct.SetUserContext(userID, userUUID)
 		}
 	})
 }
@@ -711,6 +754,15 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, opts processOptions) (str
 		agentName = "main"
 	}
 	al.AddInvolvedAgent(agentName)
+
+	// Emit simple status if orchestrator not available (fallback)
+	if opts.OnAgentStatus != nil && (al.cfg == nil || !al.cfg.Agents.Orchestrator.Enabled) {
+		_ = opts.OnAgentStatus(AgentStatusEvent{
+			Agent:     "agent",
+			Status:    "working",
+			Timestamp: time.Now(),
+		})
+	}
 
 	agentStart := time.Now()
 

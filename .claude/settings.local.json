@@ -15,7 +15,15 @@
       "Bash(ss:*)",
       "Bash(python3:*)",
       "Bash(echo Exit: $?:*)",
-      "Bash(head:*)"
+      "Bash(head:*)",
+      "Bash(git log:*)",
+      "Bash(npm run:*)",
+      "Bash(npx eslint:*)",
+      "Bash(nc:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker-compose ps:*)",
+      "Bash(docker-compose logs:*)",
+      "Bash(git add:*)"
     ]
   },
   "enabledPlugins": {
