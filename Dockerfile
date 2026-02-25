@@ -13,7 +13,7 @@ WORKDIR /src/pkg/web/frontend
 COPY pkg/web/frontend/package*.json ./
 
 # Install dependencies
-RUN npm ci --omit=dev
+RUN npm ci
 
 # Copy frontend source
 COPY pkg/web/frontend/ ./
