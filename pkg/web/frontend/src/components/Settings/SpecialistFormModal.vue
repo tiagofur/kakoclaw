@@ -2,44 +2,44 @@
   <Teleport to="body">
     <Transition name="modal">
       <div v-if="show" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl" @click.self="close">
-        <div class="glass-panel border border-makoclaw-border/50 rounded-[2.5rem] shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col relative animate-zoom" @click.stop>
+        <div class="glass-panel border border-makoclaw-border/50 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col relative animate-zoom" @click.stop>
           <!-- Decorative Background -->
           <div class="absolute -top-24 -right-24 w-64 h-64 bg-makoclaw-accent/10 blur-[80px] rounded-full pointer-events-none group-hover:bg-makoclaw-accent/20 transition-all duration-1000"></div>
           
           <!-- Header -->
-          <div class="relative z-10 flex justify-between items-center p-8 pb-4">
+          <div class="relative z-10 flex justify-between items-center p-5 pb-3">
             <div>
-              <h3 class="text-2xl font-black text-makoclaw-text italic tracking-tight flex items-center gap-3">
-                <div :class="`p-2 rounded-xl bg-gradient-to-br ${mode === 'create' ? 'from-makoclaw-accent to-indigo-600' : 'from-blue-500 to-cyan-500'} shadow-lg shadow-makoclaw-accent/20 text-white` ">
-                  <IconPlus v-if="mode === 'create'" class="w-5 h-5" />
-                  <IconEdit v-else class="w-5 h-5" />
+              <h3 class="text-xl font-semibold text-makoclaw-text flex items-center gap-2">
+                <div :class="`p-1.5 rounded-lg bg-gradient-to-br ${mode === 'create' ? 'from-makoclaw-accent to-indigo-600' : 'from-blue-500 to-cyan-500'} shadow-md text-white` ">
+                  <IconPlus v-if="mode === 'create'" class="w-4 h-4" />
+                  <IconEdit v-else class="w-4 h-4" />
                 </div>
                 {{ mode === 'create' ? 'Assemble Specialist' : 'Refine Specialist' }}
               </h3>
-              <p class="text-[10px] font-black uppercase tracking-[0.2em] text-makoclaw-text-secondary/40 mt-1">
+              <p class="text-[10px] font-medium uppercase tracking-wide text-makoclaw-text-secondary/40 mt-1">
                 {{ mode === 'create' ? 'Synthesize new autonomous intelligence' : 'Update existing neural parameters' }}
               </p>
             </div>
-            <button @click="close" class="p-3 rounded-2xl bg-makoclaw-bg/60 border border-makoclaw-border/50 text-makoclaw-text-secondary hover:text-white transition-all hover:scale-110 active:scale-90">
-              <IconClose class="w-6 h-6" />
+            <button @click="close" class="p-2 rounded-xl bg-makoclaw-bg/60 border border-makoclaw-border/50 text-makoclaw-text-secondary hover:text-white transition-all hover:scale-105 active:scale-90">
+              <IconClose class="w-5 h-5" />
             </button>
           </div>
 
-          <div class="flex-1 overflow-y-auto p-8 pt-4 space-y-10 custom-scrollbar relative z-10 text-makoclaw-text">
+          <div class="flex-1 overflow-y-auto p-5 pt-3 space-y-6 custom-scrollbar relative z-10 text-makoclaw-text">
             <!-- AI Generation Layer -->
             <div v-if="mode === 'create'" class="relative group/ai">
-              <div class="absolute -inset-1 bg-gradient-to-r from-makoclaw-accent to-blue-600 rounded-[2rem] blur opacity-20 group-hover/ai:opacity-40 transition duration-1000"></div>
-              <div class="relative bg-makoclaw-surface/40 backdrop-blur-md border border-makoclaw-accent/20 rounded-[2rem] p-8 overflow-hidden">
-                <div class="flex flex-col sm:flex-row items-start gap-6">
-                  <div class="w-14 h-14 rounded-2xl bg-makoclaw-accent/20 flex items-center justify-center flex-shrink-0 animate-pulse border border-makoclaw-accent/30">
-                    <IconBrain class="w-7 h-7 text-makoclaw-accent" />
+              <div class="absolute -inset-1 bg-gradient-to-r from-makoclaw-accent to-blue-600 rounded-2xl blur opacity-20 group-hover/ai:opacity-40 transition duration-1000"></div>
+              <div class="relative bg-makoclaw-surface/40 backdrop-blur-md border border-makoclaw-accent/20 rounded-2xl p-5 overflow-hidden">
+                <div class="flex flex-col sm:flex-row items-start gap-4">
+                  <div class="w-10 h-10 rounded-xl bg-makoclaw-accent/20 flex items-center justify-center flex-shrink-0 animate-pulse border border-makoclaw-accent/30">
+                    <IconBrain class="w-5 h-5 text-makoclaw-accent" />
                   </div>
                   <div class="flex-1 w-full">
                     <div class="flex items-center gap-3 mb-2">
-                      <h4 class="text-xs font-black uppercase tracking-widest text-makoclaw-text">Neural Synthesis</h4>
-                      <span class="px-2 py-0.5 text-[8px] font-black uppercase bg-makoclaw-accent text-white rounded-lg shadow-[0_0_10px_rgba(var(--makoclaw-accent-rgb),0.5)]">AI-Ready</span>
+                      <h4 class="text-xs font-semibold uppercase tracking-wide text-makoclaw-text">AI Generate</h4>
+                      <span class="px-2 py-0.5 text-[8px] font-medium bg-makoclaw-accent text-white rounded-md">AI-Ready</span>
                     </div>
-                    <p class="text-xs font-medium text-makoclaw-text-secondary/70 mb-6">Input specialist requirements. The matrix will auto-configure tools and prompts.</p>
+                    <p class="text-xs font-medium text-makoclaw-text-secondary/70 mb-4">Input specialist requirements. The matrix will auto-configure tools and prompts.</p>
                     
                     <div class="space-y-4">
                       <div class="relative">
@@ -47,7 +47,7 @@
                           v-model="aiPrompt"
                           rows="3"
                           placeholder="Example: 'Create a security specialist for forensic analysis, focused on log patterns and vulnerability detection using shell and grep...'"
-                          class="w-full px-6 py-4 bg-makoclaw-bg/40 border-2 border-makoclaw-border/50 rounded-2xl text-sm font-medium focus:border-makoclaw-accent outline-none text-makoclaw-text placeholder:text-makoclaw-text-secondary/30 transition-all resize-none shadow-inner"
+                          class="w-full px-4 py-3 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl text-sm font-medium focus:border-makoclaw-accent outline-none text-makoclaw-text placeholder:text-makoclaw-text-secondary/30 transition-all resize-none"
                         ></textarea>
                         <div class="absolute bottom-4 right-4 text-[8px] font-black text-makoclaw-text-secondary/20 uppercase">Natural Language Interface</div>
                       </div>
@@ -55,7 +55,7 @@
                       <button
                         @click="generateWithAI"
                         :disabled="!aiPrompt.trim() || agentsStore.aiGenerating"
-                        class="w-full px-8 py-4 bg-gradient-to-r from-makoclaw-accent to-blue-600 hover:from-makoclaw-accent-hover hover:to-blue-700 text-white rounded-2xl font-black uppercase tracking-[0.2em] shadow-2xl shadow-makoclaw-accent/30 transition-all flex items-center justify-center gap-3 disabled:opacity-30 disabled:cursor-not-allowed group/btn"
+                        class="w-full px-5 py-2.5 bg-gradient-to-r from-makoclaw-accent to-blue-600 hover:from-makoclaw-accent-hover hover:to-blue-700 text-white rounded-xl font-semibold shadow-lg shadow-makoclaw-accent/20 transition-all flex items-center justify-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed group/btn"
                       >
                         <IconLoader v-if="agentsStore.aiGenerating" class="w-5 h-5 animate-spin" />
                         <IconSparkles v-else class="w-5 h-5 group-hover/btn:scale-125 transition-transform" />
@@ -69,28 +69,28 @@
 
             <div class="flex items-center gap-4 py-2">
               <div class="h-px bg-makoclaw-border/40 flex-1"></div>
-              <span class="text-[9px] font-black uppercase tracking-[0.4em] text-makoclaw-text-secondary/30 italic whitespace-nowrap">Neural Parameters</span>
+              <span class="text-[9px] font-medium tracking-wide text-makoclaw-text-secondary/30 whitespace-nowrap">Neural Parameters</span>
               <div class="h-px bg-makoclaw-border/40 flex-1"></div>
             </div>
 
             <!-- Manual Config -->
-            <div class="space-y-10">
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div class="space-y-6">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div class="space-y-2">
-                  <label class="text-[10px] font-black uppercase tracking-widest text-makoclaw-text-secondary/60 ml-2">Identity Signature *</label>
+                  <label class="text-[10px] font-medium uppercase tracking-wide text-makoclaw-text-secondary/60 ml-2">Identity Signature *</label>
                   <input
                     v-model="form.name"
                     type="text"
                     placeholder="e.g., protocol_alpha"
-                    class="w-full px-6 py-3.5 bg-makoclaw-bg/40 border-2 border-makoclaw-border/50 rounded-2xl text-sm font-bold text-makoclaw-text focus:border-makoclaw-accent outline-none transition-all placeholder:opacity-20"
+                    class="w-full bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl px-4 py-2.5 text-sm font-medium text-makoclaw-text focus:border-makoclaw-accent outline-none transition-all placeholder:opacity-20"
                   />
                 </div>
 
                 <div class="space-y-2">
-                  <label class="text-[10px] font-black uppercase tracking-widest text-makoclaw-text-secondary/60 ml-2">Provider Node</label>
+                  <label class="text-[10px] font-medium uppercase tracking-wide text-makoclaw-text-secondary/60 ml-2">Provider Node</label>
                   <select
                     v-model="form.provider"
-                    class="w-full px-6 py-3.5 bg-makoclaw-bg/40 border-2 border-makoclaw-border/50 rounded-2xl text-sm font-bold text-makoclaw-text focus:border-makoclaw-accent outline-none transition-all cursor-pointer"
+                    class="w-full bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl px-4 py-2.5 text-sm font-medium text-makoclaw-text focus:border-makoclaw-accent outline-none transition-all cursor-pointer"
                   >
                     <option v-for="p in providersList" :key="p.name" :value="p.name">{{ p.name.toUpperCase() }}</option>
                   </select>
@@ -98,10 +98,10 @@
               </div>
 
               <div class="space-y-2">
-                <label class="text-[10px] font-black uppercase tracking-widest text-makoclaw-text-secondary/60 ml-2">Intelligence Model</label>
+                <label class="text-[10px] font-medium uppercase tracking-wide text-makoclaw-text-secondary/60 ml-2">Intelligence Model</label>
                 <select
                   v-model="form.model"
-                  class="w-full px-6 py-3.5 bg-makoclaw-bg/40 border-2 border-makoclaw-border/50 rounded-2xl text-sm font-black text-makoclaw-accent focus:border-makoclaw-accent outline-none transition-all cursor-pointer"
+                  class="w-full bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl px-4 py-2.5 text-sm font-medium text-makoclaw-text focus:border-makoclaw-accent outline-none transition-all cursor-pointer"
                 >
                   <optgroup v-for="p in providersList" :key="p.name" :label="p.name.toUpperCase()" class="text-makoclaw-text-secondary">
                     <option v-for="m in p.models" :key="m.id" :value="m.id">{{ m.id }}</option>
@@ -110,17 +110,17 @@
               </div>
 
               <div class="space-y-2">
-                <label class="text-[10px] font-black uppercase tracking-widest text-makoclaw-text-secondary/60 ml-2">Function Description *</label>
+                <label class="text-[10px] font-medium uppercase tracking-wide text-makoclaw-text-secondary/60 ml-2">Function Description *</label>
                 <input
                   v-model="form.description"
                   type="text"
                   placeholder="Primary objective of this specialist agent..."
-                  class="w-full px-6 py-3.5 bg-makoclaw-bg/40 border-2 border-makoclaw-border/50 rounded-2xl text-sm font-medium text-makoclaw-text-secondary focus:border-makoclaw-accent outline-none transition-all"
+                  class="w-full bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl px-4 py-2.5 text-sm font-medium text-makoclaw-text focus:border-makoclaw-accent outline-none transition-all"
                 />
               </div>
 
               <div class="space-y-4">
-                <label class="text-[10px] font-black uppercase tracking-widest text-makoclaw-text-secondary/60 ml-2 flex items-center gap-2">
+                <label class="text-[10px] font-medium uppercase tracking-wide text-makoclaw-text-secondary/60 ml-2 flex items-center gap-2">
                   <IconTerminal class="w-3.5 h-3.5" /> Static Directives (System Prompt)
                 </label>
                 <div class="relative group">
@@ -128,32 +128,32 @@
                     v-model="form.prompt"
                     rows="5"
                     placeholder="Provide specific personality benchmarks and behavioral directives..."
-                    class="w-full px-8 py-6 bg-makoclaw-bg selection:bg-makoclaw-accent selection:text-white border-2 border-makoclaw-border/40 rounded-[2rem] text-xs font-black font-mono text-makoclaw-text-secondary leading-relaxed focus:border-makoclaw-accent/60 outline-none transition-all resize-none shadow-xl"
+                    class="w-full px-8 py-6 bg-makoclaw-bg selection:bg-makoclaw-accent selection:text-white border-2 border-makoclaw-border/40 rounded-2xl text-xs font-black font-mono text-makoclaw-text-secondary leading-relaxed focus:border-makoclaw-accent/60 outline-none transition-all resize-none shadow-xl"
                   ></textarea>
-                  <div class="absolute bottom-5 right-5 text-[8px] font-black uppercase tracking-[0.2em] text-makoclaw-text-secondary/10 pointer-events-none italic">Core Instructions</div>
+                  <div class="absolute bottom-4 right-4 text-[8px] font-medium text-makoclaw-text-secondary/10 pointer-events-none">Core Instructions</div>
                 </div>
               </div>
 
               <!-- Params Matrix -->
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
                 <div class="space-y-2">
-                  <label class="text-[9px] font-black uppercase tracking-widest text-makoclaw-text-secondary/60 ml-1">Token Ceiling</label>
+                  <label class="text-[9px] font-medium uppercase tracking-wide text-makoclaw-text-secondary/60 ml-1">Token Ceiling</label>
                   <input v-model.number="form.max_tokens" type="number" class="w-full px-5 py-3 bg-makoclaw-bg/40 border-2 border-makoclaw-border/50 rounded-xl text-xs font-bold text-center text-makoclaw-text outline-none focus:border-makoclaw-accent" />
                 </div>
                 <div class="space-y-2">
-                  <label class="text-[9px] font-black uppercase tracking-widest text-makoclaw-text-secondary/60 ml-1">Fluidity (Temp)</label>
+                  <label class="text-[9px] font-medium uppercase tracking-wide text-makoclaw-text-secondary/60 ml-1">Fluidity (Temp)</label>
                   <input v-model.number="form.temperature" type="number" step="0.1" min="0" max="2" class="w-full px-5 py-3 bg-makoclaw-bg/40 border-2 border-makoclaw-border/50 rounded-xl text-xs font-bold text-center text-makoclaw-text outline-none focus:border-makoclaw-accent" />
                 </div>
                 <div class="space-y-2">
-                  <label class="text-[9px] font-black uppercase tracking-widest text-makoclaw-text-secondary/60 ml-1">Recurse Limit</label>
+                  <label class="text-[9px] font-medium uppercase tracking-wide text-makoclaw-text-secondary/60 ml-1">Recurse Limit</label>
                   <input v-model.number="form.max_tool_iterations" type="number" class="w-full px-5 py-3 bg-makoclaw-bg/40 border-2 border-makoclaw-border/50 rounded-xl text-xs font-bold text-center text-makoclaw-text outline-none focus:border-makoclaw-accent" />
                 </div>
               </div>
 
               <!-- Tools Matrix -->
               <div class="space-y-6">
-                <label class="text-[10px] font-black uppercase tracking-widest text-makoclaw-text-secondary/60 ml-2">Accessible Neural Sockets (Tools)</label>
-                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 p-6 bg-makoclaw-bg/30 rounded-[2rem] border border-makoclaw-border/50 shadow-inner">
+                <label class="text-[10px] font-medium uppercase tracking-wide text-makoclaw-text-secondary/60 ml-2">Accessible Neural Sockets (Tools)</label>
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 p-6 bg-makoclaw-bg/30 rounded-2xl border border-makoclaw-border/50 shadow-inner">
                   <label
                     v-for="tool in availableTools"
                     :key="tool"
@@ -172,13 +172,13 @@
               </div>
 
               <div class="space-y-2">
-                <label class="text-[10px] font-black uppercase tracking-widest text-makoclaw-text-secondary/60 ml-2 italic">Matching Patterns (Keywords)</label>
+                <label class="text-[10px] font-medium uppercase tracking-wide text-makoclaw-text-secondary/60 ml-2 italic">Matching Patterns (Keywords)</label>
                 <div class="relative">
                   <input
                     v-model="keywordsInput"
                     type="text"
                     placeholder="forensics, logs, security, linux..."
-                    class="w-full px-6 py-4 bg-makoclaw-bg/40 border-2 border-makoclaw-border/50 rounded-2xl text-sm font-bold text-makoclaw-accent focus:border-makoclaw-accent outline-none placeholder:opacity-10"
+                    class="w-full bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl px-4 py-2.5 text-sm font-medium text-makoclaw-text focus:border-makoclaw-accent outline-none placeholder:opacity-10"
                   />
                   <div class="absolute right-6 top-1/2 -translate-y-1/2 text-[8px] font-black text-makoclaw-text-secondary/20 uppercase">Comma separated</div>
                 </div>
@@ -190,7 +190,7 @@
           <div class="relative z-10 flex flex-col sm:flex-row justify-between items-center gap-4 p-8 border-t border-makoclaw-border/30 bg-makoclaw-bg/20 backdrop-blur-md">
             <button
               @click="close"
-              class="w-full sm:w-auto px-10 py-4 text-xs font-black uppercase tracking-[0.2em] text-makoclaw-text-secondary/60 hover:text-white transition-all order-2 sm:order-1"
+              class="w-full sm:w-auto px-5 py-2.5 text-xs font-medium text-makoclaw-text-secondary/60 hover:text-white transition-all order-2 sm:order-1"
             >
               Abort Mission
             </button>
@@ -200,7 +200,7 @@
                 v-if="mode === 'edit' && specialist"
                 @click="testSpecialist"
                 :disabled="agentsStore.loading"
-                class="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-blue-500/20 transition-all flex items-center justify-center gap-2 group/test active:scale-95 disabled:opacity-30"
+                class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-2 group/test active:scale-95 disabled:opacity-30"
               >
                 <IconLoader v-if="agentsStore.loading" class="w-4 h-4 animate-spin" />
                 <IconPlay v-else class="w-4 h-4 group-hover/test:scale-125 transition-transform" />
@@ -210,7 +210,7 @@
               <button
                 @click="save"
                 :disabled="!isFormValid || saving"
-                class="px-10 py-4 bg-makoclaw-accent hover:bg-makoclaw-accent-hover text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-makoclaw-accent/30 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-30 group/save"
+                class="px-5 py-2.5 bg-makoclaw-accent hover:bg-makoclaw-accent-hover text-white rounded-xl font-semibold shadow-lg shadow-makoclaw-accent/20 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-30 group/save"
               >
                 <IconLoader v-if="saving" class="w-4 h-4 animate-spin" />
                 <IconCheck v-else class="w-4 h-4 group-hover/save:scale-110 transition-transform" />
@@ -230,7 +230,7 @@
                     <IconActivity class="w-6 h-6 text-blue-400" />
                     Neural Diagnostic Output
                   </h3>
-                  <p class="text-[9px] font-black uppercase tracking-[0.3em] text-blue-400/50 mt-1 italic">Real-time response verification</p>
+                  <p class="text-[9px] font-medium tracking-wide text-blue-400/50 mt-1">Real-time response verification</p>
                 </div>
                 <button @click="showTestResultModal = false" class="p-3 rounded-2xl bg-white/5 border border-white/10 text-white/40 hover:text-white transition-all">
                   <IconClose class="w-6 h-6" />
@@ -238,14 +238,14 @@
               </div>
               <div class="flex-1 overflow-y-auto p-10 pt-4 custom-scrollbar">
                 <div class="relative group">
-                  <div class="absolute -inset-1 bg-blue-500/20 rounded-[2rem] blur group-hover:bg-blue-500/30 transition duration-1000"></div>
-                  <div class="relative bg-black/40 border-2 border-white/10 rounded-[2rem] p-8">
+                  <div class="absolute -inset-1 bg-blue-500/20 rounded-2xl blur group-hover:bg-blue-500/30 transition duration-1000"></div>
+                  <div class="relative bg-black/40 border-2 border-white/10 rounded-2xl p-8">
                      <pre class="text-sm font-black font-mono text-blue-100/90 leading-relaxed whitespace-pre-wrap selection:bg-blue-600 selection:text-white">{{ testResult }}</pre>
                   </div>
                 </div>
               </div>
               <div class="p-10 pt-4 bg-white/5 border-t border-white/10">
-                <button @click="showTestResultModal = false" class="w-full px-8 py-5 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-2xl font-black uppercase tracking-[0.3em] shadow-2xl transition-all active:scale-95">
+                <button @click="showTestResultModal = false" class="w-full px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl font-semibold shadow-lg transition-all active:scale-95">
                   Acknowledge Report
                 </button>
               </div>
