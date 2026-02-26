@@ -29,6 +29,9 @@ type CronPayload struct {
 	// JobType determines execution mode: "task" (process through agent) or "reminder" (direct message)
 	JobType string `json:"job_type"` // "task" (default) or "reminder"
 
+	// Agent specifies which subagent handles the task
+	Agent string `json:"agent,omitempty"`
+
 	// DEPRECATED: Keep for backward compatibility, will be removed in future version
 	Deliver bool `json:"deliver,omitempty"`
 
@@ -417,7 +420,7 @@ func (cs *CronService) ValidateSchedule(schedule *CronSchedule) error {
 	return nil
 }
 
-func (cs *CronService) AddJob(userID int64, name string, schedule CronSchedule, message string, jobType string, channel, to string) (*CronJob, error) {
+func (cs *CronService) AddJob(userID int64, name string, schedule CronSchedule, message string, jobType string, channel, to string, agent string) (*CronJob, error) {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
@@ -454,6 +457,7 @@ func (cs *CronService) AddJob(userID int64, name string, schedule CronSchedule, 
 			Kind:    "agent_turn",
 			Message: message,
 			JobType: jobType,
+			Agent:   agent,
 			Channel: channel,
 			To:      to,
 		},
@@ -475,7 +479,7 @@ func (cs *CronService) AddJob(userID int64, name string, schedule CronSchedule, 
 
 // UpdateJob updates an existing job's name, schedule, and payload fields.
 // Returns the updated job, or nil if not found.
-func (cs *CronService) UpdateJob(jobID string, name string, schedule CronSchedule, message string, jobType string, channel, to string) (*CronJob, error) {
+func (cs *CronService) UpdateJob(jobID string, name string, schedule CronSchedule, message string, jobType string, channel, to string, agent string) (*CronJob, error) {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
@@ -500,6 +504,7 @@ func (cs *CronService) UpdateJob(jobID string, name string, schedule CronSchedul
 			cs.store.Jobs[i].Schedule = schedule
 			cs.store.Jobs[i].Payload.Message = message
 			cs.store.Jobs[i].Payload.JobType = jobType
+			cs.store.Jobs[i].Payload.Agent = agent
 			cs.store.Jobs[i].Payload.Channel = channel
 			cs.store.Jobs[i].Payload.To = to
 			cs.store.Jobs[i].UpdatedAtMS = now
@@ -523,7 +528,7 @@ func (cs *CronService) UpdateJob(jobID string, name string, schedule CronSchedul
 }
 
 // UpdateJobForUser updates a job only if it belongs to the specified user
-func (cs *CronService) UpdateJobForUser(userID int64, jobID string, name string, schedule CronSchedule, message string, jobType string, channel, to string) (*CronJob, error) {
+func (cs *CronService) UpdateJobForUser(userID int64, jobID string, name string, schedule CronSchedule, message string, jobType string, channel, to string, agent string) (*CronJob, error) {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
@@ -553,6 +558,7 @@ func (cs *CronService) UpdateJobForUser(userID int64, jobID string, name string,
 			cs.store.Jobs[i].Schedule = schedule
 			cs.store.Jobs[i].Payload.Message = message
 			cs.store.Jobs[i].Payload.JobType = jobType
+			cs.store.Jobs[i].Payload.Agent = agent
 			cs.store.Jobs[i].Payload.Channel = channel
 			cs.store.Jobs[i].Payload.To = to
 			cs.store.Jobs[i].UpdatedAtMS = now

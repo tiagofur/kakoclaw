@@ -99,21 +99,37 @@ func (m *MultiUserChannelManager) getOrCreateManagerForUserLocked(userUUID strin
 		return mgr, nil
 	}
 
-	// Create agent loop for user
-	agentLoop, err := agent.NewAgentLoopForUser(userUUID, m.globalCfg, m.bus, m.centralStore)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create agent loop for user: %w", err)
-	}
-
 	workspace, err := config.EnsureUserWorkspace(userUUID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to ensure user workspace: %w", err)
 	}
 
+	// Create base agent loop for user
+	userStorePath := filepath.Join(workspace, "data.db")
+	userStore, err := storage.New(config.StorageConfig{Path: userStorePath})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create user storage: %w", err)
+	}
+
+	baseAgentLoop, err := agent.NewAgentLoopForUser(userUUID, m.globalCfg, m.bus, m.centralStore, userStore)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create agent loop for user: %w", err)
+	}
+
+	// Wrap in an AgentManager to get Orchestrator support if enabled
+	agentMgr := agent.NewAgentManager(baseAgentLoop)
+	if err := agentMgr.InitializeOrchestrator(m.globalCfg, m.bus, userStore); err != nil {
+		logger.ErrorCF("multiuser", "Failed to initialize orchestrator for user channel", map[string]interface{}{
+			"user_uuid": userUUID,
+			"error":     err.Error(),
+		})
+	}
+	activeAgentLoop := agentMgr.GetActiveAgent()
+
 	cronStorePath := filepath.Join(workspace, "cron", "jobs.json")
 	cronService := cron.NewCronService(cronStorePath, nil)
-	cronTool := tools.NewCronTool(cronService, agentLoop, m.bus)
-	agentLoop.RegisterTool(cronTool)
+	cronTool := tools.NewCronTool(cronService, activeAgentLoop, m.bus)
+	activeAgentLoop.RegisterTool(cronTool)
 	cronService.SetOnJob(func(job *cron.CronJob) (string, error) {
 		result := cronTool.ExecuteJob(m.ctx, job)
 		return result, nil
@@ -140,7 +156,7 @@ func (m *MultiUserChannelManager) getOrCreateManagerForUserLocked(userUUID strin
 
 	// Store references
 	m.managers[userUUID] = channelManager
-	m.agents[userUUID] = agentLoop
+	m.agents[userUUID] = activeAgentLoop
 	m.cronTools[userUUID] = cronTool
 	m.cronJobs[userUUID] = cronService
 

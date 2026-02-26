@@ -116,7 +116,10 @@
                   }"
                 ></span>
                 <div class="flex-1 min-w-0">
-                  <div class="text-sm font-medium truncate">{{ task.title }}</div>
+                  <div class="flex items-center gap-2">
+                    <div class="text-sm font-medium truncate">{{ task.title }}</div>
+                    <SpecialistBadge v-if="task.agent" :name="task.agent" class="scale-90" />
+                  </div>
                   <div class="text-xs text-makoclaw-text-secondary capitalize">{{ task.status.replace('_', ' ') }}</div>
                 </div>
                 <div class="text-xs text-makoclaw-text-secondary flex-shrink-0">
@@ -202,6 +205,7 @@ import { useAuthStore } from '../stores/authStore'
 import taskService from '../services/taskService'
 import advancedService from '../services/advancedService'
 import { useToast } from '../composables/useToast'
+import SpecialistBadge from '../components/Chat/SpecialistBadge.vue'
 import { Doughnut, Bar } from 'vue-chartjs'
 import { Chart as ChartJS, Title, Tooltip, Legend, ArcElement, CategoryScale, LinearScale, BarElement } from 'chart.js'
 

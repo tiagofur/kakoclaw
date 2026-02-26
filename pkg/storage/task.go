@@ -13,15 +13,16 @@ type Task struct {
 	Status      string    `json:"status"`
 	Result      string    `json:"result"`
 	Archived    bool      `json:"archived"`
+	Agent       string    `json:"agent"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-func (s *Storage) CreateTask(title, description, status string) (int64, error) {
-	return s.CreateTaskForUser(0, title, description, status)
+func (s *Storage) CreateTask(title, description, status, agent string) (int64, error) {
+	return s.CreateTaskForUser(nil, title, description, status, agent)
 }
 
-func (s *Storage) CreateTaskForUser(userKey interface{}, title, description, status string) (int64, error) {
+func (s *Storage) CreateTaskForUser(userKey interface{}, title, description, status, agent string) (int64, error) {
 	if status == "" {
 		status = "todo"
 	}
@@ -29,12 +30,12 @@ func (s *Storage) CreateTaskForUser(userKey interface{}, title, description, sta
 	var args []interface{}
 
 	if s.isUserDB {
-		query = `INSERT INTO tasks (title, description, status) VALUES (?, ?, ?)`
-		args = []interface{}{title, description, status}
+		query = `INSERT INTO tasks (title, description, status, agent) VALUES (?, ?, ?, ?)`
+		args = []interface{}{title, description, status, agent}
 	} else {
 		uid := normalizeUserKey(userKey)
-		query = `INSERT INTO tasks (user_id, title, description, status) VALUES (?, ?, ?, ?)`
-		args = []interface{}{uid, title, description, status}
+		query = `INSERT INTO tasks (user_id, title, description, status, agent) VALUES (?, ?, ?, ?, ?)`
+		args = []interface{}{uid, title, description, status, agent}
 	}
 
 	result, err := s.db.Exec(query, args...)
@@ -49,7 +50,7 @@ func (s *Storage) CreateTaskForUser(userKey interface{}, title, description, sta
 }
 
 func (s *Storage) GetTask(id int64) (*Task, error) {
-	return s.GetTaskForUser(0, id)
+	return s.GetTaskForUser(nil, id)
 }
 
 func (s *Storage) GetTaskForUser(userKey interface{}, id int64) (*Task, error) {
@@ -57,16 +58,16 @@ func (s *Storage) GetTaskForUser(userKey interface{}, id int64) (*Task, error) {
 	var args []interface{}
 
 	if s.isUserDB {
-		query = `SELECT id, 0 as user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, created_at, updated_at FROM tasks WHERE id = ?`
+		query = `SELECT id, 0 as user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, agent, created_at, updated_at FROM tasks WHERE id = ?`
 		args = []interface{}{id}
 	} else {
 		uid := normalizeUserKey(userKey)
-		query = `SELECT id, user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, created_at, updated_at FROM tasks WHERE id = ? AND user_id = ?`
+		query = `SELECT id, user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, agent, created_at, updated_at FROM tasks WHERE id = ? AND user_id = ?`
 		args = []interface{}{id, uid}
 	}
 
 	var t Task
-	err := s.db.QueryRow(query, args...).Scan(&t.ID, &t.UserID, &t.Title, &t.Description, &t.Status, &t.Result, &t.Archived, &t.CreatedAt, &t.UpdatedAt)
+	err := s.db.QueryRow(query, args...).Scan(&t.ID, &t.UserID, &t.Title, &t.Description, &t.Status, &t.Result, &t.Archived, &t.Agent, &t.CreatedAt, &t.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("getting task: %w", err)
 	}
@@ -74,7 +75,7 @@ func (s *Storage) GetTaskForUser(userKey interface{}, id int64) (*Task, error) {
 }
 
 func (s *Storage) UpdateTask(id int64, title, description, status, result string) (*Task, error) {
-	return s.UpdateTaskForUser(0, id, title, description, status, result)
+	return s.UpdateTaskForUser(nil, id, title, description, status, result)
 }
 
 func (s *Storage) UpdateTaskForUser(userKey interface{}, id int64, title, description, status, result string) (*Task, error) {
@@ -97,8 +98,28 @@ func (s *Storage) UpdateTaskForUser(userKey interface{}, id int64, title, descri
 	return s.GetTaskForUser(userKey, id)
 }
 
+func (s *Storage) RenameTaskAgentForUser(userKey interface{}, oldAgent, newAgent string) error {
+	var query string
+	var args []interface{}
+
+	if s.isUserDB {
+		query = `UPDATE tasks SET agent = ?, updated_at = CURRENT_TIMESTAMP WHERE agent = ?`
+		args = []interface{}{newAgent, oldAgent}
+	} else {
+		uid := normalizeUserKey(userKey)
+		query = `UPDATE tasks SET agent = ?, updated_at = CURRENT_TIMESTAMP WHERE agent = ? AND user_id = ?`
+		args = []interface{}{newAgent, oldAgent, uid}
+	}
+
+	_, err := s.db.Exec(query, args...)
+	if err != nil {
+		return fmt.Errorf("renaming task agent: %w", err)
+	}
+	return nil
+}
+
 func (s *Storage) UpdateTaskStatus(id int64, status string) (*Task, error) {
-	return s.UpdateTaskStatusForUser(0, id, status)
+	return s.UpdateTaskStatusForUser(nil, id, status)
 }
 
 func (s *Storage) UpdateTaskStatusForUser(userKey interface{}, id int64, status string) (*Task, error) {
@@ -122,7 +143,7 @@ func (s *Storage) UpdateTaskStatusForUser(userKey interface{}, id int64, status 
 }
 
 func (s *Storage) ArchiveTask(id int64) error {
-	return s.ArchiveTaskForUser(0, id)
+	return s.ArchiveTaskForUser(nil, id)
 }
 
 func (s *Storage) ArchiveTaskForUser(userKey interface{}, id int64) error {
@@ -146,7 +167,7 @@ func (s *Storage) ArchiveTaskForUser(userKey interface{}, id int64) error {
 }
 
 func (s *Storage) UnarchiveTask(id int64) error {
-	return s.UnarchiveTaskForUser(0, id)
+	return s.UnarchiveTaskForUser(nil, id)
 }
 
 func (s *Storage) UnarchiveTaskForUser(userKey interface{}, id int64) error {
@@ -170,7 +191,7 @@ func (s *Storage) UnarchiveTaskForUser(userKey interface{}, id int64) error {
 }
 
 func (s *Storage) DeleteTask(id int64) error {
-	return s.DeleteTaskForUser(0, id)
+	return s.DeleteTaskForUser(nil, id)
 }
 
 func (s *Storage) DeleteTaskForUser(userKey interface{}, id int64) error {
@@ -202,20 +223,36 @@ func (s *Storage) DeleteTaskForUser(userKey interface{}, id int64) error {
 }
 
 func (s *Storage) ListTasks(includeArchived bool) ([]Task, error) {
-	return s.ListTasksForUser(0, includeArchived)
+	return s.ListTasksForUser(nil, includeArchived)
 }
 
 func (s *Storage) ListTasksForUser(userKey interface{}, includeArchived bool) ([]Task, error) {
 	var query string
 	var args []interface{}
 
-	if s.isUserDB {
-		query = `SELECT id, 0 as user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, created_at, updated_at FROM tasks WHERE (archived = ? OR ?) ORDER BY created_at DESC`
-		args = []interface{}{false, includeArchived}
+	if userKey == nil {
+		if includeArchived {
+			query = `SELECT id, 0 as user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, agent, created_at, updated_at FROM tasks WHERE archived = 0 OR 1=1 ORDER BY created_at DESC`
+		} else {
+			query = `SELECT id, 0 as user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, agent, created_at, updated_at FROM tasks WHERE archived = 0 ORDER BY created_at DESC`
+		}
+	} else if userID, ok := userKey.(int64); ok {
+		if includeArchived {
+			query = `SELECT id, user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, agent, created_at, updated_at FROM tasks WHERE user_id = ? ORDER BY created_at DESC`
+		} else {
+			query = `SELECT id, user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, agent, created_at, updated_at FROM tasks WHERE user_id = ? AND archived = 0 ORDER BY created_at DESC`
+		}
+		args = []interface{}{userID}
 	} else {
-		uid := normalizeUserKey(userKey)
-		query = `SELECT id, user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, created_at, updated_at FROM tasks WHERE user_id = ? AND (archived = ? OR ?) ORDER BY created_at DESC`
-		args = []interface{}{uid, false, includeArchived}
+		// Fallback to original logic if userKey is not nil or int64, e.g., for s.isUserDB
+		if s.isUserDB {
+			query = `SELECT id, 0 as user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, agent, created_at, updated_at FROM tasks WHERE (archived = ? OR ?) ORDER BY created_at DESC`
+			args = []interface{}{false, includeArchived}
+		} else {
+			uid := normalizeUserKey(userKey)
+			query = `SELECT id, user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, agent, created_at, updated_at FROM tasks WHERE user_id = ? AND (archived = ? OR ?) ORDER BY created_at DESC`
+			args = []interface{}{uid, false, includeArchived}
+		}
 	}
 
 	rows, err := s.db.Query(query, args...)
@@ -227,7 +264,7 @@ func (s *Storage) ListTasksForUser(userKey interface{}, includeArchived bool) ([
 	var tasks []Task
 	for rows.Next() {
 		var t Task
-		if err := rows.Scan(&t.ID, &t.UserID, &t.Title, &t.Description, &t.Status, &t.Result, &t.Archived, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		if err := rows.Scan(&t.ID, &t.UserID, &t.Title, &t.Description, &t.Status, &t.Result, &t.Archived, &t.Agent, &t.CreatedAt, &t.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scanning task: %w", err)
 		}
 		tasks = append(tasks, t)
@@ -236,7 +273,7 @@ func (s *Storage) ListTasksForUser(userKey interface{}, includeArchived bool) ([
 }
 
 func (s *Storage) SearchTasks(query string) ([]Task, error) {
-	return s.SearchTasksForUser(0, query)
+	return s.SearchTasksForUser(nil, query)
 }
 
 func (s *Storage) SearchTasksForUser(userKey interface{}, query string) ([]Task, error) {
@@ -245,11 +282,11 @@ func (s *Storage) SearchTasksForUser(userKey interface{}, query string) ([]Task,
 	searchTerm := "%" + escapeLikeQuery(query) + "%"
 
 	if s.isUserDB {
-		sqlQuery = `SELECT id, 0 as user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, created_at, updated_at FROM tasks WHERE (title LIKE ? ESCAPE '\' OR description LIKE ? ESCAPE '\') AND archived = 0 ORDER BY created_at DESC`
+		sqlQuery = `SELECT id, 0 as user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, agent, created_at, updated_at FROM tasks WHERE (title LIKE ? ESCAPE '\' OR description LIKE ? ESCAPE '\') AND archived = 0 ORDER BY created_at DESC`
 		args = []interface{}{searchTerm, searchTerm}
 	} else {
 		uid := normalizeUserKey(userKey)
-		sqlQuery = `SELECT id, user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, created_at, updated_at FROM tasks WHERE user_id = ? AND (title LIKE ? ESCAPE '\' OR description LIKE ? ESCAPE '\') AND archived = 0 ORDER BY created_at DESC`
+		sqlQuery = `SELECT id, user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, agent, created_at, updated_at FROM tasks WHERE user_id = ? AND (title LIKE ? ESCAPE '\' OR description LIKE ? ESCAPE '\') AND archived = 0 ORDER BY created_at DESC`
 		args = []interface{}{uid, searchTerm, searchTerm}
 	}
 
@@ -262,7 +299,7 @@ func (s *Storage) SearchTasksForUser(userKey interface{}, query string) ([]Task,
 	var tasks []Task
 	for rows.Next() {
 		var t Task
-		if err := rows.Scan(&t.ID, &t.UserID, &t.Title, &t.Description, &t.Status, &t.Result, &t.Archived, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		if err := rows.Scan(&t.ID, &t.UserID, &t.Title, &t.Description, &t.Status, &t.Result, &t.Archived, &t.Agent, &t.CreatedAt, &t.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scanning task: %w", err)
 		}
 		tasks = append(tasks, t)
@@ -272,17 +309,23 @@ func (s *Storage) SearchTasksForUser(userKey interface{}, query string) ([]Task,
 
 // ListAllUsersTasks returns tasks for all users (for background worker).
 func (s *Storage) ListAllUsersTasks(includeArchived bool) ([]Task, error) {
-	query := `SELECT id, user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, created_at, updated_at FROM tasks WHERE (archived = ? OR ?) ORDER BY created_at DESC`
-	rows, err := s.db.Query(query, false, includeArchived)
+	var query string
+	if includeArchived {
+		query = `SELECT id, user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, agent, created_at, updated_at FROM tasks ORDER BY created_at DESC`
+	} else {
+		query = `SELECT id, user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, agent, created_at, updated_at FROM tasks WHERE archived = 0 ORDER BY created_at DESC`
+	}
+
+	rows, err := s.db.Query(query)
 	if err != nil {
-		return nil, fmt.Errorf("listing all tasks: %w", err)
+		return nil, fmt.Errorf("querying tasks: %w", err)
 	}
 	defer rows.Close()
 
 	var tasks []Task
 	for rows.Next() {
 		var t Task
-		if err := rows.Scan(&t.ID, &t.UserID, &t.Title, &t.Description, &t.Status, &t.Result, &t.Archived, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		if err := rows.Scan(&t.ID, &t.UserID, &t.Title, &t.Description, &t.Status, &t.Result, &t.Archived, &t.Agent, &t.CreatedAt, &t.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scanning task: %w", err)
 		}
 		tasks = append(tasks, t)

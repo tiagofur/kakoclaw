@@ -5,7 +5,13 @@
       <div class="flex items-center justify-between p-4 border-b border-makoclaw-border">
         <div>
           <h3 class="text-lg font-semibold">{{ task.title }}</h3>
-          <p class="text-xs text-makoclaw-text-secondary">ID: {{ task.id }}</p>
+          <div class="flex items-center gap-3 mt-1">
+            <p class="text-xs text-makoclaw-text-secondary">ID: {{ task.id }}</p>
+            <div v-if="task.agent" class="flex items-center gap-1.5 border-l border-makoclaw-border pl-3">
+              <span class="text-xs text-makoclaw-text-secondary">Agent:</span>
+              <SpecialistBadge :name="task.agent" class="scale-90 origin-left" />
+            </div>
+          </div>
         </div>
         <button
           @click="$emit('close')"
@@ -155,6 +161,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import taskService from '../../services/taskService'
+import SpecialistBadge from '../Chat/SpecialistBadge.vue'
 
 const props = defineProps({
   task: { type: Object, required: true }

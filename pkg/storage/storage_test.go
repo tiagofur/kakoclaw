@@ -308,7 +308,7 @@ func TestImportMessages(t *testing.T) {
 
 func TestTaskCreateAndGet(t *testing.T) {
 	s := newTestStorage(t)
-	id, err := s.CreateTask("my task", "description", "todo")
+	id, err := s.CreateTask("my task", "description", "todo", "")
 	if err != nil {
 		t.Fatalf("CreateTask: %v", err)
 	}
@@ -324,7 +324,7 @@ func TestTaskCreateAndGet(t *testing.T) {
 
 func TestTaskUpdateAndStatusChange(t *testing.T) {
 	s := newTestStorage(t)
-	id, _ := s.CreateTask("update me", "", "backlog")
+	id, _ := s.CreateTask("update me", "", "backlog", "")
 
 	updated, err := s.UpdateTask(id, "updated title", "new desc", "in_progress", "partial")
 	if err != nil {
@@ -345,8 +345,8 @@ func TestTaskUpdateAndStatusChange(t *testing.T) {
 
 func TestTaskArchiveAndList(t *testing.T) {
 	s := newTestStorage(t)
-	id1, _ := s.CreateTask("active task", "", "todo")
-	id2, _ := s.CreateTask("to archive", "", "todo")
+	id1, _ := s.CreateTask("active task", "", "todo", "")
+	id2, _ := s.CreateTask("to archive", "", "todo", "")
 	_ = s.ArchiveTask(id2)
 
 	// Without archived
@@ -371,7 +371,7 @@ func TestTaskArchiveAndList(t *testing.T) {
 
 func TestTaskDelete(t *testing.T) {
 	s := newTestStorage(t)
-	id, _ := s.CreateTask("delete me", "", "todo")
+	id, _ := s.CreateTask("delete me", "", "todo", "")
 	if err := s.DeleteTask(id); err != nil {
 		t.Fatalf("DeleteTask: %v", err)
 	}
@@ -383,7 +383,7 @@ func TestTaskDelete(t *testing.T) {
 
 func TestTaskLogs(t *testing.T) {
 	s := newTestStorage(t)
-	id, _ := s.CreateTask("logged task", "", "todo")
+	id, _ := s.CreateTask("logged task", "", "todo", "")
 	_ = s.AddTaskLog(id, "created", "task created")
 	_ = s.AddTaskLog(id, "started", "execution began")
 
@@ -424,7 +424,7 @@ func TestDataPersistsAcrossRestart(t *testing.T) {
 	if err := s1.SaveMessage("persist:s1", "user", "hello persisted"); err != nil {
 		t.Fatalf("SaveMessage: %v", err)
 	}
-	taskID, err := s1.CreateTask("persist task", "desc", "todo")
+	taskID, err := s1.CreateTask("persist task", "desc", "todo", "")
 	if err != nil {
 		t.Fatalf("CreateTask: %v", err)
 	}

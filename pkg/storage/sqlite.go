@@ -186,7 +186,12 @@ func (s *Storage) migrateUserDB() error {
 
 	for _, query := range queries {
 		if _, err := s.db.Exec(query); err != nil {
-			if strings.HasPrefix(query, "ALTER TABLE") {
+			// Ignore "duplicate column name" or "no such column" errors
+			if strings.Contains(strings.ToLower(err.Error()), "duplicate column name") || strings.Contains(strings.ToLower(err.Error()), "no such column") {
+				continue
+			}
+			if strings.HasPrefix(query, "ALTER TABLE") && !strings.Contains(err.Error(), "syntax error") {
+				// Most ALTER TABLE failures mean the migration was already applied or cannot be applied safely
 				continue
 			}
 			return fmt.Errorf("executing user migration: %w", err)
@@ -253,6 +258,7 @@ func (s *Storage) migrate() error {
 		// Migration for existing tables
 		`ALTER TABLE tasks ADD COLUMN archived BOOLEAN DEFAULT 0;`,
 		`ALTER TABLE tasks ADD COLUMN result TEXT;`,
+		`ALTER TABLE tasks ADD COLUMN agent TEXT NOT NULL DEFAULT '';`,
 		// Ensure no NULLs for fields that are scanned into strings
 		`UPDATE tasks SET description = '' WHERE description IS NULL;`,
 		`UPDATE tasks SET result = '' WHERE result IS NULL;`,
@@ -337,7 +343,10 @@ func (s *Storage) migrate() error {
 		if _, err := s.db.Exec(query); err != nil {
 			// ALTER TABLE errors (duplicate column, etc.) are safe to ignore
 			// since we use idempotent CREATE IF NOT EXISTS + additive ALTERs.
-			if strings.HasPrefix(query, "ALTER TABLE") {
+			if strings.Contains(strings.ToLower(err.Error()), "duplicate column name") || strings.Contains(strings.ToLower(err.Error()), "no such column") {
+				continue
+			}
+			if strings.HasPrefix(query, "ALTER TABLE") && !strings.Contains(err.Error(), "syntax error") {
 				continue
 			}
 			return fmt.Errorf("executing migration query: %w", err)

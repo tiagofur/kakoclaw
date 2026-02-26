@@ -36,6 +36,11 @@ func getDataDir() string {
 	return filepath.Join(home, ".MakoClaw")
 }
 
+// GetDataDir returns the MakoClaw data directory (exported version)
+func GetDataDir() string {
+	return getDataDir()
+}
+
 // FlexibleStringSlice is a []string that also accepts JSON numbers,
 // so allow_from can contain both "123" and 123.
 type FlexibleStringSlice []string
@@ -907,6 +912,11 @@ func expandHome(path string) string {
 		return home
 	}
 	return path
+}
+
+// GetGlobalConfigPath returns the path to the global config file
+func GetGlobalConfigPath() string {
+	return filepath.Join(getDataDir(), "config.json")
 }
 
 // GetUserConfigPath returns the path to a user's config file

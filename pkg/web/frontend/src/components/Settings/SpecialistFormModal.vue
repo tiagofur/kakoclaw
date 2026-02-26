@@ -79,8 +79,7 @@
                 v-model="form.name"
                 type="text"
                 placeholder="e.g., python_expert"
-                :disabled="mode === 'edit'"
-                class="w-full px-4 py-2.5 bg-makoclaw-bg/60 border border-makoclaw-border rounded-xl text-sm focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent outline-none text-makoclaw-text backdrop-blur-sm disabled:opacity-50"
+                class="w-full px-4 py-2.5 bg-makoclaw-bg/60 border border-makoclaw-border rounded-xl text-sm focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent outline-none text-makoclaw-text backdrop-blur-sm"
               />
             </div>
 

@@ -14,6 +14,7 @@ import (
 type Manager struct {
 	cfg     config.MCPConfig
 	clients map[string]*Client
+	sources map[string]MCPServerInfo // Tracks where each server config came from
 	mu      sync.RWMutex
 }
 
@@ -22,7 +23,32 @@ func NewManager(cfg config.MCPConfig) *Manager {
 	return &Manager{
 		cfg:     cfg,
 		clients: make(map[string]*Client),
+		sources: make(map[string]MCPServerInfo),
 	}
+}
+
+// NewManagerFromLoader creates a new MCP manager using the loader
+func NewManagerFromLoader(loader *Loader, userUUID string) (*Manager, error) {
+	servers, err := loader.LoadAll(userUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg := config.MCPConfig{
+		Servers: make(map[string]config.MCPServerConfig),
+	}
+	sources := make(map[string]MCPServerInfo)
+
+	for _, s := range servers {
+		cfg.Servers[s.Name] = s.Config
+		sources[s.Name] = s
+	}
+
+	return &Manager{
+		cfg:     cfg,
+		clients: make(map[string]*Client),
+		sources: sources,
+	}, nil
 }
 
 // Start connects to all configured MCP servers and discovers their tools.
@@ -103,12 +129,29 @@ func (m *Manager) ServerStatus() []ServerInfo {
 
 	var servers []ServerInfo
 	for name, client := range m.clients {
+		// Get config for this server
+		serverCfg, hasCfg := m.cfg.Servers[name]
+
 		info := ServerInfo{
 			Name:      name,
 			Command:   client.command,
 			Connected: client.Connected(),
 			LastError: client.LastError(),
 		}
+
+		// Add config details if available
+		if hasCfg {
+			info.Args = serverCfg.Args
+			info.Env = serverCfg.Env
+			info.Enabled = serverCfg.Enabled
+		}
+
+		// Add source information if tracked
+		if sourceInfo, hasSource := m.sources[name]; hasSource {
+			info.Source = sourceInfo.Source
+			info.Path = sourceInfo.Path
+		}
+
 		if client.Connected() {
 			si := client.ServerInfo()
 			info.ServerName = si.ServerInfo.Name
@@ -127,19 +170,29 @@ func (m *Manager) ServerStatus() []ServerInfo {
 
 // ServerInfo represents the status of an MCP server for API responses
 type ServerInfo struct {
-	Name          string   `json:"name"`
-	Command       string   `json:"command"`
-	Connected     bool     `json:"connected"`
-	LastError     string   `json:"last_error,omitempty"`
-	ServerName    string   `json:"server_name,omitempty"`
-	ServerVersion string   `json:"server_version,omitempty"`
-	ToolCount     int      `json:"tool_count"`
-	Tools         []string `json:"tools,omitempty"`
+	Name          string          `json:"name"`
+	Command       string          `json:"command"`
+	Args          []string        `json:"args,omitempty"`
+	Env           map[string]string `json:"env,omitempty"`
+	Enabled       bool            `json:"enabled"`
+	Connected     bool            `json:"connected"`
+	Source        MCPServerSource `json:"source,omitempty"`
+	Path          string          `json:"path,omitempty"`
+	LastError     string          `json:"last_error,omitempty"`
+	ServerName    string          `json:"server_name,omitempty"`
+	ServerVersion string          `json:"server_version,omitempty"`
+	ToolCount     int             `json:"tool_count"`
+	Tools         []string        `json:"tools,omitempty"`
 }
 
 // AddServer adds a new MCP server to the manager and optionally connects to it.
 // This does NOT persist the configuration - caller should save config separately.
 func (m *Manager) AddServer(ctx context.Context, name string, serverCfg config.MCPServerConfig, autoConnect bool) error {
+	return m.AddServerWithSource(ctx, name, serverCfg, autoConnect, MCPServerSource(""), "")
+}
+
+// AddServerWithSource adds a new MCP server with source tracking
+func (m *Manager) AddServerWithSource(ctx context.Context, name string, serverCfg config.MCPServerConfig, autoConnect bool, source MCPServerSource, path string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -153,6 +206,19 @@ func (m *Manager) AddServer(ctx context.Context, name string, serverCfg config.M
 		m.cfg.Servers = make(map[string]config.MCPServerConfig)
 	}
 	m.cfg.Servers[name] = serverCfg
+
+	// Track source if provided
+	if source != "" {
+		if m.sources == nil {
+			m.sources = make(map[string]MCPServerInfo)
+		}
+		m.sources[name] = MCPServerInfo{
+			Name:   name,
+			Config: serverCfg,
+			Source: source,
+			Path:   path,
+		}
+	}
 
 	// Create client
 	env := make([]string, 0, len(serverCfg.Env))

@@ -30,7 +30,7 @@
            <h4 class="font-semibold text-sm leading-tight text-makoclaw-text group-hover:text-makoclaw-accent transition-colors">
              {{ task.title }}
            </h4>
-           <SpecialistBadge v-if="task.agent_profile" :name="task.agent_profile" />
+           <SpecialistBadge v-if="task.agent" :name="task.agent" />
         </div>
 
         <p v-if="task.description" class="text-xs text-makoclaw-text-secondary line-clamp-2 mt-1 mb-2">

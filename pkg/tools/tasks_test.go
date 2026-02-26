@@ -50,7 +50,7 @@ func TestTaskToolCreateAndList(t *testing.T) {
 
 	// Archive
 	// Create task directly with storage using same userID (1) as the tool default
-	id, err := store.CreateTaskForUser(1, "to archive", "desc", "todo")
+	id, err := store.CreateTaskForUser(1, "to archive", "desc", "todo", "")
 	if err != nil {
 		t.Fatalf("direct create failed: %v", err)
 	}

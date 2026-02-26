@@ -35,7 +35,7 @@ func TestSaveStoreCreatesFile(t *testing.T) {
 
 func TestSaveStoreIsValidJSON(t *testing.T) {
 	cs := newTestCronService(t)
-	_, _ = cs.AddJob(0, "test", everySchedule(60000), "hello", "", "", "")
+	_, _ = cs.AddJob(0, "test", everySchedule(60000), "hello", "", "", "", "")
 
 	data, err := os.ReadFile(cs.storePath)
 	if err != nil {
@@ -52,7 +52,7 @@ func TestSaveStoreIsValidJSON(t *testing.T) {
 
 func TestSaveStoreNoTempFileLeft(t *testing.T) {
 	cs := newTestCronService(t)
-	_, _ = cs.AddJob(0, "test", everySchedule(60000), "msg", "", "", "")
+	_, _ = cs.AddJob(0, "test", everySchedule(60000), "msg", "", "", "", "")
 
 	tmpPath := cs.storePath + ".tmp"
 	if _, err := os.Stat(tmpPath); !os.IsNotExist(err) {
@@ -64,7 +64,7 @@ func TestSaveStoreNoTempFileLeft(t *testing.T) {
 
 func TestAddAndListJobs(t *testing.T) {
 	cs := newTestCronService(t)
-	job, err := cs.AddJob(0, "alarm", everySchedule(30000), "wake up", "", "", "")
+	job, err := cs.AddJob(0, "alarm", everySchedule(30000), "wake up", "", "", "", "")
 	if err != nil {
 		t.Fatalf("AddJob: %v", err)
 	}
@@ -80,9 +80,9 @@ func TestAddAndListJobs(t *testing.T) {
 
 func TestUpdateJob(t *testing.T) {
 	cs := newTestCronService(t)
-	job, _ := cs.AddJob(0, "old name", everySchedule(60000), "msg", "", "", "")
+	job, _ := cs.AddJob(0, "old name", everySchedule(60000), "msg", "", "", "", "")
 
-	updated, err := cs.UpdateJob(job.ID, "new name", everySchedule(120000), "new msg", "reminder", "ch", "to")
+	updated, err := cs.UpdateJob(job.ID, "new name", everySchedule(120000), "new msg", "reminder", "ch", "to", "")
 	if err != nil {
 		t.Fatalf("UpdateJob: %v", err)
 	}
@@ -96,7 +96,7 @@ func TestUpdateJob(t *testing.T) {
 
 func TestRemoveJob(t *testing.T) {
 	cs := newTestCronService(t)
-	job, _ := cs.AddJob(0, "removeme", everySchedule(60000), "msg", "", "", "")
+	job, _ := cs.AddJob(0, "removeme", everySchedule(60000), "msg", "", "", "", "")
 
 	removed := cs.RemoveJob(job.ID)
 	if !removed {
@@ -119,7 +119,7 @@ func TestRemoveNonexistentJob(t *testing.T) {
 func TestPersistenceAcrossReload(t *testing.T) {
 	storePath := filepath.Join(t.TempDir(), "cron", "store.json")
 	cs1 := NewCronService(storePath, nil)
-	_, _ = cs1.AddJob(0, "persist-me", everySchedule(60000), "msg", "", "", "")
+	_, _ = cs1.AddJob(0, "persist-me", everySchedule(60000), "msg", "", "", "", "")
 
 	// Create a new service from the same path
 	cs2 := NewCronService(storePath, nil)
@@ -134,7 +134,7 @@ func TestPersistenceAcrossReload(t *testing.T) {
 func TestValidateScheduleEveryRequiresPositiveMs(t *testing.T) {
 	cs := newTestCronService(t)
 	zero := int64(0)
-	_, err := cs.AddJob(0, "bad", CronSchedule{Kind: "every", EveryMS: &zero}, "msg", "", "", "")
+	_, err := cs.AddJob(0, "bad", CronSchedule{Kind: "every", EveryMS: &zero}, "msg", "", "", "", "")
 	if err == nil {
 		t.Fatal("expected error for everyMs=0")
 	}
@@ -142,7 +142,7 @@ func TestValidateScheduleEveryRequiresPositiveMs(t *testing.T) {
 
 func TestValidateScheduleAtRequiresAtMs(t *testing.T) {
 	cs := newTestCronService(t)
-	_, err := cs.AddJob(0, "bad", CronSchedule{Kind: "at"}, "msg", "", "", "")
+	_, err := cs.AddJob(0, "bad", CronSchedule{Kind: "at"}, "msg", "", "", "", "")
 	if err == nil {
 		t.Fatal("expected error for missing atMs")
 	}

@@ -3,6 +3,9 @@ package tools
 import (
 	"context"
 	"fmt"
+	"strings"
+
+	kakoclawContext "github.com/sipeed/makoclaw/pkg/utils"
 )
 
 type SendCallback func(channel, chatID, content string) error
@@ -79,7 +82,14 @@ func (t *MessageTool) Execute(ctx context.Context, args map[string]interface{}) 
 		return "Error: Message sending not configured", nil
 	}
 
-	if err := t.sendCallback(channel, chatID, content); err != nil {
+	agentName := kakoclawContext.AgentNameFrom(ctx)
+	outContent := content
+	if agentName != "" {
+		// Append agent signature for visibility in channels
+		outContent = fmt.Sprintf("%s\n\n_Sent by: %s_", strings.TrimSpace(content), agentName)
+	}
+
+	if err := t.sendCallback(channel, chatID, outContent); err != nil {
 		return fmt.Sprintf("Error sending message: %v", err), nil
 	}
 

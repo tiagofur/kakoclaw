@@ -71,6 +71,11 @@
                     :class="server.connected ? 'bg-blue-400' : (server.enabled === false ? 'bg-gray-400' : 'bg-red-400')"
                   ></span>
                   <h3 class="font-semibold truncate">{{ server.name }}</h3>
+                  <!-- Source badge -->
+                  <span v-if="server.source" class="px-1.5 py-0.5 text-[10px] rounded bg-makoclaw-bg text-makoclaw-text-secondary"
+                    :title="server.path || ''">
+                    {{ getSourceLabel(server.source) }}
+                  </span>
                 </div>
                 <p class="text-xs text-makoclaw-text-secondary mt-1 font-mono truncate" :title="getCommandDisplay(server)">
                   {{ getCommandDisplay(server) }}
@@ -173,6 +178,11 @@
                 class="px-3 py-1.5 text-xs text-makoclaw-text-secondary bg-makoclaw-bg border border-makoclaw-border rounded-lg hover:bg-makoclaw-border transition-colors"
               >Edit</button>
               <button
+                @click="openJSONModal(server)"
+                class="px-3 py-1.5 text-xs text-makoclaw-text-secondary bg-makoclaw-bg border border-makoclaw-border rounded-lg hover:bg-makoclaw-border transition-colors"
+                title="Edit as JSON"
+              >JSON</button>
+              <button
                 @click="confirmDeleteServer(server)"
                 class="px-3 py-1.5 text-xs text-red-400 bg-red-500/10 rounded-lg hover:bg-red-500/20 transition-colors"
               >Delete</button>
@@ -255,6 +265,22 @@ DEBUG=true"
             <label for="enabled" class="text-sm">Enable server</label>
           </div>
 
+          <!-- Save Location (only for new servers) -->
+          <div v-if="!editingServer">
+            <label class="block text-sm font-medium mb-1">Save Location</label>
+            <select
+              v-model="form.saveTo"
+              class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent"
+            >
+              <option value="config">Config file (config.json)</option>
+              <option value="user_folder">User MCP folder (~/.MakoClaw/users/*/mcp/)</option>
+              <option value="global_folder">Global MCP folder (~/.MakoClaw/mcp/)</option>
+            </select>
+            <p class="text-xs text-makoclaw-text-secondary mt-1">
+              Folder locations are easier to manage and share (Claude Desktop compatible format)
+            </p>
+          </div>
+
           <!-- Test Connection Button -->
           <div v-if="editingServer" class="pt-2">
             <button
@@ -313,6 +339,45 @@ DEBUG=true"
         </div>
       </div>
     </div>
+
+    <!-- JSON Edit Modal -->
+    <div v-if="showJSONModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="showJSONModal = false">
+      <div class="bg-makoclaw-surface border border-makoclaw-border rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-semibold text-lg">Edit as JSON</h3>
+          <span v-if="jsonEditingServer" class="text-sm text-makoclaw-text-secondary">{{ jsonEditingServer.name }}</span>
+        </div>
+
+        <!-- JSON validation error -->
+        <div v-if="jsonError" class="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+          <p class="text-xs text-red-400">{{ jsonError }}</p>
+        </div>
+
+        <!-- JSON textarea -->
+        <textarea
+          v-model="jsonContent"
+          rows="15"
+          class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent resize-none font-mono"
+          placeholder='{"command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path"], "env": {}}'
+          @input="validateJSON"
+        />
+
+        <p class="text-xs text-makoclaw-text-secondary mt-2">
+          Claude Desktop compatible format. Required fields: <code class="px-1 py-0.5 bg-makoclaw-bg rounded">command</code>
+        </p>
+
+        <!-- Modal Actions -->
+        <div class="flex justify-end gap-3 mt-6">
+          <button @click="showJSONModal = false"
+            class="px-4 py-2 text-sm text-makoclaw-text-secondary hover:text-makoclaw-text transition-colors">Cancel</button>
+          <button @click="saveJSONConfig" :disabled="!!jsonError || savingJSON"
+            class="px-4 py-2 text-sm bg-makoclaw-accent text-white rounded-lg hover:bg-makoclaw-accent/90 transition-colors disabled:opacity-50">
+            <span v-if="savingJSON">Saving...</span>
+            <span v-else>Save Changes</span>
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -342,13 +407,21 @@ const showDeleteConfirm = ref(false)
 const deletingServer = ref(null)
 const deleting = ref(false)
 
+// JSON edit modal state
+const showJSONModal = ref(false)
+const jsonEditingServer = ref(null)
+const jsonContent = ref('')
+const jsonError = ref('')
+const savingJSON = ref(false)
+
 // Form state
 const defaultForm = () => ({
   name: '',
   command: '',
   argsText: '',
   envText: '',
-  enabled: true
+  enabled: true,
+  saveTo: 'config' // 'config', 'user_folder', 'global_folder'
 })
 
 const form = ref(defaultForm())
@@ -364,6 +437,83 @@ const getCommandDisplay = (server) => {
   const args = server.args || []
   if (args.length === 0) return cmd
   return `${cmd} ${args.join(' ')}`
+}
+
+// Get human-readable source label
+const getSourceLabel = (source) => {
+  const labels = {
+    'user_folder': 'user folder',
+    'global_folder': 'folder',
+    'user_config': 'config',
+    'global_config': 'global'
+  }
+  return labels[source] || source || 'config'
+}
+
+// Convert server data to JSON for editing
+const serverToJSON = (server) => {
+  const obj = {
+    command: server.command || '',
+    args: server.args || [],
+    env: server.env || {}
+  }
+  if (server.enabled === false) {
+    obj.enabled = false
+  }
+  return JSON.stringify(obj, null, 2)
+}
+
+// Open JSON edit modal
+const openJSONModal = (server) => {
+  jsonEditingServer.value = server
+  jsonContent.value = serverToJSON(server)
+  jsonError.value = ''
+  showJSONModal.value = true
+}
+
+// Validate JSON content
+const validateJSON = () => {
+  if (!jsonContent.value.trim()) {
+    jsonError.value = 'JSON content is required'
+    return false
+  }
+  try {
+    const parsed = JSON.parse(jsonContent.value)
+    if (!parsed.command || typeof parsed.command !== 'string') {
+      jsonError.value = 'Missing or invalid "command" field'
+      return false
+    }
+    jsonError.value = ''
+    return true
+  } catch (e) {
+    jsonError.value = `Invalid JSON: ${e.message}`
+    return false
+  }
+}
+
+// Save JSON config
+const saveJSONConfig = async () => {
+  if (!validateJSON() || !jsonEditingServer.value) return
+
+  savingJSON.value = true
+  try {
+    const parsed = JSON.parse(jsonContent.value)
+    const payload = {
+      enabled: parsed.enabled !== false,
+      command: parsed.command,
+      args: parsed.args || [],
+      env: parsed.env || {}
+    }
+    await advancedService.updateMCPServer(jsonEditingServer.value.name, payload)
+    toast.success('Server updated successfully')
+    showJSONModal.value = false
+    await loadServers()
+  } catch (err) {
+    console.error('JSON save failed:', err)
+    toast.error(err.response?.data?.error || 'Failed to save configuration')
+  } finally {
+    savingJSON.value = false
+  }
 }
 
 // Parse form text fields to arrays/objects
@@ -392,21 +542,29 @@ const serverToForm = (server) => ({
   command: server.command || '',
   argsText: (server.args || []).join('\n'),
   envText: Object.entries(server.env || {}).map(([k, v]) => `${k}=${v}`).join('\n'),
-  enabled: server.enabled !== false
+  enabled: server.enabled !== false,
+  saveTo: 'config' // When editing, always save to config (original location)
 })
 
 // Build API payload from form
-const buildPayload = () => {
+const buildPayload = (isNew = false) => {
   const args = parseArgs(form.value.argsText)
   const env = parseEnv(form.value.envText)
 
-  return {
+  const payload = {
     name: form.value.name.trim(),
     command: form.value.command.trim(),
     args: args.length > 0 ? args : undefined,
     env: Object.keys(env).length > 0 ? env : undefined,
     enabled: form.value.enabled
   }
+
+  // Include save_to for new servers
+  if (isNew && form.value.saveTo) {
+    payload.save_to = form.value.saveTo
+  }
+
+  return payload
 }
 
 // ---- Actions ----
@@ -565,7 +723,8 @@ const submitServer = async () => {
   if (!canSubmit.value) return
   submitting.value = true
   try {
-    const payload = buildPayload()
+    const isNew = !editingServer.value
+    const payload = buildPayload(isNew)
     if (editingServer.value) {
       await advancedService.updateMCPServer(editingServer.value.name, payload)
       toast.success('Server updated successfully')

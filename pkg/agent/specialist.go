@@ -11,6 +11,7 @@ import (
 	"github.com/sipeed/makoclaw/pkg/providers"
 	"github.com/sipeed/makoclaw/pkg/storage"
 	"github.com/sipeed/makoclaw/pkg/tools"
+	kakoclawContext "github.com/sipeed/makoclaw/pkg/utils"
 )
 
 // SpecialistAgent represents a specialized agent with specific tools and LLM configuration
@@ -252,8 +253,11 @@ func (sa *SpecialistAgent) ProcessWithSpeciality(ctx context.Context, userMessag
 		sa.processMu.Unlock()
 	}()
 
+	// Inject the specialist's name into the context so tools know who is calling them
+	agentCtx := kakoclawContext.WithAgentName(ctx, sa.name)
+
 	// Process the message using ProcessDirect
-	return sa.ProcessDirect(ctx, fullMessage, fmt.Sprintf("specialist_%s", sa.name))
+	return sa.ProcessDirect(agentCtx, fullMessage, fmt.Sprintf("specialist_%s", sa.name))
 }
 
 // LoadSpecialistsFromConfig initializes all configured specialists

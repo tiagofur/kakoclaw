@@ -41,6 +41,51 @@ export default {
     return response.data
   },
 
+  // Skill refinement
+  refineSkillDraft: async (draft, feedback) => {
+    const response = await client.post('/skills/refine', { draft, feedback }, { timeout: 120000 })
+    return response.data
+  },
+
+  // Skill security scan
+  scanSkill: async (content) => {
+    const response = await client.post('/skills/scan', { content }, { timeout: 60000 })
+    return response.data
+  },
+
+  // Marketplace
+  fetchMarketplaceSkills: async (category = '', page = 1) => {
+    const response = await client.get('/marketplace/skills', { params: { category, page } })
+    return response.data
+  },
+
+  fetchMarketplaceSkillDetail: async (slug) => {
+    const response = await client.get(`/marketplace/skills/${encodeURIComponent(slug)}`)
+    return response.data
+  },
+
+  installMarketplaceSkill: async (slug) => {
+    const response = await client.post(`/marketplace/skills/${encodeURIComponent(slug)}/install`, {}, {
+      timeout: 30000
+    })
+    return response.data
+  },
+
+  submitToMarketplace: async (payload) => {
+    const response = await client.post('/marketplace/submit', payload, { timeout: 60000 })
+    return response.data
+  },
+
+  fetchMySubmissions: async () => {
+    const response = await client.get('/marketplace/submissions')
+    return response.data
+  },
+
+  fetchMarketplaceCategories: async () => {
+    const response = await client.get('/marketplace/categories')
+    return response.data
+  },
+
   // Cron
   fetchCronJobs: async (includeDisabled = true) => {
     const response = await client.get('/cron', { params: { include_disabled: includeDisabled ? 'true' : 'false' } })

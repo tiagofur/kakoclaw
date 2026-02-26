@@ -23,10 +23,15 @@
             :class="activeTab === 'installed' ? 'bg-white dark:bg-gray-700 shadow-sm text-makoclaw-accent' : 'text-makoclaw-text-secondary hover:text-makoclaw-text'"
           >Installed</button>
           <button
-            @click="activeTab = 'marketplace'; loadAvailable()"
+            @click="activeTab = 'marketplace'; loadMarketplace()"
             class="px-4 py-1.5 rounded-md text-sm font-medium transition-all"
             :class="activeTab === 'marketplace' ? 'bg-white dark:bg-gray-700 shadow-sm text-makoclaw-accent' : 'text-makoclaw-text-secondary hover:text-makoclaw-text'"
           >Marketplace</button>
+          <button
+            @click="activeTab = 'submissions'; loadMySubmissions()"
+            class="px-4 py-1.5 rounded-md text-sm font-medium transition-all"
+            :class="activeTab === 'submissions' ? 'bg-white dark:bg-gray-700 shadow-sm text-makoclaw-accent' : 'text-makoclaw-text-secondary hover:text-makoclaw-text'"
+          >My Submissions</button>
         </div>
       </div>
     </div>
@@ -63,7 +68,7 @@
                   }"
                 >{{ skill.source }}</span>
               </div>
-              <div class="flex items-center gap-2 mt-4">
+              <div class="flex items-center gap-2 mt-4 flex-wrap">
                 <button
                   @click="viewSkill(skill.name)"
                   class="px-3 py-1.5 text-xs bg-makoclaw-bg rounded-lg hover:bg-makoclaw-border/50 transition-colors"
@@ -73,6 +78,11 @@
                   @click="editSkill(skill.name)"
                   class="px-3 py-1.5 text-xs bg-makoclaw-accent/10 text-makoclaw-accent rounded-lg hover:bg-makoclaw-accent/20 transition-colors"
                 >Editar</button>
+                <button
+                  v-if="skill.source === 'workspace'"
+                  @click="openSubmitModal(skill)"
+                  class="px-3 py-1.5 text-xs bg-green-500/10 text-green-400 rounded-lg hover:bg-green-500/20 transition-colors"
+                >Submit to Marketplace</button>
                 <button
                   v-if="skill.source === 'workspace'"
                   @click="uninstallSkill(skill.name)"
@@ -85,32 +95,80 @@
 
         <!-- Marketplace -->
         <div v-if="activeTab === 'marketplace'">
-          <div v-if="loadingAvailable" class="flex items-center justify-center py-12">
+          <div v-if="loadingMarketplace" class="flex items-center justify-center py-12">
             <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-makoclaw-accent"></div>
           </div>
-          <div v-else-if="available.length === 0" class="text-center py-12 text-makoclaw-text-secondary">
+          <div v-else-if="marketplaceSkills.length === 0" class="text-center py-12 text-makoclaw-text-secondary">
             <p class="text-lg">No skills available in marketplace</p>
+            <p class="text-sm mt-2">Be the first to submit a skill!</p>
           </div>
           <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div
-              v-for="skill in available"
-              :key="skill.name"
-              class="bg-makoclaw-surface border border-makoclaw-border rounded-xl p-5"
+              v-for="skill in marketplaceSkills"
+              :key="skill.slug || skill.name"
+              class="bg-makoclaw-surface border border-makoclaw-border rounded-xl p-5 hover:border-makoclaw-accent/50 transition-colors"
             >
-              <h3 class="font-semibold">{{ skill.name }}</h3>
+              <div class="flex items-start justify-between">
+                <h3 class="font-semibold flex-1">{{ skill.name }}</h3>
+                <span
+                  v-if="skill.security_score !== undefined"
+                  class="px-2 py-0.5 text-xs rounded-full flex-shrink-0"
+                  :class="{
+                    'bg-green-500/10 text-green-400': skill.security_score >= 80,
+                    'bg-yellow-500/10 text-yellow-400': skill.security_score >= 60 && skill.security_score < 80,
+                    'bg-red-500/10 text-red-400': skill.security_score < 60
+                  }"
+                >{{ skill.security_score }}/100</span>
+              </div>
               <p class="text-sm text-makoclaw-text-secondary mt-1 line-clamp-2">{{ skill.description }}</p>
               <p class="text-xs text-makoclaw-text-secondary mt-2">by {{ skill.author || 'unknown' }}</p>
               <div v-if="skill.tags && skill.tags.length" class="flex flex-wrap gap-1 mt-2">
                 <span v-for="tag in skill.tags" :key="tag" class="px-2 py-0.5 text-xs bg-makoclaw-bg rounded-full text-makoclaw-text-secondary">{{ tag }}</span>
               </div>
-              <button
-                @click="installSkill(skill.repository)"
-                :disabled="installing === skill.repository"
-                class="mt-4 px-4 py-1.5 text-sm bg-makoclaw-accent text-white rounded-lg hover:bg-makoclaw-accent/90 transition-colors disabled:opacity-50"
-              >
-                <span v-if="installing === skill.repository">Installing...</span>
-                <span v-else>Install</span>
-              </button>
+              <div class="flex items-center gap-2 mt-4">
+                <button
+                  @click="installMarketplaceSkill(skill.slug)"
+                  :disabled="installing === skill.slug"
+                  class="px-4 py-1.5 text-sm bg-makoclaw-accent text-white rounded-lg hover:bg-makoclaw-accent/90 transition-colors disabled:opacity-50"
+                >
+                  <span v-if="installing === skill.slug">Installing...</span>
+                  <span v-else>Install</span>
+                </button>
+                <span v-if="skill.install_count" class="text-xs text-makoclaw-text-secondary">{{ skill.install_count }} installs</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- My Submissions -->
+        <div v-if="activeTab === 'submissions'">
+          <div v-if="loadingSubmissions" class="flex items-center justify-center py-12">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-makoclaw-accent"></div>
+          </div>
+          <div v-else-if="mySubmissions.length === 0" class="text-center py-12 text-makoclaw-text-secondary">
+            <p class="text-lg">No submissions yet</p>
+            <p class="text-sm mt-2">Submit a skill from your installed workspace skills to share with others</p>
+          </div>
+          <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div
+              v-for="sub in mySubmissions"
+              :key="sub.id"
+              class="bg-makoclaw-surface border border-makoclaw-border rounded-xl p-5"
+            >
+              <div class="flex items-start justify-between">
+                <h3 class="font-semibold flex-1">{{ sub.skill_name }}</h3>
+                <span
+                  class="px-2 py-0.5 text-xs rounded-full flex-shrink-0"
+                  :class="{
+                    'bg-green-500/10 text-green-400': sub.status === 'approved',
+                    'bg-yellow-500/10 text-yellow-400': sub.status === 'pending' || sub.status === 'needs_review',
+                    'bg-red-500/10 text-red-400': sub.status === 'rejected'
+                  }"
+                >{{ sub.status }}</span>
+              </div>
+              <p class="text-sm text-makoclaw-text-secondary mt-1 line-clamp-2">{{ sub.description }}</p>
+              <p class="text-xs text-makoclaw-text-secondary mt-2">Security Score: {{ sub.security_score }}/100</p>
+              <p v-if="sub.reviewer_notes" class="text-xs text-yellow-400 mt-2 bg-yellow-500/10 p-2 rounded">{{ sub.reviewer_notes }}</p>
             </div>
           </div>
         </div>
@@ -287,6 +345,83 @@
         </div>
       </div>
     </div>
+
+    <!-- Submit to Marketplace Modal -->
+    <div v-if="showSubmitModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="closeSubmitModal">
+      <div class="bg-makoclaw-surface border border-makoclaw-border rounded-xl max-w-lg w-full max-h-[80vh] flex flex-col shadow-xl">
+        <div class="flex items-center justify-between p-4 border-b border-makoclaw-border">
+          <h3 class="font-semibold">Submit to Marketplace</h3>
+          <button @click="closeSubmitModal" class="p-1 hover:bg-makoclaw-bg rounded text-makoclaw-text-secondary hover:text-makoclaw-text">&times;</button>
+        </div>
+        <div class="flex-1 overflow-auto p-4 custom-scrollbar space-y-4">
+          <div>
+            <p class="font-medium">{{ submittingSkill?.name }}</p>
+            <p class="text-sm text-makoclaw-text-secondary">{{ submittingSkill?.description || 'No description' }}</p>
+          </div>
+
+          <!-- Security Scan Results -->
+          <div v-if="scanResult" class="p-3 rounded-lg" :class="scanResult.passed ? 'bg-green-500/10' : 'bg-red-500/10'">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-medium">Security Score</span>
+              <span class="text-lg font-bold" :class="scanResult.score >= 80 ? 'text-green-400' : scanResult.score >= 60 ? 'text-yellow-400' : 'text-red-400'">
+                {{ scanResult.score }}/100
+              </span>
+            </div>
+            <p class="text-xs mt-1" :class="scanResult.passed ? 'text-green-400' : 'text-red-400'">
+              {{ scanResult.passed ? 'Passed security checks' : 'Security issues detected' }}
+            </p>
+            <div v-if="scanResult.findings && scanResult.findings.length" class="mt-2 space-y-1">
+              <div v-for="(finding, idx) in scanResult.findings.slice(0, 3)" :key="idx" class="text-xs p-2 bg-makoclaw-bg rounded">
+                <span class="font-medium" :class="{
+                  'text-red-400': finding.severity === 'critical',
+                  'text-orange-400': finding.severity === 'high',
+                  'text-yellow-400': finding.severity === 'medium',
+                  'text-gray-400': finding.severity === 'low'
+                }">{{ finding.severity.toUpperCase() }}:</span>
+                {{ finding.title }}
+              </div>
+              <p v-if="scanResult.findings.length > 3" class="text-xs text-makoclaw-text-secondary">
+                And {{ scanResult.findings.length - 3 }} more issues...
+              </p>
+            </div>
+          </div>
+
+          <!-- Category -->
+          <div>
+            <label class="block text-sm font-medium mb-1">Category</label>
+            <select v-model="submitForm.category" class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm">
+              <option value="general">General</option>
+              <option value="development">Development</option>
+              <option value="devops">DevOps</option>
+              <option value="productivity">Productivity</option>
+              <option value="integrations">Integrations</option>
+              <option value="ai-agents">AI Agents</option>
+            </select>
+          </div>
+
+          <!-- Tags -->
+          <div>
+            <label class="block text-sm font-medium mb-1">Tags (comma-separated)</label>
+            <input
+              v-model="submitForm.tags"
+              type="text"
+              placeholder="e.g., github, automation, code-review"
+              class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm"
+            >
+          </div>
+        </div>
+        <div class="p-4 border-t border-makoclaw-border flex justify-end gap-3">
+          <button @click="closeSubmitModal" class="px-4 py-2 text-sm text-makoclaw-text-secondary hover:text-makoclaw-text">Cancel</button>
+          <button
+            @click="handleSubmitToMarketplace"
+            :disabled="submitting || (scanResult && !scanResult.passed)"
+            class="px-4 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {{ submitting ? 'Submitting...' : 'Submit' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -299,13 +434,24 @@ const toast = useToast()
 const activeTab = ref('installed')
 const loading = ref(true)
 const loadingAvailable = ref(false)
+const loadingMarketplace = ref(false)
+const loadingSubmissions = ref(false)
 const skills = ref([])
 const available = ref([])
+const marketplaceSkills = ref([])
+const mySubmissions = ref([])
 const installing = ref(null)
 const viewingSkill = ref(null)
 const editingSkill = ref(null)
 const editContent = ref('')
 const savingSkill = ref(false)
+
+// Submit Modal State
+const showSubmitModal = ref(false)
+const submittingSkill = ref(null)
+const submitForm = ref({ category: 'general', tags: '' })
+const submitting = ref(false)
+const scanResult = ref(null)
 
 // Generation Modal State
 const showGenerateModal = ref(false)
@@ -349,6 +495,100 @@ const loadAvailable = async () => {
     toast.error('Failed to load marketplace')
   } finally {
     loadingAvailable.value = false
+  }
+}
+
+// New Marketplace functions
+const loadMarketplace = async () => {
+  loadingMarketplace.value = true
+  try {
+    const data = await advancedService.fetchMarketplaceSkills()
+    marketplaceSkills.value = data.skills || []
+  } catch (err) {
+    console.error('Failed to load marketplace:', err)
+    // Fallback to old endpoint
+    await loadAvailable()
+    marketplaceSkills.value = available.value
+  } finally {
+    loadingMarketplace.value = false
+  }
+}
+
+const loadMySubmissions = async () => {
+  loadingSubmissions.value = true
+  try {
+    const data = await advancedService.fetchMySubmissions()
+    mySubmissions.value = data.submissions || []
+  } catch (err) {
+    console.error('Failed to load submissions:', err)
+    toast.error('Failed to load submissions')
+  } finally {
+    loadingSubmissions.value = false
+  }
+}
+
+const installMarketplaceSkill = async (slug) => {
+  installing.value = slug
+  try {
+    await advancedService.installMarketplaceSkill(slug)
+    toast.success('Skill installed successfully')
+    await loadSkills()
+  } catch (err) {
+    toast.error('Failed to install skill')
+  } finally {
+    installing.value = null
+  }
+}
+
+const openSubmitModal = async (skill) => {
+  try {
+    const data = await advancedService.viewSkill(skill.name)
+    submittingSkill.value = { ...skill, content: data.content }
+    submitForm.value = { category: 'general', tags: '' }
+    scanResult.value = null
+    showSubmitModal.value = true
+
+    // Run security scan
+    try {
+      scanResult.value = await advancedService.scanSkill(data.content)
+    } catch (err) {
+      console.error('Scan failed:', err)
+    }
+  } catch (err) {
+    toast.error('Failed to load skill content')
+  }
+}
+
+const closeSubmitModal = () => {
+  showSubmitModal.value = false
+  submittingSkill.value = null
+  scanResult.value = null
+}
+
+const handleSubmitToMarketplace = async () => {
+  if (!submittingSkill.value) return
+
+  submitting.value = true
+  try {
+    const tags = submitForm.value.tags.split(',').map(t => t.trim()).filter(Boolean)
+    const result = await advancedService.submitToMarketplace({
+      name: submittingSkill.value.name,
+      description: submittingSkill.value.description || '',
+      content: submittingSkill.value.content,
+      category: submitForm.value.category,
+      tags
+    })
+
+    toast.success(result.message || 'Skill submitted successfully')
+    closeSubmitModal()
+
+    // Refresh submissions tab
+    await loadMySubmissions()
+    activeTab.value = 'submissions'
+  } catch (err) {
+    toast.error(err?.response?.data || 'Failed to submit skill')
+  } finally {
+    submitting.value = false
   }
 }
 

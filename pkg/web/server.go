@@ -306,6 +306,16 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/memory/daily", s.handleDailyNotes)                // New endpoint
 	mux.HandleFunc("/api/v1/skills", s.handleSkills)                          // Skills list + marketplace
 	mux.HandleFunc("/api/v1/skills/", s.handleSkillAction)                    // Install/uninstall/view
+
+	// Marketplace endpoints
+	mux.HandleFunc("/api/v1/marketplace/skills", s.handleMarketplaceSkills)       // List approved skills
+	mux.HandleFunc("/api/v1/marketplace/skills/", s.handleMarketplaceSkillAction) // Skill detail + install
+	mux.HandleFunc("/api/v1/marketplace/submit", s.handleMarketplaceSubmit)       // Submit skill
+	mux.HandleFunc("/api/v1/marketplace/submissions", s.handleMarketplaceMySubmissions) // My submissions
+	mux.HandleFunc("/api/v1/marketplace/categories", s.handleMarketplaceCategories)     // Categories list
+	mux.HandleFunc("/api/v1/admin/submissions", s.handleAdminPendingSubmissions)        // Admin: pending submissions
+	mux.HandleFunc("/api/v1/admin/submissions/", s.handleAdminSubmissionAction)         // Admin: approve/reject
+
 	mux.HandleFunc("/api/v1/cron", s.handleCron)                              // Cron jobs list + create
 	mux.HandleFunc("/api/v1/cron/", s.handleCronAction)                       // Cron job actions
 	mux.HandleFunc("/api/v1/channels", s.handleChannels)                      // Channels status
@@ -580,7 +590,8 @@ func (s *Server) extractClaims(r *http.Request) (*jwtClaims, bool) {
 			return claims, true
 		}
 	}
-	if strings.HasPrefix(r.URL.Path, "/ws/") {
+	// Allow query param token for WebSocket and file downloads (window.open can't send headers)
+	if strings.HasPrefix(r.URL.Path, "/ws/") || strings.HasPrefix(r.URL.Path, "/api/v1/files") {
 		token := strings.TrimSpace(r.URL.Query().Get("token"))
 		if claims, err := s.authManager.verifyToken(token); err == nil && token != "" {
 			return claims, true
@@ -818,7 +829,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "invalid status", http.StatusBadRequest)
 				return
 			}
-			id, err := store.CreateTaskForUser(userID, strings.TrimSpace(in.Title), strings.TrimSpace(in.Description), status)
+			id, err := store.CreateTaskForUser(userID, strings.TrimSpace(in.Title), strings.TrimSpace(in.Description), status, "")
 			if err != nil {
 				http.Error(w, "failed to create task", http.StatusInternalServerError)
 				return
@@ -1089,7 +1100,8 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	activeAgentLoop, err := agent.NewAgentLoopForUser(userUUID, s.fullConfig, s.msgBus, s.centralStore, userStore)
+	// Step 1: Create the base handler
+	baseAgentLoop, err := agent.NewAgentLoopForUser(userUUID, s.fullConfig, s.msgBus, s.centralStore, userStore)
 	if err != nil {
 		logger.ErrorCF("web", "Failed to create per-user agent loop for websocket", map[string]interface{}{
 			"user_uuid": userUUID,
@@ -1098,7 +1110,19 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "agent loop unavailable", http.StatusServiceUnavailable)
 		return
 	}
-	defer activeAgentLoop.Stop()
+	defer baseAgentLoop.Stop()
+
+	// Step 2: Wrap it in an AgentManager to get Orchestrator support if enabled
+	agentMgr := agent.NewAgentManager(baseAgentLoop)
+	if err := agentMgr.InitializeOrchestrator(s.fullConfig, s.msgBus, userStore); err != nil {
+		logger.ErrorCF("web", "Failed to initialize orchestrator for user session", map[string]interface{}{
+			"user_uuid": userUUID,
+			"error":     err.Error(),
+		})
+		// We can still continue with the base agent if orchestrator fails
+	}
+	
+	activeAgentLoop := agentMgr.GetActiveAgent()
 
 	upgrader := websocket.Upgrader{CheckOrigin: s.checkOrigin}
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -1320,7 +1344,7 @@ func (s *Server) handleTaskChatCommand(userID int64, store *storage.Storage, inp
 		if title == "" {
 			return true, "Uso: /task create <titulo>"
 		}
-		id, err := store.CreateTaskForUser(userID, title, "", "todo")
+		id, err := store.CreateTaskForUser(userID, title, "", "todo", "")
 		if err != nil {
 			return true, "No pude crear la tarea."
 		}
@@ -3606,6 +3630,7 @@ func (s *Server) handleSpecialistUpdate(w http.ResponseWriter, r *http.Request, 
 	}
 
 	var updateReq struct {
+		Name        string   `json:"name"`
 		Description string   `json:"description"`
 		Prompt      string   `json:"prompt"`
 		Provider    string   `json:"provider"`
@@ -3650,8 +3675,13 @@ func (s *Server) handleSpecialistUpdate(w http.ResponseWriter, r *http.Request, 
 		}
 	}
 
+	newSpecialistName := specialistName
+	if updateReq.Name != "" && updateReq.Name != specialistName {
+		newSpecialistName = updateReq.Name
+	}
+
 	specCfg := config.SpecialistConfig{
-		Name:              specialistName,
+		Name:              newSpecialistName,
 		Description:       updateReq.Description,
 		Prompt:            updateReq.Prompt,
 		Provider:          updateReq.Provider,
@@ -3663,7 +3693,17 @@ func (s *Server) handleSpecialistUpdate(w http.ResponseWriter, r *http.Request, 
 		Keywords:          updateReq.Keywords,
 	}
 
-	userCfg.Agents.Specialists[specialistName] = specCfg
+	if newSpecialistName != specialistName {
+		delete(userCfg.Agents.Specialists, specialistName)
+		if s.agentManager != nil {
+			s.agentManager.RemoveSpecialist(specialistName)
+		}
+		if store != nil {
+			_ = store.RenameTaskAgentForUser(userUUID, specialistName, newSpecialistName)
+		}
+	}
+
+	userCfg.Agents.Specialists[newSpecialistName] = specCfg
 	if err := config.SaveConfigForUser(userUUID, userCfg); err != nil {
 		logger.ErrorCF("web", "Failed to save user config for specialist update", map[string]interface{}{
 			"user_uuid": userUUID,
@@ -3673,7 +3713,7 @@ func (s *Server) handleSpecialistUpdate(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	if _, err := s.agentManager.AddOrUpdateSpecialist(specialistName, &specCfg, userCfg, store); err != nil {
+	if _, err := s.agentManager.AddOrUpdateSpecialist(newSpecialistName, &specCfg, userCfg, store); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
 		writeJSONResponse(w, map[string]string{
@@ -3685,7 +3725,7 @@ func (s *Server) handleSpecialistUpdate(w http.ResponseWriter, r *http.Request, 
 	response := map[string]interface{}{
 		"success": true,
 		"specialist": map[string]interface{}{
-			"name": specialistName,
+			"name": newSpecialistName,
 		},
 	}
 

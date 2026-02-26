@@ -93,6 +93,26 @@ func (si *SkillInstaller) Uninstall(skillName string) error {
 	return nil
 }
 
+// InstallFromContent installs a skill from its content (for marketplace installs)
+func (si *SkillInstaller) InstallFromContent(skillName, content string) error {
+	skillDir := filepath.Join(si.workspace, "skills", skillName)
+
+	if _, err := os.Stat(skillDir); err == nil {
+		return fmt.Errorf("skill '%s' already exists", skillName)
+	}
+
+	if err := os.MkdirAll(skillDir, 0755); err != nil {
+		return fmt.Errorf("failed to create skill directory: %w", err)
+	}
+
+	skillPath := filepath.Join(skillDir, "SKILL.md")
+	if err := os.WriteFile(skillPath, []byte(content), 0644); err != nil {
+		return fmt.Errorf("failed to write skill file: %w", err)
+	}
+
+	return nil
+}
+
 func (si *SkillInstaller) ListAvailableSkills(ctx context.Context) ([]AvailableSkill, error) {
 	url := "https://raw.githubusercontent.com/sipeed/makoclaw-skills/main/skills.json"
 

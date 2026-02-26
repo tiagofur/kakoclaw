@@ -130,6 +130,59 @@ func (s *Server) handleSkillAction(w http.ResponseWriter, r *http.Request) {
 			"draft": draft,
 		})
 
+	case r.Method == http.MethodPost && strings.HasPrefix(path, "refine"):
+		// POST /api/v1/skills/refine  body: {"draft": "...", "feedback": "..."}
+		var body struct {
+			Draft    string `json:"draft"`
+			Feedback string `json:"feedback"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+		if strings.TrimSpace(body.Draft) == "" {
+			http.Error(w, "draft is required", http.StatusBadRequest)
+			return
+		}
+		if strings.TrimSpace(body.Feedback) == "" {
+			http.Error(w, "feedback is required", http.StatusBadRequest)
+			return
+		}
+		if s.agentLoop == nil {
+			http.Error(w, "agent loop unavailable", http.StatusServiceUnavailable)
+			return
+		}
+
+		prompt := buildSkillRefinementPrompt(body.Draft, body.Feedback)
+		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+		defer cancel()
+		rawDraft, err := s.agentLoop.ProcessDirect(ctx, prompt, "web:skills:refine")
+		if err != nil {
+			http.Error(w, "failed to refine skill draft", http.StatusInternalServerError)
+			return
+		}
+
+		// Extract skill name from the original draft frontmatter
+		skillName := "refined-skill"
+		if idx := strings.Index(body.Draft, "name:"); idx != -1 {
+			endIdx := strings.Index(body.Draft[idx:], "\n")
+			if endIdx != -1 {
+				nameLine := body.Draft[idx : idx+endIdx]
+				nameLine = strings.TrimPrefix(nameLine, "name:")
+				skillName = strings.TrimSpace(nameLine)
+			}
+		}
+
+		draft := normalizeSkillDraft(skillName, rawDraft)
+		if err := validateSkillContent(draft); err != nil {
+			http.Error(w, "invalid refined skill draft: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSONResponse(w, map[string]interface{}{
+			"name":  skillName,
+			"draft": draft,
+		})
+
 	case r.Method == http.MethodPost && strings.HasPrefix(path, "create"):
 		var body struct {
 			Name      string `json:"name"`
@@ -219,6 +272,34 @@ func (s *Server) handleSkillAction(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeJSONResponse(w, map[string]string{"status": "installed", "repository": body.Repository})
+
+	case r.Method == http.MethodPost && strings.HasPrefix(path, "scan"):
+		// POST /api/v1/skills/scan  body: {"content": "..."}
+		var body struct {
+			Content string `json:"content"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Content == "" {
+			http.Error(w, "content field required", http.StatusBadRequest)
+			return
+		}
+
+		// Create security scanner with AI reviewer if agent loop is available
+		var aiReviewer skills.AISecurityReviewer
+		if s.agentLoop != nil {
+			aiReviewer = skills.NewLLMSecurityReviewer(s.agentLoop)
+		}
+		scanner := skills.NewSkillSecurityScanner(aiReviewer)
+
+		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+		defer cancel()
+
+		result, err := scanner.ScanSkill(ctx, body.Content)
+		if err != nil {
+			http.Error(w, "scan failed: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		writeJSONResponse(w, result)
 
 	case r.Method == http.MethodDelete:
 		// DELETE /api/v1/skills/{name}
@@ -318,28 +399,79 @@ func sanitizeSkillName(name string) (string, bool) {
 }
 
 func buildSkillGenerationPrompt(name, goal, capabilities, constraints, tools, examples string) string {
-	return strings.TrimSpace(fmt.Sprintf(`Create a makoclaw skill markdown file.
-Return only the content for SKILL.md (no code fences, no extra commentary).
+	return strings.TrimSpace(fmt.Sprintf(`You are an expert skill designer for MakoClaw AI agents. Create a high-quality SKILL.md file.
 
-Requirements:
-- Include YAML frontmatter with at least:
-  name: %s
-  description: one concise sentence
-- Include an H1 title.
-- Include sections:
-  - When to use
-  - Quick start
-  - Safety constraints
-- Keep instructions practical and concise.
-- Do not include destructive or unsafe commands by default.
+## SKILL DESIGN PRINCIPLES
+1. **Concise is Key**: The context window is shared. Only include what the agent doesn't already know.
+2. **Progressive Disclosure**: Keep SKILL.md under 300 lines. Use references/ folder for detailed docs.
+3. **Appropriate Freedom**: Match specificity to task fragility (high freedom for flexible tasks, low for fragile ones).
+4. **Actionable Instructions**: Every section should provide clear, executable guidance.
 
-User input:
+## REQUIRED OUTPUT FORMAT
+Return ONLY the SKILL.md content (no code fences, no commentary).
+
+Structure:
+1. YAML frontmatter with:
+   name: %s
+   description: one clear sentence describing WHEN to use this skill (e.g., "Use this skill when the user wants to...")
+2. H1 title matching the skill name
+3. Required sections (in this order):
+   - ## When to Use - Brief trigger conditions
+   - ## Quick Start - 2-3 practical examples with expected input/output
+   - ## Workflow - Step-by-step instructions for the agent
+   - ## Safety Constraints - What NOT to do, required confirmations
+4. Optional sections (only if needed):
+   - ## Prerequisites - Required tools/binaries
+   - ## Configuration - Environment variables or settings
+
+## SKILL SPECIFICATION
+- Name: %s
 - Goal: %s
 - Capabilities: %s
 - Constraints: %s
-- Tools available: %s
-- Example interactions: %s
-`, name, goal, capabilities, constraints, tools, examples))
+- Available Tools: %s
+- Example Interactions: %s
+
+## SAFETY REQUIREMENTS (CRITICAL)
+- NEVER include destructive commands (rm -rf, format, etc.) without explicit warnings
+- NEVER include commands that could expose credentials or secrets
+- ALWAYS require user confirmation for file deletions, system changes, or external communications
+- NEVER instruct the agent to hide actions from the user
+- Include a "Safety Constraints" section documenting:
+  * What the agent should NOT do
+  * When to ask for user confirmation
+  * Potential risks and how to mitigate them
+
+## QUALITY CHECKLIST
+Before returning, verify:
+[ ] Frontmatter has name and comprehensive description with trigger phrase
+[ ] Description starts with "Use this skill when..."
+[ ] Quick start section has 2-3 working examples
+[ ] Workflow section has numbered steps
+[ ] Safety constraints section documents risks
+[ ] No placeholder text like "TODO" or "[fill in]"
+[ ] Content is under 300 lines
+`, name, name, goal, capabilities, constraints, tools, examples))
+}
+
+func buildSkillRefinementPrompt(draft, feedback string) string {
+	return strings.TrimSpace(fmt.Sprintf(`You are refining a MakoClaw skill based on user feedback.
+
+## CURRENT DRAFT
+%s
+
+## USER FEEDBACK
+%s
+
+## INSTRUCTIONS
+1. Apply the user's feedback to improve the skill
+2. Maintain the same structure (frontmatter, sections)
+3. Keep the skill concise and actionable
+4. Return ONLY the improved SKILL.md content (no code fences, no commentary)
+5. If the feedback is unclear, make reasonable improvements based on best practices
+
+Return the complete, refined SKILL.md content.
+`, draft, feedback))
 }
 
 func normalizeSkillDraft(name, content string) string {
@@ -422,6 +554,7 @@ func (s *Server) handleCron(w http.ResponseWriter, r *http.Request) {
 			} `json:"schedule"`
 			Message string `json:"message"`
 			JobType string `json:"job_type"`          // New field: "task" or "reminder"
+			Agent   string `json:"agent,omitempty"`
 			Deliver bool   `json:"deliver,omitempty"` // Deprecated, for backward compatibility
 			Channel string `json:"channel,omitempty"`
 			To      string `json:"to,omitempty"`
@@ -454,7 +587,7 @@ func (s *Server) handleCron(w http.ResponseWriter, r *http.Request) {
 		// Import cron schedule type
 		schedule := cronScheduleFromBody(body.Schedule.Kind, body.Schedule.AtMS, body.Schedule.EveryMS, body.Schedule.Expr, body.Schedule.TZ)
 
-		job, err := cronService.AddJob(userID, body.Name, schedule, body.Message, jobType, body.Channel, body.To)
+		job, err := cronService.AddJob(userID, body.Name, schedule, body.Message, jobType, body.Channel, body.To, body.Agent)
 		if err != nil {
 			// Validation errors from AddJob return 400
 			http.Error(w, "failed to create job: "+err.Error(), http.StatusBadRequest)
@@ -534,6 +667,7 @@ func (s *Server) handleCronAction(w http.ResponseWriter, r *http.Request) {
 			} `json:"schedule"`
 			Message string `json:"message"`
 			JobType string `json:"job_type"`          // New field: "task" or "reminder"
+			Agent   string `json:"agent,omitempty"`
 			Deliver bool   `json:"deliver,omitempty"` // Deprecated, for backward compatibility
 			Channel string `json:"channel,omitempty"`
 			To      string `json:"to,omitempty"`
@@ -565,7 +699,7 @@ func (s *Server) handleCronAction(w http.ResponseWriter, r *http.Request) {
 
 		schedule := cronScheduleFromBody(body.Schedule.Kind, body.Schedule.AtMS, body.Schedule.EveryMS, body.Schedule.Expr, body.Schedule.TZ)
 
-		job, err := cronService.UpdateJobForUser(userID, jobID, body.Name, schedule, body.Message, jobType, body.Channel, body.To)
+		job, err := cronService.UpdateJobForUser(userID, jobID, body.Name, schedule, body.Message, jobType, body.Channel, body.To, body.Agent)
 		if err != nil {
 			http.Error(w, "invalid job: "+err.Error(), http.StatusBadRequest)
 			return
@@ -1957,6 +2091,12 @@ func (s *Server) handleMCPCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Log the userUUID for debugging
+	logger.InfoCF("mcp", "handleMCPCreate called", map[string]interface{}{
+		"user_uuid":   userUUID,
+		"legacy_mode": userUUID == "",
+	})
+
 	// Parse request body
 	var req struct {
 		Name    string            `json:"name"`
@@ -1964,6 +2104,7 @@ func (s *Server) handleMCPCreate(w http.ResponseWriter, r *http.Request) {
 		Command string            `json:"command"`
 		Args    []string          `json:"args"`
 		Env     map[string]string `json:"env"`
+		SaveTo  string            `json:"save_to"` // "config" (default), "user_folder", "global_folder"
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -1994,32 +2135,6 @@ func (s *Server) handleMCPCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Load user config
-	cfg, err := config.LoadConfigForUser(userUUID)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		writeJSONResponse(w, map[string]interface{}{
-			"ok":    false,
-			"error": "failed to load config: " + err.Error(),
-		})
-		return
-	}
-
-	// Initialize MCP config if needed
-	if cfg.Tools.MCP.Servers == nil {
-		cfg.Tools.MCP.Servers = make(map[string]config.MCPServerConfig)
-	}
-
-	// Check if server already exists
-	if _, exists := cfg.Tools.MCP.Servers[req.Name]; exists {
-		w.WriteHeader(http.StatusConflict)
-		writeJSONResponse(w, map[string]interface{}{
-			"ok":    false,
-			"error": "MCP server with this name already exists",
-		})
-		return
-	}
-
 	// Create server config
 	serverCfg := config.MCPServerConfig{
 		Enabled: req.Enabled,
@@ -2028,11 +2143,94 @@ func (s *Server) handleMCPCreate(w http.ResponseWriter, r *http.Request) {
 		Env:     req.Env,
 	}
 
-	// Add to config
-	cfg.Tools.MCP.Servers[req.Name] = serverCfg
+	// Determine save location
+	saveTo := req.SaveTo
+	if saveTo == "" {
+		saveTo = "config" // Default to config.json
+	}
 
-	// Save config
-	if err := config.SaveConfigForUser(userUUID, cfg); err != nil {
+	var source mcp.MCPServerSource
+	var savePath string
+	var err error
+
+	dataDir := config.GetDataDir()
+
+	switch saveTo {
+	case "user_folder":
+		if userUUID == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			writeJSONResponse(w, map[string]interface{}{
+				"ok":    false,
+				"error": "user_folder requires multi-user mode",
+			})
+			return
+		}
+		loader := mcp.NewLoader(dataDir)
+		userMCPPath := filepath.Join(dataDir, "users", userUUID, "mcp")
+		loader.SetUserMCPPath(userMCPPath)
+		err = loader.SaveToFolder(userMCPPath, req.Name, serverCfg)
+		source = mcp.SourceUserFolder
+		savePath = filepath.Join(userMCPPath, req.Name, "mcp.json")
+
+	case "global_folder":
+		loader := mcp.NewLoader(dataDir)
+		globalMCPPath := loader.GetGlobalMCPPath()
+		err = loader.SaveToFolder(globalMCPPath, req.Name, serverCfg)
+		source = mcp.SourceGlobalFolder
+		savePath = filepath.Join(globalMCPPath, req.Name, "mcp.json")
+
+	default: // "config"
+		// Load config - use user-specific or global depending on mode
+		var cfg *config.Config
+		if userUUID != "" {
+			cfg, err = config.LoadConfigForUser(userUUID)
+			source = mcp.SourceUserConfig
+			savePath = config.GetUserConfigPath(userUUID)
+		} else {
+			cfg, err = config.LoadConfig(config.GetGlobalConfigPath())
+			source = mcp.SourceGlobalConfig
+			savePath = config.GetGlobalConfigPath()
+		}
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			writeJSONResponse(w, map[string]interface{}{
+				"ok":    false,
+				"error": "failed to load config: " + err.Error(),
+			})
+			return
+		}
+
+		// Initialize MCP config if needed
+		if cfg.Tools.MCP.Servers == nil {
+			cfg.Tools.MCP.Servers = make(map[string]config.MCPServerConfig)
+		}
+
+		// Check if server already exists
+		if _, exists := cfg.Tools.MCP.Servers[req.Name]; exists {
+			w.WriteHeader(http.StatusConflict)
+			writeJSONResponse(w, map[string]interface{}{
+				"ok":    false,
+				"error": "MCP server with this name already exists",
+			})
+			return
+		}
+
+		// Add to config
+		cfg.Tools.MCP.Servers[req.Name] = serverCfg
+
+		// Save config - use user-specific or global depending on mode
+		if userUUID != "" {
+			err = config.SaveConfigForUser(userUUID, cfg)
+		} else {
+			err = config.SaveConfig(config.GetGlobalConfigPath(), cfg)
+		}
+	}
+	if err != nil {
+		logger.ErrorCF("mcp", "Failed to save MCP config", map[string]interface{}{
+			"user_uuid":   userUUID,
+			"server_name": req.Name,
+			"error":       err.Error(),
+		})
 		w.WriteHeader(http.StatusInternalServerError)
 		writeJSONResponse(w, map[string]interface{}{
 			"ok":    false,
@@ -2041,11 +2239,19 @@ func (s *Server) handleMCPCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	logger.InfoCF("mcp", "MCP server config saved successfully", map[string]interface{}{
+		"user_uuid":   userUUID,
+		"server_name": req.Name,
+		"save_to":     saveTo,
+		"source":      source,
+		"path":        savePath,
+	})
+
 	// Add to running MCP manager if available
 	if s.mcpManager != nil {
 		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 		defer cancel()
-		if err := s.mcpManager.AddServer(ctx, req.Name, serverCfg, true); err != nil {
+		if err := s.mcpManager.AddServerWithSource(ctx, req.Name, serverCfg, true, source, savePath); err != nil {
 			// Log but don't fail - config is saved
 			logger.WarnCF("mcp", "Failed to add server to running manager", map[string]interface{}{
 				"name":  req.Name,
@@ -2055,7 +2261,9 @@ func (s *Server) handleMCPCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSONResponse(w, map[string]interface{}{
-		"ok": true,
+		"ok":     true,
+		"source": source,
+		"path":   savePath,
 		"server": map[string]interface{}{
 			"name":    req.Name,
 			"enabled": serverCfg.Enabled,
@@ -2092,8 +2300,14 @@ func (s *Server) handleMCPUpdate(w http.ResponseWriter, r *http.Request, name st
 		return
 	}
 
-	// Load user config
-	cfg, err := config.LoadConfigForUser(userUUID)
+	// Load config - use user-specific or global depending on mode
+	var cfg *config.Config
+	var err error
+	if userUUID != "" {
+		cfg, err = config.LoadConfigForUser(userUUID)
+	} else {
+		cfg, err = config.LoadConfig(config.GetGlobalConfigPath())
+	}
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		writeJSONResponse(w, map[string]interface{}{
@@ -2128,9 +2342,19 @@ func (s *Server) handleMCPUpdate(w http.ResponseWriter, r *http.Request, name st
 		existingCfg.Env = req.Env
 	}
 
-	// Save updated config
+	// Save updated config - use user-specific or global depending on mode
 	cfg.Tools.MCP.Servers[name] = existingCfg
-	if err := config.SaveConfigForUser(userUUID, cfg); err != nil {
+	if userUUID != "" {
+		err = config.SaveConfigForUser(userUUID, cfg)
+	} else {
+		err = config.SaveConfig(config.GetGlobalConfigPath(), cfg)
+	}
+	if err != nil {
+		logger.ErrorCF("mcp", "Failed to save updated MCP config", map[string]interface{}{
+			"user_uuid":   userUUID,
+			"server_name": name,
+			"error":       err.Error(),
+		})
 		w.WriteHeader(http.StatusInternalServerError)
 		writeJSONResponse(w, map[string]interface{}{
 			"ok":    false,
@@ -2173,8 +2397,14 @@ func (s *Server) handleMCPDelete(w http.ResponseWriter, r *http.Request, name st
 		return
 	}
 
-	// Load user config
-	cfg, err := config.LoadConfigForUser(userUUID)
+	// Load config - use user-specific or global depending on mode
+	var cfg *config.Config
+	var err error
+	if userUUID != "" {
+		cfg, err = config.LoadConfigForUser(userUUID)
+	} else {
+		cfg, err = config.LoadConfig(config.GetGlobalConfigPath())
+	}
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		writeJSONResponse(w, map[string]interface{}{
@@ -2205,8 +2435,18 @@ func (s *Server) handleMCPDelete(w http.ResponseWriter, r *http.Request, name st
 	// Remove from config
 	delete(cfg.Tools.MCP.Servers, name)
 
-	// Save config
-	if err := config.SaveConfigForUser(userUUID, cfg); err != nil {
+	// Save config - use user-specific or global depending on mode
+	if userUUID != "" {
+		err = config.SaveConfigForUser(userUUID, cfg)
+	} else {
+		err = config.SaveConfig(config.GetGlobalConfigPath(), cfg)
+	}
+	if err != nil {
+		logger.ErrorCF("mcp", "Failed to save config after MCP delete", map[string]interface{}{
+			"user_uuid":   userUUID,
+			"server_name": name,
+			"error":       err.Error(),
+		})
 		w.WriteHeader(http.StatusInternalServerError)
 		writeJSONResponse(w, map[string]interface{}{
 			"ok":    false,
@@ -2242,8 +2482,14 @@ func (s *Server) handleMCPTest(w http.ResponseWriter, r *http.Request, name stri
 		return
 	}
 
-	// Load user config
-	cfg, err := config.LoadConfigForUser(userUUID)
+	// Load config - use user-specific or global depending on mode
+	var cfg *config.Config
+	var err error
+	if userUUID != "" {
+		cfg, err = config.LoadConfigForUser(userUUID)
+	} else {
+		cfg, err = config.LoadConfig(config.GetGlobalConfigPath())
+	}
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		writeJSONResponse(w, map[string]interface{}{

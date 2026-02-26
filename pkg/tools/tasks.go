@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/sipeed/makoclaw/pkg/storage"
+	kakoclawContext "github.com/sipeed/makoclaw/pkg/utils"
 )
 
 type TaskTool struct {
@@ -73,7 +74,10 @@ func (t *TaskTool) Execute(ctx context.Context, args map[string]interface{}) (st
 		if status == "" {
 			status = "todo"
 		}
-		id, err := t.storage.CreateTaskForUser(t.userID, title, description, status)
+		
+		agentName := kakoclawContext.AgentNameFrom(ctx)
+
+		id, err := t.storage.CreateTaskForUser(t.userID, title, description, status, agentName)
 		if err != nil {
 			return "", err
 		}

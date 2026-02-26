@@ -146,6 +146,59 @@ func (cs *CentralStorage) migrate() error {
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_setup_sessions_token ON setup_sessions(token);`,
 		`CREATE INDEX IF NOT EXISTS idx_setup_sessions_expires_at ON setup_sessions(expires_at);`,
+
+		// Skill submissions table for marketplace
+		`CREATE TABLE IF NOT EXISTS skill_submissions (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			skill_name TEXT NOT NULL,
+			skill_slug TEXT NOT NULL UNIQUE,
+			version TEXT NOT NULL DEFAULT '1.0.0',
+			description TEXT NOT NULL,
+			content TEXT NOT NULL,
+			author TEXT NOT NULL,
+			tags TEXT DEFAULT '[]',
+			category TEXT DEFAULT 'general',
+			repository_url TEXT,
+			security_score INTEGER NOT NULL DEFAULT 0,
+			security_findings TEXT DEFAULT '[]',
+			security_scan_at DATETIME,
+			status TEXT NOT NULL DEFAULT 'pending',
+			reviewer_id INTEGER,
+			reviewer_notes TEXT,
+			reviewed_at DATETIME,
+			download_count INTEGER NOT NULL DEFAULT 0,
+			install_count INTEGER NOT NULL DEFAULT 0,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			published_at DATETIME,
+			FOREIGN KEY(user_id) REFERENCES users(id),
+			FOREIGN KEY(reviewer_id) REFERENCES users(id)
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_skill_submissions_status ON skill_submissions(status);`,
+		`CREATE INDEX IF NOT EXISTS idx_skill_submissions_user_id ON skill_submissions(user_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_skill_submissions_category ON skill_submissions(category);`,
+		`CREATE INDEX IF NOT EXISTS idx_skill_submissions_slug ON skill_submissions(skill_slug);`,
+
+		// Skill categories table
+		`CREATE TABLE IF NOT EXISTS skill_categories (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			slug TEXT NOT NULL UNIQUE,
+			name TEXT NOT NULL,
+			description TEXT,
+			icon TEXT,
+			display_order INTEGER DEFAULT 0,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		);`,
+
+		// Insert default categories
+		`INSERT OR IGNORE INTO skill_categories (slug, name, description, icon, display_order) VALUES
+			('development', 'Development', 'Code review, testing, refactoring', '💻', 1),
+			('devops', 'DevOps', 'CI/CD, deployment, monitoring', '🚀', 2),
+			('productivity', 'Productivity', 'Task management, notes, automation', '📋', 3),
+			('integrations', 'Integrations', 'APIs, services, external tools', '🔗', 4),
+			('ai-agents', 'AI Agents', 'Agent behaviors and workflows', '🤖', 5),
+			('general', 'General', 'General purpose skills', '📦', 6);`,
 	}
 
 	for _, query := range queries {
@@ -675,4 +728,304 @@ func (cs *CentralStorage) UpdateUserTools(userID int64, tools []string) error {
 		WHERE id = ?`,
 		toolsJSON, userID)
 	return err
+}
+
+// ==================== SKILL SUBMISSIONS ====================
+
+// SkillSubmission represents a skill submitted to the marketplace
+type SkillSubmission struct {
+	ID               int64     `json:"id"`
+	UserID           int64     `json:"user_id"`
+	SkillName        string    `json:"skill_name"`
+	SkillSlug        string    `json:"skill_slug"`
+	Version          string    `json:"version"`
+	Description      string    `json:"description"`
+	Content          string    `json:"content"`
+	Author           string    `json:"author"`
+	Tags             []string  `json:"tags"`
+	Category         string    `json:"category"`
+	RepositoryURL    string    `json:"repository_url,omitempty"`
+	SecurityScore    int       `json:"security_score"`
+	SecurityFindings string    `json:"security_findings"`
+	SecurityScanAt   *string   `json:"security_scan_at,omitempty"`
+	Status           string    `json:"status"`
+	ReviewerID       *int64    `json:"reviewer_id,omitempty"`
+	ReviewerNotes    string    `json:"reviewer_notes,omitempty"`
+	ReviewedAt       *string   `json:"reviewed_at,omitempty"`
+	DownloadCount    int       `json:"download_count"`
+	InstallCount     int       `json:"install_count"`
+	CreatedAt        string    `json:"created_at"`
+	UpdatedAt        string    `json:"updated_at"`
+	PublishedAt      *string   `json:"published_at,omitempty"`
+}
+
+// SkillCategory represents a skill category
+type SkillCategory struct {
+	ID           int64  `json:"id"`
+	Slug         string `json:"slug"`
+	Name         string `json:"name"`
+	Description  string `json:"description"`
+	Icon         string `json:"icon"`
+	DisplayOrder int    `json:"display_order"`
+}
+
+// CreateSkillSubmission creates a new skill submission
+func (cs *CentralStorage) CreateSkillSubmission(sub *SkillSubmission) (int64, error) {
+	tagsJSON, err := json.Marshal(sub.Tags)
+	if err != nil {
+		tagsJSON = []byte("[]")
+	}
+
+	res, err := cs.db.Exec(`
+		INSERT INTO skill_submissions (
+			user_id, skill_name, skill_slug, version, description, content,
+			author, tags, category, repository_url,
+			security_score, security_findings, security_scan_at, status
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		sub.UserID, sub.SkillName, sub.SkillSlug, sub.Version, sub.Description, sub.Content,
+		sub.Author, string(tagsJSON), sub.Category, sub.RepositoryURL,
+		sub.SecurityScore, sub.SecurityFindings, sub.SecurityScanAt, sub.Status,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+// GetSkillSubmission retrieves a submission by ID
+func (cs *CentralStorage) GetSkillSubmission(id int64) (*SkillSubmission, error) {
+	row := cs.db.QueryRow(`
+		SELECT id, user_id, skill_name, skill_slug, version, description, content,
+		       author, tags, category, repository_url, security_score, security_findings,
+		       security_scan_at, status, reviewer_id, reviewer_notes, reviewed_at,
+		       download_count, install_count, created_at, updated_at, published_at
+		FROM skill_submissions WHERE id = ?`, id)
+
+	return cs.scanSkillSubmission(row)
+}
+
+// GetSkillSubmissionBySlug retrieves a submission by slug
+func (cs *CentralStorage) GetSkillSubmissionBySlug(slug string) (*SkillSubmission, error) {
+	row := cs.db.QueryRow(`
+		SELECT id, user_id, skill_name, skill_slug, version, description, content,
+		       author, tags, category, repository_url, security_score, security_findings,
+		       security_scan_at, status, reviewer_id, reviewer_notes, reviewed_at,
+		       download_count, install_count, created_at, updated_at, published_at
+		FROM skill_submissions WHERE skill_slug = ?`, slug)
+
+	return cs.scanSkillSubmission(row)
+}
+
+func (cs *CentralStorage) scanSkillSubmission(row *sql.Row) (*SkillSubmission, error) {
+	var sub SkillSubmission
+	var tagsJSON string
+	var securityScanAt, reviewedAt, publishedAt sql.NullString
+	var reviewerID sql.NullInt64
+
+	err := row.Scan(
+		&sub.ID, &sub.UserID, &sub.SkillName, &sub.SkillSlug, &sub.Version, &sub.Description, &sub.Content,
+		&sub.Author, &tagsJSON, &sub.Category, &sub.RepositoryURL, &sub.SecurityScore, &sub.SecurityFindings,
+		&securityScanAt, &sub.Status, &reviewerID, &sub.ReviewerNotes, &reviewedAt,
+		&sub.DownloadCount, &sub.InstallCount, &sub.CreatedAt, &sub.UpdatedAt, &publishedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	if securityScanAt.Valid {
+		sub.SecurityScanAt = &securityScanAt.String
+	}
+	if reviewerID.Valid {
+		sub.ReviewerID = &reviewerID.Int64
+	}
+	if reviewedAt.Valid {
+		sub.ReviewedAt = &reviewedAt.String
+	}
+	if publishedAt.Valid {
+		sub.PublishedAt = &publishedAt.String
+	}
+
+	_ = json.Unmarshal([]byte(tagsJSON), &sub.Tags)
+	if sub.Tags == nil {
+		sub.Tags = []string{}
+	}
+
+	return &sub, nil
+}
+
+// GetApprovedSkillSubmissions returns all approved skill submissions for the marketplace
+func (cs *CentralStorage) GetApprovedSkillSubmissions(category string, limit, offset int) ([]*SkillSubmission, error) {
+	query := `
+		SELECT id, user_id, skill_name, skill_slug, version, description, content,
+		       author, tags, category, repository_url, security_score, security_findings,
+		       security_scan_at, status, reviewer_id, reviewer_notes, reviewed_at,
+		       download_count, install_count, created_at, updated_at, published_at
+		FROM skill_submissions
+		WHERE status = 'approved'`
+	args := []interface{}{}
+
+	if category != "" && category != "all" {
+		query += ` AND category = ?`
+		args = append(args, category)
+	}
+
+	query += ` ORDER BY published_at DESC LIMIT ? OFFSET ?`
+	args = append(args, limit, offset)
+
+	rows, err := cs.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return cs.scanSkillSubmissions(rows)
+}
+
+// GetPendingSkillSubmissions returns submissions needing review
+func (cs *CentralStorage) GetPendingSkillSubmissions() ([]*SkillSubmission, error) {
+	rows, err := cs.db.Query(`
+		SELECT id, user_id, skill_name, skill_slug, version, description, content,
+		       author, tags, category, repository_url, security_score, security_findings,
+		       security_scan_at, status, reviewer_id, reviewer_notes, reviewed_at,
+		       download_count, install_count, created_at, updated_at, published_at
+		FROM skill_submissions
+		WHERE status IN ('pending', 'needs_review')
+		ORDER BY created_at ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return cs.scanSkillSubmissions(rows)
+}
+
+// GetUserSkillSubmissions returns submissions by a specific user
+func (cs *CentralStorage) GetUserSkillSubmissions(userID int64) ([]*SkillSubmission, error) {
+	rows, err := cs.db.Query(`
+		SELECT id, user_id, skill_name, skill_slug, version, description, content,
+		       author, tags, category, repository_url, security_score, security_findings,
+		       security_scan_at, status, reviewer_id, reviewer_notes, reviewed_at,
+		       download_count, install_count, created_at, updated_at, published_at
+		FROM skill_submissions
+		WHERE user_id = ?
+		ORDER BY created_at DESC`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return cs.scanSkillSubmissions(rows)
+}
+
+func (cs *CentralStorage) scanSkillSubmissions(rows *sql.Rows) ([]*SkillSubmission, error) {
+	var submissions []*SkillSubmission
+	for rows.Next() {
+		var sub SkillSubmission
+		var tagsJSON string
+		var securityScanAt, reviewedAt, publishedAt sql.NullString
+		var reviewerID sql.NullInt64
+
+		err := rows.Scan(
+			&sub.ID, &sub.UserID, &sub.SkillName, &sub.SkillSlug, &sub.Version, &sub.Description, &sub.Content,
+			&sub.Author, &tagsJSON, &sub.Category, &sub.RepositoryURL, &sub.SecurityScore, &sub.SecurityFindings,
+			&securityScanAt, &sub.Status, &reviewerID, &sub.ReviewerNotes, &reviewedAt,
+			&sub.DownloadCount, &sub.InstallCount, &sub.CreatedAt, &sub.UpdatedAt, &publishedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if securityScanAt.Valid {
+			sub.SecurityScanAt = &securityScanAt.String
+		}
+		if reviewerID.Valid {
+			sub.ReviewerID = &reviewerID.Int64
+		}
+		if reviewedAt.Valid {
+			sub.ReviewedAt = &reviewedAt.String
+		}
+		if publishedAt.Valid {
+			sub.PublishedAt = &publishedAt.String
+		}
+
+		_ = json.Unmarshal([]byte(tagsJSON), &sub.Tags)
+		if sub.Tags == nil {
+			sub.Tags = []string{}
+		}
+
+		submissions = append(submissions, &sub)
+	}
+	return submissions, rows.Err()
+}
+
+// ApproveSkillSubmission marks a submission as approved
+func (cs *CentralStorage) ApproveSkillSubmission(id, reviewerID int64, notes string) error {
+	_, err := cs.db.Exec(`
+		UPDATE skill_submissions
+		SET status = 'approved', reviewer_id = ?, reviewer_notes = ?,
+		    reviewed_at = CURRENT_TIMESTAMP, published_at = CURRENT_TIMESTAMP,
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?`,
+		reviewerID, notes, id)
+	return err
+}
+
+// RejectSkillSubmission marks a submission as rejected
+func (cs *CentralStorage) RejectSkillSubmission(id, reviewerID int64, notes string) error {
+	_, err := cs.db.Exec(`
+		UPDATE skill_submissions
+		SET status = 'rejected', reviewer_id = ?, reviewer_notes = ?,
+		    reviewed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?`,
+		reviewerID, notes, id)
+	return err
+}
+
+// UpdateSkillSubmissionStatus updates the status of a submission
+func (cs *CentralStorage) UpdateSkillSubmissionStatus(id int64, status string) error {
+	_, err := cs.db.Exec(`
+		UPDATE skill_submissions
+		SET status = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?`,
+		status, id)
+	return err
+}
+
+// IncrementSkillInstallCount increments the install count for a skill
+func (cs *CentralStorage) IncrementSkillInstallCount(id int64) error {
+	_, err := cs.db.Exec(`
+		UPDATE skill_submissions
+		SET install_count = install_count + 1, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?`, id)
+	return err
+}
+
+// GetSkillCategories returns all skill categories
+func (cs *CentralStorage) GetSkillCategories() ([]*SkillCategory, error) {
+	rows, err := cs.db.Query(`
+		SELECT id, slug, name, description, icon, display_order
+		FROM skill_categories
+		ORDER BY display_order ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var categories []*SkillCategory
+	for rows.Next() {
+		var cat SkillCategory
+		var description sql.NullString
+		err := rows.Scan(&cat.ID, &cat.Slug, &cat.Name, &description, &cat.Icon, &cat.DisplayOrder)
+		if err != nil {
+			return nil, err
+		}
+		if description.Valid {
+			cat.Description = description.String
+		}
+		categories = append(categories, &cat)
+	}
+	return categories, rows.Err()
 }

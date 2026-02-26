@@ -115,7 +115,7 @@ func (t *CronTool) Execute(ctx context.Context, args map[string]interface{}) (st
 
 	switch action {
 	case "add":
-		return t.addJob(args)
+		return t.addJob(ctx, args)
 	case "list":
 		return t.listJobs()
 	case "remove":
@@ -129,7 +129,7 @@ func (t *CronTool) Execute(ctx context.Context, args map[string]interface{}) (st
 	}
 }
 
-func (t *CronTool) addJob(args map[string]interface{}) (string, error) {
+func (t *CronTool) addJob(ctx context.Context, args map[string]interface{}) (string, error) {
 	t.mu.RLock()
 	channel := t.channel
 	chatID := t.chatID
@@ -190,6 +190,9 @@ func (t *CronTool) addJob(args map[string]interface{}) (string, error) {
 	// Truncate message for job name (max 30 chars)
 	messagePreview := utils.Truncate(message, 30)
 
+	// Extract Agent Name from the context
+	agentName := utils.AgentNameFrom(ctx)
+
 	job, err := t.cronService.AddJob(
 		userID,
 		messagePreview,
@@ -198,6 +201,7 @@ func (t *CronTool) addJob(args map[string]interface{}) (string, error) {
 		jobType,
 		channel,
 		chatID,
+		agentName,
 	)
 	if err != nil {
 		return fmt.Sprintf("Error adding job: %v", err), nil
@@ -301,11 +305,16 @@ func (t *CronTool) ExecuteJob(ctx context.Context, job *cron.CronJob) string {
 	switch jobType {
 	case "reminder":
 		// Direct channel delivery (simple notification)
+		msgContent := job.Payload.Message
+		if job.Payload.Agent != "" {
+			msgContent = fmt.Sprintf("%s\n\n*(Scheduled by agent: %s)*", msgContent, job.Payload.Agent)
+		}
+		
 		t.msgBus.PublishOutbound(bus.OutboundMessage{
 			UserID:  job.UserID,
 			Channel: channel,
 			ChatID:  chatID,
-			Content: job.Payload.Message,
+			Content: msgContent,
 		})
 		return "delivered reminder"
 
