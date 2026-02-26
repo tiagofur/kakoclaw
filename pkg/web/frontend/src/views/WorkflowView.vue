@@ -48,7 +48,7 @@
 
         <div class="space-y-3">
           <div v-for="wf in workflows" :key="wf.id"
-            class="bg-makoclaw-surface border border-makoclaw-border rounded-xl p-5 hover:border-makoclaw-accent/30 transition-colors">
+            class="card-interactive p-5">
             <div class="flex items-start justify-between">
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2">
@@ -91,7 +91,7 @@
               <h4 class="text-xs font-semibold text-makoclaw-text-secondary mb-2">Last Run Results</h4>
               <div class="space-y-2">
                 <div v-for="(res, i) in wf._lastResults" :key="i"
-                  class="text-xs p-2 rounded-lg bg-makoclaw-bg border border-makoclaw-border">
+                  class="text-xs p-2 rounded-lg bg-makoclaw-bg border border-makoclaw-border animate-fadeUp opacity-0">
                   <div class="flex items-center gap-2 mb-1">
                     <span class="font-mono font-semibold">{{ res.label || res.step_id }}</span>
                     <span class="px-1.5 py-0.5 rounded text-[10px]"
@@ -226,6 +226,7 @@
               </div>
 
               <!-- Step Config (expanded) -->
+              <Transition name="expand">
               <div v-if="expandedStep === step.id" class="px-4 pb-4 border-t border-makoclaw-border pt-3 space-y-3">
                 <div>
                   <label class="block text-xs font-semibold text-makoclaw-text-secondary mb-1">Label</label>
@@ -310,6 +311,7 @@
                   </div>
                 </template>
               </div>
+              </Transition>
             </div>
           </VueDraggable>
         </div>
@@ -347,7 +349,7 @@
 
           <div v-if="testResults" class="space-y-2">
             <div v-for="(res, i) in testResults" :key="i"
-              class="text-xs p-3 rounded-lg bg-makoclaw-bg border border-makoclaw-border">
+              class="text-xs p-3 rounded-lg bg-makoclaw-bg border border-makoclaw-border animate-fadeUp opacity-0">
               <div class="flex items-center gap-2 mb-1">
                 <span class="font-mono font-semibold">{{ res.label || res.step_id }}</span>
                 <span class="px-1.5 py-0.5 rounded text-[10px]"

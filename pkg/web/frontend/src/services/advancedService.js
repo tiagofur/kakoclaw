@@ -34,6 +34,11 @@ export default {
     return response.data
   },
 
+  generateSkillConfig: async (prompt) => {
+    const response = await client.post('/skills/generate-config', { prompt }, { timeout: 60000 })
+    return response.data
+  },
+
   createSkill: async (payload) => {
     const response = await client.post('/skills/create', payload, {
       timeout: 120000 // 2 min for skill creation

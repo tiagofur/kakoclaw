@@ -298,8 +298,13 @@ const skipStep = () => {
   }
 }
 
-const closeWizard = () => {
-  console.log('🚪 Closing wizard without saving')
+const closeWizard = async () => {
+  console.log('🚪 Closing wizard, marking onboarding complete')
+  try {
+    await onboardingStore.completeOnboarding()
+  } catch (e) {
+    console.warn('Could not mark onboarding complete:', e)
+  }
   router.push('/dashboard')
 }
 

@@ -25,6 +25,7 @@
       </svg>
     </button>
     
+    <Transition name="expand">
     <div v-if="tc.expanded" class="px-3 md:px-4 pb-3 md:pb-4 border-t border-makoclaw-border/30 animate-fadeIn bg-makoclaw-bg/20">
       <div class="mt-3 space-y-3">
         <div>
@@ -46,6 +47,7 @@
         </div>
       </div>
     </div>
+    </Transition>
   </div>
 </template>
 

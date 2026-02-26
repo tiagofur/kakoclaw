@@ -84,7 +84,7 @@
       @drop.prevent="onDrop"
     >
       <div v-if="isDragging" class="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
-        <div class="bg-makoclaw-accent text-white px-6 py-3 rounded-full shadow-xl animate-bounce flex items-center gap-2">
+        <div class="bg-makoclaw-accent text-white px-6 py-3 rounded-full shadow-xl animate-subtlePulse flex items-center gap-2">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
           </svg>
@@ -113,7 +113,7 @@
           <div
             v-for="entry in entries"
             :key="entry.path"
-            class="w-full flex items-center gap-3 px-6 py-3 hover:bg-makoclaw-surface transition-colors text-left cursor-pointer group"
+            class="w-full flex items-center gap-3 px-6 py-3 list-item-interactive text-left cursor-pointer group"
           >
             <!-- Entry content (clickable for navigation) -->
             <div

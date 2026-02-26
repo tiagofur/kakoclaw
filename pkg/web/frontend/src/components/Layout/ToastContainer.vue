@@ -66,11 +66,11 @@ const toastClasses = (type) => {
 }
 .toast-enter-from {
   opacity: 0;
-  transform: translateX(80px);
+  transform: translateX(40px) scale(0.95);
 }
 .toast-leave-to {
   opacity: 0;
-  transform: translateX(80px);
+  transform: translateX(40px) scale(0.95);
 }
 .toast-move {
   transition: transform 0.3s ease;
