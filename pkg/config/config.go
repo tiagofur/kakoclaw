@@ -1094,7 +1094,12 @@ func mergeToolsConfig(global, user *ToolsConfig) ToolsConfig {
 func (c *Config) ValidateProviderConfig(providerName string) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+	return c.validateProviderConfigLocked(providerName)
+}
 
+// validateProviderConfigLocked is the lock-free inner implementation.
+// Caller must hold at least c.mu.RLock().
+func (c *Config) validateProviderConfigLocked(providerName string) error {
 	var provider ProviderConfig
 	switch providerName {
 	case "anthropic":
@@ -1157,7 +1162,7 @@ func (c *Config) GetActiveProviders() []string {
 	}
 
 	for name := range providers {
-		if c.ValidateProviderConfig(name) == nil {
+		if c.validateProviderConfigLocked(name) == nil {
 			active = append(active, name)
 		}
 	}
@@ -1233,7 +1238,7 @@ func (c *Config) HasValidProviderConfig() bool {
 	// Check if default agent has valid provider and model
 	if c.Agents.Defaults.Provider != "" && c.Agents.Defaults.Model != "" {
 		// Validate that the provider is actually configured
-		if c.ValidateProviderConfig(c.Agents.Defaults.Provider) == nil {
+		if c.validateProviderConfigLocked(c.Agents.Defaults.Provider) == nil {
 			return true
 		}
 	}
@@ -1241,7 +1246,7 @@ func (c *Config) HasValidProviderConfig() bool {
 	// Check if orchestrator is enabled and has valid config
 	if c.Agents.Orchestrator.Enabled {
 		if c.Agents.Orchestrator.Provider != "" && c.Agents.Orchestrator.Model != "" {
-			if c.ValidateProviderConfig(c.Agents.Orchestrator.Provider) == nil {
+			if c.validateProviderConfigLocked(c.Agents.Orchestrator.Provider) == nil {
 				return true
 			}
 		}
@@ -1250,7 +1255,7 @@ func (c *Config) HasValidProviderConfig() bool {
 	// Check if any specialist has valid config
 	for _, spec := range c.Agents.Specialists {
 		if spec.Provider != "" && spec.Model != "" {
-			if c.ValidateProviderConfig(spec.Provider) == nil {
+			if c.validateProviderConfigLocked(spec.Provider) == nil {
 				return true
 			}
 		}

@@ -393,9 +393,10 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, update telego.Updat
 	chatIDStr := fmt.Sprintf("%d", chatID)
 	c.cleanupThinking(chatIDStr)
 
-	// Create new context for thinking animation with shorter timeout (issue #36)
-	// Reduced from 5 minutes to 2 minutes to prevent hanging
-	thinkCtx, thinkCancel := context.WithTimeout(ctx, 2*time.Minute)
+	// Create new context for thinking animation.
+	// Set to 5 minutes to allow slower LLM providers (e.g. Zhipu) enough time to respond.
+	// The HTTP provider timeout (300s) is the real deadline; this just controls the animation.
+	thinkCtx, thinkCancel := context.WithTimeout(ctx, 5*time.Minute)
 	c.stopThinking.Store(chatIDStr, &thinkingCancel{fn: thinkCancel})
 
 	pMsg, err := c.bot.SendMessage(ctx, tu.Message(tu.ID(chatID), "Thinking... 💭"))
