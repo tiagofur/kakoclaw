@@ -163,7 +163,7 @@
             <div
               v-for="specialist in agentsStore.specialists"
               :key="specialist.name"
-              class="glass-panel rounded-xl p-5 border border-makoclaw-border/50 hover:border-makoclaw-accent/50 hover:shadow-xl hover:shadow-makoclaw-accent/10 transition-all group cursor-pointer"
+              class="glass-panel rounded-xl p-5 border border-makoclaw-border/50 card-interactive group cursor-pointer"
               @click="openSpecialistDetails(specialist)"
             >
               <div class="flex items-start justify-between mb-3">
@@ -222,7 +222,7 @@
           </h3>
 
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="glass-panel rounded-xl p-5 border border-makoclaw-border/50">
+            <div class="glass-panel rounded-xl p-5 border border-makoclaw-border/50 animate-fadeUp opacity-0" style="animation-delay: 0ms">
               <div class="flex items-center gap-3 mb-3">
                 <div class="w-10 h-10 rounded-lg bg-makoclaw-accent/20 flex items-center justify-center">
                   <svg class="w-5 h-5 text-makoclaw-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -236,7 +236,7 @@
               </div>
             </div>
 
-            <div class="glass-panel rounded-xl p-5 border border-makoclaw-border/50">
+            <div class="glass-panel rounded-xl p-5 border border-makoclaw-border/50 animate-fadeUp opacity-0" style="animation-delay: 50ms">
               <div class="flex items-center gap-3 mb-3">
                 <div class="w-10 h-10 rounded-lg bg-makoclaw-accent/20 flex items-center justify-center">
                   <svg class="w-5 h-5 text-makoclaw-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -250,7 +250,7 @@
               </div>
             </div>
 
-            <div class="glass-panel rounded-xl p-5 border border-makoclaw-border/50">
+            <div class="glass-panel rounded-xl p-5 border border-makoclaw-border/50 animate-fadeUp opacity-0" style="animation-delay: 100ms">
               <div class="flex items-center gap-3 mb-3">
                 <div class="w-10 h-10 rounded-lg bg-makoclaw-accent/20 flex items-center justify-center">
                   <svg class="w-5 h-5 text-makoclaw-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -272,7 +272,7 @@
               <div
                 v-for="(cost, name) in (metrics.by_specialist || {})"
                 :key="name"
-                class="flex items-center justify-between p-3 bg-makoclaw-bg/40 rounded-lg"
+                class="flex items-center justify-between p-3 bg-makoclaw-bg/40 rounded-lg list-item-interactive"
               >
                 <div class="flex items-center gap-3">
                   <div :class="`w-8 h-8 rounded-lg ${agentsStore.getSpecialistBgColor(name)} flex items-center justify-center`">

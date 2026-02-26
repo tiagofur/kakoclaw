@@ -61,9 +61,15 @@ func (s *Storage) GetTaskForUser(userKey interface{}, id int64) (*Task, error) {
 		query = `SELECT id, 0 as user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, agent, created_at, updated_at FROM tasks WHERE id = ?`
 		args = []interface{}{id}
 	} else {
-		uid := normalizeUserKey(userKey)
-		query = `SELECT id, user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, agent, created_at, updated_at FROM tasks WHERE id = ? AND user_id = ?`
-		args = []interface{}{id, uid}
+		// If userKey is provided (not nil) and not 0, filter by it. Else, fetch without user_id filter.
+		if userKey != nil && normalizeUserKey(userKey) != 0 {
+			uid := normalizeUserKey(userKey)
+			query = `SELECT id, user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, agent, created_at, updated_at FROM tasks WHERE id = ? AND user_id = ?`
+			args = []interface{}{id, uid}
+		} else {
+			query = `SELECT id, COALESCE(user_id, 0), title, COALESCE(description, ''), status, COALESCE(result, ''), archived, agent, created_at, updated_at FROM tasks WHERE id = ?`
+			args = []interface{}{id}
+		}
 	}
 
 	var t Task
@@ -86,9 +92,14 @@ func (s *Storage) UpdateTaskForUser(userKey interface{}, id int64, title, descri
 		query = `UPDATE tasks SET title = ?, description = ?, status = ?, result = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
 		args = []interface{}{title, description, status, result, id}
 	} else {
-		uid := normalizeUserKey(userKey)
-		query = `UPDATE tasks SET title = ?, description = ?, status = ?, result = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`
-		args = []interface{}{title, description, status, result, id, uid}
+		if userKey != nil && normalizeUserKey(userKey) != 0 {
+			uid := normalizeUserKey(userKey)
+			query = `UPDATE tasks SET title = ?, description = ?, status = ?, result = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`
+			args = []interface{}{title, description, status, result, id, uid}
+		} else {
+			query = `UPDATE tasks SET title = ?, description = ?, status = ?, result = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+			args = []interface{}{title, description, status, result, id}
+		}
 	}
 
 	_, err := s.db.Exec(query, args...)
@@ -130,9 +141,14 @@ func (s *Storage) UpdateTaskStatusForUser(userKey interface{}, id int64, status 
 		query = `UPDATE tasks SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
 		args = []interface{}{status, id}
 	} else {
-		uid := normalizeUserKey(userKey)
-		query = `UPDATE tasks SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`
-		args = []interface{}{status, id, uid}
+		if userKey != nil && normalizeUserKey(userKey) != 0 {
+			uid := normalizeUserKey(userKey)
+			query = `UPDATE tasks SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`
+			args = []interface{}{status, id, uid}
+		} else {
+			query = `UPDATE tasks SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+			args = []interface{}{status, id}
+		}
 	}
 
 	_, err := s.db.Exec(query, args...)
@@ -154,9 +170,14 @@ func (s *Storage) ArchiveTaskForUser(userKey interface{}, id int64) error {
 		query = `UPDATE tasks SET archived = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
 		args = []interface{}{id}
 	} else {
-		uid := normalizeUserKey(userKey)
-		query = `UPDATE tasks SET archived = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`
-		args = []interface{}{id, uid}
+		if userKey != nil && normalizeUserKey(userKey) != 0 {
+			uid := normalizeUserKey(userKey)
+			query = `UPDATE tasks SET archived = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`
+			args = []interface{}{id, uid}
+		} else {
+			query = `UPDATE tasks SET archived = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+			args = []interface{}{id}
+		}
 	}
 
 	_, err := s.db.Exec(query, args...)
@@ -178,9 +199,14 @@ func (s *Storage) UnarchiveTaskForUser(userKey interface{}, id int64) error {
 		query = `UPDATE tasks SET archived = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
 		args = []interface{}{id}
 	} else {
-		uid := normalizeUserKey(userKey)
-		query = `UPDATE tasks SET archived = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`
-		args = []interface{}{id, uid}
+		if userKey != nil && normalizeUserKey(userKey) != 0 {
+			uid := normalizeUserKey(userKey)
+			query = `UPDATE tasks SET archived = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`
+			args = []interface{}{id, uid}
+		} else {
+			query = `UPDATE tasks SET archived = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+			args = []interface{}{id}
+		}
 	}
 
 	_, err := s.db.Exec(query, args...)
@@ -211,9 +237,14 @@ func (s *Storage) DeleteTaskForUser(userKey interface{}, id int64) error {
 		query = `DELETE FROM tasks WHERE id = ?`
 		args = []interface{}{id}
 	} else {
-		uid := normalizeUserKey(userKey)
-		query = `DELETE FROM tasks WHERE id = ? AND user_id = ?`
-		args = []interface{}{id, uid}
+		if userKey != nil && normalizeUserKey(userKey) != 0 {
+			uid := normalizeUserKey(userKey)
+			query = `DELETE FROM tasks WHERE id = ? AND user_id = ?`
+			args = []interface{}{id, uid}
+		} else {
+			query = `DELETE FROM tasks WHERE id = ?`
+			args = []interface{}{id}
+		}
 	}
 
 	if _, err := tx.Exec(query, args...); err != nil {
@@ -236,7 +267,7 @@ func (s *Storage) ListTasksForUser(userKey interface{}, includeArchived bool) ([
 		} else {
 			query = `SELECT id, 0 as user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, agent, created_at, updated_at FROM tasks WHERE archived = 0 ORDER BY created_at DESC`
 		}
-	} else if userID, ok := userKey.(int64); ok {
+	} else if userID, ok := userKey.(int64); ok && !s.isUserDB {
 		if includeArchived {
 			query = `SELECT id, user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, agent, created_at, updated_at FROM tasks WHERE user_id = ? ORDER BY created_at DESC`
 		} else {

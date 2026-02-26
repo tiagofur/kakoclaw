@@ -250,7 +250,7 @@ func TestTaskChatCommands(t *testing.T) {
 		t.Fatalf("expected list command output, got ok=%v msg=%q", ok, msg)
 	}
 
-	createdID, err := userStore.CreateTaskForUser(user.ID, "mover estado", "", "backlog")
+	createdID, err := userStore.CreateTaskForUser(user.ID, "mover estado", "", "backlog", "")
 	if err != nil {
 		t.Fatalf("create task for move command failed: %v", err)
 	}

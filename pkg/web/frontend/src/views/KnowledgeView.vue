@@ -39,8 +39,8 @@
       <template v-else>
         <!-- Upload Area -->
         <div
-          class="border-2 border-dashed rounded-xl p-8 text-center transition-colors mb-6 cursor-pointer"
-          :class="dragOver ? 'border-makoclaw-accent bg-makoclaw-accent/5' : 'border-makoclaw-border hover:border-makoclaw-accent/50'"
+          class="border-2 rounded-xl p-8 text-center transition-colors mb-6 cursor-pointer"
+          :class="uploading ? 'border-makoclaw-accent animate-subtlePulse' : dragOver ? 'border-makoclaw-accent bg-makoclaw-accent/5' : 'border-dashed border-makoclaw-border hover:border-makoclaw-accent/50'"
           @dragover.prevent="dragOver = true"
           @dragleave.prevent="dragOver = false"
           @drop.prevent="handleDrop"
@@ -85,7 +85,8 @@
             <div
               v-for="(result, idx) in searchResults"
               :key="idx"
-              class="bg-makoclaw-surface border border-makoclaw-border rounded-lg p-4"
+              class="bg-makoclaw-surface border border-makoclaw-border rounded-lg p-4 list-item-interactive animate-fadeUp opacity-0"
+              :style="{ animationDelay: idx * 50 + 'ms' }"
             >
               <div class="flex items-center gap-2 mb-2">
                 <span class="text-xs font-medium text-makoclaw-accent">{{ result.document_name }}</span>
@@ -117,7 +118,7 @@
             <div
               v-for="doc in documents"
               :key="doc.id"
-              class="bg-makoclaw-surface border border-makoclaw-border rounded-xl p-5 hover:border-makoclaw-accent/50 transition-colors"
+              class="bg-makoclaw-surface border border-makoclaw-border rounded-xl p-5 card-interactive"
             >
               <div class="flex items-start justify-between">
                 <div class="flex-1 min-w-0">

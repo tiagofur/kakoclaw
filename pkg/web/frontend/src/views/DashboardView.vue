@@ -63,19 +63,19 @@
         </div>
         <!-- Stats Grid -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div class="glass-panel rounded-2xl p-5 transition-all duration-300 hover:shadow-makoclaw-accent/5 hover:-translate-y-1">
+          <div class="glass-panel rounded-2xl p-5 transition-all duration-300 hover:shadow-makoclaw-accent/5 hover:-translate-y-[1px] animate-fadeUp opacity-0" style="animation-delay: 0ms">
             <div class="text-xs font-semibold uppercase tracking-wider text-makoclaw-text-secondary opacity-70">Total Tasks</div>
             <div class="text-3xl font-bold mt-2">{{ stats.totalTasks }}</div>
           </div>
-          <div class="glass-panel rounded-2xl p-5 transition-all duration-300 hover:shadow-makoclaw-accent/5 hover:-translate-y-1">
+          <div class="glass-panel rounded-2xl p-5 transition-all duration-300 hover:shadow-makoclaw-accent/5 hover:-translate-y-[1px] animate-fadeUp opacity-0" style="animation-delay: 50ms">
             <div class="text-xs font-semibold uppercase tracking-wider text-makoclaw-text-secondary opacity-70">In Progress</div>
             <div class="text-3xl font-bold mt-2 text-makoclaw-accent">{{ stats.inProgress }}</div>
           </div>
-          <div class="glass-panel rounded-2xl p-5 transition-all duration-300 hover:shadow-makoclaw-accent/5 hover:-translate-y-1">
+          <div class="glass-panel rounded-2xl p-5 transition-all duration-300 hover:shadow-makoclaw-accent/5 hover:-translate-y-[1px] animate-fadeUp opacity-0" style="animation-delay: 100ms">
             <div class="text-xs font-semibold uppercase tracking-wider text-makoclaw-text-secondary opacity-70">Chat Sessions</div>
             <div class="text-3xl font-bold mt-2 text-makoclaw-accent">{{ stats.chatSessions }}</div>
           </div>
-          <div class="glass-panel rounded-2xl p-5 transition-all duration-300 hover:shadow-makoclaw-accent/5 hover:-translate-y-1">
+          <div class="glass-panel rounded-2xl p-5 transition-all duration-300 hover:shadow-makoclaw-accent/5 hover:-translate-y-[1px] animate-fadeUp opacity-0" style="animation-delay: 150ms">
             <div class="text-xs font-semibold uppercase tracking-wider text-makoclaw-text-secondary opacity-70">Total Messages</div>
             <div class="text-3xl font-bold mt-2 text-makoclaw-accent">{{ stats.totalMessages }}</div>
           </div>
@@ -139,7 +139,7 @@
               <div
                 v-for="task in recentTasks"
                 :key="task.id"
-                class="flex items-center gap-3 p-3 rounded-lg bg-makoclaw-bg hover:bg-makoclaw-border/50 transition-colors"
+                class="flex items-center gap-3 p-3 rounded-lg bg-makoclaw-bg list-item-interactive"
               >
                 <span
                   class="w-2 h-2 rounded-full flex-shrink-0"
@@ -176,7 +176,7 @@
               <div
                 v-for="session in recentSessions"
                 :key="session.session_id"
-                class="flex items-center gap-3 p-3 rounded-lg bg-makoclaw-bg hover:bg-makoclaw-border/50 transition-colors"
+                class="flex items-center gap-3 p-3 rounded-lg bg-makoclaw-bg list-item-interactive"
               >
                 <svg v-if="session.session_id.startsWith('web:chat:')" class="w-5 h-5 flex-shrink-0 text-makoclaw-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />

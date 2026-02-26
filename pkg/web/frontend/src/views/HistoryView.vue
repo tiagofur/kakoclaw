@@ -121,8 +121,8 @@
             v-for="session in filteredSessions"
             :key="session.session_id"
             @click="selectSession(session)"
-            class="p-3 rounded-lg cursor-pointer transition-all border border-transparent hover:border-makoclaw-border group"
-            :class="selectedSession?.session_id === session.session_id ? 'bg-makoclaw-bg border-makoclaw-accent/30 shadow-sm' : 'hover:bg-makoclaw-bg/50'"
+            class="p-3 rounded-lg cursor-pointer transition-all border border-transparent hover:border-makoclaw-border group list-item-interactive"
+            :class="selectedSession?.session_id === session.session_id ? 'bg-makoclaw-bg border-makoclaw-accent/30 shadow-sm' : ''"
           >
             <!-- Inline rename -->
             <div v-if="renamingSession === session.session_id" class="flex items-center gap-1" @click.stop>
@@ -215,8 +215,9 @@
             v-else
             v-for="(msg, index) in messages"
             :key="index"
-            class="flex flex-col gap-1 group"
+            class="flex flex-col gap-1 group animate-fadeUp opacity-0"
             :class="msg.role === 'user' ? 'items-end' : 'items-start'"
+            :style="{ animationDelay: Math.min(index * 30, 300) + 'ms' }"
           >
             <div class="text-xs text-makoclaw-text-secondary px-1 opacity-70 flex items-center gap-2">
               <span>{{ msg.role }}</span>

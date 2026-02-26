@@ -84,7 +84,7 @@
           <div
             v-for="server in servers"
             :key="server.name"
-            class="bg-makoclaw-surface border border-makoclaw-border rounded-xl p-5 hover:border-makoclaw-accent/50 transition-colors"
+            class="card-interactive p-5"
           >
             <!-- Server Header -->
             <div class="flex items-start justify-between mb-3">
@@ -92,7 +92,7 @@
                 <div class="flex items-center gap-2">
                   <span
                     class="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                    :class="server.connected ? 'bg-blue-400' : (server.enabled === false ? 'bg-gray-400' : 'bg-red-400')"
+                    :class="server.connected ? 'bg-blue-400' : (server.enabled === false ? 'bg-gray-400' : 'bg-red-400 animate-subtlePulse')"
                   ></span>
                   <h3 class="font-semibold truncate">{{ server.name }}</h3>
                   <!-- Source badge -->

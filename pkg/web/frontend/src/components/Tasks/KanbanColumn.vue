@@ -1,13 +1,16 @@
 <template>
   <div class="glass-panel rounded-2xl p-4 flex flex-col h-full min-w-[288px] sm:min-w-[320px] shadow-sm">
     <!-- Column Header -->
-    <div class="mb-4 pb-3 border-b border-makoclaw-border/30 flex items-center justify-between">
-      <h3 class="font-bold text-xs uppercase tracking-[0.2em] text-makoclaw-text-secondary flex items-center gap-2 opacity-80">
-        {{ title }}
-      </h3>
-      <span class="text-[10px] bg-makoclaw-bg/50 font-bold text-makoclaw-accent px-2.5 py-1 rounded-full border border-makoclaw-accent/10 shadow-sm">
-          {{ tasks.length }}
-      </span>
+    <div class="mb-4 pb-0 flex flex-col">
+      <div class="pb-3 flex items-center justify-between">
+        <h3 class="font-bold text-xs uppercase tracking-[0.2em] text-makoclaw-text-secondary flex items-center gap-2 opacity-80">
+          {{ title }}
+        </h3>
+        <span class="text-[10px] bg-makoclaw-bg/50 font-bold text-makoclaw-accent px-2.5 py-1 rounded-full border border-makoclaw-accent/10 shadow-sm">
+            {{ tasks.length }}
+        </span>
+      </div>
+      <div class="h-[1px] bg-gradient-to-r from-transparent via-makoclaw-accent/10 to-transparent"></div>
     </div>
 
     <!-- Tasks List -->
@@ -22,7 +25,7 @@
         draggable="true"
         @dragstart="dragStart($event, task)"
         @click="$emit('task-click', task)"
-        class="bg-makoclaw-surface/50 border border-makoclaw-border/50 rounded-xl p-4 cursor-grab active:cursor-grabbing hover:border-makoclaw-accent/40 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group relative overflow-hidden backdrop-blur-sm"
+        class="bg-makoclaw-surface/50 border border-makoclaw-border/50 rounded-xl p-4 cursor-grab active:cursor-grabbing hover:border-makoclaw-accent/40 hover:shadow-xl hover:-translate-y-[2px] transition-all duration-300 group relative overflow-hidden backdrop-blur-sm"
       >
         <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-makoclaw-accent to-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
 

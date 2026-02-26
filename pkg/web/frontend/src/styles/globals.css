@@ -187,9 +187,54 @@ button:focus-visible {
   }
 
   .card-hover {
-    @apply transition-all duration-300
-           hover:shadow-lg hover:-translate-y-0.5
+    @apply transition-all duration-200 ease-out
+           hover:shadow-md hover:-translate-y-[1px]
+           hover:border-makoclaw-accent/15;
+  }
+
+  /* Interactive card with full styling (hover lift + border accent) */
+  .card-interactive {
+    @apply bg-makoclaw-surface border border-makoclaw-border rounded-xl
+           transition-all duration-200 ease-out
+           hover:shadow-md hover:-translate-y-[1px]
            hover:border-makoclaw-accent/20;
+  }
+
+  /* List row with hover feedback + left accent */
+  .list-item-interactive {
+    @apply rounded-lg transition-all duration-150 ease-out
+           hover:bg-makoclaw-surface-hover
+           border-l-2 border-l-transparent
+           hover:border-l-makoclaw-accent/40;
+  }
+
+  /* Metric/stat display card */
+  .stat-card {
+    @apply bg-makoclaw-surface border border-makoclaw-border rounded-xl p-5
+           transition-all duration-200 ease-out
+           hover:border-l-makoclaw-accent hover:border-l-2
+           hover:shadow-sm;
+  }
+
+  /* --- Status Badges (soft pills) --- */
+  .badge-success { @apply px-2 py-0.5 text-xs font-medium rounded-full bg-makoclaw-success/10 text-makoclaw-success; }
+  .badge-warning { @apply px-2 py-0.5 text-xs font-medium rounded-full bg-makoclaw-warning/10 text-makoclaw-warning; }
+  .badge-error   { @apply px-2 py-0.5 text-xs font-medium rounded-full bg-makoclaw-error/10 text-makoclaw-error; }
+  .badge-info    { @apply px-2 py-0.5 text-xs font-medium rounded-full bg-makoclaw-accent/10 text-makoclaw-accent; }
+  .badge-neutral { @apply px-2 py-0.5 text-xs font-medium rounded-full bg-makoclaw-text-secondary/10 text-makoclaw-text-secondary; }
+
+  /* --- Empty State --- */
+  .empty-state {
+    @apply flex flex-col items-center justify-center py-12 text-center;
+  }
+  .empty-state-icon {
+    @apply w-14 h-14 text-makoclaw-text-secondary/25 mb-4;
+  }
+  .empty-state-title {
+    @apply text-base font-semibold text-makoclaw-text mb-1;
+  }
+  .empty-state-text {
+    @apply text-sm text-makoclaw-text-secondary max-w-xs;
   }
 
   /* --- Tab Buttons --- */
@@ -345,4 +390,38 @@ button:focus-visible {
 }
 .list-move {
   transition: transform 0.3s ease;
+}
+
+/* Staggerable fade-up entrance (use --delay CSS var for stagger) */
+.fade-up-enter-active {
+  transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+  transition-delay: var(--delay, 0ms);
+}
+.fade-up-leave-active {
+  transition: opacity 0.15s ease-in, transform 0.15s ease-in;
+}
+.fade-up-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.fade-up-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+/* Smooth expand/collapse */
+.expand-enter-active {
+  transition: all 0.25s ease-out;
+  overflow: hidden;
+}
+.expand-leave-active {
+  transition: all 0.2s ease-in;
+  overflow: hidden;
+}
+.expand-enter-from,
+.expand-leave-to {
+  opacity: 0;
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
 }

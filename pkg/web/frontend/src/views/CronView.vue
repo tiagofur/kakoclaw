@@ -74,7 +74,7 @@
           <div
             v-for="job in jobs"
             :key="job.id"
-            class="bg-makoclaw-surface border border-makoclaw-border rounded-xl p-5"
+            class="card-interactive p-5"
           >
             <div class="flex items-start justify-between">
               <div class="flex-1 min-w-0">
@@ -82,7 +82,7 @@
                   <h3 class="font-semibold">{{ job.name }}</h3>
                   <span
                     class="px-2 py-0.5 text-xs rounded-full"
-                    :class="job.enabled ? 'bg-makoclaw-accent/10 text-makoclaw-accent' : 'bg-makoclaw-text-secondary/10 text-makoclaw-text-secondary'"
+                    :class="[job.enabled ? 'bg-makoclaw-accent/10 text-makoclaw-accent animate-subtlePulse' : 'bg-makoclaw-text-secondary/10 text-makoclaw-text-secondary']"
                   >{{ job.enabled ? 'Active' : 'Disabled' }}</span>
                   <span class="px-2 py-0.5 text-xs rounded-full bg-makoclaw-text-secondary/10 text-makoclaw-text-secondary">
                     {{ getJobTypeDisplay(job.payload) }}
@@ -93,7 +93,7 @@
             </div>
 
             <div class="flex items-center gap-4 mt-3 text-xs text-makoclaw-text-secondary">
-              <span>Schedule: <span class="text-makoclaw-text font-mono">{{ formatSchedule(job.schedule) }}</span></span>
+              <span>Schedule: <span class="font-mono bg-makoclaw-bg/50 px-1.5 py-0.5 rounded text-xs">{{ formatSchedule(job.schedule) }}</span></span>
               <span v-if="job.schedule.tz" class="font-mono">TZ: {{ job.schedule.tz }}</span>
               <span v-if="job.state.lastStatus">Last: {{ job.state.lastStatus }}</span>
               <span v-if="job.state.nextRunAtMs">Next: {{ formatTimestamp(job.state.nextRunAtMs) }}</span>

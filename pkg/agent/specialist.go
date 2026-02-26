@@ -107,6 +107,7 @@ func (sr *SpecialistRegistry) RemoveSpecialist(name string) bool {
 type SpecialistInfo struct {
 	Name        string   `json:"name"`
 	Description string   `json:"description"`
+	Prompt      string   `json:"prompt"`
 	Provider    string   `json:"provider"`
 	Model       string   `json:"model"`
 	Tools       []string `json:"tools"`
@@ -127,6 +128,7 @@ func (sr *SpecialistRegistry) GetSpecialistInfo(name string) (*SpecialistInfo, e
 	return &SpecialistInfo{
 		Name:        specialist.name,
 		Description: specialist.description,
+		Prompt:      specialist.prompt,
 		Provider:    specialist.providerName,
 		Model:       specialist.model,
 		Tools:       tools,

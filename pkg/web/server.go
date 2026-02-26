@@ -1371,7 +1371,7 @@ func (s *Server) handleTaskChatCommand(userID int64, store *storage.Storage, inp
 	if lower == "/task list" || lower == "/list" {
 		tasks, err := store.ListTasksForUser(userID, false)
 		if err != nil {
-			return true, "No pude listar tareas."
+			return true, fmt.Sprintf("No pude listar tareas: %v", err)
 		}
 		if len(tasks) == 0 {
 			return true, "No hay tareas activas."
@@ -3257,6 +3257,7 @@ func (s *Server) handleAgents(w http.ResponseWriter, r *http.Request) {
 				agentsList = append(agentsList, map[string]interface{}{
 					"name":        name,
 					"description": spec.Description,
+					"prompt":      spec.Prompt,
 					"tools":       spec.Tools,
 					"provider":    spec.Provider,
 					"model":       spec.Model,
@@ -3865,73 +3866,77 @@ func (s *Server) handleSpecialistGenerate(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	lowerDesc := strings.ToLower(req.Description)
-	specialistName := strings.ToLower(strings.ReplaceAll(req.Description, " ", "_"))
-	specialistName = strings.ReplaceAll(specialistName, "_expert", "")
-	specialistName = strings.ReplaceAll(specialistName, "_specialist", "")
-	if len(specialistName) > 20 {
-		specialistName = specialistName[:20]
+	userID, ok := s.getUserIDFromClaims(r)
+	if !ok {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		writeJSONResponse(w, map[string]string{"error": "unauthorized"})
+		return
 	}
 
-	provider := "anthropic"
-	model := "claude-opus"
+	aiPrompt := fmt.Sprintf(`You are an AI assistant that configures specialist agents for MakoClaw.
 
-	if strings.Contains(lowerDesc, "test") || strings.Contains(lowerDesc, "qa") {
-		model = "claude-sonnet"
-	} else if strings.Contains(lowerDesc, "doc") || strings.Contains(lowerDesc, "write") {
-		provider = "openrouter"
-		model = "meta-llama/llama-2-70b"
-	} else if strings.Contains(lowerDesc, "devops") || strings.Contains(lowerDesc, "deploy") {
-		provider = "openrouter"
-		model = "meta-llama/llama-2-70b"
-	} else if strings.Contains(lowerDesc, "data") || strings.Contains(lowerDesc, "analys") {
-		provider = "openrouter"
-		model = "meta-llama/llama-2-70b"
-	}
+The user has requested the following agent:
+"%s"
 
-	keywords := []string{}
-	words := strings.Fields(req.Description)
-	skipWords := map[string]bool{"the": true, "and": true, "for": true, "with": true, "that": true, "this": true, "specialist": true}
-	for _, word := range words {
-		lowerWord := strings.ToLower(word)
-		if len(lowerWord) > 3 && !skipWords[lowerWord] {
-			keywords = append(keywords, strings.Trim(lowerWord, ".,!?"))
-		}
-		if len(keywords) >= 5 {
-			break
-		}
-	}
+Your task is to define the optimal configuration for this agent. Ensure the system prompt is a direct instruction for the agent's behavior and DOES NOT include meta-instructions like "Crea un agente...". The system prompt should start with "You are an expert..." or similar.
 
-	tools := []string{"file_read", "file_write"}
-	if strings.Contains(lowerDesc, "code") || strings.Contains(lowerDesc, "exec") || strings.Contains(lowerDesc, "run") {
-		tools = append(tools, "execute_shell", "list_dir")
-	}
-	if strings.Contains(lowerDesc, "test") {
-		tools = append(tools, "execute_shell")
-	}
-	if strings.Contains(lowerDesc, "search") || strings.Contains(lowerDesc, "web") || strings.Contains(lowerDesc, "research") {
-		tools = append(tools, "web_search")
+Available tools: "file_read", "file_write", "execute_shell", "list_dir", "web_search", "git", "database".
+
+Return the configuration purely in JSON format without markdown wrapping, or within a JSON block:
+{
+  "name": "short_underscore_name",
+  "description": "Clear 1-sentence description",
+  "prompt": "You are an expert... (detailed direct system prompt)",
+  "provider": "anthropic",
+  "model": "claude-opus",
+  "tools": ["tool1", "tool2"],
+  "keywords": ["keyword1", "keyword2"]
+}`, req.Description)
+
+	ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
+	defer cancel()
+
+	responseRaw, err := s.agentLoop.ProcessDirectWithUserAndModel(
+		ctx, userID, aiPrompt, "web:ai:generate-specialist", "",
+	)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		writeJSONResponse(w, map[string]string{
+			"error": "AI processing failed: " + err.Error(),
+		})
+		return
 	}
 
-	prompt := fmt.Sprintf("You are an expert %s specialist. Your role is: %s\n\nFocus on quality, accuracy, and best practices.", strings.TrimSuffix(req.Description, "."), req.Description)
+	jsonStr := extractJsonFromResponse(responseRaw)
+	var specialistDraft map[string]interface{}
+	if err := json.Unmarshal([]byte(jsonStr), &specialistDraft); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		writeJSONResponse(w, map[string]string{
+			"error": "AI produced invalid JSON: " + err.Error(),
+		})
+		return
+	}
+
+	// Ensure defaults for parameters not provided by AI
+	if specialistDraft["max_tokens"] == nil {
+		specialistDraft["max_tokens"] = 8192
+	}
+	if specialistDraft["temperature"] == nil {
+		specialistDraft["temperature"] = 0.7
+	}
+	if specialistDraft["max_tool_iterations"] == nil {
+		specialistDraft["max_tool_iterations"] = 20
+	}
 
 	response := map[string]interface{}{
-		"specialist": map[string]interface{}{
-			"name":                specialistName,
-			"description":         req.Description,
-			"prompt":              prompt,
-			"provider":            provider,
-			"model":               model,
-			"max_tokens":          8192,
-			"temperature":         0.7,
-			"max_tool_iterations": 20,
-			"tools":               tools,
-			"keywords":            keywords,
-		},
+		"specialist": specialistDraft,
 	}
 
 	logger.InfoCF("web", "Generated specialist with AI", map[string]interface{}{
-		"name":        specialistName,
+		"name":        specialistDraft["name"],
 		"description": req.Description,
 	})
 

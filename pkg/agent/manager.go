@@ -46,31 +46,38 @@ func (am *AgentManager) InitializeOrchestrator(
 		return nil
 	}
 
+	// Check if there are any specialists configured
+	if len(cfg.Agents.Specialists) > 0 {
+		// Get base provider from the default agent
+		baseProvider := am.defaultAgent.provider
+
+		// Load all specialists
+		specialistReg, err := LoadSpecialistsFromConfig(cfg, msgBus, baseProvider, storage)
+		if err != nil {
+			return fmt.Errorf("failed to load specialists: %w", err)
+		}
+
+		am.specialistReg = specialistReg
+		logger.InfoCF("agent", "Specialists loaded", map[string]interface{}{
+			"count": len(specialistReg.ListSpecialists()),
+		})
+	}
+
 	// Check if orchestrator is enabled
 	if !cfg.Agents.Orchestrator.Enabled {
 		logger.DebugCF("agent", "Orchestrator not enabled", map[string]interface{}{})
 		return nil
 	}
 
-	// Check if there are any specialists configured
-	if len(cfg.Agents.Specialists) == 0 {
+	if am.specialistReg == nil || len(am.specialistReg.ListSpecialists()) == 0 {
 		logger.WarnCF("agent", "Orchestrator enabled but no specialists configured", map[string]interface{}{})
 		return nil
 	}
 
-	// Get base provider from the default agent
 	baseProvider := am.defaultAgent.provider
 
-	// Load all specialists
-	specialistReg, err := LoadSpecialistsFromConfig(cfg, msgBus, baseProvider, storage)
-	if err != nil {
-		return fmt.Errorf("failed to load specialists: %w", err)
-	}
-
-	am.specialistReg = specialistReg
-
 	// Create orchestrator agent
-	orchestrator, err := NewOrchestratorAgent(cfg, msgBus, baseProvider, specialistReg, storage)
+	orchestrator, err := NewOrchestratorAgent(cfg, msgBus, baseProvider, am.specialistReg, storage)
 	if err != nil {
 		return fmt.Errorf("failed to create orchestrator: %w", err)
 	}
@@ -79,7 +86,7 @@ func (am *AgentManager) InitializeOrchestrator(
 	am.isOrchestarted = true
 
 	logger.InfoCF("agent", "Orchestrator initialized successfully", map[string]interface{}{
-		"specialists": len(specialistReg.ListSpecialists()),
+		"specialists": len(am.specialistReg.ListSpecialists()),
 	})
 
 	return nil

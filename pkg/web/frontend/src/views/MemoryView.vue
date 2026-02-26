@@ -107,7 +107,7 @@
 
           <div v-for="section in filteredDailySections" :key="section.date" class="relative">
             <!-- Timeline dot -->
-            <div class="absolute -left-[22px] top-1.5 w-3.5 h-3.5 rounded-full border-2 border-makoclaw-accent bg-makoclaw-bg shadow-sm shadow-makoclaw-accent/30"></div>
+            <div class="absolute -left-[22px] top-1.5 w-3.5 h-3.5 rounded-full border-2 border-makoclaw-accent bg-makoclaw-bg shadow-sm shadow-makoclaw-accent/30 hover:shadow-makoclaw-accent/30 hover:shadow-md transition-shadow duration-200"></div>
 
             <!-- Note card -->
             <div class="bg-makoclaw-surface border border-makoclaw-border rounded-xl overflow-hidden hover:border-makoclaw-accent/30 transition-colors">

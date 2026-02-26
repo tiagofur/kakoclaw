@@ -57,8 +57,9 @@
       </div>
 
       <template v-else>
+        <Transition name="fade" mode="out-in">
         <!-- Installed Skills -->
-        <div v-if="activeTab === 'installed'">
+        <div v-if="activeTab === 'installed'" key="installed">
           <div v-if="skills.length === 0" class="text-center py-12 text-makoclaw-text-secondary">
             <p class="text-lg">No skills installed</p>
             <p class="text-sm mt-2">Browse the marketplace to install skills</p>
@@ -67,7 +68,7 @@
             <div
               v-for="skill in skills"
               :key="skill.name"
-              class="bg-makoclaw-surface border border-makoclaw-border rounded-xl p-5 hover:border-makoclaw-accent/50 transition-colors"
+              class="card-interactive p-5"
             >
               <div class="flex items-start justify-between">
                 <div class="flex-1 min-w-0">
@@ -108,7 +109,7 @@
         </div>
 
         <!-- Marketplace -->
-        <div v-if="activeTab === 'marketplace'">
+        <div v-else-if="activeTab === 'marketplace'" key="marketplace">
           <div v-if="loadingMarketplace" class="flex items-center justify-center py-12">
             <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-makoclaw-accent"></div>
           </div>
@@ -120,7 +121,7 @@
             <div
               v-for="skill in marketplaceSkills"
               :key="skill.slug || skill.name"
-              class="bg-makoclaw-surface border border-makoclaw-border rounded-xl p-5 hover:border-makoclaw-accent/50 transition-colors"
+              class="card-interactive p-5"
             >
               <div class="flex items-start justify-between">
                 <h3 class="font-semibold flex-1">{{ skill.name }}</h3>
@@ -155,7 +156,7 @@
         </div>
 
         <!-- My Submissions -->
-        <div v-if="activeTab === 'submissions'">
+        <div v-else-if="activeTab === 'submissions'" key="submissions">
           <div v-if="loadingSubmissions" class="flex items-center justify-center py-12">
             <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-makoclaw-accent"></div>
           </div>
@@ -186,6 +187,7 @@
             </div>
           </div>
         </div>
+        </Transition>
 
       </template>
     </div>
@@ -211,7 +213,53 @@
         <div class="flex-1 overflow-auto p-5 custom-scrollbar">
           <!-- Step 1: Input Form (before generation) -->
           <div v-if="!generatedPreview" class="space-y-4">
-            <p class="text-sm text-makoclaw-text-secondary">Create a new skill by providing a name and description. The AI will generate a SKILL.md template that you can customize.</p>
+            <!-- AI Assistant Section -->
+            <div class="bg-gradient-to-r from-makoclaw-accent/10 to-blue-500/10 border border-makoclaw-accent/30 rounded-xl p-5 mb-6">
+              <div class="flex items-start gap-3">
+                <div class="w-10 h-10 rounded-lg bg-makoclaw-accent/20 flex items-center justify-center flex-shrink-0">
+                  <svg class="w-5 h-5 text-makoclaw-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+                <div class="flex-1">
+                  <h4 class="font-bold text-makoclaw-text mb-1 flex items-center gap-2">
+                    Create Skill with AI
+                    <span class="px-2 py-0.5 text-[10px] font-bold uppercase bg-makoclaw-accent text-white rounded-full">New</span>
+                  </h4>
+                  <p class="text-sm text-makoclaw-text-secondary mb-3">Describe what you want the skill to do and AI will formulate the form for you.</p>
+                  <div class="space-y-3">
+                    <textarea
+                      v-model="aiPrompt"
+                      rows="3"
+                      placeholder="e.g., 'Create a skill that helps me review pull requests on GitHub quickly.'"
+                      class="w-full px-4 py-3 bg-makoclaw-bg/60 border border-makoclaw-border rounded-xl text-sm focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent outline-none text-makoclaw-text resize-none backdrop-blur-sm"
+                    ></textarea>
+                    <button
+                      @click="generateSkillConfigWithAI"
+                      :disabled="!aiPrompt.trim() || aiGenerating"
+                      class="w-full px-4 py-2.5 bg-gradient-to-r from-makoclaw-accent to-blue-600 hover:from-makoclaw-accent-hover hover:to-blue-700 text-white rounded-xl font-bold shadow-lg shadow-makoclaw-accent/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+                    >
+                      <svg v-if="aiGenerating" class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      {{ aiGenerating ? 'Generating Configuration...' : 'Generate with AI' }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-4 mb-4">
+              <div class="flex-1 h-px bg-makoclaw-border"></div>
+              <span class="text-xs font-bold uppercase tracking-wider text-makoclaw-text-secondary">OR CONFIGURE MANUALLY</span>
+              <div class="flex-1 h-px bg-makoclaw-border"></div>
+            </div>
+
+            <p class="text-sm text-makoclaw-text-secondary">Provide a name, description and context. The AI will generate a SKILL.md template that you can customize.</p>
 
             <!-- Skill Name -->
             <div>
@@ -481,6 +529,8 @@ const generating = ref(false)
 const savingGenerated = ref(false)
 const generateError = ref('')
 const generatedPreview = ref('')
+const aiPrompt = ref('')
+const aiGenerating = ref(false)
 const generateForm = ref({
   name: '',
   description: '',
@@ -705,6 +755,31 @@ const validateSkillName = () => {
     generateFormErrors.value.name = 'Name must be 64 characters or less'
   } else {
     generateFormErrors.value.name = ''
+  }
+}
+
+const generateSkillConfigWithAI = async () => {
+  if (!aiPrompt.value.trim()) return
+
+  aiGenerating.value = true
+  generateError.value = ''
+  
+  try {
+    const data = await advancedService.generateSkillConfig(aiPrompt.value)
+    
+    if (data) {
+      if (data.name) generateForm.value.name = data.name
+      if (data.description) generateForm.value.description = data.description
+      if (data.prompt) generateForm.value.prompt = data.prompt
+      
+      validateSkillName()
+      toast.success('Skill configuration generated!')
+      aiPrompt.value = '' // Clear input after successful generation
+    }
+  } catch (err) {
+    generateError.value = err?.response?.data || 'Failed to generate skill configuration. Please try again.'
+  } finally {
+    aiGenerating.value = false
   }
 }
 

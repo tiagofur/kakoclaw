@@ -130,6 +130,60 @@ func (s *Server) handleSkillAction(w http.ResponseWriter, r *http.Request) {
 			"draft": draft,
 		})
 
+	case r.Method == http.MethodPost && strings.HasPrefix(path, "generate-config"):
+		var body struct {
+			Description string `json:"prompt"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+		if strings.TrimSpace(body.Description) == "" {
+			http.Error(w, "prompt is required", http.StatusBadRequest)
+			return
+		}
+		if s.agentLoop == nil {
+			http.Error(w, "agent loop unavailable", http.StatusServiceUnavailable)
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+		defer cancel()
+
+		prompt := fmt.Sprintf(`You are an expert AI assistant that helps users create configurations for new MakoClaw skills.
+Based on the user's request, generate a logical skill name, a short description of what it does, and any additional context or instructions the skill might need.
+
+USER REQUEST: %s
+
+Respond ONLY with a valid JSON object matching this exact structure, with no markdown formatting or extra text:
+{
+  "name": "a-lowercase-name-with-hyphens",
+  "description": "A short, one-sentence summary of the skill's purpose",
+  "prompt": "Any additional context, detailed instructions, or tool requirements mentioned by the user."
+}`, body.Description)
+
+		rawJSON, err := s.agentLoop.ProcessDirect(ctx, prompt, "web:skills:generate-config")
+		if err != nil {
+			http.Error(w, "failed to generate config", http.StatusInternalServerError)
+			return
+		}
+
+		// Clean up potential markdown formatting from the response
+		rawJSON = strings.TrimSpace(rawJSON)
+		rawJSON = strings.TrimPrefix(rawJSON, "```json")
+		rawJSON = strings.TrimPrefix(rawJSON, "```")
+		rawJSON = strings.TrimSuffix(rawJSON, "```")
+		rawJSON = strings.TrimSpace(rawJSON)
+
+		var result map[string]string
+		if err := json.Unmarshal([]byte(rawJSON), &result); err != nil {
+			logger.ErrorCF("web", "Failed to parse generated skill config", map[string]interface{}{"error": err.Error(), "raw": rawJSON})
+			http.Error(w, "failed to parse generated config", http.StatusInternalServerError)
+			return
+		}
+
+		writeJSONResponse(w, result)
+
 	case r.Method == http.MethodPost && strings.HasPrefix(path, "refine"):
 		// POST /api/v1/skills/refine  body: {"draft": "...", "feedback": "..."}
 		var body struct {

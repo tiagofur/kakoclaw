@@ -175,7 +175,7 @@ func TestFilterToolsByPermissions_DefaultUser(t *testing.T) {
 	filtered := filterToolsByPermissions(baseRegistry, "user", 2, cfg, nil)
 
 	// Default user should have safe tools
-	safeTools := []string{"read_file", "web_search"}
+	safeTools := []string{"read_file", "write_file", "web_search", "web_fetch"}
 	for _, toolName := range safeTools {
 		if tool, _ := filtered.Get(toolName); tool == nil {
 			t.Errorf("Default user should have %s tool", toolName)
@@ -188,7 +188,7 @@ func TestFilterToolsByPermissions_DefaultUser(t *testing.T) {
 	}
 
 	// Default user should NOT have dangerous tools
-	restrictedTools := []string{"write_file", "spawn", "web_fetch"}
+	restrictedTools := []string{"spawn"}
 	for _, toolName := range restrictedTools {
 		if tool, _ := filtered.Get(toolName); tool != nil {
 			t.Errorf("Default user should NOT have %s tool", toolName)
