@@ -187,7 +187,22 @@ func (t *ConfigureTool) Name() string {
 func (t *ConfigureTool) Description() string {
 	return `Manage user configuration for providers, channels, and agent settings.
 Actions: get, set, enable, disable, list_providers, list_channels.
-Sensitive fields (API keys, tokens) are write-only and never displayed.`
+Sensitive fields (API keys, tokens) are write-only and never displayed.
+
+IMPORTANT: Paths use dot-notation with the full section prefix. Examples:
+  Providers: providers.openai.api_key, providers.anthropic.api_base, providers.groq.api_key
+  Channels:  channels.telegram.token, channels.telegram.enabled, channels.telegram.allow_from
+             channels.discord.token, channels.slack.bot_token, channels.slack.app_token
+             channels.whatsapp.bridge_url, channels.signal.phone_number
+             channels.feishu.app_id, channels.feishu.app_secret
+             channels.qq.app_id, channels.dingtalk.client_id
+  Agents:    agents.defaults.provider, agents.defaults.model, agents.defaults.temperature
+             agents.orchestrator.enabled, agents.orchestrator.model
+  Tools:     tools.web.search.api_key, tools.email.enabled, tools.email.host
+
+Note: Telegram uses 'token' (not 'bot_token'). Slack uses 'bot_token' and 'app_token'.
+Use 'list_channels' or 'list_providers' to see current status before modifying.
+For enable/disable, use path like 'channels.telegram' or 'agents.orchestrator'.`
 }
 
 // Parameters returns the tool parameter schema
@@ -255,9 +270,68 @@ func (t *ConfigureTool) Execute(ctx context.Context, args map[string]interface{}
 // Path Resolution and Field Access Helpers (Task 3.1-3.2)
 // =============================================================================
 
+// normalizePath attempts to fix common path mistakes:
+// - "telegram.token" → "channels.telegram.token"
+// - "openai.api_key" → "providers.openai.api_key"
+// - "telegram.bot_token" → "channels.telegram.token" (Telegram uses "token", not "bot_token")
+func (t *ConfigureTool) normalizePath(path string) string {
+	parts := strings.Split(path, ".")
+
+	// Single segment: check if it's a known channel or provider name
+	if len(parts) == 1 {
+		for _, ch := range channelNames {
+			if parts[0] == ch {
+				return "channels." + path
+			}
+		}
+		for _, p := range providerNames {
+			if parts[0] == p {
+				return "providers." + path
+			}
+		}
+		return path
+	}
+
+	section := parts[0]
+
+	// Already has a valid section prefix
+	if section == "providers" || section == "channels" || section == "agents" || section == "tools" {
+		// Fix Telegram-specific: channels.telegram.bot_token → channels.telegram.token
+		if section == "channels" && len(parts) >= 3 && parts[1] == "telegram" && parts[2] == "bot_token" {
+			parts[2] = "token"
+			return strings.Join(parts, ".")
+		}
+		return path
+	}
+
+	// Check if first segment is a known channel name (e.g., "telegram.token")
+	for _, ch := range channelNames {
+		if section == ch {
+			normalized := "channels." + path
+			// Fix Telegram-specific: telegram.bot_token → channels.telegram.token
+			if ch == "telegram" && len(parts) >= 2 && parts[1] == "bot_token" {
+				normalized = "channels.telegram.token"
+			}
+			return normalized
+		}
+	}
+
+	// Check if first segment is a known provider name (e.g., "openai.api_key")
+	for _, p := range providerNames {
+		if section == p {
+			return "providers." + path
+		}
+	}
+
+	return path
+}
+
 // resolveFieldPolicy looks up the policy for a given path, resolving wildcards.
 // Paths like "providers.openai.api_key" are matched against "providers.*.api_key"
 func (t *ConfigureTool) resolveFieldPolicy(path string) (*FieldPolicy, error) {
+	// Normalize path to fix common mistakes (missing prefix, wrong field names)
+	path = t.normalizePath(path)
+
 	// Validate path format first
 	if err := config.ValidateConfigPath(path); err != nil {
 		return nil, err
@@ -571,6 +645,9 @@ func (t *ConfigureTool) handleGet(ctx context.Context, args map[string]interface
 		return t.errorResponse("missing_path", "path is required for get action", "")
 	}
 
+	// Normalize path to fix common mistakes
+	path = t.normalizePath(path)
+
 	// Resolve and validate field policy
 	policy, err := t.resolveFieldPolicy(path)
 	if err != nil {
@@ -648,6 +725,9 @@ func (t *ConfigureTool) handleSet(ctx context.Context, args map[string]interface
 	if path == "" {
 		return t.errorResponse("missing_path", "path is required for set action", "")
 	}
+
+	// Normalize path to fix common mistakes
+	path = t.normalizePath(path)
 
 	value, hasValue := args["value"]
 	if !hasValue {
@@ -728,6 +808,9 @@ func (t *ConfigureTool) handleEnable(ctx context.Context, args map[string]interf
 		return t.errorResponse("missing_path", "path is required for enable action", "")
 	}
 
+	// Normalize path: e.g., "telegram" → "channels.telegram"
+	path = t.normalizePath(path)
+
 	// Validate path format: must be channels.{name} or agents.orchestrator
 	parts := strings.Split(path, ".")
 	if len(parts) != 2 {
@@ -784,6 +867,9 @@ func (t *ConfigureTool) handleDisable(ctx context.Context, args map[string]inter
 	if path == "" {
 		return t.errorResponse("missing_path", "path is required for disable action", "")
 	}
+
+	// Normalize path: e.g., "telegram" → "channels.telegram"
+	path = t.normalizePath(path)
 
 	// Validate path format: must be channels.{name} or agents.orchestrator
 	parts := strings.Split(path, ".")
