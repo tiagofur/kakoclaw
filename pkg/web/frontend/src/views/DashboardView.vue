@@ -27,10 +27,10 @@
     </div>
 
     <!-- Content -->
-    <div class="flex-1 overflow-auto p-4 md:p-8 space-y-8 custom-scrollbar relative z-10">
+    <div class="flex-1 overflow-auto p-4 md:p-6 space-y-5 custom-scrollbar relative z-10">
 
       <!-- Loading Skeleton -->
-      <div v-if="loading" class="space-y-8 animate-pulse">
+      <div v-if="loading" class="space-y-5 animate-pulse">
         <div class="h-48 bg-makoclaw-surface/50 rounded-3xl border border-makoclaw-border"></div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div v-for="i in 4" :key="i" class="h-32 bg-makoclaw-surface/50 rounded-2xl border border-makoclaw-border"></div>
@@ -43,57 +43,57 @@
 
       <template v-else>
         <!-- Welcome banner -->
-        <div class="relative overflow-hidden bg-gradient-to-br from-makoclaw-accent via-blue-600 to-indigo-700 rounded-[2rem] p-8 md:p-12 shadow-2xl shadow-makoclaw-accent/20 group animate-fade-in-up">
+        <div class="relative overflow-hidden bg-gradient-to-br from-makoclaw-accent via-blue-600 to-indigo-700 rounded-2xl p-6 md:p-8 shadow-2xl shadow-makoclaw-accent/20 group animate-fade-in-up">
           <!-- Animated Background mesh -->
           <div class="absolute inset-0 opacity-20 group-hover:opacity-30 transition-opacity duration-1000">
             <div class="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1)_0%,transparent_50%)]"></div>
           </div>
           
-          <div class="absolute top-0 right-0 p-8 transform rotate-12 opacity-10 transition-transform group-hover:rotate-45 group-hover:scale-125 duration-1000 hidden md:block">
-            <svg class="w-64 h-64" fill="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          <div class="absolute top-0 right-0 p-8 transform rotate-12 opacity-[0.07] transition-transform group-hover:rotate-45 group-hover:scale-110 duration-1000 hidden md:block">
+            <svg class="w-44 h-44" fill="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
           </div>
 
           <div class="relative z-10">
-            <span class="inline-block px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-[10px] font-bold text-white uppercase tracking-widest mb-4">Command Center</span>
-            <h3 class="text-3xl md:text-5xl font-black text-white leading-tight">Welcome back,<br/>{{ authStore.user?.username || 'Commander' }}</h3>
-            <p class="text-white/70 mt-4 text-sm md:text-lg max-w-xl leading-relaxed">Your AI fleet is standing by. All systems are nominal across 10+ channels. What are we building today?</p>
+            <span class="inline-block px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-[10px] font-medium text-white uppercase tracking-wide mb-4">Command Center</span>
+            <h3 class="text-2xl md:text-3xl font-black text-white leading-tight">Welcome back,<br/>{{ authStore.user?.username || 'Commander' }}</h3>
+            <p class="text-white/70 mt-3 text-sm max-w-xl leading-relaxed">Your AI fleet is standing by. All systems are nominal across 10+ channels. What are we building today?</p>
             
-            <div class="mt-8 flex flex-wrap gap-4">
-               <router-link to="/chat" class="px-6 py-3 bg-white text-makoclaw-accent rounded-xl font-bold shadow-xl hover:shadow-white/20 transition-all hover:-translate-y-1 active:scale-95 text-sm uppercase tracking-wider">Launch New Session</router-link>
-               <router-link to="/tasks" class="px-6 py-3 bg-white/10 backdrop-blur-md border border-white/20 text-white rounded-xl font-bold hover:bg-white/20 transition-all active:scale-95 text-sm uppercase tracking-wider">Tasks Dashboard</router-link>
+            <div class="mt-5 flex flex-wrap gap-3">
+               <router-link to="/chat" class="px-5 py-2 bg-white text-makoclaw-accent rounded-xl font-semibold shadow-xl hover:shadow-white/20 transition-all hover:-translate-y-0.5 active:scale-95 text-sm">Launch New Session</router-link>
+               <router-link to="/tasks" class="px-5 py-2 bg-white/10 backdrop-blur-md border border-white/20 text-white rounded-xl font-medium hover:bg-white/20 transition-all active:scale-95 text-sm">Tasks Dashboard</router-link>
             </div>
           </div>
         </div>
 
         <!-- Stats Grid -->
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           <div v-for="(stat, idx) in statItems" :key="stat.label" 
-               class="glass-panel rounded-3xl p-6 transition-all duration-500 hover:shadow-2xl hover:shadow-makoclaw-accent/10 hover:-translate-y-2 group animate-fade-in-up"
+               class="glass-panel rounded-xl p-4 transition-all duration-300 hover:shadow-xl hover:shadow-makoclaw-accent/10 hover:-translate-y-1 group animate-fade-in-up"
                :style="{ 'animation-delay': (200 + idx * 100) + 'ms' }">
             <div class="flex justify-between items-start">
-              <div class="p-3 rounded-2xl bg-gradient-to-br transition-colors duration-500" :class="stat.iconBg">
-                <component :is="stat.icon" class="w-6 h-6 text-white" />
+              <div class="p-2 rounded-xl bg-gradient-to-br transition-colors duration-300" :class="stat.iconBg">
+                <component :is="stat.icon" class="w-4 h-4 text-white" />
               </div>
               <div v-if="stat.trend" class="px-2 py-1 rounded-full bg-makoclaw-success/10 text-[10px] font-bold text-makoclaw-success border border-makoclaw-success/20">
                 +{{ stat.trend }}%
               </div>
             </div>
-            <div class="mt-6">
-              <div class="text-[10px] font-black uppercase tracking-[0.2em] text-makoclaw-text-secondary/60">{{ stat.label }}</div>
-              <div class="text-4xl font-black mt-1 bg-gradient-to-br from-makoclaw-text to-makoclaw-text-secondary bg-clip-text text-transparent">{{ stat.value }}</div>
+            <div class="mt-4">
+              <div class="text-[10px] font-medium uppercase tracking-wide text-makoclaw-text-secondary/60">{{ stat.label }}</div>
+              <div class="text-3xl font-bold mt-1 bg-gradient-to-br from-makoclaw-text to-makoclaw-text-secondary bg-clip-text text-transparent">{{ stat.value }}</div>
             </div>
           </div>
         </div>
 
         <!-- Main Dashboard Section -->
-        <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
           
           <!-- Activity Charts (Left Area) -->
-          <div class="xl:col-span-2 space-y-8">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-               <div class="glass-panel rounded-[2rem] p-8 flex flex-col animate-fade-in-up" style="animation-delay: 600ms">
-                <div class="flex items-center justify-between mb-8">
-                  <h3 class="text-xs font-black uppercase tracking-[0.2em] text-makoclaw-text-secondary/70">Model Intelligence</h3>
+          <div class="xl:col-span-2 space-y-5">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+               <div class="glass-panel rounded-2xl p-5 flex flex-col animate-fade-in-up" style="animation-delay: 600ms">
+                <div class="flex items-center justify-between mb-5">
+                  <h3 class="text-xs font-medium uppercase tracking-wide text-makoclaw-text-secondary/70">Model Intelligence</h3>
                   <div class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
                 </div>
                 <div class="w-full relative flex-1 min-h-[300px] flex items-center justify-center">
@@ -102,9 +102,9 @@
                 </div>
               </div>
               
-               <div class="glass-panel rounded-[2rem] p-8 flex flex-col animate-fade-in-up" style="animation-delay: 750ms">
-                 <div class="flex items-center justify-between mb-8">
-                  <h3 class="text-xs font-black uppercase tracking-[0.2em] text-makoclaw-text-secondary/70">Operations Status</h3>
+               <div class="glass-panel rounded-2xl p-5 flex flex-col animate-fade-in-up" style="animation-delay: 750ms">
+                 <div class="flex items-center justify-between mb-5">
+                  <h3 class="text-xs font-medium uppercase tracking-wide text-makoclaw-text-secondary/70">Operations Status</h3>
                   <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
                 </div>
                  <div class="w-full relative flex-1 min-h-[300px] flex items-center justify-center">
@@ -115,12 +115,12 @@
             </div>
 
             <!-- Detailed Stats Table-like grid -->
-            <div class="glass-panel rounded-[2rem] p-8 animate-fade-in-up" style="animation-delay: 900ms">
-              <h3 class="text-xs font-black uppercase tracking-[0.2em] text-makoclaw-text-secondary/70 mb-8 px-2">Live System Metrics</h3>
-              <div class="grid grid-cols-2 sm:grid-cols-4 gap-8">
-                <div v-for="metric in detailedMetrics" :key="metric.label" class="p-4 rounded-3xl hover:bg-makoclaw-surface/50 transition-colors group">
-                  <div class="text-[10px] font-bold text-makoclaw-text-secondary/50 uppercase tracking-widest mb-1 group-hover:text-makoclaw-accent transition-colors">{{ metric.label }}</div>
-                  <div class="text-2xl font-black text-makoclaw-text">{{ metric.value }}</div>
+            <div class="glass-panel rounded-2xl p-5 animate-fade-in-up" style="animation-delay: 900ms">
+              <h3 class="text-xs font-medium uppercase tracking-wide text-makoclaw-text-secondary/70 mb-5 px-1">Live System Metrics</h3>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-5">
+                <div v-for="metric in detailedMetrics" :key="metric.label" class="p-3 rounded-xl hover:bg-makoclaw-surface/50 transition-colors group">
+                  <div class="text-[10px] font-medium text-makoclaw-text-secondary/50 uppercase tracking-wide mb-1 group-hover:text-makoclaw-accent transition-colors">{{ metric.label }}</div>
+                  <div class="text-xl font-bold text-makoclaw-text">{{ metric.value }}</div>
                   <div class="h-1 w-8 bg-makoclaw-accent/20 rounded-full mt-2 group-hover:w-full transition-all duration-500"></div>
                 </div>
               </div>
@@ -128,27 +128,27 @@
           </div>
 
           <!-- Feed & Actions (Right Sidebar Area) -->
-          <div class="space-y-8">
+          <div class="space-y-5">
             <!-- Launchpad (Replaces Quick Actions) -->
-            <div class="glass-panel rounded-[2rem] p-8 animate-fade-in-up" style="animation-delay: 400ms">
-              <h3 class="text-xs font-black uppercase tracking-[0.2em] text-makoclaw-text-secondary/70 mb-6 px-2">Action Launchpad</h3>
+            <div class="glass-panel rounded-2xl p-5 animate-fade-in-up" style="animation-delay: 400ms">
+              <h3 class="text-xs font-medium uppercase tracking-wide text-makoclaw-text-secondary/70 mb-4 px-1">Action Launchpad</h3>
               <div class="grid grid-cols-2 gap-3">
                  <router-link v-for="action in launchpadActions" :key="action.label" :to="action.to"
-                   class="flex flex-col items-center justify-center p-4 rounded-[1.5rem] border border-makoclaw-border hover:border-makoclaw-accent/40 bg-makoclaw-surface/30 hover:bg-makoclaw-accent/5 transition-all group active:scale-95"
+                   class="flex flex-col items-center justify-center p-3 rounded-xl border border-makoclaw-border hover:border-makoclaw-accent/40 bg-makoclaw-surface/30 hover:bg-makoclaw-accent/5 transition-all group active:scale-95"
                  >
-                   <div class="w-10 h-10 rounded-xl flex items-center justify-center mb-3 transition-transform group-hover:scale-110 group-hover:rotate-3" :class="action.color">
-                     <component :is="action.icon" class="w-5 h-5 text-white" />
+                   <div class="w-8 h-8 rounded-lg flex items-center justify-center mb-2 transition-transform group-hover:scale-105 group-hover:rotate-3" :class="action.color">
+                     <component :is="action.icon" class="w-4 h-4 text-white" />
                    </div>
-                   <span class="text-[11px] font-black uppercase text-makoclaw-text-secondary/80 group-hover:text-makoclaw-accent">{{ action.label }}</span>
+                   <span class="text-[11px] font-medium uppercase tracking-wide text-makoclaw-text-secondary/80 group-hover:text-makoclaw-accent">{{ action.label }}</span>
                  </router-link>
               </div>
             </div>
 
             <!-- Recent Activity Feed -->
-            <div class="glass-panel rounded-[2rem] p-8 animate-fade-in-up flex flex-col h-[500px]" style="animation-delay: 550ms">
-              <div class="flex items-center justify-between mb-8 px-2">
-                <h3 class="text-xs font-black uppercase tracking-[0.2em] text-makoclaw-text-secondary/70">Recent Pulse</h3>
-                <router-link to="/history" class="text-[10px] font-bold text-makoclaw-accent uppercase hover:underline tracking-widest">All History</router-link>
+            <div class="glass-panel rounded-2xl p-5 animate-fade-in-up flex flex-col h-[420px]" style="animation-delay: 550ms">
+              <div class="flex items-center justify-between mb-4 px-1">
+                <h3 class="text-xs font-medium uppercase tracking-wide text-makoclaw-text-secondary/70">Recent Pulse</h3>
+                <router-link to="/history" class="text-[10px] font-medium text-makoclaw-accent uppercase hover:underline tracking-wide">All History</router-link>
               </div>
               
               <div class="flex-1 overflow-auto custom-scrollbar space-y-3 px-1">
@@ -156,18 +156,18 @@
                   <div class="w-12 h-12 rounded-full border-2 border-dashed border-makoclaw-border flex items-center justify-center mb-4">
                     <svg class="w-6 h-6 text-makoclaw-text-secondary/30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                   </div>
-                  <p class="text-xs font-bold text-makoclaw-text-secondary/40 uppercase tracking-widest leading-relaxed">No data detected<br/>in current cycle</p>
+                  <p class="text-xs font-medium text-makoclaw-text-secondary/40 uppercase tracking-wide leading-relaxed">No data detected<br/>in current cycle</p>
                 </div>
                 
                 <div v-for="item in recentActivity" :key="item.id" 
-                     class="flex items-center gap-4 p-4 rounded-2xl bg-makoclaw-surface/40 border border-makoclaw-border/30 hover:border-makoclaw-accent/30 transition-all group cursor-pointer">
-                  <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors" :class="item.iconBg">
-                    <component :is="item.icon" class="w-5 h-5 text-white" />
+                     class="flex items-center gap-3 p-3 rounded-xl bg-makoclaw-surface/40 border border-makoclaw-border/30 hover:border-makoclaw-accent/30 transition-all group cursor-pointer">
+                  <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors" :class="item.iconBg">
+                    <component :is="item.icon" class="w-4 h-4 text-white" />
                   </div>
                   <div class="flex-1 min-w-0">
                     <div class="text-[11px] font-bold text-makoclaw-text truncate group-hover:text-makoclaw-accent transition-colors">{{ item.title }}</div>
                     <div class="flex items-center gap-2 mt-1">
-                      <span class="text-[10px] font-black uppercase tracking-widest text-makoclaw-text-secondary/50">{{ item.time }}</span>
+                      <span class="text-[10px] font-medium uppercase tracking-wide text-makoclaw-text-secondary/50">{{ item.time }}</span>
                       <span class="w-1 h-1 rounded-full bg-makoclaw-border"></span>
                       <span class="text-[10px] font-bold text-makoclaw-accent">{{ item.type }}</span>
                     </div>

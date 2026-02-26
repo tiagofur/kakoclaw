@@ -24,7 +24,7 @@
           v-for="tab in tabs"
           :key="tab.key"
           @click="activeTab = tab.key"
-          class="flex-none px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all snap-start"
+          class="flex-none px-3 py-1.5 rounded-xl text-xs font-medium tracking-wide transition-all snap-start"
           :class="[activeTab === tab.key 
             ? 'bg-makoclaw-accent text-white shadow-lg shadow-makoclaw-accent/20' 
             : 'bg-makoclaw-surface/50 text-makoclaw-text-secondary border border-makoclaw-border/50 hover:border-makoclaw-accent/30']"
@@ -36,12 +36,12 @@
 
     <div class="flex-1 flex overflow-hidden">
       <!-- Desktop Sidebar Navigation -->
-      <aside class="hidden lg:flex flex-col w-72 flex-none border-r border-makoclaw-border/30 p-6 space-y-8 z-20">
+      <aside class="hidden lg:flex flex-col w-72 flex-none border-r border-makoclaw-border/30 p-6 space-y-5 z-20">
         <div class="px-2">
           <h2 class="text-2xl font-black bg-gradient-to-r from-makoclaw-accent via-blue-400 to-cyan-400 bg-clip-text text-transparent italic">
             MAKO<span class="text-makoclaw-text">CLAW</span>
           </h2>
-          <p class="text-[10px] font-black uppercase tracking-[0.3em] text-makoclaw-text-secondary/40 mt-1">Control Interface</p>
+          <p class="text-[10px] font-medium tracking-wide text-makoclaw-text-secondary/40 mt-1">Control Interface</p>
         </div>
 
         <nav class="flex-1 space-y-1">
@@ -49,7 +49,7 @@
             v-for="tab in tabs"
             :key="tab.key"
             @click="activeTab = tab.key"
-            class="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all group"
+            class="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[11px] font-medium uppercase tracking-wide transition-all group"
             :class="[activeTab === tab.key 
               ? 'bg-makoclaw-accent text-white shadow-xl shadow-makoclaw-accent/20 translate-x-1' 
               : 'text-makoclaw-text-secondary hover:bg-makoclaw-surface/50 hover:text-makoclaw-text']"
@@ -60,9 +60,9 @@
           </button>
         </nav>
 
-        <div class="glass-panel rounded-2xl p-4 border border-makoclaw-accent/10">
-          <div class="flex items-center gap-3">
-             <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-makoclaw-accent to-blue-600 flex items-center justify-center text-white font-black">
+        <div class="glass-panel rounded-xl p-3 border border-makoclaw-accent/10">
+          <div class="flex items-center gap-2.5">
+             <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-makoclaw-accent to-blue-600 flex items-center justify-center text-white font-bold text-xs">
                {{ (authStore.user?.username || 'U')[0].toUpperCase() }}
              </div>
              <div class="flex-1 min-w-0">
@@ -74,18 +74,18 @@
       </aside>
 
       <!-- Main Content Area -->
-      <main class="flex-1 overflow-auto custom-scrollbar p-6 md:p-10 relative z-10">
+      <main class="flex-1 overflow-auto custom-scrollbar p-5 md:p-8 relative z-10">
         <div v-if="loading" class="max-w-4xl mx-auto py-20 flex flex-col items-center justify-center gap-6 animate-pulse">
            <div class="w-16 h-16 border-4 border-makoclaw-accent/20 border-t-makoclaw-accent rounded-full animate-spin"></div>
-           <p class="text-xs font-black uppercase tracking-widest text-makoclaw-text-secondary animate-bounce">Synchronizing Core...</p>
+           <p class="text-xs font-medium tracking-wide text-makoclaw-text-secondary animate-bounce">Synchronizing Core...</p>
         </div>
 
         <template v-else-if="configData">
           <div class="max-w-5xl mx-auto">
             <!-- Header for Desktop Content -->
-            <div class="hidden lg:flex items-center justify-between mb-10 animate-fade-in-up">
+            <div class="hidden lg:flex items-center justify-between mb-6 animate-fade-in-up">
               <div>
-                <h1 class="text-3xl font-black text-makoclaw-text">{{ activeTabLabel }}</h1>
+                <h1 class="text-2xl font-black text-makoclaw-text">{{ activeTabLabel }}</h1>
                 <p class="text-sm font-medium text-makoclaw-text-secondary/70 mt-1">Configure your workspace environment and capabilities</p>
               </div>
               <button @click="loadData" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-makoclaw-surface border border-makoclaw-border hover:border-makoclaw-accent/40 text-xs font-bold text-makoclaw-text-secondary transition-all active:scale-95 group">
@@ -95,7 +95,7 @@
             </div>
 
             <!-- Content Transition Container -->
-            <div class="space-y-8 min-h-[600px]">
+            <div class="space-y-5 min-h-[600px]">
               <Transition name="fade-slide" mode="out-in">
                 <div :key="activeTab">
                   <ProfileSettingsTab v-if="activeTab === 'profile'" />
@@ -130,15 +130,15 @@
 
                   <!-- Admin Users Tab -->
                   <div v-if="activeTab === 'users' && authStore.user?.role === 'admin'" class="space-y-6 animate-fade-in-up">
-                    <div class="glass-panel rounded-[2rem] p-8">
-                       <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-8">
+                    <div class="glass-panel rounded-2xl p-5">
+                       <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-5">
                         <div>
-                          <h3 class="text-xs font-black uppercase tracking-[0.2em] text-makoclaw-text-secondary/70 italic">User Hub</h3>
+                          <h3 class="text-xs font-medium uppercase tracking-wide text-makoclaw-text-secondary/70">User Hub</h3>
                           <p class="text-xs font-medium text-makoclaw-text-secondary/50 mt-1">Manage infrastructure access nodes</p>
                         </div>
                         <button 
                           @click="openUserModal()"
-                          class="px-6 py-3 bg-makoclaw-accent hover:bg-makoclaw-accent-hover text-white rounded-xl transition-all shadow-xl shadow-makoclaw-accent/20 hover:shadow-makoclaw-accent/40 text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95"
+                          class="px-5 py-2.5 bg-makoclaw-accent hover:bg-makoclaw-accent-hover text-white rounded-xl transition-all shadow-lg shadow-makoclaw-accent/20 text-[11px] font-semibold flex items-center justify-center gap-2 active:scale-95"
                         >
                           <IconPlus class="w-4 h-4" />
                           Register Node
@@ -147,7 +147,7 @@
                       
                       <div class="overflow-x-auto custom-scrollbar">
                         <table class="w-full text-left text-sm whitespace-nowrap">
-                          <thead class="bg-makoclaw-bg/30 tracking-widest border-b border-makoclaw-border/50 text-[10px] text-makoclaw-text-secondary font-black uppercase">
+                          <thead class="bg-makoclaw-bg/30 tracking-wide border-b border-makoclaw-border/50 text-[10px] text-makoclaw-text-secondary font-medium uppercase">
                             <tr>
                               <th class="px-6 py-4">ID Cluster</th>
                               <th class="px-6 py-4">Identity</th>
@@ -164,14 +164,14 @@
                                 <span class="font-black tracking-tight group-hover:text-makoclaw-accent transition-colors">{{ u.username }}</span>
                               </td>
                               <td class="px-6 py-4">
-                                <span class="px-2 py-0.5 text-[9px] font-black uppercase rounded-lg" 
+                                <span class="px-2 py-0.5 text-[9px] font-medium uppercase rounded-lg"
                                       :class="u.role === 'admin' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'bg-makoclaw-accent/10 text-makoclaw-accent border border-makoclaw-accent/20'">
                                   {{ u.role }}
                                 </span>
                               </td>
                               <td class="px-6 py-4">
-                                <span v-if="u.blocked" class="px-2 py-1 text-[9px] font-black uppercase rounded-lg bg-red-500/10 text-red-400 border border-red-500/20">Offline</span>
-                                <span v-else class="flex items-center gap-1.5 text-[9px] font-black uppercase text-makoclaw-success">
+                                <span v-if="u.blocked" class="px-2 py-0.5 text-[9px] font-medium uppercase rounded-lg bg-red-500/10 text-red-400 border border-red-500/20">Offline</span>
+                                <span v-else class="flex items-center gap-1.5 text-[9px] font-medium uppercase text-makoclaw-success">
                                   <span class="w-1.5 h-1.5 rounded-full bg-makoclaw-success animate-pulse"></span>
                                   Active
                                 </span>
@@ -193,12 +193,12 @@
                   </div>
 
                   <!-- System Tab -->
-                  <div v-if="activeTab === 'system'" class="space-y-8 animate-fade-in-up">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                       <div class="glass-panel rounded-[2rem] p-8 border border-makoclaw-border/50">
-                        <div class="flex items-center gap-3 mb-8">
+                  <div v-if="activeTab === 'system'" class="space-y-5 animate-fade-in-up">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                       <div class="glass-panel rounded-2xl p-5 border border-makoclaw-border/50">
+                        <div class="flex items-center gap-3 mb-5">
                            <div class="p-2 rounded-xl bg-blue-500/10 text-blue-400"><IconGlobe class="w-5 h-5"/></div>
-                           <h3 class="text-xs font-black uppercase tracking-widest text-makoclaw-text-secondary/70">Web Infrastructure</h3>
+                           <h3 class="text-xs font-medium tracking-wide text-makoclaw-text-secondary/70">Web Infrastructure</h3>
                         </div>
                         <div class="space-y-4">
                           <div v-for="(val, key) in configData.web" :key="key" class="flex justify-between items-center px-4 py-3 rounded-2xl bg-makoclaw-bg/30 border border-makoclaw-border/30">
@@ -207,10 +207,10 @@
                           </div>
                         </div>
                       </div>
-                      <div class="glass-panel rounded-[2rem] p-8 border border-makoclaw-border/50">
-                        <div class="flex items-center gap-3 mb-8">
+                      <div class="glass-panel rounded-2xl p-5 border border-makoclaw-border/50">
+                        <div class="flex items-center gap-3 mb-5">
                            <div class="p-2 rounded-xl bg-makoclaw-accent/10 text-makoclaw-accent"><IconGateway class="w-5 h-5"/></div>
-                           <h3 class="text-xs font-black uppercase tracking-widest text-makoclaw-text-secondary/70">Gateway Layer</h3>
+                           <h3 class="text-xs font-medium tracking-wide text-makoclaw-text-secondary/70">Gateway Layer</h3>
                         </div>
                         <div class="space-y-4">
                           <div v-for="(val, key) in configData.gateway" :key="key" class="flex justify-between items-center px-4 py-3 rounded-2xl bg-makoclaw-bg/30 border border-makoclaw-border/30">
@@ -221,35 +221,35 @@
                       </div>
                     </div>
                     
-                    <div class="glass-panel rounded-[2rem] p-8 border border-makoclaw-border/50">
-                      <div class="flex items-center justify-between mb-8">
+                    <div class="glass-panel rounded-2xl p-5 border border-makoclaw-border/50">
+                      <div class="flex items-center justify-between mb-5">
                          <div class="flex items-center gap-3">
                            <div class="p-2 rounded-xl bg-orange-500/10 text-orange-400"><IconTool class="w-5 h-5"/></div>
-                           <h3 class="text-xs font-black uppercase tracking-widest text-makoclaw-text-secondary/70">Utility Parameters</h3>
+                           <h3 class="text-xs font-medium tracking-wide text-makoclaw-text-secondary/70">Utility Parameters</h3>
                          </div>
-                         <button 
-                            @click="saveConfig({tools: configData.tools})" 
+                         <button
+                            @click="saveConfig({tools: configData.tools})"
                             :disabled="saving"
-                            class="px-5 py-2 rounded-xl bg-makoclaw-accent/10 text-makoclaw-accent border border-makoclaw-accent/20 text-[10px] font-black uppercase tracking-widest hover:bg-makoclaw-accent hover:text-white transition-all active:scale-95"
+                            class="px-4 py-1.5 rounded-xl bg-makoclaw-accent/10 text-makoclaw-accent border border-makoclaw-accent/20 text-[10px] font-medium tracking-wide hover:bg-makoclaw-accent hover:text-white transition-all active:scale-95"
                           >
                             Sync Parameters
                           </button>
                       </div>
-                      <div class="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                      <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                          <div class="space-y-2">
-                            <label class="text-[10px] font-black uppercase tracking-widest text-makoclaw-text-secondary/60">Search Access Key</label>
+                            <label class="text-[10px] font-medium tracking-wide text-makoclaw-text-secondary/60">Search Access Key</label>
                             <input v-model="configData.tools.web.search.api_key" type="password" placeholder="••••••••••••••••" class="w-full bg-makoclaw-bg/40 border-2 border-makoclaw-border/50 rounded-2xl px-5 py-3.5 text-sm font-bold text-makoclaw-text focus:border-makoclaw-accent transition-all outline-none">
                          </div>
                          <div class="space-y-2">
-                            <label class="text-[10px] font-black uppercase tracking-widest text-makoclaw-text-secondary/60">Search Capacity</label>
+                            <label class="text-[10px] font-medium tracking-wide text-makoclaw-text-secondary/60">Search Capacity</label>
                             <input v-model.number="configData.tools.web.search.max_results" type="number" class="w-full bg-makoclaw-bg/40 border-2 border-makoclaw-border/50 rounded-2xl px-5 py-3.5 text-sm font-black text-makoclaw-text focus:border-makoclaw-accent transition-all outline-none">
                          </div>
                        </div>
                      </div>
 
                     <!-- Backup & Recovery SECTION OVERHAUL -->
-                    <div class="glass-panel rounded-[2rem] p-8 border-2 border-makoclaw-accent/20 bg-makoclaw-accent/5">
-                      <div class="flex items-center gap-3 mb-10">
+                    <div class="glass-panel rounded-2xl p-5 border border-makoclaw-accent/20 bg-makoclaw-accent/5">
+                      <div class="flex items-center gap-3 mb-5">
                          <div class="p-3 rounded-2xl bg-makoclaw-accent text-white shadow-lg shadow-makoclaw-accent/20"><IconBackup class="w-6 h-6"/></div>
                          <div>
                            <h3 class="text-lg font-black text-makoclaw-text uppercase tracking-tight italic">Snapshot Core</h3>
@@ -260,7 +260,7 @@
                       <div class="grid grid-cols-1 lg:grid-cols-2 gap-10">
                         <!-- Export -->
                         <div class="space-y-6">
-                           <h4 class="text-[11px] font-black uppercase tracking-widest text-makoclaw-text opacity-70 flex items-center gap-2">
+                           <h4 class="text-[11px] font-medium tracking-wide text-makoclaw-text opacity-70 flex items-center gap-2">
                              <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping"></span>
                              Generate Snapshot
                            </h4>
@@ -273,7 +273,7 @@
                            <button
                             @click="exportBackup"
                             :disabled="exporting || Object.values(exportOptions).every(v => !v)"
-                            class="w-full bg-makoclaw-accent hover:bg-makoclaw-accent-hover text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-makoclaw-accent/20 transition-all flex items-center justify-center disabled:opacity-30 active:scale-95"
+                            class="w-full bg-makoclaw-accent hover:bg-makoclaw-accent-hover text-white py-2.5 rounded-xl font-semibold shadow-lg shadow-makoclaw-accent/20 transition-all flex items-center justify-center disabled:opacity-30 active:scale-95"
                           >
                             <span v-if="exporting" class="w-5 h-5 border-4 border-white/20 border-t-white rounded-full animate-spin mr-3"></span>
                             <IconDownload v-else class="w-5 h-5 mr-3" />
@@ -283,7 +283,7 @@
 
                         <!-- Import -->
                         <div class="space-y-6">
-                           <h4 class="text-[11px] font-black uppercase tracking-widest text-makoclaw-text opacity-70 flex items-center gap-2">
+                           <h4 class="text-[11px] font-medium tracking-wide text-makoclaw-text opacity-70 flex items-center gap-2">
                              <span class="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
                              Inject Snapshot
                            </h4>
@@ -291,7 +291,7 @@
                               <input type="file" @change="handleFileSelect" accept=".makoclaw" class="hidden" ref="fileInput">
                               <div v-if="!selectedFile" @click="$refs.fileInput.click()" class="flex flex-col items-center justify-center py-4 cursor-pointer">
                                  <IconCloudUpload class="w-12 h-12 text-makoclaw-text-secondary/20 group-hover:text-makoclaw-accent transition-colors duration-500 group-hover:scale-110" />
-                                 <p class="text-xs font-black uppercase mt-4 text-makoclaw-text-secondary/40 group-hover:text-makoclaw-text-secondary">Load .makoclaw Module</p>
+                                 <p class="text-xs font-medium mt-3 text-makoclaw-text-secondary/40 group-hover:text-makoclaw-text-secondary">Load .makoclaw Module</p>
                               </div>
                               <div v-else class="space-y-4">
                                  <div class="flex items-center gap-4 p-4 bg-makoclaw-bg/60 rounded-2xl border border-makoclaw-border/50">
@@ -305,7 +305,7 @@
                                  <button
                                   @click="importBackup"
                                   :disabled="importing || !validationResult?.has_any_content"
-                                  class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-indigo-500/20 transition-all flex items-center justify-center disabled:opacity-30 active:scale-95"
+                                  class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl font-semibold shadow-lg shadow-indigo-500/20 transition-all flex items-center justify-center disabled:opacity-30 active:scale-95"
                                 >
                                   <span v-if="importing" class="w-5 h-5 border-4 border-white/20 border-t-white rounded-full animate-spin mr-3"></span>
                                   <IconPulse v-else class="w-5 h-5 mr-3" />
@@ -330,10 +330,10 @@
        <Transition name="modal">
          <div v-if="showChannelModal || showUserModal || showBlockModal || showUnblockModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-makoclaw-bg/80 backdrop-blur-xl">
            <!-- Shared Modal Wrapper -->
-           <div class="glass-panel rounded-[2rem] shadow-2xl w-full max-w-lg border border-makoclaw-border/50 overflow-hidden animate-zoom">
+           <div class="glass-panel rounded-2xl shadow-xl w-full max-w-lg border border-makoclaw-border/50 overflow-hidden animate-zoom">
               <!-- Content varies by ref check... (kept brief) -->
                <div v-if="showChannelModal" class="p-8">
-                  <div class="flex justify-between items-center mb-10">
+                  <div class="flex justify-between items-center mb-5">
                     <h3 class="text-xl font-black text-makoclaw-text italic flex items-center gap-3">
                       <span class="p-2 bg-makoclaw-bg border border-makoclaw-border rounded-xl scale-90" v-html="selectedChannel?.icon"></span>
                       Configure {{ selectedChannel?.name }}
@@ -344,58 +344,58 @@
                   <div class="space-y-6">
                     <div v-if="['telegram', 'discord'].includes(selectedChannel?.id)" class="space-y-6">
                        <div class="space-y-2">
-                          <label class="text-[10px] font-black uppercase tracking-widest text-makoclaw-text-secondary/60">Bot Token / Secret Code</label>
+                          <label class="text-[10px] font-medium tracking-wide text-makoclaw-text-secondary/60">Bot Token / Secret Code</label>
                           <input v-model="channelForm.token" type="password" class="w-full bg-makoclaw-bg/40 border-2 border-makoclaw-border/50 rounded-2xl px-5 py-3.5 text-sm font-bold text-makoclaw-text focus:border-makoclaw-accent transition-all outline-none">
                        </div>
                        <div class="space-y-2">
-                          <label class="text-[10px] font-black uppercase tracking-widest text-makoclaw-text-secondary/60">Authorized Access Nodes</label>
+                          <label class="text-[10px] font-medium tracking-wide text-makoclaw-text-secondary/60">Authorized Access Nodes</label>
                           <input v-model="channelForm.allow_from" type="text" placeholder="ID-1, ID-2, @username" class="w-full bg-makoclaw-bg/40 border-2 border-makoclaw-border/50 rounded-2xl px-5 py-3.5 text-sm font-bold text-makoclaw-text focus:border-makoclaw-accent transition-all outline-none">
                        </div>
                     </div>
                   </div>
                   <div class="flex justify-end gap-3 mt-12 pt-8 border-t border-makoclaw-border/30">
-                    <button @click="showChannelModal = false" class="px-6 py-3 text-xs font-black uppercase tracking-widest text-makoclaw-text-secondary hover:text-makoclaw-text">Abort</button>
-                    <button @click="saveChannelConfig" class="px-8 py-3 bg-makoclaw-accent text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-makoclaw-accent/20 active:scale-95">Commit & Restart</button>
+                    <button @click="showChannelModal = false" class="px-4 py-2 text-xs font-medium text-makoclaw-text-secondary hover:text-makoclaw-text">Abort</button>
+                    <button @click="saveChannelConfig" class="px-5 py-2.5 bg-makoclaw-accent text-white rounded-xl text-xs font-semibold shadow-lg shadow-makoclaw-accent/20 active:scale-95">Commit & Restart</button>
                   </div>
                </div>
 
                <!-- User Modals... shortened but functional -->
                <div v-if="showUserModal" class="p-8">
-                  <h3 class="text-xl font-black text-makoclaw-text mb-8">{{ userForm.id ? 'Modify Identity' : 'Register Identity' }}</h3>
+                  <h3 class="text-lg font-semibold text-makoclaw-text mb-5">{{ userForm.id ? 'Modify Identity' : 'Register Identity' }}</h3>
                   <div class="space-y-6">
                     <div class="space-y-2">
-                       <label class="text-[10px] font-black uppercase tracking-widest text-makoclaw-text-secondary/60">Username</label>
+                       <label class="text-[10px] font-medium tracking-wide text-makoclaw-text-secondary/60">Username</label>
                        <input v-model="userForm.username" :disabled="!!userForm.id" class="w-full bg-makoclaw-bg/40 border-2 border-makoclaw-border/50 rounded-2xl px-5 py-3.5 font-black text-makoclaw-text focus:border-makoclaw-accent outline-none disabled:opacity-40">
                     </div>
                     <div class="space-y-2">
-                       <label class="text-[10px] font-black uppercase tracking-widest text-makoclaw-text-secondary/60">Security Key</label>
+                       <label class="text-[10px] font-medium tracking-wide text-makoclaw-text-secondary/60">Security Key</label>
                        <input v-model="userForm.password" type="password" class="w-full bg-makoclaw-bg/40 border-2 border-makoclaw-border/50 rounded-2xl px-5 py-3.5 text-makoclaw-text focus:border-makoclaw-accent outline-none">
                     </div>
                   </div>
                   <div class="flex justify-end gap-3 mt-10">
                     <button @click="showUserModal = false" class="px-6 py-3 text-xs font-bold text-makoclaw-text-secondary">Cancel</button>
-                    <button @click="saveUser" class="px-8 py-3 bg-makoclaw-accent text-white rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-makoclaw-accent/20">Commit</button>
+                    <button @click="saveUser" class="px-5 py-2.5 bg-makoclaw-accent text-white rounded-xl font-semibold shadow-lg shadow-makoclaw-accent/20">Commit</button>
                   </div>
                </div>
                
                <div v-if="showBlockModal" class="p-8 text-center">
                   <div class="w-16 h-16 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6"><IconBlock class="w-8 h-8"/></div>
                   <h3 class="text-xl font-black text-makoclaw-text mb-4">Deactivate Node?</h3>
-                  <p class="text-sm font-medium text-makoclaw-text-secondary mb-8">This will instantly sever all neural links for @{{ blockForm.user?.username }}.</p>
-                  <textarea v-model="blockForm.reason" placeholder="Neural Severance Reason..." class="w-full bg-makoclaw-bg border-2 border-makoclaw-border rounded-2xl p-4 text-sm text-makoclaw-text outline-none focus:border-red-500 min-h-[100px] mb-8"></textarea>
+                  <p class="text-sm font-medium text-makoclaw-text-secondary mb-5">This will instantly sever all neural links for @{{ blockForm.user?.username }}.</p>
+                  <textarea v-model="blockForm.reason" placeholder="Neural Severance Reason..." class="w-full bg-makoclaw-bg border border-makoclaw-border rounded-xl p-3 text-sm text-makoclaw-text outline-none focus:border-red-500 min-h-[100px] mb-5"></textarea>
                   <div class="flex gap-4">
-                    <button @click="showBlockModal = false" class="flex-1 py-4 text-xs font-black uppercase tracking-widest text-makoclaw-text-secondary">Maintain Link</button>
-                    <button @click="blockUser" class="flex-1 py-4 bg-red-500 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-red-500/20">Sever Connection</button>
+                    <button @click="showBlockModal = false" class="flex-1 py-2.5 text-xs font-medium text-makoclaw-text-secondary">Maintain Link</button>
+                    <button @click="blockUser" class="flex-1 py-2.5 bg-red-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-red-500/20">Sever Connection</button>
                   </div>
                </div>
 
                <div v-if="showUnblockModal" class="p-8 text-center">
                   <div class="w-16 h-16 bg-makoclaw-success/10 text-makoclaw-success rounded-full flex items-center justify-center mx-auto mb-6"><IconCheck class="w-8 h-8"/></div>
                   <h3 class="text-xl font-black text-makoclaw-text mb-4">Restore Node Integration?</h3>
-                  <p class="text-sm font-medium text-makoclaw-text-secondary mb-10">Re-establishing connection for @{{ unblockForm.user?.username }}...</p>
+                  <p class="text-sm font-medium text-makoclaw-text-secondary mb-5">Re-establishing connection for @{{ unblockForm.user?.username }}...</p>
                   <div class="flex gap-4">
-                    <button @click="showUnblockModal = false" class="flex-1 py-4 text-xs font-black uppercase tracking-widest text-makoclaw-text-secondary">Leave Offline</button>
-                    <button @click="unblockUser" class="flex-1 py-4 bg-makoclaw-success text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-green-500/20">Activate Neural Link</button>
+                    <button @click="showUnblockModal = false" class="flex-1 py-2.5 text-xs font-medium text-makoclaw-text-secondary">Leave Offline</button>
+                    <button @click="unblockUser" class="flex-1 py-2.5 bg-makoclaw-success text-white rounded-xl text-xs font-semibold shadow-lg shadow-green-500/20">Activate Neural Link</button>
                   </div>
                </div>
            </div>
