@@ -38,7 +38,8 @@
       "Bash(gh pr:*)",
       "Bash(git fetch origin main)",
       "Bash(git checkout main)",
-      "Bash(git pull origin main)"
+      "Bash(git pull origin main)",
+      "Bash(git checkout -b ui/inner-app-ux-polish)"
     ]
   },
   "enabledPlugins": {
