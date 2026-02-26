@@ -172,14 +172,21 @@
             >
               <div class="flex items-start justify-between">
                 <h3 class="font-semibold flex-1">{{ sub.skill_name }}</h3>
-                <span
-                  class="px-2 py-0.5 text-xs rounded-full flex-shrink-0"
-                  :class="{
-                    'bg-green-500/10 text-green-400': sub.status === 'approved',
-                    'bg-yellow-500/10 text-yellow-400': sub.status === 'pending' || sub.status === 'needs_review',
-                    'bg-red-500/10 text-red-400': sub.status === 'rejected'
-                  }"
-                >{{ sub.status }}</span>
+                <div class="flex items-center gap-1.5 flex-shrink-0">
+                  <span
+                    v-if="sub.visibility === 'private'"
+                    class="px-2 py-0.5 text-xs rounded-full bg-makoclaw-bg text-makoclaw-text-secondary border border-makoclaw-border"
+                    title="Private skill"
+                  >&#128274;</span>
+                  <span
+                    class="px-2 py-0.5 text-xs rounded-full"
+                    :class="{
+                      'bg-green-500/10 text-green-400': sub.status === 'approved',
+                      'bg-yellow-500/10 text-yellow-400': sub.status === 'pending' || sub.status === 'needs_review',
+                      'bg-red-500/10 text-red-400': sub.status === 'rejected'
+                    }"
+                  >{{ sub.status }}</span>
+                </div>
               </div>
               <p class="text-sm text-makoclaw-text-secondary mt-1 line-clamp-2">{{ sub.description }}</p>
               <p class="text-xs text-makoclaw-text-secondary mt-2">Security Score: {{ sub.security_score }}/100</p>
@@ -468,6 +475,31 @@
             </select>
           </div>
 
+          <!-- Visibility -->
+          <div>
+            <label class="block text-sm font-medium mb-2">Visibility</label>
+            <div class="space-y-2">
+              <label class="flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors"
+                :class="submitForm.visibility === 'public' ? 'border-makoclaw-accent bg-makoclaw-accent/5' : 'border-makoclaw-border hover:border-makoclaw-accent/50'">
+                <input type="radio" v-model="submitForm.visibility" value="public" class="mt-0.5 accent-makoclaw-accent" />
+                <div>
+                  <div class="text-sm font-medium">Public</div>
+                  <div class="text-xs text-makoclaw-text-secondary">Visible to everyone in the marketplace</div>
+                </div>
+              </label>
+              <label class="flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors"
+                :class="submitForm.visibility === 'private' ? 'border-makoclaw-accent bg-makoclaw-accent/5' : 'border-makoclaw-border hover:border-makoclaw-accent/50'">
+                <input type="radio" v-model="submitForm.visibility" value="private" class="mt-0.5 accent-makoclaw-accent" />
+                <div>
+                  <div class="text-sm font-medium flex items-center gap-1.5">
+                    <span>&#128274;</span> Private
+                  </div>
+                  <div class="text-xs text-makoclaw-text-secondary">Only visible to you — auto-approved instantly</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
           <!-- Tags -->
           <div>
             <label class="block text-sm font-medium mb-1">Tags (comma-separated)</label>
@@ -519,7 +551,7 @@ const savingSkill = ref(false)
 // Submit Modal State
 const showSubmitModal = ref(false)
 const submittingSkill = ref(null)
-const submitForm = ref({ category: 'general', tags: '' })
+const submitForm = ref({ category: 'general', tags: '', visibility: 'public' })
 const submitting = ref(false)
 const scanResult = ref(null)
 
@@ -616,7 +648,7 @@ const openSubmitModal = async (skill) => {
   try {
     const data = await advancedService.viewSkill(skill.name)
     submittingSkill.value = { ...skill, content: data.content }
-    submitForm.value = { category: 'general', tags: '' }
+    submitForm.value = { category: 'general', tags: '', visibility: 'public' }
     scanResult.value = null
     showSubmitModal.value = true
 
@@ -648,7 +680,8 @@ const handleSubmitToMarketplace = async () => {
       description: submittingSkill.value.description || '',
       content: submittingSkill.value.content,
       category: submitForm.value.category,
-      tags
+      tags,
+      visibility: submitForm.value.visibility
     })
 
     toast.success(result.message || 'Skill submitted successfully')

@@ -179,6 +179,8 @@ func (cs *CentralStorage) migrate() error {
 		`CREATE INDEX IF NOT EXISTS idx_skill_submissions_user_id ON skill_submissions(user_id);`,
 		`CREATE INDEX IF NOT EXISTS idx_skill_submissions_category ON skill_submissions(category);`,
 		`CREATE INDEX IF NOT EXISTS idx_skill_submissions_slug ON skill_submissions(skill_slug);`,
+		`ALTER TABLE skill_submissions ADD COLUMN visibility TEXT NOT NULL DEFAULT 'public';`,
+		`CREATE INDEX IF NOT EXISTS idx_skill_submissions_visibility ON skill_submissions(visibility);`,
 
 		// Skill categories table
 		`CREATE TABLE IF NOT EXISTS skill_categories (
@@ -749,6 +751,7 @@ type SkillSubmission struct {
 	SecurityFindings string    `json:"security_findings"`
 	SecurityScanAt   *string   `json:"security_scan_at,omitempty"`
 	Status           string    `json:"status"`
+	Visibility       string    `json:"visibility"`
 	ReviewerID       *int64    `json:"reviewer_id,omitempty"`
 	ReviewerNotes    string    `json:"reviewer_notes,omitempty"`
 	ReviewedAt       *string   `json:"reviewed_at,omitempty"`
@@ -780,11 +783,11 @@ func (cs *CentralStorage) CreateSkillSubmission(sub *SkillSubmission) (int64, er
 		INSERT INTO skill_submissions (
 			user_id, skill_name, skill_slug, version, description, content,
 			author, tags, category, repository_url,
-			security_score, security_findings, security_scan_at, status
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			security_score, security_findings, security_scan_at, status, visibility
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		sub.UserID, sub.SkillName, sub.SkillSlug, sub.Version, sub.Description, sub.Content,
 		sub.Author, string(tagsJSON), sub.Category, sub.RepositoryURL,
-		sub.SecurityScore, sub.SecurityFindings, sub.SecurityScanAt, sub.Status,
+		sub.SecurityScore, sub.SecurityFindings, sub.SecurityScanAt, sub.Status, sub.Visibility,
 	)
 	if err != nil {
 		return 0, err
@@ -798,7 +801,7 @@ func (cs *CentralStorage) GetSkillSubmission(id int64) (*SkillSubmission, error)
 		SELECT id, user_id, skill_name, skill_slug, version, description, content,
 		       author, tags, category, repository_url, security_score, security_findings,
 		       security_scan_at, status, reviewer_id, reviewer_notes, reviewed_at,
-		       download_count, install_count, created_at, updated_at, published_at
+		       download_count, install_count, created_at, updated_at, published_at, visibility
 		FROM skill_submissions WHERE id = ?`, id)
 
 	return cs.scanSkillSubmission(row)
@@ -810,7 +813,7 @@ func (cs *CentralStorage) GetSkillSubmissionBySlug(slug string) (*SkillSubmissio
 		SELECT id, user_id, skill_name, skill_slug, version, description, content,
 		       author, tags, category, repository_url, security_score, security_findings,
 		       security_scan_at, status, reviewer_id, reviewer_notes, reviewed_at,
-		       download_count, install_count, created_at, updated_at, published_at
+		       download_count, install_count, created_at, updated_at, published_at, visibility
 		FROM skill_submissions WHERE skill_slug = ?`, slug)
 
 	return cs.scanSkillSubmission(row)
@@ -826,7 +829,7 @@ func (cs *CentralStorage) scanSkillSubmission(row *sql.Row) (*SkillSubmission, e
 		&sub.ID, &sub.UserID, &sub.SkillName, &sub.SkillSlug, &sub.Version, &sub.Description, &sub.Content,
 		&sub.Author, &tagsJSON, &sub.Category, &sub.RepositoryURL, &sub.SecurityScore, &sub.SecurityFindings,
 		&securityScanAt, &sub.Status, &reviewerID, &sub.ReviewerNotes, &reviewedAt,
-		&sub.DownloadCount, &sub.InstallCount, &sub.CreatedAt, &sub.UpdatedAt, &publishedAt,
+		&sub.DownloadCount, &sub.InstallCount, &sub.CreatedAt, &sub.UpdatedAt, &publishedAt, &sub.Visibility,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -856,16 +859,17 @@ func (cs *CentralStorage) scanSkillSubmission(row *sql.Row) (*SkillSubmission, e
 	return &sub, nil
 }
 
-// GetApprovedSkillSubmissions returns all approved skill submissions for the marketplace
-func (cs *CentralStorage) GetApprovedSkillSubmissions(category string, limit, offset int) ([]*SkillSubmission, error) {
+// GetApprovedSkillSubmissions returns all approved skill submissions for the marketplace.
+// callerUserID is used to include the caller's own private skills alongside public ones.
+func (cs *CentralStorage) GetApprovedSkillSubmissions(category string, limit, offset int, callerUserID int64) ([]*SkillSubmission, error) {
 	query := `
 		SELECT id, user_id, skill_name, skill_slug, version, description, content,
 		       author, tags, category, repository_url, security_score, security_findings,
 		       security_scan_at, status, reviewer_id, reviewer_notes, reviewed_at,
-		       download_count, install_count, created_at, updated_at, published_at
-		FROM skill_submissions
-		WHERE status = 'approved'`
-	args := []interface{}{}
+		       download_count, install_count, created_at, updated_at, published_at, visibility
+		FROM skill_submissions ss
+		WHERE status = 'approved' AND (ss.visibility = 'public' OR ss.user_id = ?)`
+	args := []interface{}{callerUserID}
 
 	if category != "" && category != "all" {
 		query += ` AND category = ?`
@@ -890,7 +894,7 @@ func (cs *CentralStorage) GetPendingSkillSubmissions() ([]*SkillSubmission, erro
 		SELECT id, user_id, skill_name, skill_slug, version, description, content,
 		       author, tags, category, repository_url, security_score, security_findings,
 		       security_scan_at, status, reviewer_id, reviewer_notes, reviewed_at,
-		       download_count, install_count, created_at, updated_at, published_at
+		       download_count, install_count, created_at, updated_at, published_at, visibility
 		FROM skill_submissions
 		WHERE status IN ('pending', 'needs_review')
 		ORDER BY created_at ASC`)
@@ -908,7 +912,7 @@ func (cs *CentralStorage) GetUserSkillSubmissions(userID int64) ([]*SkillSubmiss
 		SELECT id, user_id, skill_name, skill_slug, version, description, content,
 		       author, tags, category, repository_url, security_score, security_findings,
 		       security_scan_at, status, reviewer_id, reviewer_notes, reviewed_at,
-		       download_count, install_count, created_at, updated_at, published_at
+		       download_count, install_count, created_at, updated_at, published_at, visibility
 		FROM skill_submissions
 		WHERE user_id = ?
 		ORDER BY created_at DESC`, userID)
@@ -932,7 +936,7 @@ func (cs *CentralStorage) scanSkillSubmissions(rows *sql.Rows) ([]*SkillSubmissi
 			&sub.ID, &sub.UserID, &sub.SkillName, &sub.SkillSlug, &sub.Version, &sub.Description, &sub.Content,
 			&sub.Author, &tagsJSON, &sub.Category, &sub.RepositoryURL, &sub.SecurityScore, &sub.SecurityFindings,
 			&securityScanAt, &sub.Status, &reviewerID, &sub.ReviewerNotes, &reviewedAt,
-			&sub.DownloadCount, &sub.InstallCount, &sub.CreatedAt, &sub.UpdatedAt, &publishedAt,
+			&sub.DownloadCount, &sub.InstallCount, &sub.CreatedAt, &sub.UpdatedAt, &publishedAt, &sub.Visibility,
 		)
 		if err != nil {
 			return nil, err

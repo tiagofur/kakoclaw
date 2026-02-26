@@ -14,6 +14,23 @@ import (
 	"github.com/sipeed/makoclaw/pkg/storage"
 )
 
+// PublicSkillResponse is the public-facing representation of a marketplace skill
+// (without full content). Used by handleMarketplaceSkills and reused by future features.
+type PublicSkillResponse struct {
+	ID            int64    `json:"id"`
+	Name          string   `json:"name"`
+	Slug          string   `json:"slug"`
+	Version       string   `json:"version"`
+	Description   string   `json:"description"`
+	Author        string   `json:"author"`
+	Tags          []string `json:"tags"`
+	Category      string   `json:"category"`
+	SecurityScore int      `json:"security_score"`
+	InstallCount  int      `json:"install_count"`
+	PublishedAt   *string  `json:"published_at"`
+	Visibility    string   `json:"visibility"`
+}
+
 // ==================== MARKETPLACE ====================
 
 // handleMarketplaceSkills lists approved skills from the marketplace
@@ -38,30 +55,22 @@ func (s *Server) handleMarketplaceSkills(w http.ResponseWriter, r *http.Request)
 	limit := 20
 	offset := (page - 1) * limit
 
-	submissions, err := s.centralStore.GetApprovedSkillSubmissions(category, limit, offset)
+	// Determine caller's user ID (0 if unauthenticated; private skills will still be filtered to the owner)
+	var callerUserID int64
+	if _, userUUID, ok := s.getUserStorage(r); ok {
+		callerUserID, _ = s.getUserIDFromUUID(userUUID)
+	}
+
+	submissions, err := s.centralStore.GetApprovedSkillSubmissions(category, limit, offset, callerUserID)
 	if err != nil {
 		http.Error(w, "failed to fetch skills", http.StatusInternalServerError)
 		return
 	}
 
 	// Convert to public format (without full content)
-	type PublicSkill struct {
-		ID            int64    `json:"id"`
-		Name          string   `json:"name"`
-		Slug          string   `json:"slug"`
-		Version       string   `json:"version"`
-		Description   string   `json:"description"`
-		Author        string   `json:"author"`
-		Tags          []string `json:"tags"`
-		Category      string   `json:"category"`
-		SecurityScore int      `json:"security_score"`
-		InstallCount  int      `json:"install_count"`
-		PublishedAt   *string  `json:"published_at"`
-	}
-
-	publicSkills := make([]PublicSkill, 0, len(submissions))
+	publicSkills := make([]PublicSkillResponse, 0, len(submissions))
 	for _, sub := range submissions {
-		publicSkills = append(publicSkills, PublicSkill{
+		publicSkills = append(publicSkills, PublicSkillResponse{
 			ID:            sub.ID,
 			Name:          sub.SkillName,
 			Slug:          sub.SkillSlug,
@@ -73,6 +82,7 @@ func (s *Server) handleMarketplaceSkills(w http.ResponseWriter, r *http.Request)
 			SecurityScore: sub.SecurityScore,
 			InstallCount:  sub.InstallCount,
 			PublishedAt:   sub.PublishedAt,
+			Visibility:    sub.Visibility,
 		})
 	}
 
@@ -107,6 +117,20 @@ func (s *Server) handleMarketplaceSkillDetail(w http.ResponseWriter, r *http.Req
 	if sub == nil || sub.Status != "approved" {
 		http.Error(w, "skill not found", http.StatusNotFound)
 		return
+	}
+
+	// Private skills are only accessible to their owner
+	if sub.Visibility == "private" {
+		_, userUUID, ok := s.getUserStorage(r)
+		if !ok {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		callerUserID, _ := s.getUserIDFromUUID(userUUID)
+		if callerUserID != sub.UserID {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
 	}
 
 	writeJSONResponse(w, sub)
@@ -144,6 +168,15 @@ func (s *Server) handleMarketplaceInstall(w http.ResponseWriter, r *http.Request
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
+	}
+
+	// Private skills can only be installed by their owner
+	if sub.Visibility == "private" {
+		callerUserID, _ := s.getUserIDFromUUID(userUUID)
+		if callerUserID != sub.UserID {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
 	}
 
 	userWorkspace, err := config.EnsureUserWorkspace(userUUID)
@@ -186,10 +219,20 @@ func (s *Server) handleMarketplaceSubmit(w http.ResponseWriter, r *http.Request)
 		Category      string   `json:"category"`
 		Tags          []string `json:"tags"`
 		RepositoryURL string   `json:"repository_url"`
+		Visibility    string   `json:"visibility"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Default and validate visibility
+	if body.Visibility == "" {
+		body.Visibility = "public"
+	}
+	if body.Visibility != "public" && body.Visibility != "private" {
+		http.Error(w, "visibility must be 'public' or 'private'", http.StatusBadRequest)
 		return
 	}
 
@@ -228,32 +271,6 @@ func (s *Server) handleMarketplaceSubmit(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Run security scan
-	var aiReviewer skills.AISecurityReviewer
-	if s.agentLoop != nil {
-		aiReviewer = skills.NewLLMSecurityReviewer(s.agentLoop)
-	}
-	scanner := skills.NewSkillSecurityScanner(aiReviewer)
-
-	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
-	defer cancel()
-
-	scanResult, err := scanner.ScanSkill(ctx, body.Content)
-	if err != nil {
-		http.Error(w, "security scan failed: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Determine submission status based on scan
-	status := "pending"
-	if !scanResult.Passed {
-		status = "rejected"
-	} else if scanResult.AutoApprove {
-		status = "approved"
-	} else {
-		status = "needs_review"
-	}
-
 	// Create slug from name
 	slug := slugify(body.Name)
 
@@ -263,9 +280,6 @@ func (s *Server) handleMarketplaceSubmit(w http.ResponseWriter, r *http.Request)
 		http.Error(w, "skill with this name already exists", http.StatusConflict)
 		return
 	}
-
-	// Marshal security findings
-	findingsJSON, _ := json.Marshal(scanResult.Findings)
 
 	// Set defaults
 	version := body.Version
@@ -289,6 +303,49 @@ func (s *Server) handleMarketplaceSubmit(w http.ResponseWriter, r *http.Request)
 	}
 
 	now := time.Now().Format(time.RFC3339)
+
+	var securityScore int
+	var findingsJSON []byte
+	var securityScanAt *string
+	var status string
+
+	if body.Visibility == "private" {
+		// Private skills bypass the review queue and are auto-approved immediately
+		securityScore = 100
+		findingsJSON = []byte("[]")
+		securityScanAt = nil
+		status = "approved"
+	} else {
+		// Run security scan for public submissions
+		var aiReviewer skills.AISecurityReviewer
+		if s.agentLoop != nil {
+			aiReviewer = skills.NewLLMSecurityReviewer(s.agentLoop)
+		}
+		scanner := skills.NewSkillSecurityScanner(aiReviewer)
+
+		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+		defer cancel()
+
+		scanResult, err := scanner.ScanSkill(ctx, body.Content)
+		if err != nil {
+			http.Error(w, "security scan failed: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		securityScore = scanResult.Score
+		findingsJSON, _ = json.Marshal(scanResult.Findings)
+		securityScanAt = &now
+
+		// Determine submission status based on scan
+		if !scanResult.Passed {
+			status = "rejected"
+		} else if scanResult.AutoApprove {
+			status = "approved"
+		} else {
+			status = "needs_review"
+		}
+	}
+
 	sub := &storage.SkillSubmission{
 		UserID:           userID,
 		SkillName:        body.Name,
@@ -300,10 +357,16 @@ func (s *Server) handleMarketplaceSubmit(w http.ResponseWriter, r *http.Request)
 		Tags:             body.Tags,
 		Category:         category,
 		RepositoryURL:    body.RepositoryURL,
-		SecurityScore:    scanResult.Score,
+		SecurityScore:    securityScore,
 		SecurityFindings: string(findingsJSON),
-		SecurityScanAt:   &now,
+		SecurityScanAt:   securityScanAt,
 		Status:           status,
+		Visibility:       body.Visibility,
+	}
+
+	// Private auto-approved skills get published_at set immediately
+	if body.Visibility == "private" {
+		sub.PublishedAt = &now
 	}
 
 	id, err := s.centralStore.CreateSkillSubmission(sub)
@@ -312,17 +375,17 @@ func (s *Server) handleMarketplaceSubmit(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// If auto-approved, set published_at
-	if status == "approved" {
+	// If public and auto-approved, set published_at via ApproveSkillSubmission
+	if body.Visibility == "public" && status == "approved" {
 		_ = s.centralStore.ApproveSkillSubmission(id, userID, "Auto-approved: passed security scan")
 	}
 
 	writeJSONResponse(w, map[string]interface{}{
 		"id":             id,
 		"status":         status,
-		"security_score": scanResult.Score,
-		"findings":       scanResult.Findings,
-		"message":        getSubmissionMessage(status, scanResult.Score),
+		"security_score": securityScore,
+		"findings":       json.RawMessage(findingsJSON),
+		"message":        getSubmissionMessage(status, securityScore),
 	})
 }
 
