@@ -46,7 +46,10 @@
       "Bash(docker compose up -d)",
       "Bash(docker exec makoclaw sh -c 'sqlite3 /home/makoclaw/.MakoClaw/central.db \"\"SELECT id, username, role, length\\(password_hash\\) as hash_len, blocked FROM users LIMIT 10;\"\" 2>/dev/null || echo \"\"sqlite3 not available\"\"')",
       "Bash(docker exec makoclaw makoclaw auth --help)",
-      "Bash(docker exec makoclaw makoclaw help)"
+      "Bash(docker exec makoclaw makoclaw help)",
+      "Bash(printf '{\"\"username\"\":\"\"admin\"\",\"\"password\"\":\"\"Passw0rd!2026\"\"}')",
+      "Bash(docker compose down)",
+      "Bash(docker volume rm kakoclaw_makoclaw_data)"
     ]
   },
   "enabledPlugins": {
