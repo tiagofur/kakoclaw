@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -197,10 +198,12 @@ func (s *Server) handleUpdateUserConfig(w http.ResponseWriter, r *http.Request) 
 		"user_uuid": userUUID,
 	})
 
-	// Restart user's channels asynchronously to avoid blocking the response
+	// Restart user's channels asynchronously to avoid blocking the response.
+	// Use context.Background() because the HTTP request context will be cancelled
+	// after the response is sent, which would kill the restarted channels/agent loop.
 	if s.multiUserChannelManager != nil {
 		go func() {
-			if err := s.multiUserChannelManager.RestartUserChannels(r.Context(), userUUID); err != nil {
+			if err := s.multiUserChannelManager.RestartUserChannels(context.Background(), userUUID); err != nil {
 				logger.WarnCF("web", "Failed to restart user channels after config update", map[string]interface{}{
 					"user_uuid": userUUID,
 					"error":     err.Error(),

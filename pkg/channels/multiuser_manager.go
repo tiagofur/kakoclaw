@@ -244,12 +244,14 @@ func (m *MultiUserChannelManager) StopAll(ctx context.Context) error {
 	return nil
 }
 
-// RestartUserChannels restarts all channels for a specific user (e.g., after config change)
+// RestartUserChannels restarts all channels for a specific user (e.g., after config change).
+// The passed ctx is used only for the stop phase; the manager's own long-lived context
+// is used for starting channels and the agent loop so they survive beyond the caller's lifetime.
 func (m *MultiUserChannelManager) RestartUserChannels(ctx context.Context, userUUID string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// Stop existing manager/agent
+	// Stop existing manager/agent (use caller ctx for stop, which is short-lived)
 	if mgr, exists := m.managers[userUUID]; exists {
 		if err := mgr.StopAll(ctx); err != nil {
 			logger.WarnCF("multiuser", "Error stopping channels during restart", map[string]interface{}{
@@ -277,14 +279,15 @@ func (m *MultiUserChannelManager) RestartUserChannels(ctx context.Context, userU
 		return fmt.Errorf("failed to recreate manager: %w", err)
 	}
 
-	// Start new manager
-	if err := mgr.StartAll(ctx); err != nil {
+	// Use the manager's own long-lived context for starting channels and agent loop.
+	// This ensures they don't get cancelled when the HTTP request context ends.
+	if err := mgr.StartAll(m.ctx); err != nil {
 		return fmt.Errorf("failed to start channels: %w", err)
 	}
 
-	// Start new agent
+	// Start new agent with the manager's long-lived context
 	if al, exists := m.agents[userUUID]; exists {
-		go al.Run(ctx)
+		go al.Run(m.ctx)
 	}
 	if cronService, exists := m.cronJobs[userUUID]; exists {
 		if err := cronService.Start(); err != nil {
