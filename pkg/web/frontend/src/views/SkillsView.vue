@@ -436,7 +436,7 @@
           </div>
 
           <!-- Security Scan Results -->
-          <div v-if="scanResult" class="p-3 rounded-lg" :class="scanResult.passed ? 'bg-green-500/10' : 'bg-red-500/10'">
+          <div v-if="scanResult && submitForm.visibility !== 'private'" class="p-3 rounded-lg" :class="scanResult.passed ? 'bg-green-500/10' : 'bg-red-500/10'">
             <div class="flex items-center justify-between">
               <span class="text-sm font-medium">Security Score</span>
               <span class="text-lg font-bold" :class="scanResult.score >= 80 ? 'text-green-400' : scanResult.score >= 60 ? 'text-yellow-400' : 'text-red-400'">
@@ -515,7 +515,7 @@
           <button @click="closeSubmitModal" class="px-4 py-2 text-sm text-makoclaw-text-secondary hover:text-makoclaw-text">Cancel</button>
           <button
             @click="handleSubmitToMarketplace"
-            :disabled="submitting || (scanResult && !scanResult.passed)"
+            :disabled="submitting || (scanResult && !scanResult.passed && submitForm.visibility !== 'private')"
             class="px-4 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {{ submitting ? 'Submitting...' : 'Submit' }}

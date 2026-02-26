@@ -123,12 +123,12 @@ func (s *Server) handleMarketplaceSkillDetail(w http.ResponseWriter, r *http.Req
 	if sub.Visibility == "private" {
 		_, userUUID, ok := s.getUserStorage(r)
 		if !ok {
-			http.Error(w, "forbidden", http.StatusForbidden)
+			http.Error(w, "skill not found", http.StatusNotFound)
 			return
 		}
 		callerUserID, _ := s.getUserIDFromUUID(userUUID)
 		if callerUserID != sub.UserID {
-			http.Error(w, "forbidden", http.StatusForbidden)
+			http.Error(w, "skill not found", http.StatusNotFound)
 			return
 		}
 	}

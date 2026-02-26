@@ -783,11 +783,13 @@ func (cs *CentralStorage) CreateSkillSubmission(sub *SkillSubmission) (int64, er
 		INSERT INTO skill_submissions (
 			user_id, skill_name, skill_slug, version, description, content,
 			author, tags, category, repository_url,
-			security_score, security_findings, security_scan_at, status, visibility
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			security_score, security_findings, security_scan_at, status, visibility,
+			published_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		sub.UserID, sub.SkillName, sub.SkillSlug, sub.Version, sub.Description, sub.Content,
 		sub.Author, string(tagsJSON), sub.Category, sub.RepositoryURL,
 		sub.SecurityScore, sub.SecurityFindings, sub.SecurityScanAt, sub.Status, sub.Visibility,
+		sub.PublishedAt,
 	)
 	if err != nil {
 		return 0, err
