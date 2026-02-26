@@ -316,9 +316,14 @@ func (s *Storage) SearchTasksForUser(userKey interface{}, query string) ([]Task,
 		sqlQuery = `SELECT id, 0 as user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, agent, created_at, updated_at FROM tasks WHERE (title LIKE ? ESCAPE '\' OR description LIKE ? ESCAPE '\') AND archived = 0 ORDER BY created_at DESC`
 		args = []interface{}{searchTerm, searchTerm}
 	} else {
-		uid := normalizeUserKey(userKey)
-		sqlQuery = `SELECT id, user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, agent, created_at, updated_at FROM tasks WHERE user_id = ? AND (title LIKE ? ESCAPE '\' OR description LIKE ? ESCAPE '\') AND archived = 0 ORDER BY created_at DESC`
-		args = []interface{}{uid, searchTerm, searchTerm}
+		if userKey != nil && normalizeUserKey(userKey) != 0 {
+			uid := normalizeUserKey(userKey)
+			sqlQuery = `SELECT id, user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, agent, created_at, updated_at FROM tasks WHERE user_id = ? AND (title LIKE ? ESCAPE '\' OR description LIKE ? ESCAPE '\') AND archived = 0 ORDER BY created_at DESC`
+			args = []interface{}{uid, searchTerm, searchTerm}
+		} else {
+			sqlQuery = `SELECT id, COALESCE(user_id, 0), title, COALESCE(description, ''), status, COALESCE(result, ''), archived, agent, created_at, updated_at FROM tasks WHERE (title LIKE ? ESCAPE '\' OR description LIKE ? ESCAPE '\') AND archived = 0 ORDER BY created_at DESC`
+			args = []interface{}{searchTerm, searchTerm}
+		}
 	}
 
 	rows, err := s.db.Query(sqlQuery, args...)
@@ -342,9 +347,9 @@ func (s *Storage) SearchTasksForUser(userKey interface{}, query string) ([]Task,
 func (s *Storage) ListAllUsersTasks(includeArchived bool) ([]Task, error) {
 	var query string
 	if includeArchived {
-		query = `SELECT id, user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, agent, created_at, updated_at FROM tasks ORDER BY created_at DESC`
+		query = `SELECT id, COALESCE(user_id, 0), title, COALESCE(description, ''), status, COALESCE(result, ''), archived, agent, created_at, updated_at FROM tasks ORDER BY created_at DESC`
 	} else {
-		query = `SELECT id, user_id, title, COALESCE(description, ''), status, COALESCE(result, ''), archived, agent, created_at, updated_at FROM tasks WHERE archived = 0 ORDER BY created_at DESC`
+		query = `SELECT id, COALESCE(user_id, 0), title, COALESCE(description, ''), status, COALESCE(result, ''), archived, agent, created_at, updated_at FROM tasks WHERE archived = 0 ORDER BY created_at DESC`
 	}
 
 	rows, err := s.db.Query(query)

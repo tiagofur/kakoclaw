@@ -134,6 +134,14 @@ func NewOrchestratorAgent(
 	// Register the delegation tool
 	orchestrator.registerDelegationTool()
 
+	// Inject orchestrator context into the system prompt so the LLM sees
+	// the specialist catalog and delegation rules via the standard BuildSystemPrompt() path.
+	orchestrator.contextBuilder.SetAgentSystemPrompt(orchestrator.BuildOrchestratorContext())
+	// Orchestrator only delegates — no skills needed
+	orchestrator.contextBuilder.SetSkillFilter([]string{})
+	// Lean context: skip bootstrap files and memory
+	orchestrator.contextBuilder.SetLightweightMode(true)
+
 	logger.InfoCF("agent", "Orchestrator agent created", map[string]interface{}{
 		"provider":    cfg.Agents.Orchestrator.Provider,
 		"model":       cfg.Agents.Orchestrator.Model,

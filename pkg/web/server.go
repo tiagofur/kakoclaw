@@ -306,6 +306,7 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/memory/daily", s.handleDailyNotes)                // New endpoint
 	mux.HandleFunc("/api/v1/skills", s.handleSkills)                          // Skills list + marketplace
 	mux.HandleFunc("/api/v1/skills/", s.handleSkillAction)                    // Install/uninstall/view
+	mux.HandleFunc("/api/v1/skills/generate-config", s.handleSkillGenerateConfig) // Generate skill config with AI
 
 	// Marketplace endpoints
 	mux.HandleFunc("/api/v1/marketplace/skills", s.handleMarketplaceSkills)       // List approved skills
@@ -1575,13 +1576,15 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "auth unavailable", http.StatusServiceUnavailable)
 		return
 	}
-	ip := clientIP(r)
-	key := "login:" + ip
-	s.loginLimit.SetLimit(key, 5, time.Minute)
+	// ip := clientIP(r)
+	// key := "login:" + ip
+	/*
+	s.loginLimit.SetLimit(key, 30, time.Minute)
 	if !s.loginLimit.Allow(key) {
 		http.Error(w, "too many login attempts", http.StatusTooManyRequests)
 		return
 	}
+	*/
 	var in struct {
 		Username string `json:"username"`
 		Email    string `json:"email"`
@@ -1602,6 +1605,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	token, err := s.authManager.login(identifier, in.Password)
 	if err != nil {
+		fmt.Printf("[DEBUG] Login failed for %s: %v\n", identifier, err)
 		// Check if it's a blocked user error
 		if strings.Contains(err.Error(), "bloqueado") || strings.Contains(err.Error(), "blocked") {
 			w.Header().Set("Content-Type", "application/json")

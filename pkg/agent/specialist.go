@@ -192,6 +192,16 @@ func NewSpecialistAgent(
 		allowedTools[tool] = true
 	}
 
+	// Configure specialist-specific context for lean token usage
+	if cfg.Prompt != "" {
+		al.contextBuilder.SetAgentSystemPrompt(cfg.Prompt)
+	}
+	if cfg.Skills != nil {
+		al.contextBuilder.SetSkillFilter(cfg.Skills)
+	}
+	// Specialists run in lightweight mode: skip bootstrap files and memory
+	al.contextBuilder.SetLightweightMode(true)
+
 	specialist := &SpecialistAgent{
 		AgentLoop:    al,
 		name:         name,
@@ -207,6 +217,7 @@ func NewSpecialistAgent(
 		"provider":   cfg.Provider,
 		"model":      cfg.Model,
 		"tools":      len(allowedTools),
+		"skills":     len(cfg.Skills),
 	})
 
 	return specialist, nil
@@ -235,13 +246,13 @@ func (sa *SpecialistAgent) ToolFilter() *tools.ToolRegistry {
 }
 
 // ProcessWithSpeciality processes a message using this specialist's configuration.
+// The specialist's prompt is injected via the system prompt (SetAgentSystemPrompt),
+// and tools are filtered to only allowed ones.
 // Uses a mutex to serialize concurrent calls that swap the tool registry.
 func (sa *SpecialistAgent) ProcessWithSpeciality(ctx context.Context, userMessage string) (string, error) {
-	// Build a specialized message with the specialist's prompt
+	// Specialist prompt is now in the system prompt via SetAgentSystemPrompt,
+	// no need to prepend it to the user message.
 	fullMessage := userMessage
-	if sa.prompt != "" {
-		fullMessage = sa.prompt + "\n\n" + userMessage
-	}
 
 	// Serialize access to tool-swap to prevent concurrent modifications
 	sa.processMu.Lock()
