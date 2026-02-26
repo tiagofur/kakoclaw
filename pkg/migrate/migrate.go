@@ -337,7 +337,7 @@ func resolveMakoClawHome(override string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolving home directory: %w", err)
 	}
-	return filepath.Join(home, ".makoclaw"), nil
+	return filepath.Join(home, ".MakoClaw"), nil
 }
 
 func resolveWorkspace(homeDir string) string {
