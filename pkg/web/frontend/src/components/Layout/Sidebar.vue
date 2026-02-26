@@ -1,6 +1,6 @@
 <template>
   <aside 
-    class="glass-panel border-r border-makoclaw-border flex flex-col transition-all duration-300 ease-in-out h-full z-30"
+    class="glass-panel border-r border-makoclaw-border flex flex-col transition-all duration-300 ease-in-out h-full z-50"
     :class="[
       uiStore.sidebarCollapsed ? 'w-20' : 'w-64',
       isMobile && !uiStore.sidebarCollapsed ? 'absolute inset-y-0 left-0 shadow-xl' : 'relative',
@@ -334,13 +334,16 @@
       @close="showChangePasswordModal = false"
     />
     
-    <!-- Mobile Overlay -->
-    <div 
-        v-if="isMobile && !uiStore.sidebarCollapsed" 
-        class="fixed inset-0 bg-black/50 z-20 pointer-events-auto"
+  </aside>
+
+  <!-- Mobile Overlay - Teleported to body to escape aside's stacking context -->
+  <Teleport to="body">
+    <div
+        v-if="isMobile && !uiStore.sidebarCollapsed"
+        class="fixed inset-0 bg-black/50 z-40 pointer-events-auto"
         @click.stop="closeMobileSidebar"
     ></div>
-  </aside>
+  </Teleport>
 </template>
 
 <script setup>
