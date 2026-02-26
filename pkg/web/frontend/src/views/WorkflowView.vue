@@ -30,7 +30,7 @@
     </div>
 
     <!-- Content -->
-    <div class="flex-1 overflow-auto p-6 custom-scrollbar">
+    <div class="flex-1 overflow-auto p-4 md:p-6 custom-scrollbar">
       <!-- Loading -->
       <div v-if="loading" class="flex items-center justify-center py-12">
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-makoclaw-accent"></div>
@@ -368,7 +368,8 @@
     </div>
 
     <!-- Parameter Input Modal -->
-    <div v-if="showParamModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50" @click.self="cancelParameters">
+    <Transition name="modal">
+    <div v-if="showParamModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-modal" @click.self="cancelParameters">
       <div class="bg-makoclaw-surface border border-makoclaw-border rounded-xl p-6 w-full max-w-md max-h-[80vh] overflow-y-auto">
         <h2 class="text-lg font-semibold mb-4">Workflow Parameters</h2>
         <p class="text-sm text-makoclaw-text-secondary mb-4">
@@ -397,6 +398,7 @@
         </div>
       </div>
     </div>
+    </Transition>
 
   </div>
 </template>

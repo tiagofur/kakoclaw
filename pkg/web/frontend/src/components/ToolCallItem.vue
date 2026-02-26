@@ -7,14 +7,14 @@
       <div class="flex items-center gap-2 md:gap-3">
         <div :class="[
           'w-2 h-2 rounded-full',
-          tc.status === 'started' ? 'bg-amber-400 animate-pulse' : 
-          tc.status === 'error' ? 'bg-red-500' : 'bg-blue-500'
+          tc.status === 'started' ? 'bg-makoclaw-warning animate-pulse' :
+          tc.status === 'error' ? 'bg-makoclaw-error' : 'bg-makoclaw-accent'
         ]"></div>
         <div class="flex items-center gap-1.5">
           <span class="text-makoclaw-text-secondary">Tool:</span>
           <span class="text-makoclaw-accent font-bold">{{ tc.name }}</span>
         </div>
-        <span v-if="tc.status === 'started'" class="text-[9px] text-amber-500/80 italic hidden sm:inline">executing...</span>
+        <span v-if="tc.status === 'started'" class="text-[9px] text-makoclaw-warning/80 italic hidden sm:inline">executing...</span>
       </div>
       <svg 
         class="w-3.5 md:w-4 h-3.5 md:h-4 text-makoclaw-text-secondary transition-transform duration-300" 

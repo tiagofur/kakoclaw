@@ -26,8 +26,53 @@
 
     <!-- Content -->
     <div class="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar">
-      <div v-if="agentsStore.loading" class="flex items-center justify-center py-12">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-makoclaw-accent"></div>
+      <!-- Loading Skeleton -->
+      <div v-if="agentsStore.loading" class="space-y-6">
+        <!-- Orchestrator Skeleton -->
+        <div class="glass-panel rounded-2xl p-6 border border-makoclaw-border/50">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+              <div class="skeleton w-12 h-12 rounded-xl"></div>
+              <div>
+                <div class="skeleton h-4 w-28 mb-2 rounded"></div>
+                <div class="skeleton h-3 w-48 rounded"></div>
+              </div>
+            </div>
+            <div class="skeleton h-6 w-16 rounded-full"></div>
+          </div>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+            <div v-for="i in 4" :key="'orch-'+i" class="p-3 bg-makoclaw-bg/40 rounded-lg">
+              <div class="skeleton h-2.5 w-16 mb-2 rounded"></div>
+              <div class="skeleton h-4 w-24 rounded"></div>
+            </div>
+          </div>
+        </div>
+        <!-- Specialists Skeleton -->
+        <div class="space-y-4">
+          <div class="skeleton h-5 w-32 rounded"></div>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div v-for="i in 3" :key="'spec-'+i" class="glass-panel rounded-xl p-5 border border-makoclaw-border/50">
+              <div class="flex items-start gap-3 mb-3">
+                <div class="skeleton w-10 h-10 rounded-lg"></div>
+                <div>
+                  <div class="skeleton h-4 w-28 mb-2 rounded"></div>
+                  <div class="skeleton h-2.5 w-36 rounded"></div>
+                </div>
+              </div>
+              <div class="skeleton h-3 w-full mb-1 rounded"></div>
+              <div class="skeleton h-3 w-2/3 mb-4 rounded"></div>
+              <div class="flex gap-1 mb-4">
+                <div class="skeleton h-4 w-14 rounded-full"></div>
+                <div class="skeleton h-4 w-16 rounded-full"></div>
+                <div class="skeleton h-4 w-12 rounded-full"></div>
+              </div>
+              <div class="pt-3 border-t border-makoclaw-border/50 flex items-center justify-between">
+                <div class="skeleton h-3 w-20 rounded"></div>
+                <div class="skeleton h-3 w-12 rounded"></div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div v-else class="space-y-6">
@@ -46,7 +91,7 @@
               </div>
             </div>
             <div class="flex items-center gap-2">
-              <span :class="`px-3 py-1 text-xs font-bold rounded-full ${orchestrator.enabled ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'}`">
+              <span :class="`px-3 py-1 text-xs font-bold rounded-full ${orchestrator.enabled ? 'bg-makoclaw-success/20 text-makoclaw-success' : 'bg-makoclaw-text-secondary/20 text-makoclaw-text-secondary'}`">
                 {{ orchestrator.enabled ? 'Active' : 'Inactive' }}
               </span>
             </div>
@@ -89,7 +134,7 @@
         <div class="space-y-4">
           <div class="flex items-center justify-between">
             <h3 class="font-bold text-makoclaw-text flex items-center gap-2">
-              <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-5 h-5 text-makoclaw-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
               Specialists
@@ -193,8 +238,8 @@
 
             <div class="glass-panel rounded-xl p-5 border border-makoclaw-border/50">
               <div class="flex items-center gap-3 mb-3">
-                <div class="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                  <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="w-10 h-10 rounded-lg bg-makoclaw-accent/20 flex items-center justify-center">
+                  <svg class="w-5 h-5 text-makoclaw-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                   </svg>
                 </div>
@@ -207,8 +252,8 @@
 
             <div class="glass-panel rounded-xl p-5 border border-makoclaw-border/50">
               <div class="flex items-center gap-3 mb-3">
-                <div class="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                  <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="w-10 h-10 rounded-lg bg-makoclaw-accent/20 flex items-center justify-center">
+                  <svg class="w-5 h-5 text-makoclaw-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
                   </svg>
                 </div>

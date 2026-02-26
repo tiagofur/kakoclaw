@@ -49,7 +49,7 @@
           >
             <div class="flex items-center gap-2">
               <svg v-if="session.session_id.startsWith('web:task:')" class="w-3 md:w-3.5 h-3 md:h-3.5 text-amber-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
-              <svg v-else class="w-3 md:w-3.5 h-3 md:h-3.5 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+              <svg v-else class="w-3 md:w-3.5 h-3 md:h-3.5 text-makoclaw-accent flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
               <span class="truncate flex-1 text-[11px] md:text-sm">{{ session.title || session.last_message || 'Empty session' }}</span>
               <!-- Context menu trigger -->
               <button
@@ -70,7 +70,7 @@
 
       <!-- Context Menu Overlay -->
       <Teleport to="body">
-        <div v-if="contextMenu.show" class="fixed inset-0 z-50" @click="closeContextMenu">
+        <div v-if="contextMenu.show" class="fixed inset-0 z-dropdown" @click="closeContextMenu">
           <div
             class="absolute bg-makoclaw-surface border border-makoclaw-border rounded-lg shadow-xl py-1 min-w-[140px]"
             :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
@@ -220,7 +220,7 @@
             >
               <svg class="w-3.5 h-3.5 text-makoclaw-accent flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
               <span class="truncate text-makoclaw-text flex-1">{{ att.name }}</span>
-              <button type="button" @click="removeAttachment(idx)" class="text-makoclaw-text-secondary hover:text-red-400 transition-colors flex-shrink-0">
+              <button type="button" @click="removeAttachment(idx)" class="text-makoclaw-text-secondary hover:text-makoclaw-error transition-colors flex-shrink-0">
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
@@ -301,10 +301,10 @@
 
               <!-- Tools Popover -->
               <Teleport to="body">
-                <div v-if="showToolsPopover" class="fixed inset-0 z-[60]" @click="showToolsPopover = false"></div>
-                <div 
-                  v-if="showToolsPopover" 
-                  class="fixed bottom-24 right-4 md:right-auto md:left-1/2 md:-translate-x-1/2 w-64 md:w-72 bg-makoclaw-surface border border-makoclaw-border rounded-2xl shadow-2xl z-[70] overflow-hidden animate-slideUp"
+                <div v-if="showToolsPopover" class="fixed inset-0 z-modal" @click="showToolsPopover = false"></div>
+                <div
+                  v-if="showToolsPopover"
+                  class="fixed bottom-24 right-4 md:right-auto md:left-1/2 md:-translate-x-1/2 w-64 md:w-72 bg-makoclaw-surface border border-makoclaw-border rounded-2xl shadow-2xl z-modal-nested overflow-hidden animate-slideUp"
                 >
                   <div class="p-3 border-b border-makoclaw-border bg-makoclaw-bg/50">
                     <h3 class="text-xs font-bold uppercase tracking-wider text-makoclaw-text-secondary">AI Tools</h3>
@@ -346,7 +346,7 @@
               :class="[
                 'flex-1 md:flex-none px-2 md:px-3 py-2 md:py-3 rounded-lg md:rounded-xl transition-all font-medium flex items-center justify-center min-h-[2.5rem] md:min-h-auto md:min-w-[3rem] text-sm md:text-base',
                 isRecording
-                  ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/30 animate-pulse'
+                  ? 'bg-makoclaw-error hover:bg-makoclaw-error/80 text-white shadow-lg shadow-makoclaw-error/30 animate-pulse'
                   : isTranscribing
                     ? 'bg-makoclaw-surface text-makoclaw-text-secondary cursor-wait'
                     : 'bg-makoclaw-surface hover:bg-makoclaw-bg border border-makoclaw-border text-makoclaw-text-secondary hover:text-makoclaw-accent'
@@ -378,7 +378,7 @@
               v-else
               type="button"
               @click="cancelExecution"
-              class="flex-1 md:flex-none px-3 md:px-5 py-2 md:py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg md:rounded-xl transition-all shadow-lg font-medium flex items-center justify-center min-h-[2.5rem] md:min-h-auto md:min-w-[3rem] text-sm md:text-base"
+              class="flex-1 md:flex-none px-3 md:px-5 py-2 md:py-3 bg-makoclaw-error hover:bg-makoclaw-error/80 text-white rounded-lg md:rounded-xl transition-all shadow-lg font-medium flex items-center justify-center min-h-[2.5rem] md:min-h-auto md:min-w-[3rem] text-sm md:text-base"
               title="Detener agente"
             >
               <svg class="w-4 md:w-5 h-4 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1123,21 +1123,6 @@ const formatTime = (timestamp) => {
   animation: blink 0.8s ease-in-out infinite;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.2);
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(139, 92, 246, 0.4);
-}
 </style>
 
 

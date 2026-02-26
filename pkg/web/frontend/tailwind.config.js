@@ -27,10 +27,54 @@ export default {
         'base': ['14px', '20px'],
         'lg': ['16px', '24px'],
         'xl': ['20px', '28px'],
-      }
+      },
+      zIndex: {
+        'sticky': '20',
+        'overlay-backdrop': '40',
+        'sidebar': '45',
+        'dropdown': '50',
+        'modal': '60',
+        'modal-nested': '70',
+        'toast': '80',
+        'banner': '90',
+        'popover': '100',
+      },
+      keyframes: {
+        slideDown: {
+          from: { opacity: '0', transform: 'translateY(-100%)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        slideIn: {
+          from: { opacity: '0', transform: 'translateX(-10px)' },
+          to: { opacity: '1', transform: 'translateX(0)' },
+        },
+        scaleIn: {
+          from: { opacity: '0', transform: 'scale(0.95)' },
+          to: { opacity: '1', transform: 'scale(1)' },
+        },
+        fadeSlide: {
+          from: { opacity: '0', transform: 'translateY(8px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        skeleton: {
+          '0%': { backgroundPosition: '200% center' },
+          '100%': { backgroundPosition: '-200% center' },
+        },
+        expandDown: {
+          from: { opacity: '0', maxHeight: '0' },
+          to: { opacity: '1', maxHeight: 'var(--expand-height, 500px)' },
+        },
+      },
+      animation: {
+        'slideDown': 'slideDown 0.3s ease-out forwards',
+        'slideIn': 'slideIn 0.3s ease-out forwards',
+        'scaleIn': 'scaleIn 0.2s ease-out forwards',
+        'fadeSlide': 'fadeSlide 0.3s ease-out forwards',
+        'skeleton': 'skeleton 1.5s ease-in-out infinite',
+        'expandDown': 'expandDown 0.3s ease-out forwards',
+      },
     },
   },
   darkMode: 'class',
   plugins: [],
 }
-

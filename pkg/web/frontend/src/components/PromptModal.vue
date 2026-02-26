@@ -1,10 +1,11 @@
 <template>
+  <Transition name="modal">
   <div
     v-if="show"
-    class="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4"
+    class="fixed inset-0 z-popover flex items-end sm:items-center justify-center p-4"
     @click.self="$emit('close')"
   >
-    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="$emit('close')"></div>
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="$emit('close')"></div>
 
     <div class="relative bg-makoclaw-surface border border-makoclaw-border rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
       <!-- Header -->
@@ -157,6 +158,7 @@
       </div>
     </div>
   </div>
+  </Transition>
 </template>
 
 <script setup>
@@ -253,11 +255,5 @@ watch(() => props.show, (v) => {
 </script>
 
 <style scoped>
-.custom-scrollbar::-webkit-scrollbar { width: 6px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(139, 92, 246, 0.2); border-radius: 3px; }
-
-.modal-enter-active, .modal-leave-active { transition: opacity 0.2s ease; }
-.modal-enter-from, .modal-leave-to { opacity: 0; }
 </style>
 

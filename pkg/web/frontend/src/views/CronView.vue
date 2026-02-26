@@ -9,7 +9,7 @@
       <div class="flex items-center gap-2">
         <button
           @click="openAiCronModal"
-          class="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
+          class="flex items-center gap-2 px-4 py-2 bg-makoclaw-accent text-white rounded-lg hover:bg-makoclaw-accent-hover transition-colors text-sm"
           title="Generate cron job from natural language"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -28,23 +28,46 @@
     </div>
 
     <!-- Content -->
-    <div class="flex-1 overflow-auto p-6 custom-scrollbar">
-      <div v-if="loading" class="flex items-center justify-center py-12">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-makoclaw-accent"></div>
+    <div class="flex-1 overflow-auto p-4 md:p-6 custom-scrollbar">
+      <!-- Loading Skeleton -->
+      <div v-if="loading" class="space-y-3">
+        <div v-for="i in 3" :key="i" class="bg-makoclaw-surface border border-makoclaw-border rounded-xl p-5">
+          <div class="flex items-start justify-between">
+            <div class="flex-1">
+              <div class="flex items-center gap-2 mb-2">
+                <div class="skeleton h-4 w-36 rounded"></div>
+                <div class="skeleton h-5 w-14 rounded-full"></div>
+                <div class="skeleton h-5 w-20 rounded-full"></div>
+              </div>
+              <div class="skeleton h-3 w-3/4 rounded"></div>
+            </div>
+          </div>
+          <div class="flex items-center gap-4 mt-3">
+            <div class="skeleton h-3 w-40 rounded"></div>
+            <div class="skeleton h-3 w-24 rounded"></div>
+            <div class="skeleton h-3 w-28 rounded"></div>
+          </div>
+        </div>
       </div>
 
       <template v-else>
         <!-- Status Banner -->
         <div class="mb-4 px-4 py-3 rounded-lg border"
-          :class="status.enabled ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400'"
+          :class="status.enabled ? 'bg-makoclaw-accent/10 border-makoclaw-accent/20 text-makoclaw-accent' : 'bg-makoclaw-warning/10 border-makoclaw-warning/20 text-makoclaw-warning'"
         >
           <span class="font-medium">Cron service: {{ statusLabel }}</span>
           <span v-if="status.jobs !== undefined" class="ml-2 text-sm opacity-75">({{ status.jobs }} active jobs)</span>
         </div>
 
-        <div v-if="jobs.length === 0" class="text-center py-12 text-makoclaw-text-secondary">
-          <p class="text-lg">No cron jobs configured</p>
-          <p class="text-sm mt-2">Create a scheduled job to automate tasks</p>
+        <div v-if="jobs.length === 0" class="flex flex-col items-center justify-center py-16 text-center">
+          <div class="w-16 h-16 rounded-2xl bg-makoclaw-accent/10 flex items-center justify-center mb-4">
+            <svg class="w-8 h-8 text-makoclaw-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h3 class="font-semibold text-makoclaw-text mb-1">No scheduled jobs</h3>
+          <p class="text-sm text-makoclaw-text-secondary max-w-xs mb-4">Create cron jobs to automate tasks on a schedule.</p>
+          <button class="btn-primary" @click="openCreateModal">New Job</button>
         </div>
 
         <div class="space-y-3">
@@ -59,9 +82,9 @@
                   <h3 class="font-semibold">{{ job.name }}</h3>
                   <span
                     class="px-2 py-0.5 text-xs rounded-full"
-                    :class="job.enabled ? 'bg-blue-500/10 text-blue-400' : 'bg-gray-500/10 text-gray-400'"
+                    :class="job.enabled ? 'bg-makoclaw-accent/10 text-makoclaw-accent' : 'bg-makoclaw-text-secondary/10 text-makoclaw-text-secondary'"
                   >{{ job.enabled ? 'Active' : 'Disabled' }}</span>
-                  <span class="px-2 py-0.5 text-xs rounded-full bg-gray-500/10 text-gray-400">
+                  <span class="px-2 py-0.5 text-xs rounded-full bg-makoclaw-text-secondary/10 text-makoclaw-text-secondary">
                     {{ getJobTypeDisplay(job.payload) }}
                   </span>
                 </div>
@@ -88,11 +111,11 @@
               <button
                 @click="toggleJob(job.id, !job.enabled)"
                 class="px-3 py-1.5 text-xs rounded-lg transition-colors"
-                :class="job.enabled ? 'bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20' : 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20'"
+                :class="job.enabled ? 'bg-makoclaw-warning/10 text-makoclaw-warning hover:bg-makoclaw-warning/20' : 'bg-makoclaw-accent/10 text-makoclaw-accent hover:bg-makoclaw-accent/20'"
               >{{ job.enabled ? 'Disable' : 'Enable' }}</button>
               <button
                 @click="confirmDeleteJob(job)"
-                class="px-3 py-1.5 text-xs text-red-400 bg-red-500/10 rounded-lg hover:bg-red-500/20 transition-colors"
+                class="px-3 py-1.5 text-xs text-makoclaw-error bg-makoclaw-error/10 rounded-lg hover:bg-makoclaw-error/20 transition-colors"
               >Delete</button>
             </div>
           </div>
@@ -101,7 +124,8 @@
     </div>
 
     <!-- Create / Edit Job Modal -->
-    <div v-if="showModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="showModal = false">
+    <Transition name="modal">
+    <div v-if="showModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-modal p-4" @click.self="showModal = false">
       <div class="bg-makoclaw-surface border border-makoclaw-border rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6">
         <div class="flex items-center justify-between mb-4">
           <h3 class="font-semibold text-lg">{{ editingJobId ? 'Edit Cron Job' : 'Create Cron Job' }}</h3>
@@ -285,9 +309,11 @@
         </div>
       </div>
     </div>
+    </Transition>
 
     <!-- Delete Confirmation Modal -->
-    <div v-if="showDeleteConfirm" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="showDeleteConfirm = false">
+    <Transition name="modal">
+    <div v-if="showDeleteConfirm" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-modal p-4" @click.self="showDeleteConfirm = false">
       <div class="bg-makoclaw-surface border border-makoclaw-border rounded-xl max-w-sm w-full p-6">
         <h3 class="font-semibold text-lg mb-2">Delete Job</h3>
         <p class="text-sm text-makoclaw-text-secondary mb-4">
@@ -297,20 +323,22 @@
           <button @click="showDeleteConfirm = false"
             class="px-4 py-2 text-sm text-makoclaw-text-secondary hover:text-makoclaw-text transition-colors">Cancel</button>
           <button @click="executeDeleteJob"
-            class="px-4 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">Delete</button>
+            class="px-4 py-2 text-sm bg-makoclaw-error text-white rounded-lg hover:bg-makoclaw-error/80 transition-colors">Delete</button>
         </div>
       </div>
     </div>
+    </Transition>
 
     <!-- JSON Editor Modal -->
-    <div v-if="showJsonModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="showJsonModal = false">
+    <Transition name="modal">
+    <div v-if="showJsonModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-modal p-4" @click.self="showJsonModal = false">
       <div class="bg-makoclaw-surface border border-makoclaw-border rounded-xl max-w-3xl w-full max-h-[90vh] flex flex-col">
         <div class="p-4 border-b border-makoclaw-border flex justify-between items-center">
           <h3 class="font-semibold text-lg">Edit Job as JSON</h3>
           <button
             @click="requestAiJsonFix"
             :disabled="savingJson"
-            class="flex items-center gap-2 px-3 py-1.5 text-xs text-blue-400 bg-blue-500/10 rounded-lg hover:bg-blue-500/20 transition-colors disabled:opacity-50"
+            class="flex items-center gap-2 px-3 py-1.5 text-xs text-makoclaw-accent bg-makoclaw-accent/10 rounded-lg hover:bg-makoclaw-accent/20 transition-colors disabled:opacity-50"
             title="Use AI to fix JSON syntax and validation errors"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -326,7 +354,7 @@
             placeholder="JSON content..."
             spellcheck="false"
           />
-          <div v-if="jsonEditError" class="mt-2 p-2 bg-red-500/10 text-red-400 text-xs rounded border border-red-500/20">
+          <div v-if="jsonEditError" class="mt-2 p-2 bg-makoclaw-error/10 text-makoclaw-error text-xs rounded border border-makoclaw-error/20">
             {{ jsonEditError }}
           </div>
         </div>
@@ -345,9 +373,11 @@
         </div>
       </div>
     </div>
+    </Transition>
 
     <!-- AI Cron Creator Modal -->
-    <div v-if="showAiModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="closeAiModal">
+    <Transition name="modal">
+    <div v-if="showAiModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-modal p-4" @click.self="closeAiModal">
       <div class="bg-makoclaw-surface border border-makoclaw-border rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div class="p-4 border-b border-makoclaw-border">
           <h3 class="font-semibold text-lg">Create Cron Job with AI</h3>
@@ -367,7 +397,7 @@
           <button
             @click="generateCronWithAI"
             :disabled="!aiPrompt.trim() || aiGenerating"
-            class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-makoclaw-accent text-white rounded-lg hover:bg-makoclaw-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg v-if="aiGenerating" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -381,8 +411,8 @@
 
           <!-- AI Result Preview -->
           <div v-if="aiResult" class="space-y-3 pt-4 border-t border-makoclaw-border">
-            <div class="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-              <p class="text-sm text-blue-400">{{ aiExplanation }}</p>
+            <div class="p-3 bg-makoclaw-accent/10 border border-makoclaw-accent/20 rounded-lg">
+              <p class="text-sm text-makoclaw-accent">{{ aiExplanation }}</p>
             </div>
             <div class="p-4 bg-makoclaw-bg border border-makoclaw-border rounded-lg space-y-2">
               <div><span class="text-sm font-medium">Name:</span> <span class="text-sm text-makoclaw-text-secondary">{{ aiResult.name }}</span></div>
@@ -421,6 +451,7 @@
         </div>
       </div>
     </div>
+    </Transition>
   </div>
 </template>
 
@@ -1054,10 +1085,5 @@ const formatTimestamp = (ms) => {
 onMounted(() => loadJobs())
 </script>
 
-<style scoped>
-.custom-scrollbar::-webkit-scrollbar { width: 8px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(156, 163, 175, 0.5); border-radius: 4px; }
-</style>
 
 

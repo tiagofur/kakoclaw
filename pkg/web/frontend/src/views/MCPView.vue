@@ -33,26 +33,50 @@
     </div>
 
     <!-- Content -->
-    <div class="flex-1 overflow-auto p-6 custom-scrollbar">
-      <div v-if="loading" class="flex items-center justify-center py-12">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-makoclaw-accent"></div>
+    <div class="flex-1 overflow-auto p-4 md:p-6 custom-scrollbar">
+      <!-- Loading Skeleton -->
+      <div v-if="loading" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div v-for="i in 3" :key="i" class="bg-makoclaw-surface border border-makoclaw-border rounded-xl p-5">
+          <div class="flex items-start justify-between mb-3">
+            <div class="flex-1">
+              <div class="flex items-center gap-2 mb-2">
+                <div class="skeleton w-2.5 h-2.5 rounded-full"></div>
+                <div class="skeleton h-4 w-32 rounded"></div>
+              </div>
+              <div class="skeleton h-3 w-48 rounded"></div>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="skeleton h-5 w-16 rounded-full"></div>
+              <div class="skeleton h-5 w-20 rounded-full"></div>
+            </div>
+          </div>
+          <div class="space-y-2 mb-3">
+            <div class="skeleton h-3 w-28 rounded"></div>
+            <div class="flex gap-1">
+              <div class="skeleton h-5 w-20 rounded-full"></div>
+              <div class="skeleton h-5 w-24 rounded-full"></div>
+              <div class="skeleton h-5 w-16 rounded-full"></div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 mt-3 pt-3 border-t border-makoclaw-border">
+            <div class="skeleton h-7 w-20 rounded-lg"></div>
+            <div class="skeleton h-7 w-14 rounded-lg"></div>
+            <div class="skeleton h-7 w-12 rounded-lg"></div>
+          </div>
+        </div>
       </div>
 
       <template v-else>
         <!-- No servers configured -->
-        <div v-if="servers.length === 0" class="text-center py-12 text-makoclaw-text-secondary">
-          <svg class="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
-          </svg>
-          <p class="text-lg">No MCP servers configured</p>
-          <p class="text-sm mt-2">Click "Add Server" to configure your first MCP server</p>
-          <button
-            @click="openAddModal"
-            class="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-makoclaw-accent text-white rounded-lg hover:bg-makoclaw-accent/90 transition-colors text-sm"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-            Add Server
-          </button>
+        <div v-if="servers.length === 0" class="flex flex-col items-center justify-center py-16 text-center">
+          <div class="w-16 h-16 rounded-2xl bg-makoclaw-accent/10 flex items-center justify-center mb-4">
+            <svg class="w-8 h-8 text-makoclaw-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 100 6h13.5a3 3 0 100-6m-16.5-3a3 3 0 013-3h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.7L5.737 5.1a3.375 3.375 0 012.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 01.9 2.7m0 0a3 3 0 01-3 3m0 3h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008zm-3 6h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008z" />
+            </svg>
+          </div>
+          <h3 class="font-semibold text-makoclaw-text mb-1">No MCP servers configured</h3>
+          <p class="text-sm text-makoclaw-text-secondary max-w-xs mb-4">Connect external tool servers to extend your agent's capabilities.</p>
+          <button class="btn-primary" @click="openAddModal">Add Server</button>
         </div>
 
         <!-- Server Cards -->
@@ -203,7 +227,8 @@
     </div>
 
     <!-- Add / Edit Server Modal -->
-    <div v-if="showModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="showModal = false">
+    <Transition name="modal">
+    <div v-if="showModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-modal p-4" @click.self="showModal = false">
       <div class="bg-makoclaw-surface border border-makoclaw-border rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6">
         <h3 class="font-semibold text-lg mb-4">{{ editingServer ? 'Edit MCP Server' : 'Add MCP Server' }}</h3>
         <div class="space-y-4">
@@ -315,9 +340,11 @@ DEBUG=true"
         </div>
       </div>
     </div>
+    </Transition>
 
     <!-- Delete Confirmation Modal -->
-    <div v-if="showDeleteConfirm" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="showDeleteConfirm = false">
+    <Transition name="modal">
+    <div v-if="showDeleteConfirm" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-modal p-4" @click.self="showDeleteConfirm = false">
       <div class="bg-makoclaw-surface border border-makoclaw-border rounded-xl max-w-sm w-full p-6">
         <h3 class="font-semibold text-lg mb-2">Delete Server</h3>
         <p class="text-sm text-makoclaw-text-secondary mb-2">
@@ -339,9 +366,11 @@ DEBUG=true"
         </div>
       </div>
     </div>
+    </Transition>
 
     <!-- JSON Edit Modal -->
-    <div v-if="showJSONModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="showJSONModal = false">
+    <Transition name="modal">
+    <div v-if="showJSONModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-modal p-4" @click.self="showJSONModal = false">
       <div class="bg-makoclaw-surface border border-makoclaw-border rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
         <div class="flex items-center justify-between mb-4">
           <h3 class="font-semibold text-lg">Edit as JSON</h3>
@@ -378,6 +407,7 @@ DEBUG=true"
         </div>
       </div>
     </div>
+    </Transition>
   </div>
 </template>
 
@@ -769,8 +799,4 @@ const executeDeleteServer = async () => {
 onMounted(() => loadServers())
 </script>
 
-<style scoped>
-.custom-scrollbar::-webkit-scrollbar { width: 8px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(156, 163, 175, 0.5); border-radius: 4px; }
-</style>
+

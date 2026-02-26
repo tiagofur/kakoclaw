@@ -157,7 +157,8 @@
     </div>
 
     <!-- Details Modal -->
-    <div v-if="selectedLog" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" @click.self="selectedLog = null">
+    <Transition name="modal">
+    <div v-if="selectedLog" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-modal p-4" @click.self="selectedLog = null">
       <div class="bg-makoclaw-surface border border-makoclaw-border rounded-2xl shadow-2xl max-w-3xl w-full max-h-[80vh] overflow-hidden flex flex-col">
         <div class="p-6 border-b border-makoclaw-border flex items-center justify-between">
           <h3 class="text-lg font-bold text-makoclaw-text">Audit Log Details</h3>
@@ -213,6 +214,7 @@
         </div>
       </div>
     </div>
+    </Transition>
   </div>
 </template>
 
@@ -315,9 +317,4 @@ onMounted(async () => {
 })
 </script>
 
-<style scoped>
-.custom-scrollbar::-webkit-scrollbar { width: 6px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(156, 163, 175, 0.2); border-radius: 10px; }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: rgba(156, 163, 175, 0.4); }
-</style>
+

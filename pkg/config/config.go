@@ -32,6 +32,13 @@ func getDataDir() string {
 	if dataDir != "" {
 		return dataDir
 	}
+
+	// 1. Check for local MakoClaw-data directory first
+	if info, err := os.Stat("MakoClaw-data"); err == nil && info.IsDir() {
+		return "MakoClaw-data"
+	}
+
+	// 2. Fallback to user home directory
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".MakoClaw")
 }

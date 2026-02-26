@@ -1,5 +1,6 @@
 <template>
-  <div v-if="show" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+  <Transition name="modal">
+  <div v-if="show" class="fixed inset-0 z-modal flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
     <div class="bg-makoclaw-surface rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden border border-makoclaw-border animate-in fade-in zoom-in duration-200 flex flex-col">
       <!-- Header -->
       <div class="flex justify-between items-center p-5 border-b border-makoclaw-border bg-makoclaw-bg/20">
@@ -230,7 +231,7 @@
     </div>
 
     <!-- Test Result Modal -->
-    <div v-if="showTestResultModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div v-if="showTestResultModal" class="fixed inset-0 z-modal-nested flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div class="bg-makoclaw-surface rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden border border-makoclaw-border animate-in fade-in zoom-in duration-200 flex flex-col">
         <div class="flex justify-between items-center p-5 border-b border-makoclaw-border bg-makoclaw-bg/20">
           <h3 class="text-lg font-bold text-makoclaw-text flex items-center gap-2">
@@ -256,6 +257,7 @@
       </div>
     </div>
   </div>
+  </Transition>
 </template>
 
 <script setup>

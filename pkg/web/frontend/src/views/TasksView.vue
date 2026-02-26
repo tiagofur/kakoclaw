@@ -68,10 +68,10 @@
     </div>
 
     <!-- Kanban Board -->
-    <div class="flex-1 overflow-x-auto p-4">
+    <div class="flex-1 overflow-x-auto p-4" style="scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;">
       <div class="flex gap-4 min-h-full">
         <!-- Column: Backlog -->
-        <div class="flex-shrink-0 w-80">
+        <div class="flex-shrink-0 w-72 sm:w-80" style="scroll-snap-align: start;">
           <KanbanColumn
             status="backlog"
             title="Backlog"
@@ -82,7 +82,7 @@
         </div>
 
         <!-- Column: To Do -->
-        <div class="flex-shrink-0 w-80">
+        <div class="flex-shrink-0 w-72 sm:w-80" style="scroll-snap-align: start;">
           <KanbanColumn
             status="todo"
             title="To Do"
@@ -93,7 +93,7 @@
         </div>
 
         <!-- Column: In Progress -->
-        <div class="flex-shrink-0 w-80">
+        <div class="flex-shrink-0 w-72 sm:w-80" style="scroll-snap-align: start;">
           <KanbanColumn
             status="in_progress"
             title="In Progress"
@@ -104,7 +104,7 @@
         </div>
 
         <!-- Column: Review -->
-        <div class="flex-shrink-0 w-80">
+        <div class="flex-shrink-0 w-72 sm:w-80" style="scroll-snap-align: start;">
           <KanbanColumn
             status="review"
             title="Review"
@@ -115,7 +115,7 @@
         </div>
 
         <!-- Column: Done -->
-        <div class="flex-shrink-0 w-80">
+        <div class="flex-shrink-0 w-72 sm:w-80" style="scroll-snap-align: start;">
           <KanbanColumn
             status="done"
             title="Done"
