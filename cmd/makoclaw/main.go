@@ -124,6 +124,10 @@ func main() {
 		doctorCmd()
 	case "cron":
 		cronCmd()
+	case "list-users":
+		listUsersCmd()
+	case "reset-password":
+		resetPasswordCmd()
 	case "skills":
 		if len(os.Args) < 3 {
 			skillsHelp()
@@ -197,6 +201,8 @@ func printHelp() {
 	fmt.Println("  cron        Manage scheduled tasks")
 	fmt.Println("  migrate     Migrate from OpenClaw to makoclaw")
 	fmt.Println("  migrate-multiuser  Migrate legacy data to multiuser layout")
+	fmt.Println("  list-users  List all registered users")
+	fmt.Println("  reset-password  Reset a user's password")
 	fmt.Println("  skills      Manage skills (install, list, remove)")
 	fmt.Println("  version     Show version information")
 }
@@ -2046,4 +2052,85 @@ func skillsShowCmd(loader *skills.SkillsLoader, skillName string) {
 	fmt.Printf("\n📦 Skill: %s\n", skillName)
 	fmt.Println("----------------------")
 	fmt.Println(content)
+}
+func listUsersCmd() {
+	cfg, err := loadConfig()
+	if err != nil {
+		fmt.Printf("Error loading config: %v\n", err)
+		os.Exit(1)
+	}
+
+	dataDir := filepath.Dir(expandHomePath(cfg.Storage.Path))
+	centralDBPath := filepath.Join(dataDir, "central.db")
+	centralStore, err := storage.NewCentral(centralDBPath)
+	if err != nil {
+		fmt.Printf("Error opening central database: %v\n", err)
+		os.Exit(1)
+	}
+	defer centralStore.Close()
+
+	users, err := centralStore.ListUsers()
+	if err != nil {
+		fmt.Printf("Error listing users: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("%-5s | %-15s | %-36s | %-10s\n", "ID", "Username", "UUID", "Role")
+	fmt.Println(strings.Repeat("-", 75))
+	for _, u := range users {
+		fmt.Printf("%-5d | %-15s | %-36s | %-10s\n", u.ID, u.Username, u.UUID, u.Role)
+	}
+
+	// Also check legacy if central is empty
+	if len(users) == 0 {
+		fmt.Println("\nChecking legacy database...")
+		store, err := storage.New(cfg.Storage)
+		if err == nil {
+			defer store.Close()
+			legacyUsers, err := store.ListUsers()
+			if err == nil && len(legacyUsers) > 0 {
+				fmt.Printf("Found %d users in legacy database that need migration.\n", len(legacyUsers))
+				for _, u := range legacyUsers {
+					fmt.Printf(" - %s (%s)\n", u.Username, u.Role)
+				}
+			}
+		}
+	}
+}
+
+func resetPasswordCmd() {
+	if len(os.Args) < 4 {
+		fmt.Println("Usage: makoclaw reset-password <username> <new-password>")
+		return
+	}
+	username := os.Args[2]
+	newPassword := os.Args[3]
+
+	cfg, err := loadConfig()
+	if err != nil {
+		fmt.Printf("Error loading config: %v\n", err)
+		os.Exit(1)
+	}
+
+	dataDir := filepath.Dir(expandHomePath(cfg.Storage.Path))
+	centralDBPath := filepath.Join(dataDir, "central.db")
+	centralStore, err := storage.NewCentral(centralDBPath)
+	if err != nil {
+		fmt.Printf("Error opening central database: %v\n", err)
+		os.Exit(1)
+	}
+	defer centralStore.Close()
+
+	user, err := centralStore.GetUserByUsername(username)
+	if err != nil {
+		fmt.Printf("User %s not found in central database.\n", username)
+		os.Exit(1)
+	}
+
+	if err := centralStore.UpdateUserPassword(user.ID, newPassword); err != nil {
+		fmt.Printf("Error resetting password: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("✓ Password reset successfully for user %s\n", username)
 }
