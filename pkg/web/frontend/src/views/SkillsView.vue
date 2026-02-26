@@ -1,12 +1,12 @@
 <template>
   <div class="h-full flex flex-col bg-makoclaw-bg">
     <!-- Header -->
-    <div class="flex-none p-4 border-b border-makoclaw-border bg-makoclaw-surface flex items-center justify-between">
+    <div class="flex-none p-4 border-b border-makoclaw-border bg-makoclaw-surface flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
       <div>
         <h2 class="text-xl font-bold bg-gradient-to-r from-makoclaw-accent to-blue-500 bg-clip-text text-transparent">Skills</h2>
         <p class="text-sm text-makoclaw-text-secondary mt-1">Manage installed skills and browse the marketplace</p>
       </div>
-      <div class="flex items-center gap-3">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3">
         <button
           @click="openGenerateModal"
           class="px-4 py-2 text-sm font-medium bg-makoclaw-accent text-white rounded-lg hover:bg-makoclaw-accent-hover transition-colors flex items-center gap-2 shadow-sm"
@@ -19,27 +19,41 @@
         <div class="flex bg-makoclaw-bg rounded-lg p-1 border border-makoclaw-border">
           <button
             @click="activeTab = 'installed'"
-            class="px-4 py-1.5 rounded-md text-sm font-medium transition-all"
-            :class="activeTab === 'installed' ? 'bg-white dark:bg-gray-700 shadow-sm text-makoclaw-accent' : 'text-makoclaw-text-secondary hover:text-makoclaw-text'"
+            class="tab-button"
+            :class="[activeTab === 'installed' ? 'tab-button-active' : 'tab-button-inactive']"
           >Installed</button>
           <button
             @click="activeTab = 'marketplace'; loadMarketplace()"
-            class="px-4 py-1.5 rounded-md text-sm font-medium transition-all"
-            :class="activeTab === 'marketplace' ? 'bg-white dark:bg-gray-700 shadow-sm text-makoclaw-accent' : 'text-makoclaw-text-secondary hover:text-makoclaw-text'"
+            class="tab-button"
+            :class="[activeTab === 'marketplace' ? 'tab-button-active' : 'tab-button-inactive']"
           >Marketplace</button>
           <button
             @click="activeTab = 'submissions'; loadMySubmissions()"
-            class="px-4 py-1.5 rounded-md text-sm font-medium transition-all"
-            :class="activeTab === 'submissions' ? 'bg-white dark:bg-gray-700 shadow-sm text-makoclaw-accent' : 'text-makoclaw-text-secondary hover:text-makoclaw-text'"
+            class="tab-button"
+            :class="[activeTab === 'submissions' ? 'tab-button-active' : 'tab-button-inactive']"
           >My Submissions</button>
         </div>
       </div>
     </div>
 
     <!-- Content -->
-    <div class="flex-1 overflow-auto p-6 custom-scrollbar">
-      <div v-if="loading" class="flex items-center justify-center py-12">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-makoclaw-accent"></div>
+    <div class="flex-1 overflow-auto p-4 md:p-6 custom-scrollbar">
+      <!-- Loading Skeleton -->
+      <div v-if="loading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div v-for="i in 6" :key="i" class="bg-makoclaw-surface border border-makoclaw-border rounded-xl p-5">
+          <div class="flex items-start justify-between">
+            <div class="flex-1">
+              <div class="skeleton h-4 w-32 mb-2 rounded"></div>
+              <div class="skeleton h-3 w-full mb-1 rounded"></div>
+              <div class="skeleton h-3 w-2/3 rounded"></div>
+            </div>
+            <div class="skeleton h-5 w-16 rounded-full ml-2"></div>
+          </div>
+          <div class="flex items-center gap-2 mt-4">
+            <div class="skeleton h-7 w-12 rounded-lg"></div>
+            <div class="skeleton h-7 w-14 rounded-lg"></div>
+          </div>
+        </div>
       </div>
 
       <template v-else>
@@ -177,7 +191,8 @@
     </div>
 
     <!-- Skill Generation Modal -->
-    <div v-if="showGenerateModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="closeGenerateModal">
+    <Transition name="modal">
+    <div v-if="showGenerateModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-modal p-4" @click.self="closeGenerateModal">
       <div class="bg-makoclaw-surface border border-makoclaw-border rounded-xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl">
         <!-- Modal Header -->
         <div class="flex items-center justify-between p-4 border-b border-makoclaw-border">
@@ -296,9 +311,11 @@
         </div>
       </div>
     </div>
+    </Transition>
 
     <!-- Skill Editor Modal -->
-    <div v-if="editingSkill" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="editingSkill = null">
+    <Transition name="modal">
+    <div v-if="editingSkill" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-modal p-4" @click.self="editingSkill = null">
       <div class="bg-makoclaw-surface border border-makoclaw-border rounded-xl max-w-4xl w-full h-[85vh] flex flex-col shadow-2xl">
         <div class="flex items-center justify-between p-4 border-b border-makoclaw-border">
           <div class="flex items-center gap-2">
@@ -332,9 +349,11 @@
         </div>
       </div>
     </div>
+    </Transition>
 
     <!-- Skill Viewer Modal -->
-    <div v-if="viewingSkill" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="viewingSkill = null">
+    <Transition name="modal">
+    <div v-if="viewingSkill" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-modal p-4" @click.self="viewingSkill = null">
       <div class="bg-makoclaw-surface border border-makoclaw-border rounded-xl max-w-2xl w-full max-h-[80vh] flex flex-col shadow-xl">
         <div class="flex items-center justify-between p-4 border-b border-makoclaw-border">
           <h3 class="font-semibold">{{ viewingSkill.name }}</h3>
@@ -345,9 +364,11 @@
         </div>
       </div>
     </div>
+    </Transition>
 
     <!-- Submit to Marketplace Modal -->
-    <div v-if="showSubmitModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="closeSubmitModal">
+    <Transition name="modal">
+    <div v-if="showSubmitModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-modal p-4" @click.self="closeSubmitModal">
       <div class="bg-makoclaw-surface border border-makoclaw-border rounded-xl max-w-lg w-full max-h-[80vh] flex flex-col shadow-xl">
         <div class="flex items-center justify-between p-4 border-b border-makoclaw-border">
           <h3 class="font-semibold">Submit to Marketplace</h3>
@@ -422,6 +443,7 @@
         </div>
       </div>
     </div>
+    </Transition>
   </div>
 </template>
 
@@ -778,9 +800,6 @@ onMounted(() => loadSkills())
 </script>
 
 <style scoped>
-.custom-scrollbar::-webkit-scrollbar { width: 8px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(156, 163, 175, 0.5); border-radius: 4px; }
 .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 </style>
 

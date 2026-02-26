@@ -12,9 +12,28 @@
     </div>
 
     <!-- Content -->
-    <div class="flex-1 overflow-auto p-6 custom-scrollbar">
-      <div v-if="loading" class="flex items-center justify-center py-12">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-makoclaw-accent"></div>
+    <div class="flex-1 overflow-auto p-4 md:p-6 custom-scrollbar">
+      <!-- Loading Skeleton -->
+      <div v-if="loading" class="space-y-4">
+        <div v-for="i in 3" :key="i" class="bg-makoclaw-surface border border-makoclaw-border rounded-xl p-5">
+          <div class="flex items-start justify-between">
+            <div class="flex-1">
+              <div class="skeleton h-4 w-48 mb-3 rounded"></div>
+              <div class="flex gap-2">
+                <div class="skeleton h-5 w-16 rounded-full"></div>
+                <div class="skeleton h-5 w-12 rounded-full"></div>
+                <div class="skeleton h-5 w-20 rounded-full"></div>
+              </div>
+            </div>
+          </div>
+          <div class="flex items-center justify-between mt-4">
+            <div class="skeleton h-3 w-24 rounded"></div>
+            <div class="flex gap-2">
+              <div class="skeleton h-7 w-14 rounded-lg"></div>
+              <div class="skeleton h-7 w-16 rounded-lg"></div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <template v-else>
@@ -84,12 +103,15 @@
         <!-- Documents List -->
         <div>
           <h3 class="text-sm font-semibold text-makoclaw-text-secondary mb-3">Documents</h3>
-          <div v-if="documents.length === 0" class="text-center py-12 text-makoclaw-text-secondary">
-            <svg class="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-            </svg>
-            <p class="text-lg">No documents yet</p>
-            <p class="text-sm mt-1">Upload documents to build your knowledge base</p>
+          <div v-if="documents.length === 0" class="flex flex-col items-center justify-center py-16 text-center">
+            <div class="w-16 h-16 rounded-2xl bg-makoclaw-accent/10 flex items-center justify-center mb-4">
+              <svg class="w-8 h-8 text-makoclaw-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+              </svg>
+            </div>
+            <h3 class="font-semibold text-makoclaw-text mb-1">No documents yet</h3>
+            <p class="text-sm text-makoclaw-text-secondary max-w-xs mb-4">Add documents to build your knowledge base for AI-powered search.</p>
+            <button class="btn-primary" @click="$refs.fileInput.click()">Upload Documents</button>
           </div>
           <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div
@@ -133,7 +155,8 @@
     </div>
 
     <!-- Document Viewer Modal -->
-    <div v-if="selectedDoc" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <Transition name="modal">
+    <div v-if="selectedDoc" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-modal flex items-center justify-center p-4">
       <div class="bg-makoclaw-bg border border-makoclaw-border rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden text-makoclaw-text">
         <div class="p-4 border-b border-makoclaw-border bg-makoclaw-surface flex items-center justify-between flex-none">
           <div>
@@ -182,6 +205,7 @@
         </div>
       </div>
     </div>
+    </Transition>
   </div>
 </template>
 
@@ -370,9 +394,6 @@ onMounted(() => loadDocuments())
 </script>
 
 <style scoped>
-.custom-scrollbar::-webkit-scrollbar { width: 8px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(156, 163, 175, 0.5); border-radius: 4px; }
 .line-clamp-4 { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 </style>
 

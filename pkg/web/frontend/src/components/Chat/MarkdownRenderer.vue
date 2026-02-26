@@ -207,7 +207,7 @@ onBeforeUnmount(() => {
 }
 
 .markdown-body :deep(blockquote) {
-  border-left: 3px solid rgba(139, 92, 246, 0.4);
+  border-left: 3px solid rgb(var(--pc-accent) / 0.4);
   padding-left: 0.8em;
   margin: 0.5em 0;
   color: inherit;
@@ -215,18 +215,18 @@ onBeforeUnmount(() => {
 }
 
 .markdown-body :deep(a) {
-  color: rgb(139, 92, 246);
+  color: rgb(var(--pc-accent));
   text-decoration: underline;
-  text-decoration-color: rgba(139, 92, 246, 0.3);
+  text-decoration-color: rgb(var(--pc-accent) / 0.3);
 }
 
 .markdown-body :deep(a:hover) {
-  text-decoration-color: rgba(139, 92, 246, 0.8);
+  text-decoration-color: rgb(var(--pc-accent) / 0.8);
 }
 
 .markdown-body :deep(code:not(.hljs)) {
-  background: rgba(139, 92, 246, 0.1);
-  border: 1px solid rgba(139, 92, 246, 0.15);
+  background: rgb(var(--pc-accent) / 0.1);
+  border: 1px solid rgb(var(--pc-accent) / 0.15);
   padding: 0.15em 0.35em;
   border-radius: 4px;
   font-size: 0.88em;
@@ -234,8 +234,8 @@ onBeforeUnmount(() => {
 }
 
 .markdown-body :deep(.hljs-code-block) {
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(139, 92, 246, 0.15);
+  background: rgb(var(--pc-bg) / 0.4);
+  border: 1px solid rgb(var(--pc-accent) / 0.15);
   border-radius: 8px;
   margin: 0.5em 0;
   overflow: hidden;
@@ -247,13 +247,13 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   align-items: center;
   padding: 0.3em 0.8em;
-  background: rgba(0, 0, 0, 0.15);
-  border-bottom: 1px solid rgba(139, 92, 246, 0.1);
+  background: rgb(var(--pc-bg) / 0.3);
+  border-bottom: 1px solid rgb(var(--pc-accent) / 0.1);
   font-size: 0.8em;
 }
 
 .markdown-body :deep(.hljs-code-lang) {
-  color: rgb(139, 92, 246);
+  color: rgb(var(--pc-accent));
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -266,9 +266,9 @@ onBeforeUnmount(() => {
 }
 
 .markdown-body :deep(.hljs-copy-btn) {
-  background: rgba(139, 92, 246, 0.15);
-  border: 1px solid rgba(139, 92, 246, 0.2);
-  color: rgba(139, 92, 246, 0.8);
+  background: rgb(var(--pc-accent) / 0.15);
+  border: 1px solid rgb(var(--pc-accent) / 0.2);
+  color: rgb(var(--pc-accent) / 0.8);
   padding: 0.15em 0.5em;
   border-radius: 4px;
   cursor: pointer;
@@ -277,14 +277,14 @@ onBeforeUnmount(() => {
 }
 
 .markdown-body :deep(.hljs-copy-btn:hover) {
-  background: rgba(139, 92, 246, 0.25);
-  color: rgb(139, 92, 246);
+  background: rgb(var(--pc-accent) / 0.25);
+  color: rgb(var(--pc-accent));
 }
 
 .markdown-body :deep(.hljs-run-btn) {
-  background: rgba(52, 211, 153, 0.15);
-  border: 1px solid rgba(52, 211, 153, 0.25);
-  color: rgba(52, 211, 153, 0.9);
+  background: rgb(var(--pc-success) / 0.15);
+  border: 1px solid rgb(var(--pc-success) / 0.25);
+  color: rgb(var(--pc-success) / 0.9);
   padding: 0.15em 0.5em;
   border-radius: 4px;
   cursor: pointer;
@@ -293,8 +293,8 @@ onBeforeUnmount(() => {
 }
 
 .markdown-body :deep(.hljs-run-btn:hover) {
-  background: rgba(52, 211, 153, 0.25);
-  color: rgb(52, 211, 153);
+  background: rgb(var(--pc-success) / 0.25);
+  color: rgb(var(--pc-success));
 }
 
 .markdown-body :deep(.hljs-run-btn:disabled) {
@@ -312,8 +312,8 @@ onBeforeUnmount(() => {
 
 /* Python code output area */
 .markdown-body :deep(.hljs-code-output) {
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(139, 92, 246, 0.1);
+  background: rgb(var(--pc-bg) / 0.5);
+  border: 1px solid rgb(var(--pc-accent) / 0.1);
   border-top: none;
   border-radius: 0 0 8px 8px;
   margin: -0.5em 0 0.5em;
@@ -323,19 +323,19 @@ onBeforeUnmount(() => {
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-all;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgb(var(--pc-text) / 0.7);
 }
 
 .markdown-body :deep(.hljs-code-output-success) {
-  color: rgba(52, 211, 153, 0.9);
+  color: rgb(var(--pc-success) / 0.9);
 }
 
 .markdown-body :deep(.hljs-code-output-error) {
-  color: rgba(248, 113, 113, 0.9);
+  color: rgb(var(--pc-error) / 0.9);
 }
 
 .markdown-body :deep(.hljs-code-output-duration) {
-  color: rgba(255, 255, 255, 0.35);
+  color: rgb(var(--pc-text-secondary) / 0.5);
   font-size: 0.85em;
 }
 
@@ -372,7 +372,7 @@ onBeforeUnmount(() => {
 
 .markdown-body :deep(hr) {
   border: none;
-  border-top: 1px solid rgba(139, 92, 246, 0.2);
+  border-top: 1px solid rgb(var(--pc-accent) / 0.2);
   margin: 0.8em 0;
 }
 
@@ -385,13 +385,13 @@ onBeforeUnmount(() => {
 
 .markdown-body :deep(th),
 .markdown-body :deep(td) {
-  border: 1px solid rgba(139, 92, 246, 0.15);
+  border: 1px solid rgb(var(--pc-accent) / 0.15);
   padding: 0.4em 0.7em;
   text-align: left;
 }
 
 .markdown-body :deep(th) {
-  background: rgba(139, 92, 246, 0.08);
+  background: rgb(var(--pc-accent) / 0.08);
   font-weight: 600;
 }
 

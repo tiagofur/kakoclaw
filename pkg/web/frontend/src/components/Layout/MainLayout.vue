@@ -8,11 +8,11 @@
 
     <!-- Main Content Area -->
     <div class="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-      
+
       <!-- Mobile Header -->
-      <header class="md:hidden h-14 bg-makoclaw-surface border-b border-makoclaw-border flex items-center justify-between px-4 flex-shrink-0 z-20">
+      <header class="md:hidden h-14 bg-makoclaw-surface border-b border-makoclaw-border flex items-center justify-between px-4 flex-shrink-0 z-sticky safe-top">
          <div class="font-bold text-lg text-makoclaw-accent">makoclaw</div>
-         <button @click="uiStore.toggleSidebar()" class="p-2 text-makoclaw-text hover:bg-makoclaw-border rounded">
+         <button @click="uiStore.toggleSidebar()" class="p-2 text-makoclaw-text hover:bg-makoclaw-surface-hover rounded-lg transition-colors touch-target">
            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
            </svg>
@@ -23,8 +23,12 @@
       <DegradedModeBanner />
 
       <!-- Page Content -->
-      <main class="flex-1 overflow-auto relative scroll-smooth p-4 md:p-6">
-        <router-view />
+      <main class="flex-1 overflow-auto relative scroll-smooth custom-scrollbar">
+        <router-view v-slot="{ Component }">
+          <Transition name="page" mode="out-in">
+            <component :is="Component" :key="$route.path" />
+          </Transition>
+        </router-view>
       </main>
     </div>
   </div>
@@ -83,21 +87,3 @@ onBeforeUnmount(() => {
   chatWs.off('message', backgroundMessageHandler)
 })
 </script>
-
-<style scoped>
-/* Custom Scrollbar */
-main::-webkit-scrollbar {
-  width: 8px;
-}
-main::-webkit-scrollbar-track {
-  background: transparent;
-}
-main::-webkit-scrollbar-thumb {
-  background-color: rgba(156, 163, 175, 0.5); /* gray-400 */
-  border-radius: 4px;
-}
-main::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(156, 163, 175, 0.8);
-}
-</style>
-

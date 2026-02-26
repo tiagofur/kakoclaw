@@ -1,7 +1,7 @@
 <template>
   <div class="h-full flex flex-col">
     <!-- Header with filters -->
-    <div class="flex-none p-4 border-b border-makoclaw-border bg-makoclaw-surface sticky top-0 z-10">
+    <div class="flex-none p-4 glass-sticky">
       <div class="flex justify-between items-center mb-3">
         <div class="flex items-center gap-2">
           <button 
@@ -240,7 +240,7 @@
               class="max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm leading-relaxed"
               :class="msg.role === 'user'
                 ? 'bg-makoclaw-accent text-white rounded-tr-none whitespace-pre-wrap'
-                : 'bg-white dark:bg-gray-800 border border-makoclaw-border rounded-tl-none'"
+                : 'bg-makoclaw-surface border border-makoclaw-border rounded-tl-none'"
             >
               <span v-if="msg.role === 'user'">{{ msg.content }}</span>
               <MarkdownRenderer v-else :content="msg.content" />

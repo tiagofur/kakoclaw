@@ -1,5 +1,5 @@
 <template>
-  <div class="glass-panel rounded-2xl p-4 flex flex-col h-full min-w-[320px] shadow-sm">
+  <div class="glass-panel rounded-2xl p-4 flex flex-col h-full min-w-[288px] sm:min-w-[320px] shadow-sm">
     <!-- Column Header -->
     <div class="mb-4 pb-3 border-b border-makoclaw-border/30 flex items-center justify-between">
       <h3 class="font-bold text-xs uppercase tracking-[0.2em] text-makoclaw-text-secondary flex items-center gap-2 opacity-80">

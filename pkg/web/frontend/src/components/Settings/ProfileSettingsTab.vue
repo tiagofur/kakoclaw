@@ -68,7 +68,8 @@
 
     <!-- Change Password Modal -->
     <Teleport to="body">
-      <div v-if="showChangePassword" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" @click.self="showChangePassword = false">
+      <Transition name="modal">
+      <div v-if="showChangePassword" class="fixed inset-0 z-modal flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" @click.self="showChangePassword = false">
         <div class="glass-panel rounded-2xl p-8 max-w-md w-full shadow-2xl animate-fadeIn" @click.stop>
           <h3 class="text-xl font-bold bg-gradient-to-r from-makoclaw-accent to-blue-500 bg-clip-text text-transparent mb-6">Change Password</h3>
 
@@ -102,6 +103,7 @@
           </div>
         </div>
       </div>
+      </Transition>
     </Teleport>
   </div>
 </template>

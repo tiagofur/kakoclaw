@@ -9,7 +9,7 @@
       :class="[
         'max-w-[90%] sm:max-w-[85%] lg:max-w-2xl px-4 md:px-5 py-2.5 md:py-3 shadow-lg transition-all duration-300 transform hover:scale-[1.002] animate-slideUp',
         msg.role === 'user'
-          ? 'bg-gradient-to-br from-makoclaw-accent to-blue-600 text-white rounded-2xl rounded-br-none shadow-makoclaw-accent/10'
+          ? 'bg-gradient-to-br from-makoclaw-accent to-makoclaw-accent-hover text-white rounded-2xl rounded-br-none shadow-makoclaw-accent/10'
           : 'glass-panel text-makoclaw-text rounded-2xl rounded-bl-none shadow-black/5'
       ]"
     >
@@ -143,7 +143,7 @@ const formatTime = (isoString) => {
   gap: 0.5rem;
   margin-top: 0.75rem;
   padding-top: 0.75rem;
-  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  border-top: 1px solid rgb(var(--pc-border) / 0.2);
 }
 
 .agent-badge {

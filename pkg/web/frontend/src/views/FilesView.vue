@@ -277,7 +277,8 @@
     </div>
 
     <!-- New Folder Modal -->
-    <div v-if="showNewFolderModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <Transition name="modal">
+    <div v-if="showNewFolderModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-modal flex items-center justify-center p-4">
       <div class="bg-makoclaw-bg border border-makoclaw-border rounded-xl w-full max-w-md shadow-2xl">
         <div class="p-4 border-b border-makoclaw-border">
           <h3 class="font-bold text-lg">Create New Folder</h3>
@@ -313,9 +314,11 @@
         </div>
       </div>
     </div>
+    </Transition>
 
     <!-- Delete Confirmation Modal -->
-    <div v-if="deleteConfirmEntry" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <Transition name="modal">
+    <div v-if="deleteConfirmEntry" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-modal flex items-center justify-center p-4">
       <div class="bg-makoclaw-bg border border-makoclaw-border rounded-xl w-full max-w-md shadow-2xl">
         <div class="p-4 border-b border-makoclaw-border">
           <h3 class="font-bold text-lg text-red-400">Confirm Delete</h3>
@@ -349,6 +352,7 @@
         </div>
       </div>
     </div>
+    </Transition>
   </div>
 </template>
 
@@ -665,8 +669,4 @@ const formatDate = (dateStr) => {
 onMounted(() => navigateTo(''))
 </script>
 
-<style scoped>
-.custom-scrollbar::-webkit-scrollbar { width: 8px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(156, 163, 175, 0.5); border-radius: 4px; }
-</style>
+

@@ -8,19 +8,19 @@
       <div class="flex bg-makoclaw-bg rounded-lg p-1 border border-makoclaw-border">
         <button
           @click="activeTab = 'longterm'"
-          class="px-4 py-1.5 rounded-md text-sm font-medium transition-all"
-          :class="activeTab === 'longterm' ? 'bg-white dark:bg-gray-700 shadow-sm text-makoclaw-accent' : 'text-makoclaw-text-secondary hover:text-makoclaw-text'"
+          class="tab-button"
+          :class="[activeTab === 'longterm' ? 'tab-button-active' : 'tab-button-inactive']"
         >Long-Term</button>
         <button
           @click="activeTab = 'daily'"
-          class="px-4 py-1.5 rounded-md text-sm font-medium transition-all"
-          :class="activeTab === 'daily' ? 'bg-white dark:bg-gray-700 shadow-sm text-makoclaw-accent' : 'text-makoclaw-text-secondary hover:text-makoclaw-text'"
+          class="tab-button"
+          :class="[activeTab === 'daily' ? 'tab-button-active' : 'tab-button-inactive']"
         >Daily Notes</button>
       </div>
     </div>
 
     <!-- ===== Long-Term Memory ===== -->
-    <div v-if="activeTab === 'longterm'" class="flex-1 flex flex-col p-6 overflow-hidden gap-4">
+    <div v-if="activeTab === 'longterm'" class="flex-1 flex flex-col p-4 md:p-6 overflow-hidden gap-4">
       <!-- Toolbar -->
       <div class="flex flex-wrap items-center gap-3">
         <div class="flex-1 relative min-w-[200px]">
@@ -53,7 +53,7 @@
 
       <!-- Editor -->
       <div class="flex-1 relative border border-makoclaw-border rounded-xl overflow-hidden shadow-sm">
-        <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-makoclaw-surface/50 backdrop-blur-sm z-10">
+        <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-makoclaw-surface/50 backdrop-blur-sm z-sticky">
           <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-makoclaw-accent"></div>
         </div>
         <textarea
@@ -66,7 +66,7 @@
     </div>
 
     <!-- ===== Daily Notes ===== -->
-    <div v-else class="flex-1 flex flex-col p-6 overflow-hidden gap-4">
+    <div v-else class="flex-1 flex flex-col p-4 md:p-6 overflow-hidden gap-4">
       <!-- Toolbar -->
       <div class="flex flex-wrap items-center gap-3">
         <h3 class="font-semibold text-lg flex-1">Daily Notes</h3>
@@ -269,18 +269,4 @@ onMounted(() => {
   loadDaily()
 })
 </script>
-
-<style scoped>
-.custom-scrollbar::-webkit-scrollbar {
-  width: 8px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: rgba(156, 163, 175, 0.5);
-  border-radius: 4px;
-}
-</style>
-
 

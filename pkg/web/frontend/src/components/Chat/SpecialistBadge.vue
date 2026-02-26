@@ -41,7 +41,7 @@ const colors = computed(() => {
     analyst: { color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
     researcher: { color: 'text-pink-400', bg: 'bg-pink-500/10' }
   }
-  return colorMap[props.name] || { color: 'text-gray-400', bg: 'bg-gray-500/10' }
+  return colorMap[props.name] || { color: 'text-makoclaw-text-secondary', bg: 'bg-makoclaw-text-secondary/10' }
 })
 
 const textColor = computed(() => colors.value.color)

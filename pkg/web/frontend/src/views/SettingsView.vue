@@ -1,18 +1,18 @@
 <template>
   <div class="h-full flex flex-col bg-makoclaw-bg">
     <!-- Header -->
-    <div class="flex-none p-4 border-b border-makoclaw-border bg-makoclaw-surface flex items-center justify-between">
+    <div class="flex-none p-4 border-b border-makoclaw-border bg-makoclaw-surface flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
       <div>
         <h2 class="text-xl font-bold bg-gradient-to-r from-makoclaw-accent to-blue-500 bg-clip-text text-transparent">Settings</h2>
         <p class="text-sm text-makoclaw-text-secondary mt-1">Configure your agent, providers, and channels</p>
       </div>
-      <div class="flex bg-makoclaw-bg rounded-lg p-1 border border-makoclaw-border overflow-x-auto max-w-[50%] sm:max-w-none">
+      <div class="flex bg-makoclaw-bg rounded-lg p-1 border border-makoclaw-border overflow-x-auto scrollbar-hide">
         <button
           v-for="tab in tabs"
           :key="tab.key"
           @click="activeTab = tab.key"
-          class="px-3 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap"
-          :class="activeTab === tab.key ? 'bg-white dark:bg-gray-700 shadow-sm text-makoclaw-accent' : 'text-makoclaw-text-secondary hover:text-makoclaw-text'"
+          class="tab-button whitespace-nowrap"
+          :class="[activeTab === tab.key ? 'tab-button-active' : 'tab-button-inactive']"
         >{{ tab.label }}</button>
       </div>
     </div>
@@ -428,7 +428,8 @@
      </div>
 
     <!-- Channel Config Modal -->
-    <div v-if="showChannelModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <Transition name="modal">
+    <div v-if="showChannelModal" class="fixed inset-0 z-modal flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div class="bg-makoclaw-surface rounded-2xl shadow-2xl w-full max-w-md border border-makoclaw-border overflow-hidden animate-in fade-in zoom-in duration-200">
         <div class="flex justify-between items-center p-6 border-b border-makoclaw-border bg-makoclaw-bg/20">
           <h3 class="text-lg font-bold text-makoclaw-text flex items-center">
@@ -493,9 +494,11 @@
         </div>
       </div>
     </div>
+    </Transition>
 
     <!-- User Edit/Create Modal -->
-    <div v-if="showUserModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <Transition name="modal">
+    <div v-if="showUserModal" class="fixed inset-0 z-modal flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div class="bg-makoclaw-surface rounded-2xl shadow-2xl w-full max-w-sm border border-makoclaw-border overflow-hidden animate-in fade-in zoom-in duration-200">
         <div class="flex justify-between items-center p-5 border-b border-makoclaw-border bg-makoclaw-bg/20">
           <h3 class="text-md font-bold text-makoclaw-text">{{ userForm.id ? 'Edit User' : 'Create User' }}</h3>
@@ -549,9 +552,11 @@
         </div>
       </div>
     </div>
+    </Transition>
 
     <!-- Block User Modal -->
-    <div v-if="showBlockModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <Transition name="modal">
+    <div v-if="showBlockModal" class="fixed inset-0 z-modal flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div class="bg-makoclaw-surface rounded-2xl shadow-2xl w-full max-w-md border border-makoclaw-border overflow-hidden animate-in fade-in zoom-in duration-200">
         <div class="flex justify-between items-center p-5 border-b border-makoclaw-border bg-red-500/10">
           <h3 class="text-md font-bold text-red-400">🚫 Bloquear Usuario</h3>
@@ -582,9 +587,11 @@
         </div>
       </div>
     </div>
+    </Transition>
 
     <!-- Unblock User Modal -->
-    <div v-if="showUnblockModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <Transition name="modal">
+    <div v-if="showUnblockModal" class="fixed inset-0 z-modal flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div class="bg-makoclaw-surface rounded-2xl shadow-2xl w-full max-w-md border border-makoclaw-border overflow-hidden animate-in fade-in zoom-in duration-200">
         <div class="flex justify-between items-center p-5 border-b border-makoclaw-border bg-green-500/10">
           <h3 class="text-md font-bold text-green-400">🔓 Desbloquear Usuario</h3>
@@ -609,6 +616,7 @@
         </div>
       </div>
     </div>
+    </Transition>
   </div>
 </template>
 
@@ -1132,16 +1140,11 @@ watch(
 </script>
 
 <style scoped>
-.custom-scrollbar::-webkit-scrollbar { width: 6px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(156, 163, 175, 0.2); border-radius: 10px; }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: rgba(156, 163, 175, 0.4); }
-
 .line-clamp-2 {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
-  -webkit-box-orient: vertical;  
+  -webkit-box-orient: vertical;
   overflow: hidden;
 }
 </style>

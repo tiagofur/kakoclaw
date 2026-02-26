@@ -7,11 +7,47 @@
     </div>
 
     <!-- Content -->
-    <div class="flex-1 overflow-auto p-6 space-y-6 custom-scrollbar">
+    <div class="flex-1 overflow-auto p-4 md:p-6 space-y-4 md:space-y-6 custom-scrollbar">
 
-      <!-- Loading -->
-      <div v-if="loading" class="flex items-center justify-center py-12">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-makoclaw-accent"></div>
+      <!-- Loading Skeleton -->
+      <div v-if="loading" class="space-y-6">
+        <!-- Stats Grid Skeleton -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div v-for="i in 4" :key="i" class="glass-panel rounded-2xl p-5">
+            <div class="skeleton h-3 w-20 mb-3 rounded"></div>
+            <div class="skeleton h-8 w-16 mb-2 rounded"></div>
+          </div>
+        </div>
+        <!-- Recent Tasks Skeleton -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-makoclaw-surface border border-makoclaw-border rounded-xl p-5">
+            <div class="skeleton h-4 w-28 mb-4 rounded"></div>
+            <div class="space-y-3">
+              <div v-for="i in 3" :key="'task-'+i" class="flex items-center gap-3 p-3 rounded-lg bg-makoclaw-bg">
+                <div class="skeleton w-2 h-2 rounded-full"></div>
+                <div class="flex-1">
+                  <div class="skeleton h-3.5 w-3/4 mb-2 rounded"></div>
+                  <div class="skeleton h-2.5 w-16 rounded"></div>
+                </div>
+                <div class="skeleton h-2.5 w-12 rounded"></div>
+              </div>
+            </div>
+          </div>
+          <!-- Recent Sessions Skeleton -->
+          <div class="bg-makoclaw-surface border border-makoclaw-border rounded-xl p-5">
+            <div class="skeleton h-4 w-36 mb-4 rounded"></div>
+            <div class="space-y-3">
+              <div v-for="i in 3" :key="'session-'+i" class="flex items-center gap-3 p-3 rounded-lg bg-makoclaw-bg">
+                <div class="skeleton w-5 h-5 rounded"></div>
+                <div class="flex-1">
+                  <div class="skeleton h-3.5 w-1/2 mb-2 rounded"></div>
+                  <div class="skeleton h-2.5 w-20 rounded"></div>
+                </div>
+                <div class="skeleton h-2.5 w-12 rounded"></div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <template v-else>
@@ -31,17 +67,17 @@
             <div class="text-xs font-semibold uppercase tracking-wider text-makoclaw-text-secondary opacity-70">Total Tasks</div>
             <div class="text-3xl font-bold mt-2">{{ stats.totalTasks }}</div>
           </div>
-          <div class="glass-panel rounded-2xl p-5 transition-all duration-300 hover:shadow-blue-500/5 hover:-translate-y-1">
+          <div class="glass-panel rounded-2xl p-5 transition-all duration-300 hover:shadow-makoclaw-accent/5 hover:-translate-y-1">
             <div class="text-xs font-semibold uppercase tracking-wider text-makoclaw-text-secondary opacity-70">In Progress</div>
-            <div class="text-3xl font-bold mt-2 text-blue-500">{{ stats.inProgress }}</div>
+            <div class="text-3xl font-bold mt-2 text-makoclaw-accent">{{ stats.inProgress }}</div>
           </div>
-          <div class="glass-panel rounded-2xl p-5 transition-all duration-300 hover:shadow-blue-500/5 hover:-translate-y-1">
+          <div class="glass-panel rounded-2xl p-5 transition-all duration-300 hover:shadow-makoclaw-accent/5 hover:-translate-y-1">
             <div class="text-xs font-semibold uppercase tracking-wider text-makoclaw-text-secondary opacity-70">Chat Sessions</div>
-            <div class="text-3xl font-bold mt-2 text-blue-500">{{ stats.chatSessions }}</div>
+            <div class="text-3xl font-bold mt-2 text-makoclaw-accent">{{ stats.chatSessions }}</div>
           </div>
-          <div class="glass-panel rounded-2xl p-5 transition-all duration-300 hover:shadow-cyan-500/5 hover:-translate-y-1">
+          <div class="glass-panel rounded-2xl p-5 transition-all duration-300 hover:shadow-makoclaw-accent/5 hover:-translate-y-1">
             <div class="text-xs font-semibold uppercase tracking-wider text-makoclaw-text-secondary opacity-70">Total Messages</div>
-            <div class="text-3xl font-bold mt-2 text-cyan-500">{{ stats.totalMessages }}</div>
+            <div class="text-3xl font-bold mt-2 text-makoclaw-accent">{{ stats.totalMessages }}</div>
           </div>
         </div>
 
@@ -108,11 +144,11 @@
                 <span
                   class="w-2 h-2 rounded-full flex-shrink-0"
                   :class="{
-                    'bg-gray-400': task.status === 'backlog',
-                    'bg-yellow-400': task.status === 'todo',
-                    'bg-blue-400': task.status === 'in_progress',
-                    'bg-orange-400': task.status === 'review',
-                    'bg-green-400': task.status === 'done'
+                    'bg-makoclaw-text-secondary/50': task.status === 'backlog',
+                    'bg-makoclaw-warning': task.status === 'todo',
+                    'bg-makoclaw-accent': task.status === 'in_progress',
+                    'bg-makoclaw-warning': task.status === 'review',
+                    'bg-makoclaw-success': task.status === 'done'
                   }"
                 ></span>
                 <div class="flex-1 min-w-0">
@@ -142,7 +178,7 @@
                 :key="session.session_id"
                 class="flex items-center gap-3 p-3 rounded-lg bg-makoclaw-bg hover:bg-makoclaw-border/50 transition-colors"
               >
-                <svg v-if="session.session_id.startsWith('web:chat:')" class="w-5 h-5 flex-shrink-0 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg v-if="session.session_id.startsWith('web:chat:')" class="w-5 h-5 flex-shrink-0 text-makoclaw-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
                 <svg v-else class="w-5 h-5 flex-shrink-0 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -238,11 +274,11 @@ const statusBreakdown = computed(() => {
     if (counts[t.status] !== undefined) counts[t.status]++
   })
   return [
-    { status: 'backlog', label: 'Backlog', count: counts.backlog, color: 'text-gray-400' },
-    { status: 'todo', label: 'To Do', count: counts.todo, color: 'text-yellow-400' },
-    { status: 'in_progress', label: 'In Progress', count: counts.in_progress, color: 'text-blue-400' },
-    { status: 'review', label: 'Review', count: counts.review, color: 'text-orange-400' },
-    { status: 'done', label: 'Done', count: counts.done, color: 'text-green-400' }
+    { status: 'backlog', label: 'Backlog', count: counts.backlog, color: 'text-makoclaw-text-secondary' },
+    { status: 'todo', label: 'To Do', count: counts.todo, color: 'text-makoclaw-warning' },
+    { status: 'in_progress', label: 'In Progress', count: counts.in_progress, color: 'text-makoclaw-accent' },
+    { status: 'review', label: 'Review', count: counts.review, color: 'text-makoclaw-warning' },
+    { status: 'done', label: 'Done', count: counts.done, color: 'text-makoclaw-success' }
   ]
 })
 
@@ -351,18 +387,4 @@ onMounted(async () => {
   }
 })
 </script>
-
-<style scoped>
-.custom-scrollbar::-webkit-scrollbar {
-  width: 8px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: rgba(156, 163, 175, 0.5);
-  border-radius: 4px;
-}
-</style>
-
 

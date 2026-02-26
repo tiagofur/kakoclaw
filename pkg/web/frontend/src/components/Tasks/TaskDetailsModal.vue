@@ -1,5 +1,6 @@
 <template>
-  <div class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+  <Transition name="modal">
+  <div class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-modal overflow-y-auto">
     <div class="bg-makoclaw-surface border border-makoclaw-border rounded-lg max-w-4xl w-full shadow-lg my-4">
       <!-- Header -->
       <div class="flex items-center justify-between p-4 border-b border-makoclaw-border">
@@ -156,6 +157,7 @@
       </div>
     </div>
   </div>
+  </Transition>
 </template>
 
 <script setup>

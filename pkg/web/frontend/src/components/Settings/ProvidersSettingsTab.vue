@@ -61,7 +61,8 @@
     </div>
 
     <!-- Models Config Modal -->
-    <div v-if="showModelsModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <Transition name="modal">
+    <div v-if="showModelsModal" class="fixed inset-0 z-modal flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div class="bg-makoclaw-surface rounded-2xl shadow-2xl w-full max-w-md border border-makoclaw-border overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
         <div class="flex justify-between items-center p-6 border-b border-makoclaw-border bg-makoclaw-bg/20">
           <h3 class="text-lg font-bold text-makoclaw-text flex items-center capitalize">
@@ -133,6 +134,7 @@
         </div>
       </div>
     </div>
+    </Transition>
   </div>
 </template>
 
@@ -217,12 +219,4 @@ const saveModelsConfig = () => {
   showModelsModal.value = false
 }
 </script>
-
-<style scoped>
-.custom-scrollbar::-webkit-scrollbar { width: 6px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(156, 163, 175, 0.2); border-radius: 10px; }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: rgba(156, 163, 175, 0.4); }
-</style>
-
 

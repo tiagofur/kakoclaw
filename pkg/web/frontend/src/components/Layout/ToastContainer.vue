@@ -1,6 +1,6 @@
 <template>
   <Teleport to="body">
-    <div class="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none" style="max-width: 380px;">
+    <div class="fixed top-4 right-4 z-toast flex flex-col gap-2 pointer-events-none" style="max-width: 380px;">
       <TransitionGroup name="toast">
         <div
           v-for="toast in toasts"
@@ -28,7 +28,7 @@
           <!-- Dismiss -->
           <button
             @click="dismiss(toast.id)"
-            class="flex-shrink-0 p-0.5 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors opacity-60 hover:opacity-100"
+            class="flex-shrink-0 p-0.5 rounded hover:bg-makoclaw-text/10 transition-colors opacity-60 hover:opacity-100"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
@@ -46,11 +46,11 @@ const { toasts, dismiss } = useToast()
 const toastClasses = (type) => {
   switch (type) {
     case 'success':
-      return 'bg-blue-500/15 border-blue-500/30 text-blue-300'
+      return 'bg-makoclaw-success/15 border-makoclaw-success/30 text-makoclaw-success'
     case 'error':
-      return 'bg-red-500/15 border-red-500/30 text-red-300'
+      return 'bg-makoclaw-error/15 border-makoclaw-error/30 text-makoclaw-error'
     case 'warning':
-      return 'bg-amber-500/15 border-amber-500/30 text-amber-300'
+      return 'bg-makoclaw-warning/15 border-makoclaw-warning/30 text-makoclaw-warning'
     default:
       return 'bg-makoclaw-accent/15 border-makoclaw-accent/30 text-makoclaw-accent'
   }

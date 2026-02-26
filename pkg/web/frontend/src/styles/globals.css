@@ -11,13 +11,13 @@
   --pc-border: 226 232 240;           /* Slate 200 (#e2e8f0) */
   --pc-accent: 59 130 246;            /* Blue 500 (#3b82f6) */
   --pc-accent-hover: 37 99 235;       /* Blue 600 (#2563eb) */
-  --pc-success: 16 185 129;           /* blue 500 (#3b82f6) */
+  --pc-success: 16 185 129;           /* Emerald 500 (#10b981) */
   --pc-warning: 245 158 11;           /* Amber 500 (#f59e0b) */
   --pc-error: 239 68 68;              /* Red 500 (#ef4444) */
   --pc-text: 15 23 42;                /* Slate 900 (#0f172a) */
   --pc-text-secondary: 100 116 139;   /* Slate 500 (#64748b) */
 
-  --pc-scrollbar-track: #f1f5f9;
+  --pc-scrollbar-track: transparent;
   --pc-scrollbar-thumb: #cbd5e1;
   --pc-scrollbar-hover: #3b82f6;
   color-scheme: light;
@@ -31,13 +31,13 @@
   --pc-border: 51 65 85;              /* Slate 700 (#334155) */
   --pc-accent: 59 130 246;            /* Blue 500 (#3b82f6) */
   --pc-accent-hover: 37 99 235;       /* Blue 600 (#2563eb) */
-  --pc-success: 16 185 129;           /* blue 500 (#3b82f6) */
+  --pc-success: 16 185 129;           /* Emerald 500 (#10b981) */
   --pc-warning: 245 158 11;           /* Amber 500 (#f59e0b) */
   --pc-error: 239 68 68;              /* Red 500 (#ef4444) */
   --pc-text: 248 250 252;             /* Slate 50 (#f8fafc) */
   --pc-text-secondary: 148 163 184;   /* Slate 400 (#94a3b8) */
 
-  --pc-scrollbar-track: #161b22;
+  --pc-scrollbar-track: transparent;
   --pc-scrollbar-thumb: #30363d;
   --pc-scrollbar-hover: #3b82f6;
   color-scheme: dark;
@@ -64,10 +64,10 @@ input, textarea, select, button {
   color: inherit;
 }
 
-/* Scrollbar styling */
+/* Global scrollbar (thin, for the page/main areas) */
 ::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -76,36 +76,178 @@ input, textarea, select, button {
 
 ::-webkit-scrollbar-thumb {
   background-color: var(--pc-scrollbar-thumb);
-  border-radius: 6px;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background-color: var(--pc-scrollbar-hover);
 }
 
-/* Smooth transitions */
+/* Focus visible for keyboard navigation */
+*:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgb(var(--pc-bg)), 0 0 0 4px rgb(var(--pc-accent) / 0.5);
+  border-radius: inherit;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+button:focus-visible {
+  box-shadow: 0 0 0 2px rgb(var(--pc-accent) / 0.3);
+}
+
+/* ==========================================
+   Shared Utility Classes
+   ========================================== */
 @layer utilities {
+
+  /* --- Transitions --- */
   .transition-smooth {
     @apply transition-all duration-300 ease-in-out;
   }
-  
+
   .focus-ring {
     @apply focus:outline-none focus:ring-2 focus:ring-makoclaw-accent focus:ring-opacity-50;
   }
 
+  /* --- Glass Effects --- */
   .glass {
     @apply bg-makoclaw-surface/40 backdrop-blur-md border border-makoclaw-border/50;
   }
-  
+
   .glass-panel {
     @apply bg-makoclaw-surface/40 backdrop-blur-xl border border-makoclaw-border/30 shadow-xl;
   }
 
   .glass-sticky {
-    @apply sticky top-0 bg-makoclaw-bg/60 backdrop-blur-xl border-b border-makoclaw-border/30 z-20;
+    @apply sticky top-0 bg-makoclaw-bg/60 backdrop-blur-xl border-b border-makoclaw-border/30 z-sticky;
+  }
+
+  /* --- Scrollbar --- */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgb(var(--pc-border) / 0.5);
+    border-radius: 3px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(var(--pc-accent) / 0.6);
+  }
+
+  .scrollbar-hide {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* --- Buttons --- */
+  .btn-primary {
+    @apply px-4 py-2 bg-makoclaw-accent text-white rounded-lg
+           hover:bg-makoclaw-accent-hover transition-all shadow-sm
+           text-sm font-medium active:scale-[0.97];
+  }
+
+  .btn-secondary {
+    @apply px-4 py-2 bg-makoclaw-bg border border-makoclaw-border
+           text-makoclaw-text rounded-lg hover:bg-makoclaw-surface-hover
+           transition-colors text-sm active:scale-[0.98];
+  }
+
+  .btn-ghost {
+    @apply px-4 py-2 text-makoclaw-text-secondary hover:text-makoclaw-text
+           hover:bg-makoclaw-bg rounded-lg transition-colors text-sm
+           active:scale-[0.98];
+  }
+
+  .btn-danger {
+    @apply px-4 py-2 bg-makoclaw-error text-white rounded-lg
+           hover:bg-makoclaw-error/90 transition-all text-sm font-medium
+           active:scale-[0.97];
+  }
+
+  /* --- Form Inputs --- */
+  .input-field {
+    @apply w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border
+           rounded-lg text-sm text-makoclaw-text
+           focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent
+           transition-all outline-none placeholder:text-makoclaw-text-secondary/50;
+  }
+
+  /* --- Cards --- */
+  .card {
+    @apply bg-makoclaw-surface border border-makoclaw-border rounded-xl;
+  }
+
+  .card-hover {
+    @apply transition-all duration-300
+           hover:shadow-lg hover:-translate-y-0.5
+           hover:border-makoclaw-accent/20;
+  }
+
+  /* --- Tab Buttons --- */
+  .tab-button {
+    @apply px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap;
+  }
+
+  .tab-button-active {
+    @apply bg-makoclaw-surface shadow-sm text-makoclaw-accent border border-makoclaw-border/50;
+  }
+
+  .tab-button-inactive {
+    @apply text-makoclaw-text-secondary hover:text-makoclaw-text hover:bg-makoclaw-surface-hover;
+  }
+
+  /* --- Page Header --- */
+  .page-header {
+    @apply flex-none p-4 border-b border-makoclaw-border bg-makoclaw-surface;
+  }
+
+  /* --- Skeleton Loading --- */
+  .skeleton {
+    @apply bg-gradient-to-r from-makoclaw-surface via-makoclaw-surface-hover to-makoclaw-surface
+           bg-[length:200%_100%] animate-skeleton rounded;
+  }
+
+  /* --- Tooltip (replaces hardcoded bg-gray-900/95) --- */
+  .tooltip {
+    @apply absolute left-full ml-4 px-2.5 py-1.5
+           bg-makoclaw-surface text-makoclaw-text text-[11px]
+           rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none
+           transition-all duration-300 translate-x-1 group-hover:translate-x-0
+           whitespace-nowrap backdrop-blur-sm
+           border border-makoclaw-border shadow-lg;
+  }
+
+  /* --- Safe Area (notched phones) --- */
+  @supports (padding: env(safe-area-inset-bottom)) {
+    .safe-bottom {
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .safe-top {
+      padding-top: env(safe-area-inset-top);
+    }
+  }
+
+  /* --- Touch Targets --- */
+  @media (pointer: coarse) {
+    .touch-target {
+      min-height: 44px;
+      min-width: 44px;
+    }
   }
 }
 
+/* ==========================================
+   Animations (legacy class-based)
+   ========================================== */
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -124,4 +266,83 @@ input, textarea, select, button {
   animation: slideUp 0.3s ease-out forwards;
 }
 
+/* ==========================================
+   Vue Transition Classes
+   ========================================== */
 
+/* Route page transitions */
+.page-enter-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.page-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+/* Simple fade */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* Modal scale + fade */
+.modal-enter-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.modal-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.modal-enter-from {
+  opacity: 0;
+  transform: scale(0.95);
+}
+.modal-leave-to {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+/* Sidebar slide-in (mobile) */
+.slide-enter-active {
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+.slide-leave-active {
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+.slide-enter-from {
+  transform: translateX(-100%);
+  opacity: 0;
+}
+.slide-leave-to {
+  transform: translateX(-100%);
+  opacity: 0;
+}
+
+/* List stagger (for TransitionGroup) */
+.list-enter-active {
+  transition: all 0.3s ease;
+}
+.list-leave-active {
+  transition: all 0.2s ease;
+}
+.list-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.list-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+.list-move {
+  transition: transform 0.3s ease;
+}

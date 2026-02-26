@@ -90,7 +90,7 @@ const iconColorClass = computed(() => {
     analyzing: 'text-blue-400',
     delegating: 'text-purple-400',
     working: 'text-green-400'
-  }[status] || 'text-gray-400'
+  }[status] || 'text-makoclaw-text-secondary'
 })
 
 const textColorClass = computed(() => iconColorClass.value)
@@ -101,7 +101,7 @@ const borderColorClass = computed(() => {
     analyzing: 'border-blue-400',
     delegating: 'border-purple-400',
     working: 'border-green-400'
-  }[status] || 'border-gray-400'
+  }[status] || 'border-makoclaw-text-secondary'
 })
 </script>
 
