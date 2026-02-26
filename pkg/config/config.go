@@ -33,12 +33,7 @@ func getDataDir() string {
 		return dataDir
 	}
 
-	// 1. Check for local MakoClaw-data directory first
-	if info, err := os.Stat("MakoClaw-data"); err == nil && info.IsDir() {
-		return "MakoClaw-data"
-	}
-
-	// 2. Fallback to user home directory
+	// Fallback to user home directory (standard location for Docker volumes)
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".MakoClaw")
 }

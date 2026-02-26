@@ -25,7 +25,20 @@
       "Bash(docker-compose logs:*)",
       "Bash(git add:*)",
       "Bash(grep:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "mcp__filesystem-src__directory_tree",
+      "Bash(npx vue-tsc --noEmit)",
+      "Bash(npx tailwindcss --content \"./src/**/*.vue\" --input ./src/styles/globals.css --output /dev/null)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(npm --version)",
+      "Bash(where npx)",
+      "Bash(where node)",
+      "Bash(node node_modules/vite/bin/vite.js build)",
+      "Bash(git checkout -b ui/comprehensive-ux-improvements)",
+      "Bash(gh pr:*)",
+      "Bash(git fetch origin main)",
+      "Bash(git checkout main)",
+      "Bash(git pull origin main)"
     ]
   },
   "enabledPlugins": {

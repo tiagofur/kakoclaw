@@ -1471,15 +1471,6 @@ func authStatusCmd() {
 }
 
 func getConfigPath() string {
-	// 1. Current directory
-	if _, err := os.Stat("config.json"); err == nil {
-		return "config.json"
-	}
-	// 2. Project data directory
-	if _, err := os.Stat(filepath.Join("MakoClaw-data", "config.json")); err == nil {
-		return filepath.Join("MakoClaw-data", "config.json")
-	}
-	// 3. User home directory (default)
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".MakoClaw", "config.json")
 }
