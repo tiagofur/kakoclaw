@@ -15,12 +15,15 @@ import (
 )
 
 type ContextBuilder struct {
-	workspace    string
-	userUUID     string // User UUID for multiuser support
-	userID       int64  // User ID from database
-	skillsLoader *skills.SkillsLoader
-	memory       *MemoryStore
-	tools        *tools.ToolRegistry // Direct reference to tool registry
+	workspace         string
+	userUUID          string // User UUID for multiuser support
+	userID            int64  // User ID from database
+	skillsLoader      *skills.SkillsLoader
+	memory            *MemoryStore
+	tools             *tools.ToolRegistry // Direct reference to tool registry
+	agentSystemPrompt string              // Agent-specific system prompt (orchestrator/specialist role)
+	skillFilter       []string            // nil=all skills, []string{}=no skills, ["x","y"]=only those
+	lightweightMode   bool                // Omit bootstrap files and memory for lean context
 }
 
 func getGlobalConfigDir() string {
@@ -94,6 +97,28 @@ func (cb *ContextBuilder) getUserWorkspacePath() string {
 // SetToolsRegistry sets the tools registry for dynamic tool summary generation.
 func (cb *ContextBuilder) SetToolsRegistry(registry *tools.ToolRegistry) {
 	cb.tools = registry
+}
+
+// SetAgentSystemPrompt sets an agent-specific system prompt that is injected
+// after the identity section. Used by the orchestrator (delegation context) and
+// specialists (role-specific instructions).
+func (cb *ContextBuilder) SetAgentSystemPrompt(prompt string) {
+	cb.agentSystemPrompt = prompt
+}
+
+// SetSkillFilter controls which skills are included in the system prompt.
+//   - nil: load all skills (default behavior)
+//   - empty slice: load no skills
+//   - non-empty slice: load only the named skills
+func (cb *ContextBuilder) SetSkillFilter(skillNames []string) {
+	cb.skillFilter = skillNames
+}
+
+// SetLightweightMode enables/disables lightweight context mode.
+// When enabled, bootstrap files (AGENTS.md, SOUL.md, etc.) and memory
+// are omitted from the system prompt to reduce token usage.
+func (cb *ContextBuilder) SetLightweightMode(enabled bool) {
+	cb.lightweightMode = enabled
 }
 
 func (cb *ContextBuilder) getIdentity() string {
@@ -174,14 +199,31 @@ func (cb *ContextBuilder) BuildSystemPrompt() string {
 	// Core identity section
 	parts = append(parts, cb.getIdentity())
 
-	// Bootstrap files
-	bootstrapContent := cb.LoadBootstrapFiles()
-	if bootstrapContent != "" {
-		parts = append(parts, bootstrapContent)
+	// Agent-specific system prompt (orchestrator delegation context, specialist role, etc.)
+	if cb.agentSystemPrompt != "" {
+		parts = append(parts, cb.agentSystemPrompt)
 	}
 
-	// Skills - show summary, AI can read full content with read_file tool
-	skillsSummary := cb.skillsLoader.BuildSkillsSummary()
+	// Bootstrap files (skip in lightweight mode for specialists/orchestrator)
+	if !cb.lightweightMode {
+		bootstrapContent := cb.LoadBootstrapFiles()
+		if bootstrapContent != "" {
+			parts = append(parts, bootstrapContent)
+		}
+	}
+
+	// Skills - filtered by skillFilter setting
+	var skillsSummary string
+	if cb.skillFilter != nil {
+		// Explicit filter set
+		if len(cb.skillFilter) > 0 {
+			skillsSummary = cb.skillsLoader.BuildSkillsSummaryForNames(cb.skillFilter)
+		}
+		// else: empty slice = no skills loaded
+	} else {
+		// nil = load all skills (default)
+		skillsSummary = cb.skillsLoader.BuildSkillsSummary()
+	}
 	if skillsSummary != "" {
 		parts = append(parts, fmt.Sprintf(`# Skills
 
@@ -190,10 +232,12 @@ The following skills extend your capabilities. To use a skill, read its SKILL.md
 %s`, skillsSummary))
 	}
 
-	// Memory context
-	memoryContext := cb.memory.GetMemoryContext()
-	if memoryContext != "" {
-		parts = append(parts, "# Memory\n\n"+memoryContext)
+	// Memory context (skip in lightweight mode)
+	if !cb.lightweightMode {
+		memoryContext := cb.memory.GetMemoryContext()
+		if memoryContext != "" {
+			parts = append(parts, "# Memory\n\n"+memoryContext)
+		}
 	}
 
 	// Join with "---" separator

@@ -132,6 +132,7 @@ type SpecialistConfig struct {
 	MaxToolIterations int      `json:"max_tool_iterations"`
 	Tools             []string `json:"tools"`
 	Keywords          []string `json:"keywords"`
+	Skills            []string `json:"skills,omitempty"` // Skill names to load (omitted=all, empty=none)
 }
 
 type ChannelsConfig struct {

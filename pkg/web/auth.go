@@ -134,9 +134,14 @@ func (m *authManager) login(username, password string) (string, error) {
 		return "", fmt.Errorf("usuario bloqueado. Motivo: %s. Contacte soporte", user.BlockedReason)
 	}
 
+	fmt.Printf("[DEBUG] Verifying password for %s (hash len: %d)\n", user.Username, len(user.PasswordHash))
+
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+		fmt.Printf("[DEBUG] Bcrypt comparison failed for %s: %v\n", user.Username, err)
 		return "", errors.New("invalid credentials")
 	}
+
+	fmt.Printf("[DEBUG] Password verified successfully for %s\n", user.Username)
 
 	return m.signToken(user.Username, user.UUID, user.Role)
 }

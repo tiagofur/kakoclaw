@@ -39,7 +39,14 @@
       "Bash(git fetch origin main)",
       "Bash(git checkout main)",
       "Bash(git pull origin main)",
-      "Bash(git checkout -b ui/inner-app-ux-polish)"
+      "Bash(git checkout -b ui/inner-app-ux-polish)",
+      "mcp__filesystem-repos__read_text_file",
+      "mcp__filesystem-repos__list_allowed_directories",
+      "Bash(docker build --progress=plain -t makoclaw:latest .)",
+      "Bash(docker compose up -d)",
+      "Bash(docker exec makoclaw sh -c 'sqlite3 /home/makoclaw/.MakoClaw/central.db \"\"SELECT id, username, role, length\\(password_hash\\) as hash_len, blocked FROM users LIMIT 10;\"\" 2>/dev/null || echo \"\"sqlite3 not available\"\"')",
+      "Bash(docker exec makoclaw makoclaw auth --help)",
+      "Bash(docker exec makoclaw makoclaw help)"
     ]
   },
   "enabledPlugins": {

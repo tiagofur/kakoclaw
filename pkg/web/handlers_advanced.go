@@ -3874,3 +3874,69 @@ func extractExplanation(fullResponse, jsonPart string) string {
 	}
 	return "AI-generated cron job"
 }
+
+func (s *Server) handleSkillGenerateConfig(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Prompt string `json:"prompt"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.Prompt == "" {
+		writeJSONError(w, "Prompt is required", http.StatusBadRequest)
+		return
+	}
+
+	userID, ok := s.getUserIDFromClaims(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	systemPrompt := `You are a skill configuration generator for MakoClaw.
+Your task is to propose a skill name, description, and additional context based on the user's request.
+A skill is a set of instructions (SKILL.md) that teaches the agent how to perform specific tasks.
+
+Rules:
+1. Name: Use a short, descriptive name with lowercase letters and hyphens (e.g., "github-helper", "system-monitor").
+2. Description: A concise summary of what the skill does.
+3. Additional Context: Detailed instructions or requirements for the skill generator.
+
+YOU MUST RESPOND ONLY WITH A JSON OBJECT:
+{
+  "name": "proposed-skill-name",
+  "description": "Short description",
+  "prompt": "Proactive details for the SKILL.md template generation"
+}`
+
+	userPrompt := fmt.Sprintf("Generate a skill configuration for: %s", req.Prompt)
+
+	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+	defer cancel()
+
+	// Use ProcessDirectWithUserAndModel to leverage user-configured provider
+	response, err := s.agentLoop.ProcessDirectWithUserAndModel(
+		ctx, userID, userPrompt, "web:skills:generate-config", systemPrompt,
+	)
+	if err != nil {
+		writeJSONError(w, "AI generation failed: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Try to extract JSON from the response
+	content := extractJsonFromResponse(response)
+	var result map[string]interface{}
+	if err := json.Unmarshal([]byte(content), &result); err != nil {
+		writeJSONError(w, "Failed to parse AI response as JSON", http.StatusInternalServerError)
+		return
+	}
+
+	writeJSONResponse(w, result)
+}
