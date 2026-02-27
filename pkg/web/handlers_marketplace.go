@@ -270,12 +270,18 @@ func (s *Server) handleMarketplaceFork(w http.ResponseWriter, r *http.Request) {
 	// Determine a unique fork name (up to 10 attempts)
 	baseName := sub.SkillSlug + "-fork"
 	forkedName := baseName
+	found := false
 	for i := 2; i <= 10; i++ {
 		skillMD := filepath.Join(userWorkspace, "skills", forkedName, "SKILL.md")
 		if _, statErr := os.Stat(skillMD); os.IsNotExist(statErr) {
+			found = true
 			break
 		}
 		forkedName = fmt.Sprintf("%s-%d", baseName, i)
+	}
+	if !found {
+		http.Error(w, "All fork slots are taken. Remove an existing fork first.", http.StatusConflict)
+		return
 	}
 
 	skillDir := filepath.Join(userWorkspace, "skills", forkedName)
