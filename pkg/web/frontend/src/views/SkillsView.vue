@@ -1109,7 +1109,6 @@ const handleSaveGenerated = async (overwrite = false) => {
 
 onMounted(() => {
   loadSkills()
-  loadBundles()
 })
 </script>
 

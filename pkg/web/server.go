@@ -315,7 +315,7 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/marketplace/submissions", s.handleMarketplaceMySubmissions) // My submissions
 	mux.HandleFunc("/api/v1/marketplace/categories", s.handleMarketplaceCategories)     // Categories list
 	mux.HandleFunc("/api/v1/marketplace/bundles", s.handleMarketplaceBundles)           // List / create bundles
-	mux.HandleFunc("/api/v1/marketplace/bundles/", s.handleMarketplaceBundleInstall)    // Install bundle
+	mux.HandleFunc("/api/v1/marketplace/bundles/", s.handleMarketplaceBundleAction)     // Bundle actions (install, ...)
 	mux.HandleFunc("/api/v1/admin/submissions", s.handleAdminPendingSubmissions)        // Admin: pending submissions
 	mux.HandleFunc("/api/v1/admin/submissions/", s.handleAdminSubmissionAction)         // Admin: approve/reject
 

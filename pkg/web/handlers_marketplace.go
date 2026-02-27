@@ -823,7 +823,7 @@ func (s *Server) handleMarketplaceBundles(w http.ResponseWriter, r *http.Request
 		}
 		writeJSONResponse(w, map[string]interface{}{
 			"bundles": bundles,
-			"total":   len(bundles),
+			"count":   len(bundles),
 		})
 
 	case http.MethodPost:
@@ -864,6 +864,10 @@ func (s *Server) handleMarketplaceBundles(w http.ResponseWriter, r *http.Request
 			http.Error(w, "at least one skill_slug is required", http.StatusBadRequest)
 			return
 		}
+		if strings.TrimSpace(body.Description) == "" {
+			http.Error(w, "description is required", http.StatusBadRequest)
+			return
+		}
 
 		icon := body.Icon
 		if icon == "" {
@@ -871,6 +875,12 @@ func (s *Server) handleMarketplaceBundles(w http.ResponseWriter, r *http.Request
 		}
 
 		slug := slugify(body.Name)
+
+		existing, _ := s.centralStore.GetBundleBySlug(slug)
+		if existing != nil {
+			http.Error(w, "a bundle with this name already exists", http.StatusConflict)
+			return
+		}
 
 		now := time.Now().Format(time.RFC3339)
 		status := "pending"
@@ -894,10 +904,6 @@ func (s *Server) handleMarketplaceBundles(w http.ResponseWriter, r *http.Request
 
 		id, err := s.centralStore.CreateBundle(bundle)
 		if err != nil {
-			if strings.Contains(err.Error(), "UNIQUE constraint failed") {
-				http.Error(w, "bundle with this name already exists", http.StatusConflict)
-				return
-			}
 			http.Error(w, "failed to create bundle: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -1002,6 +1008,16 @@ func (s *Server) handleMarketplaceBundleInstall(w http.ResponseWriter, r *http.R
 		"skipped":   skipped,
 		"failed":    failed,
 	})
+}
+
+// handleMarketplaceBundleAction routes requests under /api/v1/marketplace/bundles/ based on path suffix.
+func (s *Server) handleMarketplaceBundleAction(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Path
+	if strings.HasSuffix(path, "/install") {
+		s.handleMarketplaceBundleInstall(w, r)
+		return
+	}
+	http.NotFound(w, r)
 }
 
 // handleMarketplaceSkillAction routes to detail, fork, install, or rate based on path
