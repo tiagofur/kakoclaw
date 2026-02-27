@@ -194,6 +194,9 @@ func (s *Storage) migrateUserDB() error {
 	if err := s.migrateUserProviders(); err != nil {
 		return fmt.Errorf("user providers migration: %w", err)
 	}
+	if err := s.migrateSkillUsage(); err != nil {
+		return fmt.Errorf("skill usage migration: %w", err)
+	}
 
 	return nil
 }
@@ -340,6 +343,9 @@ func (s *Storage) migrate() error {
 	if err := s.migrateUserProviders(); err != nil {
 		return fmt.Errorf("user providers migration: %w", err)
 	}
+	if err := s.migrateSkillUsage(); err != nil {
+		return fmt.Errorf("skill usage migration: %w", err)
+	}
 
 	return nil
 }
@@ -437,4 +443,67 @@ func (s *Storage) ExecRaw(query string, args ...interface{}) (sql.Result, error)
 
 func (s *Storage) QueryRaw(query string, args ...interface{}) (*sql.Rows, error) {
 	return s.db.Query(query, args...)
+}
+
+func (s *Storage) migrateSkillUsage() error {
+	queries := []string{
+		`CREATE TABLE IF NOT EXISTS skill_usage_events (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			skill_name TEXT NOT NULL,
+			skill_source TEXT NOT NULL,
+			session_key TEXT NOT NULL,
+			loaded_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_skill_usage_skill_name ON skill_usage_events(skill_name);`,
+		`CREATE INDEX IF NOT EXISTS idx_skill_usage_loaded_at ON skill_usage_events(loaded_at);`,
+	}
+	for _, q := range queries {
+		if _, err := s.db.Exec(q); err != nil {
+			return fmt.Errorf("skill usage migration query: %w", err)
+		}
+	}
+	return nil
+}
+
+// RecordSkillUsage inserts a single usage event (fire-and-forget safe).
+func (s *Storage) RecordSkillUsage(skillName, skillSource, sessionKey string) error {
+	_, err := s.db.Exec(`
+		INSERT INTO skill_usage_events (skill_name, skill_source, session_key)
+		VALUES (?, ?, ?)`, skillName, skillSource, sessionKey)
+	return err
+}
+
+// SkillUsageStat holds aggregated usage stats for a single skill.
+type SkillUsageStat struct {
+	SkillName  string `json:"skill_name"`
+	LoadCount  int    `json:"load_count"`
+	LastUsedAt string `json:"last_used_at"`
+}
+
+// GetSkillUsageStats returns top skills by load count over the past `days` days.
+func (s *Storage) GetSkillUsageStats(days int) ([]SkillUsageStat, error) {
+	rows, err := s.db.Query(`
+		SELECT skill_name, COUNT(*) as load_count, MAX(loaded_at) as last_used_at
+		FROM skill_usage_events
+		WHERE loaded_at >= datetime('now', ?)
+		GROUP BY skill_name
+		ORDER BY load_count DESC
+		LIMIT 20`,
+		fmt.Sprintf("-%d days", days))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var stats []SkillUsageStat
+	for rows.Next() {
+		var st SkillUsageStat
+		if err := rows.Scan(&st.SkillName, &st.LoadCount, &st.LastUsedAt); err != nil {
+			return nil, err
+		}
+		stats = append(stats, st)
+	}
+	if stats == nil {
+		stats = []SkillUsageStat{}
+	}
+	return stats, rows.Err()
 }

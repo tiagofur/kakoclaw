@@ -28,6 +28,11 @@
             :class="[activeTab === 'marketplace' ? 'tab-button-active' : 'tab-button-inactive']"
           >Marketplace</button>
           <button
+            @click="activeTab = 'bundles'; loadBundles()"
+            class="tab-button"
+            :class="[activeTab === 'bundles' ? 'tab-button-active' : 'tab-button-inactive']"
+          >Bundles</button>
+          <button
             @click="activeTab = 'submissions'; loadMySubmissions()"
             class="tab-button"
             :class="[activeTab === 'submissions' ? 'tab-button-active' : 'tab-button-inactive']"
@@ -74,6 +79,9 @@
                 <div class="flex-1 min-w-0">
                   <h3 class="font-semibold truncate">{{ skill.name }}</h3>
                   <p class="text-sm text-makoclaw-text-secondary mt-1 line-clamp-2">{{ skill.description || 'No description' }}</p>
+                  <span v-if="getUsageCount(skill.name) > 0" class="text-xs text-makoclaw-text-secondary">
+                    {{ getUsageCount(skill.name) }}x used
+                  </span>
                 </div>
                 <span class="ml-2 px-2 py-0.5 text-xs rounded-full flex-shrink-0"
                   :class="{
@@ -117,7 +125,19 @@
             <p class="text-lg">No skills available in marketplace</p>
             <p class="text-sm mt-2">Be the first to submit a skill!</p>
           </div>
-          <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <template v-else>
+          <!-- Trending section -->
+          <div v-if="trendingSkills.length > 0" class="mb-6">
+            <h3 class="text-sm font-medium text-makoclaw-text-secondary mb-3">Trending</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div v-for="skill in trendingSkills" :key="'trending-' + skill.slug" class="card p-3">
+                <div class="font-medium text-sm">{{ skill.name }}</div>
+                <div class="text-xs text-makoclaw-text-secondary mt-1 line-clamp-2">{{ skill.description }}</div>
+                <div class="text-xs text-makoclaw-text-secondary mt-2">{{ skill.install_count }} installs</div>
+              </div>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div
               v-for="skill in marketplaceSkills"
               :key="skill.slug || skill.name"
@@ -201,6 +221,44 @@
                   >{{ submittingRating ? 'Submitting...' : 'Submit Rating' }}</button>
                 </div>
               </div>
+            </div>
+          </div>
+          </template>
+        </div>
+
+        <!-- Bundles -->
+        <div v-else-if="activeTab === 'bundles'" key="bundles">
+          <div v-if="loadingBundles" class="flex items-center justify-center py-12">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-makoclaw-accent"></div>
+          </div>
+          <div v-else-if="bundles.length === 0" class="text-center py-12 text-makoclaw-text-secondary">
+            <p class="text-lg">No bundles available</p>
+            <p class="text-sm mt-2">Bundles are curated skill collections for one-click install</p>
+          </div>
+          <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div
+              v-for="bundle in bundles"
+              :key="bundle.slug"
+              class="card p-4 flex flex-col gap-3"
+            >
+              <div class="flex items-start gap-3">
+                <span class="text-2xl">{{ bundle.icon }}</span>
+                <div class="flex-1 min-w-0">
+                  <h3 class="font-medium text-sm">{{ bundle.name }}</h3>
+                  <p class="text-xs text-makoclaw-text-secondary mt-1 line-clamp-2">{{ bundle.description }}</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-3 text-xs text-makoclaw-text-secondary">
+                <span>{{ bundle.skill_slugs?.length ?? 0 }} skills</span>
+                <span>{{ bundle.install_count }} installs</span>
+              </div>
+              <button
+                @click="installBundle(bundle)"
+                :disabled="installingBundle === bundle.slug"
+                class="btn-primary text-xs w-full"
+              >
+                {{ installingBundle === bundle.slug ? 'Installing...' : 'Install Bundle' }}
+              </button>
             </div>
           </div>
         </div>
@@ -594,6 +652,13 @@ const marketplaceSkills = ref([])
 const mySubmissions = ref([])
 const installing = ref(null)
 const forking = ref(null)
+const bundles = ref([])
+const loadingBundles = ref(false)
+const installingBundle = ref(null)
+
+// Skill analytics
+const usageStats = ref([])
+const trendingSkills = ref([])
 const viewingSkill = ref(null)
 const editingSkill = ref(null)
 const editContent = ref('')
@@ -628,6 +693,11 @@ const generateFormErrors = ref({
   name: '',
   description: ''
 })
+
+const getUsageCount = (skillName) => {
+  const stat = usageStats.value.find(s => s.skill_name === skillName)
+  return stat ? stat.load_count : 0
+}
 
 const toggleRatingWidget = (slug) => {
   if (ratingOpenSlug.value === slug) {
@@ -715,6 +785,10 @@ const loadMarketplace = async () => {
   } finally {
     loadingMarketplace.value = false
   }
+  // Load trending skills (non-fatal)
+  advancedService.fetchMarketplaceSkills({ sort: 'trending', limit: 3, page: 1 }).then(data => {
+    trendingSkills.value = (data.skills || []).slice(0, 3)
+  }).catch(() => {})
 }
 
 const loadMySubmissions = async () => {
@@ -727,6 +801,41 @@ const loadMySubmissions = async () => {
     toast.error('Failed to load submissions')
   } finally {
     loadingSubmissions.value = false
+  }
+}
+
+const loadBundles = async () => {
+  loadingBundles.value = true
+  try {
+    const data = await advancedService.fetchMarketplaceBundles()
+    bundles.value = data.bundles || []
+  } catch (err) {
+    console.error('Failed to load bundles:', err)
+  } finally {
+    loadingBundles.value = false
+  }
+}
+
+const installBundle = async (bundle) => {
+  installingBundle.value = bundle.slug
+  try {
+    const result = await advancedService.installBundle(bundle.slug)
+    const installed = result.installed || []
+    const failed = result.failed || []
+    if (installed.length > 0) {
+      toast.success(`Installed ${installed.length} skill(s) from "${bundle.name}"`)
+    } else {
+      toast.info(`All skills from "${bundle.name}" were already installed`)
+    }
+    if (failed.length > 0) {
+      toast.error(`Could not install: ${failed.join(', ')}`)
+    }
+    bundle.install_count = (bundle.install_count || 0) + 1
+    await loadSkills()
+  } catch (err) {
+    toast.error(err.response?.data || 'Failed to install bundle')
+  } finally {
+    installingBundle.value = null
   }
 }
 
@@ -1027,7 +1136,12 @@ const handleSaveGenerated = async (overwrite = false) => {
   }
 }
 
-onMounted(() => loadSkills())
+onMounted(() => {
+  loadSkills()
+  advancedService.fetchSkillAnalytics().then(data => {
+    usageStats.value = data.stats || []
+  }).catch(() => {}) // non-fatal
+})
 </script>
 
 <style scoped>

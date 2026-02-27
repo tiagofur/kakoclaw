@@ -58,9 +58,17 @@ export default {
     return response.data
   },
 
+  // Skill analytics
+  fetchSkillAnalytics: async () => {
+    const response = await client.get('/skills/analytics')
+    return response.data
+  },
+
   // Marketplace
-  fetchMarketplaceSkills: async (category = '', page = 1) => {
-    const response = await client.get('/marketplace/skills', { params: { category, page } })
+  fetchMarketplaceSkills: async ({ category = '', page = 1, sort = '' } = {}) => {
+    const params = { category, page }
+    if (sort) params.sort = sort
+    const response = await client.get('/marketplace/skills', { params })
     return response.data
   },
 
@@ -103,6 +111,22 @@ export default {
 
   fetchSkillRatings: async (slug) => {
     const response = await client.get(`/marketplace/skills/${encodeURIComponent(slug)}/rate`)
+    return response.data
+  },
+
+  // Bundles
+  fetchMarketplaceBundles: async (page = 1) => {
+    const response = await client.get('/marketplace/bundles', { params: { page } })
+    return response.data
+  },
+
+  installBundle: async (slug) => {
+    const response = await client.post(`/marketplace/bundles/${encodeURIComponent(slug)}/install`, {}, { timeout: 60000 })
+    return response.data
+  },
+
+  submitBundle: async (payload) => {
+    const response = await client.post('/marketplace/bundles', payload)
     return response.data
   },
 

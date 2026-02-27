@@ -55,6 +55,7 @@ func (s *Server) handleMarketplaceSkills(w http.ResponseWriter, r *http.Request)
 	}
 
 	category := r.URL.Query().Get("category")
+	sort := r.URL.Query().Get("sort")
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	if page < 1 {
 		page = 1
@@ -68,7 +69,7 @@ func (s *Server) handleMarketplaceSkills(w http.ResponseWriter, r *http.Request)
 		callerUserID, _ = s.getUserIDFromUUID(userUUID)
 	}
 
-	submissions, err := s.centralStore.GetApprovedSkillSubmissions(category, limit, offset, callerUserID)
+	submissions, err := s.centralStore.GetApprovedSkillSubmissions(category, sort, limit, offset, callerUserID)
 	if err != nil {
 		http.Error(w, "failed to fetch skills", http.StatusInternalServerError)
 		return
@@ -791,6 +792,233 @@ func (s *Server) handleSkillRating(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+// ==================== BUNDLES ====================
+
+// handleMarketplaceBundles handles GET (list approved bundles) and POST (create bundle).
+func (s *Server) handleMarketplaceBundles(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if s.centralStore == nil {
+		http.Error(w, "marketplace unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+		if page < 1 {
+			page = 1
+		}
+		limit := 20
+		offset := (page - 1) * limit
+
+		bundles, err := s.centralStore.GetApprovedBundles(limit, offset)
+		if err != nil {
+			http.Error(w, "failed to fetch bundles", http.StatusInternalServerError)
+			return
+		}
+		if bundles == nil {
+			bundles = []*storage.SkillBundle{}
+		}
+		writeJSONResponse(w, map[string]interface{}{
+			"bundles": bundles,
+			"count":   len(bundles),
+		})
+
+	case http.MethodPost:
+		store, userUUID, ok := s.getUserStorage(r)
+		if !ok || store == nil {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		userID, _ := s.getUserIDFromUUID(userUUID)
+		if userID == 0 {
+			http.Error(w, "user not found", http.StatusUnauthorized)
+			return
+		}
+
+		user, err := s.centralStore.GetUserByID(userID)
+		if err != nil || user == nil {
+			http.Error(w, "user not found", http.StatusUnauthorized)
+			return
+		}
+
+		var body struct {
+			Name        string   `json:"name"`
+			Description string   `json:"description"`
+			Icon        string   `json:"icon"`
+			SkillSlugs  []string `json:"skill_slugs"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		if strings.TrimSpace(body.Name) == "" {
+			http.Error(w, "name is required", http.StatusBadRequest)
+			return
+		}
+		if len(body.SkillSlugs) == 0 {
+			http.Error(w, "at least one skill_slug is required", http.StatusBadRequest)
+			return
+		}
+		if strings.TrimSpace(body.Description) == "" {
+			http.Error(w, "description is required", http.StatusBadRequest)
+			return
+		}
+
+		icon := body.Icon
+		if icon == "" {
+			icon = "📦"
+		}
+
+		slug := slugify(body.Name)
+
+		existing, _ := s.centralStore.GetBundleBySlug(slug)
+		if existing != nil {
+			http.Error(w, "a bundle with this name already exists", http.StatusConflict)
+			return
+		}
+
+		now := time.Now().Format(time.RFC3339)
+		status := "pending"
+		var publishedAt *string
+		if user.Role == "admin" {
+			status = "approved"
+			publishedAt = &now
+		}
+
+		bundle := &storage.SkillBundle{
+			UserID:      userID,
+			Name:        body.Name,
+			Slug:        slug,
+			Description: body.Description,
+			Icon:        icon,
+			SkillSlugs:  body.SkillSlugs,
+			Author:      user.Username,
+			Status:      status,
+			PublishedAt: publishedAt,
+		}
+
+		id, err := s.centralStore.CreateBundle(bundle)
+		if err != nil {
+			http.Error(w, "failed to create bundle: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		bundle.ID = id
+		writeJSONResponse(w, bundle)
+
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// handleMarketplaceBundleInstall installs all skills in a bundle into the user's workspace.
+func (s *Server) handleMarketplaceBundleInstall(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if s.centralStore == nil {
+		http.Error(w, "marketplace unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	// Extract slug: strip prefix and /install suffix
+	path := strings.TrimPrefix(r.URL.Path, "/api/v1/marketplace/bundles/")
+	slug := strings.TrimSuffix(path, "/install")
+
+	bundle, err := s.centralStore.GetBundleBySlug(slug)
+	if err != nil {
+		http.Error(w, "failed to fetch bundle", http.StatusInternalServerError)
+		return
+	}
+	if bundle == nil {
+		http.Error(w, "bundle not found", http.StatusNotFound)
+		return
+	}
+	if bundle.Status != "approved" {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+
+	_, userUUID, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	userWorkspace, err := config.EnsureUserWorkspace(userUUID)
+	if err != nil {
+		http.Error(w, "failed to access workspace", http.StatusInternalServerError)
+		return
+	}
+
+	installer := skills.NewSkillInstaller(userWorkspace)
+
+	var installed []string
+	var skipped []string
+	var failed []string
+
+	for _, skillSlug := range bundle.SkillSlugs {
+		// Check if already installed
+		skillMD := filepath.Join(userWorkspace, "skills", skillSlug, "SKILL.md")
+		if _, statErr := os.Stat(skillMD); statErr == nil {
+			skipped = append(skipped, skillSlug)
+			continue
+		}
+
+		// Look up in marketplace
+		depSub, lookupErr := s.centralStore.GetSkillSubmissionBySlug(skillSlug)
+		if lookupErr != nil || depSub == nil || depSub.Status != "approved" {
+			failed = append(failed, skillSlug)
+			continue
+		}
+
+		// Install the skill
+		if installErr := installer.InstallFromContent(skillSlug, depSub.Content); installErr != nil {
+			failed = append(failed, skillSlug)
+			continue
+		}
+		installed = append(installed, skillSlug)
+	}
+
+	// Increment install count (non-fatal)
+	_ = s.centralStore.IncrementBundleInstallCount(bundle.ID)
+
+	if installed == nil {
+		installed = []string{}
+	}
+	if skipped == nil {
+		skipped = []string{}
+	}
+	if failed == nil {
+		failed = []string{}
+	}
+
+	writeJSONResponse(w, map[string]interface{}{
+		"message":   "Bundle installed",
+		"installed": installed,
+		"skipped":   skipped,
+		"failed":    failed,
+	})
+}
+
+// handleMarketplaceBundleAction routes requests under /api/v1/marketplace/bundles/ based on path suffix.
+func (s *Server) handleMarketplaceBundleAction(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Path
+	if strings.HasSuffix(path, "/install") {
+		s.handleMarketplaceBundleInstall(w, r)
+		return
+	}
+	http.NotFound(w, r)
 }
 
 // handleMarketplaceSkillAction routes to detail, fork, install, or rate based on path

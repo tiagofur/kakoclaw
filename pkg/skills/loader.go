@@ -17,9 +17,24 @@ type SkillMetadata struct {
 
 type SkillInfo struct {
 	Name        string `json:"name"`
+	Slug        string `json:"slug"`
 	Path        string `json:"path"`
 	Source      string `json:"source"`
 	Description string `json:"description"`
+}
+
+// slugifySkillName converts a raw skill directory name to the slugified form
+// used as skill_slug in the database. Mirrors the slugify() function in
+// pkg/web/handlers_marketplace.go.
+func slugifySkillName(name string) string {
+	name = strings.ToLower(name)
+	reg := regexp.MustCompile(`[^a-z0-9]+`)
+	slug := reg.ReplaceAllString(name, "-")
+	slug = strings.Trim(slug, "-")
+	if len(slug) > 64 {
+		slug = slug[:64]
+	}
+	return slug
 }
 
 type SkillsLoader struct {
@@ -58,6 +73,7 @@ func (sl *SkillsLoader) ListSkills() []SkillInfo {
 					if _, err := os.Stat(skillFile); err == nil {
 						info := SkillInfo{
 							Name:   dir.Name(),
+							Slug:   slugifySkillName(dir.Name()),
 							Path:   skillFile,
 							Source: "user",
 						}
@@ -93,6 +109,7 @@ func (sl *SkillsLoader) ListSkills() []SkillInfo {
 
 						info := SkillInfo{
 							Name:   dir.Name(),
+							Slug:   slugifySkillName(dir.Name()),
 							Path:   skillFile,
 							Source: "workspace",
 						}
@@ -128,6 +145,7 @@ func (sl *SkillsLoader) ListSkills() []SkillInfo {
 
 						info := SkillInfo{
 							Name:   dir.Name(),
+							Slug:   slugifySkillName(dir.Name()),
 							Path:   skillFile,
 							Source: "global",
 						}
@@ -163,6 +181,7 @@ func (sl *SkillsLoader) ListSkills() []SkillInfo {
 
 						info := SkillInfo{
 							Name:   dir.Name(),
+							Slug:   slugifySkillName(dir.Name()),
 							Path:   skillFile,
 							Source: "builtin",
 						}

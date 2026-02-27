@@ -3940,3 +3940,25 @@ YOU MUST RESPOND ONLY WITH A JSON OBJECT:
 
 	writeJSONResponse(w, result)
 }
+
+// handleSkillAnalytics returns per-user skill usage statistics for the past 30 days.
+func (s *Server) handleSkillAnalytics(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	userStorage, _, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	stats, err := userStorage.GetSkillUsageStats(30)
+	if err != nil {
+		http.Error(w, "failed to fetch analytics", http.StatusInternalServerError)
+		return
+	}
+	writeJSONResponse(w, map[string]interface{}{
+		"stats": stats,
+		"days":  30,
+	})
+}
