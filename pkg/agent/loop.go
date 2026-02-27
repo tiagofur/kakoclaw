@@ -770,6 +770,12 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, opts processOptions) (str
 	al.updateToolContexts(opts.Channel, opts.ChatID)
 
 	// 2. Build messages
+	// Wire analytics for this request's session key (fire-and-forget inside BuildSystemPrompt).
+	if al.storage != nil {
+		al.contextBuilder.WithAnalytics(al.storage, opts.SessionKey)
+		al.contextBuilder.WithCentralStore(al.centralStorage)
+	}
+
 	history := al.sessions.GetHistoryForUser(al.userID, opts.SessionKey)
 	summary := al.sessions.GetSummaryForUser(al.userID, opts.SessionKey)
 	messages := al.contextBuilder.BuildMessages(
@@ -866,6 +872,12 @@ func (al *AgentLoop) runAgentLoopStream(ctx context.Context, opts processOptions
 	al.updateToolContexts(opts.Channel, opts.ChatID)
 
 	// 2. Build messages
+	// Wire analytics for this request's session key (fire-and-forget inside BuildSystemPrompt).
+	if al.storage != nil {
+		al.contextBuilder.WithAnalytics(al.storage, opts.SessionKey)
+		al.contextBuilder.WithCentralStore(al.centralStorage)
+	}
+
 	history := al.sessions.GetHistoryForUser(al.userID, opts.SessionKey)
 	summary := al.sessions.GetSummaryForUser(al.userID, opts.SessionKey)
 	messages := al.contextBuilder.BuildMessages(

@@ -219,6 +219,7 @@ func (cs *CentralStorage) migrate() error {
 		`ALTER TABLE skill_submissions ADD COLUMN fork_count INTEGER NOT NULL DEFAULT 0;`,
 		`ALTER TABLE skill_submissions ADD COLUMN forked_from_id INTEGER REFERENCES skill_submissions(id);`,
 		`ALTER TABLE skill_submissions ADD COLUMN dependencies TEXT DEFAULT '[]';`,
+		`ALTER TABLE skill_submissions ADD COLUMN usage_count INTEGER NOT NULL DEFAULT 0;`,
 
 		// Skill bundles table for Feature E
 		`CREATE TABLE IF NOT EXISTS skill_bundles (
@@ -917,7 +918,8 @@ func (cs *CentralStorage) scanSkillSubmission(row *sql.Row) (*SkillSubmission, e
 
 // GetApprovedSkillSubmissions returns all approved skill submissions for the marketplace.
 // callerUserID is used to include the caller's own private skills alongside public ones.
-func (cs *CentralStorage) GetApprovedSkillSubmissions(category string, limit, offset int, callerUserID int64) ([]*SkillSubmission, error) {
+// sort controls ordering: "trending" => usage_count DESC, "popular" => install_count DESC, default => published_at DESC.
+func (cs *CentralStorage) GetApprovedSkillSubmissions(category, sort string, limit, offset int, callerUserID int64) ([]*SkillSubmission, error) {
 	query := `
 		SELECT id, user_id, skill_name, skill_slug, version, description, content,
 		       author, tags, category, repository_url, security_score, security_findings,
@@ -933,7 +935,15 @@ func (cs *CentralStorage) GetApprovedSkillSubmissions(category string, limit, of
 		args = append(args, category)
 	}
 
-	query += ` ORDER BY published_at DESC LIMIT ? OFFSET ?`
+	switch sort {
+	case "trending":
+		query += ` ORDER BY usage_count DESC`
+	case "popular":
+		query += ` ORDER BY install_count DESC`
+	default:
+		query += ` ORDER BY published_at DESC`
+	}
+	query += ` LIMIT ? OFFSET ?`
 	args = append(args, limit, offset)
 
 	rows, err := cs.db.Query(query, args...)
@@ -1069,6 +1079,14 @@ func (cs *CentralStorage) IncrementSkillInstallCount(id int64) error {
 		UPDATE skill_submissions
 		SET install_count = install_count + 1, updated_at = CURRENT_TIMESTAMP
 		WHERE id = ?`, id)
+	return err
+}
+
+// IncrementSkillUsageCount increments the usage count for a skill identified by its slug.
+func (cs *CentralStorage) IncrementSkillUsageCount(slug string) error {
+	_, err := cs.db.Exec(`
+		UPDATE skill_submissions SET usage_count = usage_count + 1, updated_at = CURRENT_TIMESTAMP
+		WHERE skill_slug = ?`, slug)
 	return err
 }
 

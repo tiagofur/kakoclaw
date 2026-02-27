@@ -11,6 +11,7 @@ import (
 	"github.com/sipeed/makoclaw/pkg/logger"
 	"github.com/sipeed/makoclaw/pkg/providers"
 	"github.com/sipeed/makoclaw/pkg/skills"
+	"github.com/sipeed/makoclaw/pkg/storage"
 	"github.com/sipeed/makoclaw/pkg/tools"
 )
 
@@ -24,6 +25,9 @@ type ContextBuilder struct {
 	agentSystemPrompt string              // Agent-specific system prompt (orchestrator/specialist role)
 	skillFilter       []string            // nil=all skills, []string{}=no skills, ["x","y"]=only those
 	lightweightMode   bool                // Omit bootstrap files and memory for lean context
+	userStore         *storage.Storage    // Per-user storage for skill analytics (optional)
+	centralStore      *storage.CentralStorage // Central storage for marketplace usage counts (optional)
+	sessionKey        string              // Session key for skill analytics events
 }
 
 func getGlobalConfigDir() string {
@@ -119,6 +123,21 @@ func (cb *ContextBuilder) SetSkillFilter(skillNames []string) {
 // are omitted from the system prompt to reduce token usage.
 func (cb *ContextBuilder) SetLightweightMode(enabled bool) {
 	cb.lightweightMode = enabled
+}
+
+// WithAnalytics configures per-user skill usage analytics.
+// When set, each call to BuildSystemPrompt will asynchronously record
+// the loaded skills as usage events in the per-user storage.
+func (cb *ContextBuilder) WithAnalytics(store *storage.Storage, sessionKey string) *ContextBuilder {
+	cb.userStore = store
+	cb.sessionKey = sessionKey
+	return cb
+}
+
+// WithCentralStore sets the central storage for incrementing marketplace usage counts.
+func (cb *ContextBuilder) WithCentralStore(cs *storage.CentralStorage) *ContextBuilder {
+	cb.centralStore = cs
+	return cb
 }
 
 func (cb *ContextBuilder) getIdentity() string {
@@ -230,6 +249,24 @@ func (cb *ContextBuilder) BuildSystemPrompt() string {
 The following skills extend your capabilities. To use a skill, read its SKILL.md file using the read_file tool.
 
 %s`, skillsSummary))
+	}
+
+	// Record skill usage analytics asynchronously (fire-and-forget, never blocks the prompt build).
+	if cb.userStore != nil && cb.skillsLoader != nil {
+		loadedSkills := cb.skillsLoader.ListSkills()
+		if len(loadedSkills) > 0 {
+			userStore := cb.userStore
+			centralStore := cb.centralStore
+			sessionKey := cb.sessionKey
+			go func() {
+				for _, sk := range loadedSkills {
+					_ = userStore.RecordSkillUsage(sk.Name, sk.Source, sessionKey)
+					if centralStore != nil {
+						_ = centralStore.IncrementSkillUsageCount(sk.Name)
+					}
+				}
+			}()
+		}
 	}
 
 	// Memory context (skip in lightweight mode)

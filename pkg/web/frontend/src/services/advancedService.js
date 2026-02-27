@@ -58,9 +58,17 @@ export default {
     return response.data
   },
 
+  // Skill analytics
+  fetchSkillAnalytics: async () => {
+    const response = await client.get('/skills/analytics')
+    return response.data
+  },
+
   // Marketplace
-  fetchMarketplaceSkills: async (category = '', page = 1) => {
-    const response = await client.get('/marketplace/skills', { params: { category, page } })
+  fetchMarketplaceSkills: async ({ category = '', page = 1, sort = '' } = {}) => {
+    const params = { category, page }
+    if (sort) params.sort = sort
+    const response = await client.get('/marketplace/skills', { params })
     return response.data
   },
 

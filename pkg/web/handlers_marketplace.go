@@ -55,6 +55,7 @@ func (s *Server) handleMarketplaceSkills(w http.ResponseWriter, r *http.Request)
 	}
 
 	category := r.URL.Query().Get("category")
+	sort := r.URL.Query().Get("sort")
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	if page < 1 {
 		page = 1
@@ -68,7 +69,7 @@ func (s *Server) handleMarketplaceSkills(w http.ResponseWriter, r *http.Request)
 		callerUserID, _ = s.getUserIDFromUUID(userUUID)
 	}
 
-	submissions, err := s.centralStore.GetApprovedSkillSubmissions(category, limit, offset, callerUserID)
+	submissions, err := s.centralStore.GetApprovedSkillSubmissions(category, sort, limit, offset, callerUserID)
 	if err != nil {
 		http.Error(w, "failed to fetch skills", http.StatusInternalServerError)
 		return

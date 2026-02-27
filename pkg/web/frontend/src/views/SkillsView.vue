@@ -79,6 +79,9 @@
                 <div class="flex-1 min-w-0">
                   <h3 class="font-semibold truncate">{{ skill.name }}</h3>
                   <p class="text-sm text-makoclaw-text-secondary mt-1 line-clamp-2">{{ skill.description || 'No description' }}</p>
+                  <span v-if="getUsageCount(skill.name) > 0" class="text-xs text-makoclaw-text-secondary">
+                    {{ getUsageCount(skill.name) }}x used
+                  </span>
                 </div>
                 <span class="ml-2 px-2 py-0.5 text-xs rounded-full flex-shrink-0"
                   :class="{
@@ -122,7 +125,19 @@
             <p class="text-lg">No skills available in marketplace</p>
             <p class="text-sm mt-2">Be the first to submit a skill!</p>
           </div>
-          <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <template v-else>
+          <!-- Trending section -->
+          <div v-if="trendingSkills.length > 0" class="mb-6">
+            <h3 class="text-sm font-medium text-makoclaw-text-secondary mb-3">Trending</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div v-for="skill in trendingSkills" :key="'trending-' + skill.slug" class="card p-3">
+                <div class="font-medium text-sm">{{ skill.name }}</div>
+                <div class="text-xs text-makoclaw-text-secondary mt-1 line-clamp-2">{{ skill.description }}</div>
+                <div class="text-xs text-makoclaw-text-secondary mt-2">{{ skill.install_count }} installs</div>
+              </div>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div
               v-for="skill in marketplaceSkills"
               :key="skill.slug || skill.name"
@@ -208,6 +223,7 @@
               </div>
             </div>
           </div>
+          </template>
         </div>
 
         <!-- Bundles -->
@@ -639,6 +655,10 @@ const forking = ref(null)
 const bundles = ref([])
 const loadingBundles = ref(false)
 const installingBundle = ref(null)
+
+// Skill analytics
+const usageStats = ref([])
+const trendingSkills = ref([])
 const viewingSkill = ref(null)
 const editingSkill = ref(null)
 const editContent = ref('')
@@ -673,6 +693,11 @@ const generateFormErrors = ref({
   name: '',
   description: ''
 })
+
+const getUsageCount = (skillName) => {
+  const stat = usageStats.value.find(s => s.skill_name === skillName)
+  return stat ? stat.load_count : 0
+}
 
 const toggleRatingWidget = (slug) => {
   if (ratingOpenSlug.value === slug) {
@@ -760,6 +785,10 @@ const loadMarketplace = async () => {
   } finally {
     loadingMarketplace.value = false
   }
+  // Load trending skills (non-fatal)
+  advancedService.fetchMarketplaceSkills({ sort: 'trending', limit: 3, page: 1 }).then(data => {
+    trendingSkills.value = (data.skills || []).slice(0, 3)
+  }).catch(() => {})
 }
 
 const loadMySubmissions = async () => {
@@ -1109,6 +1138,9 @@ const handleSaveGenerated = async (overwrite = false) => {
 
 onMounted(() => {
   loadSkills()
+  advancedService.fetchSkillAnalytics().then(data => {
+    usageStats.value = data.stats || []
+  }).catch(() => {}) // non-fatal
 })
 </script>
 

@@ -305,6 +305,7 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/memory/longterm", s.handleLongTermMemory)         // New endpoint
 	mux.HandleFunc("/api/v1/memory/daily", s.handleDailyNotes)                // New endpoint
 	mux.HandleFunc("/api/v1/skills", s.handleSkills)                          // Skills list + marketplace
+	mux.HandleFunc("/api/v1/skills/analytics", s.handleSkillAnalytics)        // Skill usage analytics (must be before wildcard)
 	mux.HandleFunc("/api/v1/skills/", s.handleSkillAction)                    // Install/uninstall/view
 	mux.HandleFunc("/api/v1/skills/generate-config", s.handleSkillGenerateConfig) // Generate skill config with AI
 
