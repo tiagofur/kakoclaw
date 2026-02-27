@@ -140,6 +140,9 @@
               <div v-if="skill.tags && skill.tags.length" class="flex flex-wrap gap-1 mt-2">
                 <span v-for="tag in skill.tags" :key="tag" class="px-2 py-0.5 text-xs bg-makoclaw-bg rounded-full text-makoclaw-text-secondary">{{ tag }}</span>
               </div>
+              <div v-if="skill.dependencies && skill.dependencies.length > 0" class="text-xs text-makoclaw-text-secondary mt-2">
+                Requires: {{ skill.dependencies.join(', ') }}
+              </div>
               <div class="flex items-center gap-2 mt-4">
                 <button
                   @click="installMarketplaceSkill(skill.slug)"
@@ -730,8 +733,18 @@ const loadMySubmissions = async () => {
 const installMarketplaceSkill = async (slug) => {
   installing.value = slug
   try {
-    await advancedService.installMarketplaceSkill(slug)
-    toast.success('Skill installed successfully')
+    const skill = marketplaceSkills.value.find(s => s.slug === slug)
+    const result = await advancedService.installMarketplaceSkill(slug)
+    const autoInstalled = result.auto_installed || []
+    if (autoInstalled.length > 0) {
+      toast.success(`Installed ${skill ? skill.name : slug}. Also installed: ${autoInstalled.join(', ')}`)
+    } else {
+      toast.success('Skill installed successfully')
+    }
+    const unresolvable = result.unresolvable || []
+    if (unresolvable.length > 0) {
+      toast.info(`Warning: could not find dependencies: ${unresolvable.join(', ')}`)
+    }
     await loadSkills()
   } catch (err) {
     toast.error('Failed to install skill')

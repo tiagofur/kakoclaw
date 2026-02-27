@@ -10,8 +10,9 @@ import (
 )
 
 type SkillMetadata struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	Name         string   `json:"name"`
+	Description  string   `json:"description"`
+	Dependencies []string `json:"dependencies,omitempty"`
 }
 
 type SkillInfo struct {
@@ -320,10 +321,42 @@ func (sl *SkillsLoader) getSkillMetadata(skillPath string) *SkillMetadata {
 
 	// Fall back to simple YAML parsing
 	yamlMeta := sl.parseSimpleYAML(frontmatter)
-	return &SkillMetadata{
+	meta := &SkillMetadata{
 		Name:        yamlMeta["name"],
 		Description: yamlMeta["description"],
 	}
+	if depsStr, ok := yamlMeta["dependencies"]; ok && depsStr != "" {
+		parts := strings.Split(depsStr, ",")
+		for _, p := range parts {
+			p = strings.TrimSpace(p)
+			if p != "" {
+				meta.Dependencies = append(meta.Dependencies, p)
+			}
+		}
+	}
+	return meta
+}
+
+// GetSkillDependencies extracts the dependencies from SKILL.md content without
+// loading a full skill. It returns the slice of dependency slugs (or nil if none).
+func (sl *SkillsLoader) GetSkillDependencies(content string) []string {
+	frontmatter := sl.extractFrontmatter(content)
+	if frontmatter == "" {
+		return nil
+	}
+	yamlMeta := sl.parseSimpleYAML(frontmatter)
+	depsStr, ok := yamlMeta["dependencies"]
+	if !ok || depsStr == "" {
+		return nil
+	}
+	var deps []string
+	for _, p := range strings.Split(depsStr, ",") {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			deps = append(deps, p)
+		}
+	}
+	return deps
 }
 
 // parseSimpleYAML parses simple key: value YAML format

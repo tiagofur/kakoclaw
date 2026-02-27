@@ -35,6 +35,7 @@ type PublicSkillResponse struct {
 	Visibility    string   `json:"visibility"`
 	AverageRating float64  `json:"average_rating"`
 	RatingCount   int      `json:"rating_count"`
+	Dependencies  []string `json:"dependencies,omitempty"`
 }
 
 // ==================== MARKETPLACE ====================
@@ -100,6 +101,7 @@ func (s *Server) handleMarketplaceSkills(w http.ResponseWriter, r *http.Request)
 			ForkCount:     sub.ForkCount,
 			PublishedAt:   sub.PublishedAt,
 			Visibility:    sub.Visibility,
+			Dependencies:  sub.Dependencies,
 		}
 		if summary, ok := summaries[sub.ID]; ok {
 			skillResp.AverageRating = summary.AverageRating
@@ -217,10 +219,39 @@ func (s *Server) handleMarketplaceInstall(w http.ResponseWriter, r *http.Request
 	// Increment install count
 	_ = s.centralStore.IncrementSkillInstallCount(sub.ID)
 
+	// Auto-install dependencies
+	var autoInstalled []string
+	var unresolvable []string
+	for _, depSlug := range sub.Dependencies {
+		// Skip if already installed
+		depSkillMD := filepath.Join(userWorkspace, "skills", depSlug, "SKILL.md")
+		if _, statErr := os.Stat(depSkillMD); statErr == nil {
+			continue
+		}
+		// Look up in marketplace
+		depSub, lookupErr := s.centralStore.GetSkillSubmissionBySlug(depSlug)
+		if lookupErr != nil || depSub == nil || depSub.Status != "approved" {
+			unresolvable = append(unresolvable, depSlug)
+			continue
+		}
+		// Install the dependency
+		if installErr := installer.InstallFromContent(depSlug, depSub.Content); installErr != nil {
+			unresolvable = append(unresolvable, depSlug)
+			continue
+		}
+		autoInstalled = append(autoInstalled, depSlug)
+	}
+	if autoInstalled == nil {
+		autoInstalled = []string{}
+	}
+	if unresolvable == nil {
+		unresolvable = []string{}
+	}
+
 	writeJSONResponse(w, map[string]interface{}{
-		"status":  "installed",
-		"skill":   sub.SkillSlug,
-		"version": sub.Version,
+		"message":       "installed",
+		"auto_installed": autoInstalled,
+		"unresolvable":  unresolvable,
 	})
 }
 
@@ -447,6 +478,10 @@ func (s *Server) handleMarketplaceSubmit(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
+	// Extract dependencies from skill content
+	tmpLoader := skills.NewSkillsLoader("", "", "")
+	extractedDeps := tmpLoader.GetSkillDependencies(body.Content)
+
 	sub := &storage.SkillSubmission{
 		UserID:           userID,
 		SkillName:        body.Name,
@@ -463,6 +498,7 @@ func (s *Server) handleMarketplaceSubmit(w http.ResponseWriter, r *http.Request)
 		SecurityScanAt:   securityScanAt,
 		Status:           status,
 		Visibility:       body.Visibility,
+		Dependencies:     extractedDeps,
 	}
 
 	// Private auto-approved skills get published_at set immediately
