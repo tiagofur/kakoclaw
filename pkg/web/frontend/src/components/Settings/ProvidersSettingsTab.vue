@@ -1,23 +1,23 @@
 <template>
-  <div class="space-y-8 max-w-4xl mx-auto animate-fade-in-up">
+  <div class="space-y-5 max-w-4xl mx-auto animate-fade-in-up">
     <div
       v-for="(info, name) in providers"
       :key="name"
-      class="glass-panel rounded-[2rem] p-8 md:p-10 border border-makoclaw-border/50 relative overflow-hidden group hover:border-makoclaw-accent/30 transition-all duration-500"
+      class="glass-panel rounded-2xl p-5 md:p-6 border border-makoclaw-border/50 relative overflow-hidden group hover:border-makoclaw-accent/30 transition-all duration-300"
     >
       <!-- Decorative background blur -->
       <div class="absolute -top-12 -right-12 w-48 h-48 bg-makoclaw-accent/5 blur-[60px] rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-1000"></div>
 
-      <div class="flex items-center justify-between mb-8 relative z-10">
-        <div class="flex items-center gap-4">
-          <div class="w-14 h-14 rounded-2xl bg-makoclaw-surface border-2 border-makoclaw-border/50 flex items-center justify-center text-makoclaw-accent shadow-xl group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
-             <span class="text-xs font-black uppercase tracking-tighter">{{ name.substring(0,2) }}</span>
+      <div class="flex items-center justify-between mb-5 relative z-10">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-makoclaw-surface border border-makoclaw-border/50 flex items-center justify-center text-makoclaw-accent shadow-md group-hover:scale-105 group-hover:rotate-3 transition-all duration-300">
+             <span class="text-xs font-bold uppercase">{{ name.substring(0,2) }}</span>
           </div>
           <div>
-            <h3 class="text-xl font-black capitalize text-makoclaw-text tracking-tight italic">{{ name }}</h3>
+            <h3 class="text-base font-semibold capitalize text-makoclaw-text tracking-tight">{{ name }}</h3>
             <div class="flex items-center gap-2 mt-1">
                <span 
-                class="px-2 py-0.5 text-[9px] font-black uppercase tracking-widest rounded-lg border flex items-center gap-1.5"
+                class="px-2 py-0.5 text-[9px] font-medium tracking-wide rounded-md border flex items-center gap-1"
                 :class="isProviderConfigured(info) ? 'bg-makoclaw-success/10 text-makoclaw-success border-makoclaw-success/20' : 'bg-makoclaw-text-secondary/10 text-makoclaw-text-secondary border-makoclaw-border/50'"
                >
                  <span :class="`w-1.5 h-1.5 rounded-full ${isProviderConfigured(info) ? 'bg-makoclaw-success animate-pulse' : 'bg-makoclaw-text-secondary/40'}`"></span>
@@ -30,7 +30,7 @@
         <div class="flex items-center gap-3">
           <button 
             @click="openModelsModal(name, info)"
-            class="p-3 rounded-2xl bg-makoclaw-bg/40 border border-makoclaw-border/50 text-makoclaw-text-secondary hover:text-makoclaw-accent transition-all hover:scale-110 active:scale-95 group/btn"
+            class="p-2 rounded-xl bg-makoclaw-bg/40 border border-makoclaw-border/50 text-makoclaw-text-secondary hover:text-makoclaw-accent transition-all hover:scale-105 active:scale-95 group/btn"
             title="Configure Models"
           >
             <IconModels class="w-5 h-5 group-hover/btn:rotate-12 transition-transform" />
@@ -38,15 +38,15 @@
         </div>
       </div>
       
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-end relative z-10">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end relative z-10">
         <div class="lg:col-span-12 xl:col-span-5 space-y-2">
-          <label class="text-[10px] font-black uppercase tracking-widest text-makoclaw-text-secondary/60 ml-1">Access Protocol (API Key)</label>
+          <label class="text-[10px] font-medium uppercase tracking-wide text-makoclaw-text-secondary/60 ml-1">API Key</label>
           <div class="relative group/input">
             <input 
               v-model="info.api_key" 
               type="password" 
               :placeholder="isProviderConfigured(info) ? '••••••••••••••••••••••••' : 'Enter access key...'" 
-              class="w-full bg-makoclaw-bg/40 border-2 border-makoclaw-border/50 rounded-2xl px-6 py-4 text-sm font-bold outline-none focus:border-makoclaw-accent text-makoclaw-text backdrop-blur-sm transition-all"
+              class="w-full bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl px-4 py-2.5 text-sm font-medium outline-none focus:border-makoclaw-accent text-makoclaw-text backdrop-blur-sm transition-all"
             >
             <div class="absolute right-4 top-1/2 -translate-y-1/2 text-makoclaw-text-secondary/20 group-hover/input:text-makoclaw-accent/40 transition-colors">
               <IconLock class="w-4 h-4" />
@@ -54,19 +54,19 @@
           </div>
         </div>
         <div class="lg:col-span-12 xl:col-span-4 space-y-2">
-          <label class="text-[10px] font-black uppercase tracking-widest text-makoclaw-text-secondary/60 ml-1">Gateway Entry (Base URL)</label>
+          <label class="text-[10px] font-medium uppercase tracking-wide text-makoclaw-text-secondary/60 ml-1">Base URL</label>
           <input 
             v-model="info.api_base" 
             type="text" 
             placeholder="https://api.neural-matrix..." 
-            class="w-full bg-makoclaw-bg/20 border-2 border-makoclaw-border/30 rounded-2xl px-6 py-4 text-sm font-bold outline-none focus:border-makoclaw-accent text-makoclaw-text transition-all"
+            class="w-full bg-makoclaw-bg/20 border border-makoclaw-border/30 rounded-xl px-4 py-2.5 text-sm font-medium outline-none focus:border-makoclaw-accent text-makoclaw-text transition-all"
           >
         </div>
         <div class="lg:col-span-12 xl:col-span-3">
           <button 
             @click="$emit('save', {providers: {[name]: {api_key: info.api_key, api_base: info.api_base, models: Array.isArray(info.models) ? info.models : []}}})" 
             :disabled="saving"
-            class="w-full px-6 py-4 bg-makoclaw-accent hover:bg-makoclaw-accent-hover text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-makoclaw-accent/20 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50 group/save"
+            class="w-full px-5 py-2.5 bg-makoclaw-accent hover:bg-makoclaw-accent-hover text-white rounded-xl font-semibold shadow-lg shadow-makoclaw-accent/20 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 group/save"
           >
             <span v-if="saving" class="w-4 h-4 border-3 border-white/20 border-t-white rounded-full animate-spin"></span>
             <IconSave v-else class="w-4 h-4 group-hover/save:translate-y-[-2px] transition-transform" />
@@ -80,25 +80,25 @@
     <Teleport to="body">
       <Transition name="modal">
       <div v-if="showModelsModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-xl p-4" @click.self="showModelsModal = false">
-        <div class="glass-panel rounded-[2.5rem] p-10 max-w-xl w-full shadow-2xl border border-makoclaw-border/50 relative overflow-hidden animate-zoom flex flex-col max-h-[85vh]" @click.stop>
+        <div class="glass-panel rounded-2xl p-5 max-w-xl w-full shadow-xl border border-makoclaw-border/50 relative overflow-hidden animate-zoom flex flex-col max-h-[85vh]" @click.stop>
           <div class="absolute -top-12 -left-12 w-48 h-48 bg-makoclaw-accent/10 blur-[60px] rounded-full pointer-events-none"></div>
 
-          <div class="flex justify-between items-start mb-10 relative z-10">
+          <div class="flex justify-between items-start mb-5 relative z-10">
             <div>
               <h3 class="text-2xl font-black bg-gradient-to-r from-makoclaw-accent to-blue-500 bg-clip-text text-transparent italic capitalize">
                 {{ selectedProviderName }} Cores
               </h3>
-              <p class="text-[10px] font-bold text-makoclaw-text-secondary uppercase tracking-[0.2em] mt-1">Configure available neural models for this network</p>
+              <p class="text-[10px] font-medium text-makoclaw-text-secondary mt-1">Configure available neural models for this network</p>
             </div>
             <button @click="showModelsModal = false" class="p-2 rounded-xl bg-makoclaw-bg/60 border border-makoclaw-border/50 text-makoclaw-text-secondary hover:text-white transition-all">
               <IconClose class="w-5 h-5" />
             </button>
           </div>
           
-          <div class="space-y-8 overflow-y-auto pr-4 custom-scrollbar relative z-10 h-full flex flex-col">
+          <div class="space-y-5 overflow-y-auto pr-4 custom-scrollbar relative z-10 h-full flex flex-col">
              <!-- Add Model -->
              <div class="space-y-3">
-                <label class="text-[10px] font-black uppercase tracking-widest text-makoclaw-text-secondary/60 ml-1">Enlist New Core Model</label>
+                <label class="text-[10px] font-medium tracking-wide text-makoclaw-text-secondary/60 ml-1">Enlist New Core Model</label>
                 <div class="flex gap-3">
                   <input 
                     v-model="newModelInput" 
@@ -110,7 +110,7 @@
                   <button 
                     @click="addModel" 
                     :disabled="!newModelInput.trim()"
-                    class="px-8 py-4 bg-white text-makoclaw-bg rounded-2xl font-black uppercase tracking-widest text-[11px] transition-all hover:bg-white/90 active:scale-95 disabled:opacity-30"
+                    class="px-5 py-2.5 bg-white text-makoclaw-bg rounded-xl font-semibold text-[11px] transition-all hover:bg-white/90 active:scale-95 disabled:opacity-30"
                   >
                     Add
                   </button>
@@ -120,14 +120,14 @@
              <!-- Model List -->
              <div class="flex-1 min-h-0 flex flex-col pt-4 border-t border-makoclaw-border/30">
                 <div class="flex items-center justify-between mb-4">
-                  <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-makoclaw-text-secondary/60">Active Core Pool</h4>
+                  <h4 class="text-[10px] font-medium tracking-wide text-makoclaw-text-secondary/60">Active Core Pool</h4>
                   <span class="px-2 py-0.5 bg-makoclaw-accent/10 text-makoclaw-accent text-[9px] font-black rounded-lg border border-makoclaw-accent/20">{{ editingModels.length }} models</span>
                 </div>
                 
-                <div v-if="editingModels.length === 0" class="flex-1 flex flex-col items-center justify-center py-12 bg-makoclaw-bg/20 rounded-[2rem] border-2 border-dashed border-makoclaw-border/30">
+                <div v-if="editingModels.length === 0" class="flex-1 flex flex-col items-center justify-center py-10 bg-makoclaw-bg/20 rounded-2xl border border-dashed border-makoclaw-border/30">
                   <IconModels class="w-12 h-12 text-makoclaw-text-secondary/10 mb-4" />
                   <p class="text-sm font-bold text-makoclaw-text-secondary/40 italic">No custom cores configured.</p>
-                  <p class="text-[9px] font-medium text-makoclaw-text-secondary/30 mt-1 uppercase tracking-widest italic">Default parameters will be utilized</p>
+                  <p class="text-[9px] font-medium text-makoclaw-text-secondary/30 mt-1">Default parameters will be utilized</p>
                 </div>
                 
                 <div v-else class="grid grid-cols-1 gap-3 flex-1 overflow-y-auto pr-2 custom-scrollbar">
@@ -145,13 +145,13 @@
           </div>
 
           <div class="flex items-center justify-between mt-10 pt-8 border-t border-makoclaw-border/30 relative z-10">
-            <button @click="resetToDefaults" class="text-[10px] font-black uppercase tracking-widest text-makoclaw-text-secondary/40 hover:text-red-400 transition-colors flex items-center gap-2 group">
+            <button @click="resetToDefaults" class="text-[10px] font-medium tracking-wide text-makoclaw-text-secondary/40 hover:text-red-400 transition-colors flex items-center gap-2 group">
               <IconReset class="w-3.5 h-3.5 group-hover:rotate-[-45deg] transition-transform" />
               Reset Factory Defaults
             </button>
             <div class="flex gap-4">
-              <button @click="showModelsModal = false" class="px-6 py-3 text-[11px] font-black uppercase tracking-widest text-makoclaw-text-secondary hover:text-white transition-colors">Cancel</button>
-              <button @click="saveModelsConfig" :disabled="saving" class="px-10 py-4 bg-makoclaw-accent text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-makoclaw-accent/20 hover:bg-makoclaw-accent-hover transition-all active:scale-95 disabled:opacity-30 flex items-center">
+              <button @click="showModelsModal = false" class="px-4 py-2 text-[11px] font-medium text-makoclaw-text-secondary hover:text-white transition-colors">Cancel</button>
+              <button @click="saveModelsConfig" :disabled="saving" class="px-5 py-2.5 bg-makoclaw-accent text-white rounded-xl font-semibold shadow-lg shadow-makoclaw-accent/20 hover:bg-makoclaw-accent-hover transition-all active:scale-95 disabled:opacity-30 flex items-center">
                 <span v-if="saving" class="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin mr-3"></span>
                 Commit Pool
               </button>

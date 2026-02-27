@@ -3,7 +3,10 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -13,6 +16,27 @@ import (
 	"github.com/sipeed/makoclaw/pkg/skills"
 	"github.com/sipeed/makoclaw/pkg/storage"
 )
+
+// PublicSkillResponse is the public-facing representation of a marketplace skill
+// (without full content). Used by handleMarketplaceSkills and reused by future features.
+type PublicSkillResponse struct {
+	ID            int64    `json:"id"`
+	Name          string   `json:"name"`
+	Slug          string   `json:"slug"`
+	Version       string   `json:"version"`
+	Description   string   `json:"description"`
+	Author        string   `json:"author"`
+	Tags          []string `json:"tags"`
+	Category      string   `json:"category"`
+	SecurityScore int      `json:"security_score"`
+	InstallCount  int      `json:"install_count"`
+	ForkCount     int      `json:"fork_count"`
+	PublishedAt   *string  `json:"published_at"`
+	Visibility    string   `json:"visibility"`
+	AverageRating float64  `json:"average_rating"`
+	RatingCount   int      `json:"rating_count"`
+	Dependencies  []string `json:"dependencies,omitempty"`
+}
 
 // ==================== MARKETPLACE ====================
 
@@ -38,30 +62,32 @@ func (s *Server) handleMarketplaceSkills(w http.ResponseWriter, r *http.Request)
 	limit := 20
 	offset := (page - 1) * limit
 
-	submissions, err := s.centralStore.GetApprovedSkillSubmissions(category, limit, offset)
+	// Determine caller's user ID (0 if unauthenticated; private skills will still be filtered to the owner)
+	var callerUserID int64
+	if _, userUUID, ok := s.getUserStorage(r); ok {
+		callerUserID, _ = s.getUserIDFromUUID(userUUID)
+	}
+
+	submissions, err := s.centralStore.GetApprovedSkillSubmissions(category, limit, offset, callerUserID)
 	if err != nil {
 		http.Error(w, "failed to fetch skills", http.StatusInternalServerError)
 		return
 	}
 
-	// Convert to public format (without full content)
-	type PublicSkill struct {
-		ID            int64    `json:"id"`
-		Name          string   `json:"name"`
-		Slug          string   `json:"slug"`
-		Version       string   `json:"version"`
-		Description   string   `json:"description"`
-		Author        string   `json:"author"`
-		Tags          []string `json:"tags"`
-		Category      string   `json:"category"`
-		SecurityScore int      `json:"security_score"`
-		InstallCount  int      `json:"install_count"`
-		PublishedAt   *string  `json:"published_at"`
+	// Fetch all rating summaries in a single query to avoid N+1
+	ids := make([]int64, len(submissions))
+	for i, s := range submissions {
+		ids[i] = s.ID
+	}
+	summaries, err := s.centralStore.GetSkillRatingSummaries(ids)
+	if err != nil {
+		summaries = map[int64]*storage.SkillRatingSummary{}
 	}
 
-	publicSkills := make([]PublicSkill, 0, len(submissions))
+	// Convert to public format (without full content)
+	publicSkills := make([]PublicSkillResponse, 0, len(submissions))
 	for _, sub := range submissions {
-		publicSkills = append(publicSkills, PublicSkill{
+		skillResp := PublicSkillResponse{
 			ID:            sub.ID,
 			Name:          sub.SkillName,
 			Slug:          sub.SkillSlug,
@@ -72,8 +98,16 @@ func (s *Server) handleMarketplaceSkills(w http.ResponseWriter, r *http.Request)
 			Category:      sub.Category,
 			SecurityScore: sub.SecurityScore,
 			InstallCount:  sub.InstallCount,
+			ForkCount:     sub.ForkCount,
 			PublishedAt:   sub.PublishedAt,
-		})
+			Visibility:    sub.Visibility,
+			Dependencies:  sub.Dependencies,
+		}
+		if summary, ok := summaries[sub.ID]; ok {
+			skillResp.AverageRating = summary.AverageRating
+			skillResp.RatingCount = summary.RatingCount
+		}
+		publicSkills = append(publicSkills, skillResp)
 	}
 
 	writeJSONResponse(w, map[string]interface{}{
@@ -107,6 +141,20 @@ func (s *Server) handleMarketplaceSkillDetail(w http.ResponseWriter, r *http.Req
 	if sub == nil || sub.Status != "approved" {
 		http.Error(w, "skill not found", http.StatusNotFound)
 		return
+	}
+
+	// Private skills are only accessible to their owner
+	if sub.Visibility == "private" {
+		_, userUUID, ok := s.getUserStorage(r)
+		if !ok {
+			http.Error(w, "skill not found", http.StatusNotFound)
+			return
+		}
+		callerUserID, _ := s.getUserIDFromUUID(userUUID)
+		if callerUserID != sub.UserID {
+			http.Error(w, "skill not found", http.StatusNotFound)
+			return
+		}
 	}
 
 	writeJSONResponse(w, sub)
@@ -146,6 +194,15 @@ func (s *Server) handleMarketplaceInstall(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// Private skills can only be installed by their owner
+	if sub.Visibility == "private" {
+		callerUserID, _ := s.getUserIDFromUUID(userUUID)
+		if callerUserID != sub.UserID {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+	}
+
 	userWorkspace, err := config.EnsureUserWorkspace(userUUID)
 	if err != nil {
 		http.Error(w, "failed to access workspace", http.StatusInternalServerError)
@@ -162,10 +219,118 @@ func (s *Server) handleMarketplaceInstall(w http.ResponseWriter, r *http.Request
 	// Increment install count
 	_ = s.centralStore.IncrementSkillInstallCount(sub.ID)
 
+	// Auto-install dependencies
+	var autoInstalled []string
+	var unresolvable []string
+	for _, depSlug := range sub.Dependencies {
+		// Skip if already installed
+		depSkillMD := filepath.Join(userWorkspace, "skills", depSlug, "SKILL.md")
+		if _, statErr := os.Stat(depSkillMD); statErr == nil {
+			continue
+		}
+		// Look up in marketplace
+		depSub, lookupErr := s.centralStore.GetSkillSubmissionBySlug(depSlug)
+		if lookupErr != nil || depSub == nil || depSub.Status != "approved" {
+			unresolvable = append(unresolvable, depSlug)
+			continue
+		}
+		// Install the dependency
+		if installErr := installer.InstallFromContent(depSlug, depSub.Content); installErr != nil {
+			unresolvable = append(unresolvable, depSlug)
+			continue
+		}
+		autoInstalled = append(autoInstalled, depSlug)
+	}
+	if autoInstalled == nil {
+		autoInstalled = []string{}
+	}
+	if unresolvable == nil {
+		unresolvable = []string{}
+	}
+
 	writeJSONResponse(w, map[string]interface{}{
-		"status":  "installed",
-		"skill":   sub.SkillSlug,
-		"version": sub.Version,
+		"message":       "installed",
+		"auto_installed": autoInstalled,
+		"unresolvable":  unresolvable,
+	})
+}
+
+// handleMarketplaceFork forks a marketplace skill to the user's workspace for customization
+func (s *Server) handleMarketplaceFork(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	slug := strings.TrimPrefix(r.URL.Path, "/api/v1/marketplace/skills/")
+	slug = strings.TrimSuffix(slug, "/fork")
+
+	if s.centralStore == nil {
+		http.Error(w, "marketplace unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	sub, err := s.centralStore.GetSkillSubmissionBySlug(slug)
+	if err != nil {
+		http.Error(w, "failed to fetch skill", http.StatusInternalServerError)
+		return
+	}
+	if sub == nil {
+		http.Error(w, "skill not found", http.StatusNotFound)
+		return
+	}
+	if sub.Status != "approved" || sub.Visibility != "public" {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+
+	_, userUUID, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	userWorkspace, err := config.EnsureUserWorkspace(userUUID)
+	if err != nil {
+		http.Error(w, "failed to access workspace", http.StatusInternalServerError)
+		return
+	}
+
+	// Determine a unique fork name (up to 10 attempts)
+	baseName := sub.SkillSlug + "-fork"
+	forkedName := baseName
+	found := false
+	for i := 2; i <= 10; i++ {
+		skillMD := filepath.Join(userWorkspace, "skills", forkedName, "SKILL.md")
+		if _, statErr := os.Stat(skillMD); os.IsNotExist(statErr) {
+			found = true
+			break
+		}
+		forkedName = fmt.Sprintf("%s-%d", baseName, i)
+	}
+	if !found {
+		http.Error(w, "All fork slots are taken. Remove an existing fork first.", http.StatusConflict)
+		return
+	}
+
+	skillDir := filepath.Join(userWorkspace, "skills", forkedName)
+	if err := os.MkdirAll(skillDir, 0755); err != nil {
+		http.Error(w, "failed to create skill directory", http.StatusInternalServerError)
+		return
+	}
+
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(sub.Content), 0644); err != nil {
+		http.Error(w, "failed to write skill content", http.StatusInternalServerError)
+		return
+	}
+
+	_ = s.centralStore.IncrementSkillForkCount(sub.ID)
+
+	writeJSONResponse(w, map[string]interface{}{
+		"skill_name": forkedName,
+		"message":    "Skill forked to your workspace. Edit it from the Installed tab.",
 	})
 }
 
@@ -186,10 +351,20 @@ func (s *Server) handleMarketplaceSubmit(w http.ResponseWriter, r *http.Request)
 		Category      string   `json:"category"`
 		Tags          []string `json:"tags"`
 		RepositoryURL string   `json:"repository_url"`
+		Visibility    string   `json:"visibility"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Default and validate visibility
+	if body.Visibility == "" {
+		body.Visibility = "public"
+	}
+	if body.Visibility != "public" && body.Visibility != "private" {
+		http.Error(w, "visibility must be 'public' or 'private'", http.StatusBadRequest)
 		return
 	}
 
@@ -228,32 +403,6 @@ func (s *Server) handleMarketplaceSubmit(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Run security scan
-	var aiReviewer skills.AISecurityReviewer
-	if s.agentLoop != nil {
-		aiReviewer = skills.NewLLMSecurityReviewer(s.agentLoop)
-	}
-	scanner := skills.NewSkillSecurityScanner(aiReviewer)
-
-	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
-	defer cancel()
-
-	scanResult, err := scanner.ScanSkill(ctx, body.Content)
-	if err != nil {
-		http.Error(w, "security scan failed: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Determine submission status based on scan
-	status := "pending"
-	if !scanResult.Passed {
-		status = "rejected"
-	} else if scanResult.AutoApprove {
-		status = "approved"
-	} else {
-		status = "needs_review"
-	}
-
 	// Create slug from name
 	slug := slugify(body.Name)
 
@@ -263,9 +412,6 @@ func (s *Server) handleMarketplaceSubmit(w http.ResponseWriter, r *http.Request)
 		http.Error(w, "skill with this name already exists", http.StatusConflict)
 		return
 	}
-
-	// Marshal security findings
-	findingsJSON, _ := json.Marshal(scanResult.Findings)
 
 	// Set defaults
 	version := body.Version
@@ -289,6 +435,53 @@ func (s *Server) handleMarketplaceSubmit(w http.ResponseWriter, r *http.Request)
 	}
 
 	now := time.Now().Format(time.RFC3339)
+
+	var securityScore int
+	var findingsJSON []byte
+	var securityScanAt *string
+	var status string
+
+	if body.Visibility == "private" {
+		// Private skills bypass the review queue and are auto-approved immediately
+		securityScore = 100
+		findingsJSON = []byte("[]")
+		securityScanAt = nil
+		status = "approved"
+	} else {
+		// Run security scan for public submissions
+		var aiReviewer skills.AISecurityReviewer
+		if s.agentLoop != nil {
+			aiReviewer = skills.NewLLMSecurityReviewer(s.agentLoop)
+		}
+		scanner := skills.NewSkillSecurityScanner(aiReviewer)
+
+		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+		defer cancel()
+
+		scanResult, err := scanner.ScanSkill(ctx, body.Content)
+		if err != nil {
+			http.Error(w, "security scan failed: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		securityScore = scanResult.Score
+		findingsJSON, _ = json.Marshal(scanResult.Findings)
+		securityScanAt = &now
+
+		// Determine submission status based on scan
+		if !scanResult.Passed {
+			status = "rejected"
+		} else if scanResult.AutoApprove {
+			status = "approved"
+		} else {
+			status = "needs_review"
+		}
+	}
+
+	// Extract dependencies from skill content
+	tmpLoader := skills.NewSkillsLoader("", "", "")
+	extractedDeps := tmpLoader.GetSkillDependencies(body.Content)
+
 	sub := &storage.SkillSubmission{
 		UserID:           userID,
 		SkillName:        body.Name,
@@ -300,10 +493,17 @@ func (s *Server) handleMarketplaceSubmit(w http.ResponseWriter, r *http.Request)
 		Tags:             body.Tags,
 		Category:         category,
 		RepositoryURL:    body.RepositoryURL,
-		SecurityScore:    scanResult.Score,
+		SecurityScore:    securityScore,
 		SecurityFindings: string(findingsJSON),
-		SecurityScanAt:   &now,
+		SecurityScanAt:   securityScanAt,
 		Status:           status,
+		Visibility:       body.Visibility,
+		Dependencies:     extractedDeps,
+	}
+
+	// Private auto-approved skills get published_at set immediately
+	if body.Visibility == "private" {
+		sub.PublishedAt = &now
 	}
 
 	id, err := s.centralStore.CreateSkillSubmission(sub)
@@ -312,17 +512,17 @@ func (s *Server) handleMarketplaceSubmit(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// If auto-approved, set published_at
-	if status == "approved" {
+	// If public and auto-approved, set published_at via ApproveSkillSubmission
+	if body.Visibility == "public" && status == "approved" {
 		_ = s.centralStore.ApproveSkillSubmission(id, userID, "Auto-approved: passed security scan")
 	}
 
 	writeJSONResponse(w, map[string]interface{}{
 		"id":             id,
 		"status":         status,
-		"security_score": scanResult.Score,
-		"findings":       scanResult.Findings,
-		"message":        getSubmissionMessage(status, scanResult.Score),
+		"security_score": securityScore,
+		"findings":       json.RawMessage(findingsJSON),
+		"message":        getSubmissionMessage(status, securityScore),
 	})
 }
 
@@ -490,12 +690,125 @@ func (s *Server) handleAdminRejectSubmission(w http.ResponseWriter, r *http.Requ
 	writeJSONResponse(w, map[string]string{"status": "rejected"})
 }
 
-// handleMarketplaceSkillAction routes to detail or install based on path
+// handleSkillRating handles GET and POST for skill ratings
+// GET /api/v1/marketplace/skills/{slug}/rate — returns summary, reviews, and caller's rating
+// POST /api/v1/marketplace/skills/{slug}/rate — submits or updates a rating (auth required)
+func (s *Server) handleSkillRating(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if s.centralStore == nil {
+		http.Error(w, "marketplace unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	// Extract slug — strip prefix and trailing /rate
+	slug := strings.TrimPrefix(r.URL.Path, "/api/v1/marketplace/skills/")
+	slug = strings.TrimSuffix(slug, "/rate")
+
+	sub, err := s.centralStore.GetSkillSubmissionBySlug(slug)
+	if err != nil {
+		http.Error(w, "failed to fetch skill", http.StatusInternalServerError)
+		return
+	}
+	if sub == nil || sub.Status != "approved" {
+		http.Error(w, "skill not found", http.StatusNotFound)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		summary, err := s.centralStore.GetSkillRatingSummary(sub.ID)
+		if err != nil {
+			http.Error(w, "failed to fetch ratings", http.StatusInternalServerError)
+			return
+		}
+
+		reviews, err := s.centralStore.GetSkillRatings(sub.ID, 20, 0)
+		if err != nil {
+			reviews = nil
+		}
+		if reviews == nil {
+			reviews = []*storage.SkillRating{}
+		}
+
+		var userRating interface{} // nil if not authenticated or not rated
+		if _, userUUID, ok := s.getUserStorage(r); ok {
+			if userID, _ := s.getUserIDFromUUID(userUUID); userID != 0 {
+				if r, err := s.centralStore.GetUserRatingForSkill(sub.ID, userID); err == nil {
+					userRating = r
+				}
+			}
+		}
+
+		writeJSONResponse(w, map[string]interface{}{
+			"user_rating": userRating,
+			"reviews":     reviews,
+			"summary":     summary,
+		})
+
+	case http.MethodPost:
+		_, userUUID, ok := s.getUserStorage(r)
+		if !ok {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		userID, _ := s.getUserIDFromUUID(userUUID)
+		if userID == 0 {
+			http.Error(w, "user not found", http.StatusUnauthorized)
+			return
+		}
+
+		var body struct {
+			Rating int    `json:"rating"`
+			Review string `json:"review"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+		if body.Rating < 1 || body.Rating > 5 {
+			http.Error(w, "rating must be between 1 and 5", http.StatusBadRequest)
+			return
+		}
+		if len(body.Review) > 500 {
+			http.Error(w, "review must be 500 characters or fewer", http.StatusBadRequest)
+			return
+		}
+
+		if err := s.centralStore.UpsertSkillRating(sub.ID, userID, body.Rating, body.Review); err != nil {
+			http.Error(w, "failed to save rating", http.StatusInternalServerError)
+			return
+		}
+
+		summary, err := s.centralStore.GetSkillRatingSummary(sub.ID)
+		if err != nil {
+			http.Error(w, "failed to fetch updated summary", http.StatusInternalServerError)
+			return
+		}
+
+		writeJSONResponse(w, summary)
+
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// handleMarketplaceSkillAction routes to detail, fork, install, or rate based on path
 func (s *Server) handleMarketplaceSkillAction(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/api/v1/marketplace/skills/")
 
+	if strings.HasSuffix(path, "/fork") {
+		s.handleMarketplaceFork(w, r)
+		return
+	}
+
 	if strings.HasSuffix(path, "/install") {
 		s.handleMarketplaceInstall(w, r)
+		return
+	}
+
+	if strings.HasSuffix(path, "/rate") {
+		s.handleSkillRating(w, r)
 		return
 	}
 

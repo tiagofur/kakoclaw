@@ -76,6 +76,11 @@ export default {
     return response.data
   },
 
+  forkSkill: async (slug) => {
+    const response = await client.post(`/marketplace/skills/${encodeURIComponent(slug)}/fork`, {})
+    return response.data
+  },
+
   submitToMarketplace: async (payload) => {
     const response = await client.post('/marketplace/submit', payload, { timeout: 60000 })
     return response.data
@@ -88,6 +93,16 @@ export default {
 
   fetchMarketplaceCategories: async () => {
     const response = await client.get('/marketplace/categories')
+    return response.data
+  },
+
+  rateSkill: async (slug, rating, review = '') => {
+    const response = await client.post(`/marketplace/skills/${encodeURIComponent(slug)}/rate`, { rating, review })
+    return response.data
+  },
+
+  fetchSkillRatings: async (slug) => {
+    const response = await client.get(`/marketplace/skills/${encodeURIComponent(slug)}/rate`)
     return response.data
   },
 

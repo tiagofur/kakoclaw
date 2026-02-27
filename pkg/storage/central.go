@@ -179,6 +179,8 @@ func (cs *CentralStorage) migrate() error {
 		`CREATE INDEX IF NOT EXISTS idx_skill_submissions_user_id ON skill_submissions(user_id);`,
 		`CREATE INDEX IF NOT EXISTS idx_skill_submissions_category ON skill_submissions(category);`,
 		`CREATE INDEX IF NOT EXISTS idx_skill_submissions_slug ON skill_submissions(skill_slug);`,
+		`ALTER TABLE skill_submissions ADD COLUMN visibility TEXT NOT NULL DEFAULT 'public';`,
+		`CREATE INDEX IF NOT EXISTS idx_skill_submissions_visibility ON skill_submissions(visibility);`,
 
 		// Skill categories table
 		`CREATE TABLE IF NOT EXISTS skill_categories (
@@ -199,6 +201,24 @@ func (cs *CentralStorage) migrate() error {
 			('integrations', 'Integrations', 'APIs, services, external tools', '🔗', 4),
 			('ai-agents', 'AI Agents', 'Agent behaviors and workflows', '🤖', 5),
 			('general', 'General', 'General purpose skills', '📦', 6);`,
+
+		// Skill ratings table for community ratings feature
+		`CREATE TABLE IF NOT EXISTS skill_ratings (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			submission_id INTEGER NOT NULL,
+			user_id INTEGER NOT NULL,
+			rating INTEGER NOT NULL CHECK(rating >= 1 AND rating <= 5),
+			review TEXT,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(submission_id, user_id),
+			FOREIGN KEY(submission_id) REFERENCES skill_submissions(id),
+			FOREIGN KEY(user_id) REFERENCES users(id)
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_skill_ratings_submission_id ON skill_ratings(submission_id);`,
+		`ALTER TABLE skill_submissions ADD COLUMN fork_count INTEGER NOT NULL DEFAULT 0;`,
+		`ALTER TABLE skill_submissions ADD COLUMN forked_from_id INTEGER REFERENCES skill_submissions(id);`,
+		`ALTER TABLE skill_submissions ADD COLUMN dependencies TEXT DEFAULT '[]';`,
 	}
 
 	for _, query := range queries {
@@ -749,6 +769,7 @@ type SkillSubmission struct {
 	SecurityFindings string    `json:"security_findings"`
 	SecurityScanAt   *string   `json:"security_scan_at,omitempty"`
 	Status           string    `json:"status"`
+	Visibility       string    `json:"visibility"`
 	ReviewerID       *int64    `json:"reviewer_id,omitempty"`
 	ReviewerNotes    string    `json:"reviewer_notes,omitempty"`
 	ReviewedAt       *string   `json:"reviewed_at,omitempty"`
@@ -757,6 +778,9 @@ type SkillSubmission struct {
 	CreatedAt        string    `json:"created_at"`
 	UpdatedAt        string    `json:"updated_at"`
 	PublishedAt      *string   `json:"published_at,omitempty"`
+	ForkCount        int       `json:"fork_count"`
+	ForkedFromID     *int64    `json:"forked_from_id,omitempty"`
+	Dependencies     []string  `json:"dependencies,omitempty"`
 }
 
 // SkillCategory represents a skill category
@@ -776,15 +800,22 @@ func (cs *CentralStorage) CreateSkillSubmission(sub *SkillSubmission) (int64, er
 		tagsJSON = []byte("[]")
 	}
 
+	depsJSON, _ := json.Marshal(sub.Dependencies)
+	if depsJSON == nil {
+		depsJSON = []byte("[]")
+	}
+
 	res, err := cs.db.Exec(`
 		INSERT INTO skill_submissions (
 			user_id, skill_name, skill_slug, version, description, content,
 			author, tags, category, repository_url,
-			security_score, security_findings, security_scan_at, status
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			security_score, security_findings, security_scan_at, status, visibility,
+			published_at, dependencies
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		sub.UserID, sub.SkillName, sub.SkillSlug, sub.Version, sub.Description, sub.Content,
 		sub.Author, string(tagsJSON), sub.Category, sub.RepositoryURL,
-		sub.SecurityScore, sub.SecurityFindings, sub.SecurityScanAt, sub.Status,
+		sub.SecurityScore, sub.SecurityFindings, sub.SecurityScanAt, sub.Status, sub.Visibility,
+		sub.PublishedAt, string(depsJSON),
 	)
 	if err != nil {
 		return 0, err
@@ -798,7 +829,8 @@ func (cs *CentralStorage) GetSkillSubmission(id int64) (*SkillSubmission, error)
 		SELECT id, user_id, skill_name, skill_slug, version, description, content,
 		       author, tags, category, repository_url, security_score, security_findings,
 		       security_scan_at, status, reviewer_id, reviewer_notes, reviewed_at,
-		       download_count, install_count, created_at, updated_at, published_at
+		       download_count, install_count, created_at, updated_at, published_at, visibility,
+		       fork_count, forked_from_id, dependencies
 		FROM skill_submissions WHERE id = ?`, id)
 
 	return cs.scanSkillSubmission(row)
@@ -810,7 +842,8 @@ func (cs *CentralStorage) GetSkillSubmissionBySlug(slug string) (*SkillSubmissio
 		SELECT id, user_id, skill_name, skill_slug, version, description, content,
 		       author, tags, category, repository_url, security_score, security_findings,
 		       security_scan_at, status, reviewer_id, reviewer_notes, reviewed_at,
-		       download_count, install_count, created_at, updated_at, published_at
+		       download_count, install_count, created_at, updated_at, published_at, visibility,
+		       fork_count, forked_from_id, dependencies
 		FROM skill_submissions WHERE skill_slug = ?`, slug)
 
 	return cs.scanSkillSubmission(row)
@@ -819,14 +852,16 @@ func (cs *CentralStorage) GetSkillSubmissionBySlug(slug string) (*SkillSubmissio
 func (cs *CentralStorage) scanSkillSubmission(row *sql.Row) (*SkillSubmission, error) {
 	var sub SkillSubmission
 	var tagsJSON string
+	var depsJSON string
 	var securityScanAt, reviewedAt, publishedAt sql.NullString
-	var reviewerID sql.NullInt64
+	var reviewerID, forkedFromID sql.NullInt64
 
 	err := row.Scan(
 		&sub.ID, &sub.UserID, &sub.SkillName, &sub.SkillSlug, &sub.Version, &sub.Description, &sub.Content,
 		&sub.Author, &tagsJSON, &sub.Category, &sub.RepositoryURL, &sub.SecurityScore, &sub.SecurityFindings,
 		&securityScanAt, &sub.Status, &reviewerID, &sub.ReviewerNotes, &reviewedAt,
-		&sub.DownloadCount, &sub.InstallCount, &sub.CreatedAt, &sub.UpdatedAt, &publishedAt,
+		&sub.DownloadCount, &sub.InstallCount, &sub.CreatedAt, &sub.UpdatedAt, &publishedAt, &sub.Visibility,
+		&sub.ForkCount, &forkedFromID, &depsJSON,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -847,25 +882,31 @@ func (cs *CentralStorage) scanSkillSubmission(row *sql.Row) (*SkillSubmission, e
 	if publishedAt.Valid {
 		sub.PublishedAt = &publishedAt.String
 	}
+	if forkedFromID.Valid {
+		sub.ForkedFromID = &forkedFromID.Int64
+	}
 
 	_ = json.Unmarshal([]byte(tagsJSON), &sub.Tags)
 	if sub.Tags == nil {
 		sub.Tags = []string{}
 	}
+	_ = json.Unmarshal([]byte(depsJSON), &sub.Dependencies)
 
 	return &sub, nil
 }
 
-// GetApprovedSkillSubmissions returns all approved skill submissions for the marketplace
-func (cs *CentralStorage) GetApprovedSkillSubmissions(category string, limit, offset int) ([]*SkillSubmission, error) {
+// GetApprovedSkillSubmissions returns all approved skill submissions for the marketplace.
+// callerUserID is used to include the caller's own private skills alongside public ones.
+func (cs *CentralStorage) GetApprovedSkillSubmissions(category string, limit, offset int, callerUserID int64) ([]*SkillSubmission, error) {
 	query := `
 		SELECT id, user_id, skill_name, skill_slug, version, description, content,
 		       author, tags, category, repository_url, security_score, security_findings,
 		       security_scan_at, status, reviewer_id, reviewer_notes, reviewed_at,
-		       download_count, install_count, created_at, updated_at, published_at
-		FROM skill_submissions
-		WHERE status = 'approved'`
-	args := []interface{}{}
+		       download_count, install_count, created_at, updated_at, published_at, visibility,
+		       fork_count, forked_from_id, dependencies
+		FROM skill_submissions ss
+		WHERE status = 'approved' AND (ss.visibility = 'public' OR ss.user_id = ?)`
+	args := []interface{}{callerUserID}
 
 	if category != "" && category != "all" {
 		query += ` AND category = ?`
@@ -890,7 +931,8 @@ func (cs *CentralStorage) GetPendingSkillSubmissions() ([]*SkillSubmission, erro
 		SELECT id, user_id, skill_name, skill_slug, version, description, content,
 		       author, tags, category, repository_url, security_score, security_findings,
 		       security_scan_at, status, reviewer_id, reviewer_notes, reviewed_at,
-		       download_count, install_count, created_at, updated_at, published_at
+		       download_count, install_count, created_at, updated_at, published_at, visibility,
+		       fork_count, forked_from_id, dependencies
 		FROM skill_submissions
 		WHERE status IN ('pending', 'needs_review')
 		ORDER BY created_at ASC`)
@@ -908,7 +950,8 @@ func (cs *CentralStorage) GetUserSkillSubmissions(userID int64) ([]*SkillSubmiss
 		SELECT id, user_id, skill_name, skill_slug, version, description, content,
 		       author, tags, category, repository_url, security_score, security_findings,
 		       security_scan_at, status, reviewer_id, reviewer_notes, reviewed_at,
-		       download_count, install_count, created_at, updated_at, published_at
+		       download_count, install_count, created_at, updated_at, published_at, visibility,
+		       fork_count, forked_from_id, dependencies
 		FROM skill_submissions
 		WHERE user_id = ?
 		ORDER BY created_at DESC`, userID)
@@ -925,14 +968,16 @@ func (cs *CentralStorage) scanSkillSubmissions(rows *sql.Rows) ([]*SkillSubmissi
 	for rows.Next() {
 		var sub SkillSubmission
 		var tagsJSON string
+		var depsJSON string
 		var securityScanAt, reviewedAt, publishedAt sql.NullString
-		var reviewerID sql.NullInt64
+		var reviewerID, forkedFromID sql.NullInt64
 
 		err := rows.Scan(
 			&sub.ID, &sub.UserID, &sub.SkillName, &sub.SkillSlug, &sub.Version, &sub.Description, &sub.Content,
 			&sub.Author, &tagsJSON, &sub.Category, &sub.RepositoryURL, &sub.SecurityScore, &sub.SecurityFindings,
 			&securityScanAt, &sub.Status, &reviewerID, &sub.ReviewerNotes, &reviewedAt,
-			&sub.DownloadCount, &sub.InstallCount, &sub.CreatedAt, &sub.UpdatedAt, &publishedAt,
+			&sub.DownloadCount, &sub.InstallCount, &sub.CreatedAt, &sub.UpdatedAt, &publishedAt, &sub.Visibility,
+			&sub.ForkCount, &forkedFromID, &depsJSON,
 		)
 		if err != nil {
 			return nil, err
@@ -950,11 +995,15 @@ func (cs *CentralStorage) scanSkillSubmissions(rows *sql.Rows) ([]*SkillSubmissi
 		if publishedAt.Valid {
 			sub.PublishedAt = &publishedAt.String
 		}
+		if forkedFromID.Valid {
+			sub.ForkedFromID = &forkedFromID.Int64
+		}
 
 		_ = json.Unmarshal([]byte(tagsJSON), &sub.Tags)
 		if sub.Tags == nil {
 			sub.Tags = []string{}
 		}
+		_ = json.Unmarshal([]byte(depsJSON), &sub.Dependencies)
 
 		submissions = append(submissions, &sub)
 	}
@@ -1001,6 +1050,142 @@ func (cs *CentralStorage) IncrementSkillInstallCount(id int64) error {
 		SET install_count = install_count + 1, updated_at = CURRENT_TIMESTAMP
 		WHERE id = ?`, id)
 	return err
+}
+
+// IncrementSkillForkCount increments the fork count for a skill
+func (cs *CentralStorage) IncrementSkillForkCount(id int64) error {
+	_, err := cs.db.Exec(`
+		UPDATE skill_submissions
+		SET fork_count = fork_count + 1, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?`, id)
+	return err
+}
+
+// ==================== SKILL RATINGS ====================
+
+// SkillRating represents a user's rating for a marketplace skill
+type SkillRating struct {
+	ID           int64  `json:"id"`
+	SubmissionID int64  `json:"submission_id"`
+	UserID       int64  `json:"user_id"`
+	Rating       int    `json:"rating"`
+	Review       string `json:"review,omitempty"`
+	CreatedAt    string `json:"created_at"`
+	UpdatedAt    string `json:"updated_at"`
+}
+
+// SkillRatingSummary contains aggregate rating data for a skill
+type SkillRatingSummary struct {
+	AverageRating float64 `json:"average_rating"`
+	RatingCount   int     `json:"rating_count"`
+}
+
+// UpsertSkillRating inserts or updates a user's rating for a skill
+func (cs *CentralStorage) UpsertSkillRating(submissionID, userID int64, rating int, review string) error {
+	_, err := cs.db.Exec(`
+		INSERT INTO skill_ratings (submission_id, user_id, rating, review)
+		VALUES (?, ?, ?, ?)
+		ON CONFLICT(submission_id, user_id) DO UPDATE SET
+			rating = excluded.rating,
+			review = excluded.review,
+			updated_at = CURRENT_TIMESTAMP`,
+		submissionID, userID, rating, review)
+	return err
+}
+
+// GetSkillRatingSummary returns the average rating and count for a skill
+func (cs *CentralStorage) GetSkillRatingSummary(submissionID int64) (*SkillRatingSummary, error) {
+	var summary SkillRatingSummary
+	var avg sql.NullFloat64
+	var count int
+	err := cs.db.QueryRow(`
+		SELECT AVG(rating), COUNT(*)
+		FROM skill_ratings
+		WHERE submission_id = ?`, submissionID).Scan(&avg, &count)
+	if err != nil {
+		return nil, err
+	}
+	if avg.Valid {
+		summary.AverageRating = avg.Float64
+	}
+	summary.RatingCount = count
+	return &summary, nil
+}
+
+// GetSkillRatingSummaries returns a map of submission_id → SkillRatingSummary for the given IDs.
+// IDs with no ratings will not be present in the map.
+func (cs *CentralStorage) GetSkillRatingSummaries(submissionIDs []int64) (map[int64]*SkillRatingSummary, error) {
+	if len(submissionIDs) == 0 {
+		return map[int64]*SkillRatingSummary{}, nil
+	}
+	// Build placeholders: ?,?,?
+	placeholders := make([]string, len(submissionIDs))
+	args := make([]interface{}, len(submissionIDs))
+	for i, id := range submissionIDs {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+	query := fmt.Sprintf(
+		`SELECT submission_id, AVG(rating), COUNT(*) FROM skill_ratings WHERE submission_id IN (%s) GROUP BY submission_id`,
+		strings.Join(placeholders, ","),
+	)
+	rows, err := cs.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make(map[int64]*SkillRatingSummary)
+	for rows.Next() {
+		var submID int64
+		var avg sql.NullFloat64
+		var count int
+		if err := rows.Scan(&submID, &avg, &count); err != nil {
+			return nil, err
+		}
+		result[submID] = &SkillRatingSummary{
+			AverageRating: avg.Float64,
+			RatingCount:   count,
+		}
+	}
+	return result, rows.Err()
+}
+
+// GetSkillRatings returns a paginated list of ratings for a skill
+func (cs *CentralStorage) GetSkillRatings(submissionID int64, limit, offset int) ([]*SkillRating, error) {
+	rows, err := cs.db.Query(`
+		SELECT id, submission_id, user_id, rating, COALESCE(review, ''), created_at, updated_at
+		FROM skill_ratings
+		WHERE submission_id = ?
+		ORDER BY created_at DESC
+		LIMIT ? OFFSET ?`, submissionID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ratings []*SkillRating
+	for rows.Next() {
+		var r SkillRating
+		if err := rows.Scan(&r.ID, &r.SubmissionID, &r.UserID, &r.Rating, &r.Review, &r.CreatedAt, &r.UpdatedAt); err != nil {
+			return nil, err
+		}
+		ratings = append(ratings, &r)
+	}
+	return ratings, rows.Err()
+}
+
+// GetUserRatingForSkill returns a user's rating for a specific skill, or sql.ErrNoRows if not rated
+func (cs *CentralStorage) GetUserRatingForSkill(submissionID, userID int64) (*SkillRating, error) {
+	var r SkillRating
+	err := cs.db.QueryRow(`
+		SELECT id, submission_id, user_id, rating, COALESCE(review, ''), created_at, updated_at
+		FROM skill_ratings
+		WHERE submission_id = ? AND user_id = ?`, submissionID, userID).
+		Scan(&r.ID, &r.SubmissionID, &r.UserID, &r.Rating, &r.Review, &r.CreatedAt, &r.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &r, nil
 }
 
 // GetSkillCategories returns all skill categories

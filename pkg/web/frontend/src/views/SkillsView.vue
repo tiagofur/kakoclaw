@@ -140,6 +140,9 @@
               <div v-if="skill.tags && skill.tags.length" class="flex flex-wrap gap-1 mt-2">
                 <span v-for="tag in skill.tags" :key="tag" class="px-2 py-0.5 text-xs bg-makoclaw-bg rounded-full text-makoclaw-text-secondary">{{ tag }}</span>
               </div>
+              <div v-if="skill.dependencies && skill.dependencies.length > 0" class="text-xs text-makoclaw-text-secondary mt-2">
+                Requires: {{ skill.dependencies.join(', ') }}
+              </div>
               <div class="flex items-center gap-2 mt-4">
                 <button
                   @click="installMarketplaceSkill(skill.slug)"
@@ -149,7 +152,54 @@
                   <span v-if="installing === skill.slug">Installing...</span>
                   <span v-else>Install</span>
                 </button>
+                <button
+                  @click="forkSkill(skill)"
+                  :disabled="forking === skill.slug"
+                  class="btn-ghost text-xs px-2 py-1"
+                >
+                  {{ forking === skill.slug ? 'Forking...' : 'Fork' }}
+                </button>
                 <span v-if="skill.install_count" class="text-xs text-makoclaw-text-secondary">{{ skill.install_count }} installs</span>
+                <span v-if="skill.fork_count > 0" class="text-xs text-makoclaw-text-secondary">{{ skill.fork_count }} forks</span>
+                <div class="flex items-center gap-2 ml-auto">
+                  <span v-if="skill.rating_count > 0" class="text-xs text-yellow-400">
+                    &#9733; {{ skill.average_rating?.toFixed(1) ?? '—' }} ({{ skill.rating_count }})
+                  </span>
+                  <button
+                    @click="toggleRatingWidget(skill.slug)"
+                    class="text-xs px-2 py-1 bg-makoclaw-bg rounded-lg hover:bg-makoclaw-border/50 transition-colors"
+                    :class="{ 'text-yellow-400': ratingOpenSlug === skill.slug }"
+                  >Rate</button>
+                </div>
+              </div>
+
+              <!-- Inline Rating Widget -->
+              <div v-if="ratingOpenSlug === skill.slug" class="mt-3 p-3 bg-makoclaw-bg rounded-lg border border-makoclaw-border">
+                <p class="text-xs font-medium mb-2">Your rating</p>
+                <div class="flex gap-1 mb-2">
+                  <button
+                    v-for="star in 5"
+                    :key="star"
+                    @click="setStars(skill.slug, star)"
+                    class="text-xl leading-none transition-colors"
+                    :class="(pendingRating[skill.slug]?.stars ?? 0) >= star ? 'text-yellow-400' : 'text-makoclaw-text-secondary'"
+                  >&#9733;</button>
+                </div>
+                <textarea
+                  v-model="pendingRating[skill.slug].review"
+                  placeholder="Optional review (max 500 chars)"
+                  maxlength="500"
+                  rows="2"
+                  class="w-full px-2 py-1.5 text-xs bg-makoclaw-surface border border-makoclaw-border rounded-lg resize-none focus:ring-1 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent transition-all"
+                ></textarea>
+                <div class="flex justify-end gap-2 mt-2">
+                  <button @click="ratingOpenSlug = null" class="text-xs px-3 py-1 text-makoclaw-text-secondary hover:text-makoclaw-text transition-colors">Cancel</button>
+                  <button
+                    @click="submitRating(skill)"
+                    :disabled="submittingRating || !(pendingRating[skill.slug]?.stars > 0)"
+                    class="text-xs px-3 py-1 bg-makoclaw-accent text-white rounded-lg hover:bg-makoclaw-accent/90 transition-colors disabled:opacity-50"
+                  >{{ submittingRating ? 'Submitting...' : 'Submit Rating' }}</button>
+                </div>
               </div>
             </div>
           </div>
@@ -172,14 +222,21 @@
             >
               <div class="flex items-start justify-between">
                 <h3 class="font-semibold flex-1">{{ sub.skill_name }}</h3>
-                <span
-                  class="px-2 py-0.5 text-xs rounded-full flex-shrink-0"
-                  :class="{
-                    'bg-green-500/10 text-green-400': sub.status === 'approved',
-                    'bg-yellow-500/10 text-yellow-400': sub.status === 'pending' || sub.status === 'needs_review',
-                    'bg-red-500/10 text-red-400': sub.status === 'rejected'
-                  }"
-                >{{ sub.status }}</span>
+                <div class="flex items-center gap-1.5 flex-shrink-0">
+                  <span
+                    v-if="sub.visibility === 'private'"
+                    class="px-2 py-0.5 text-xs rounded-full bg-makoclaw-bg text-makoclaw-text-secondary border border-makoclaw-border"
+                    title="Private skill"
+                  >&#128274;</span>
+                  <span
+                    class="px-2 py-0.5 text-xs rounded-full"
+                    :class="{
+                      'bg-green-500/10 text-green-400': sub.status === 'approved',
+                      'bg-yellow-500/10 text-yellow-400': sub.status === 'pending' || sub.status === 'needs_review',
+                      'bg-red-500/10 text-red-400': sub.status === 'rejected'
+                    }"
+                  >{{ sub.status }}</span>
+                </div>
               </div>
               <p class="text-sm text-makoclaw-text-secondary mt-1 line-clamp-2">{{ sub.description }}</p>
               <p class="text-xs text-makoclaw-text-secondary mt-2">Security Score: {{ sub.security_score }}/100</p>
@@ -429,7 +486,7 @@
           </div>
 
           <!-- Security Scan Results -->
-          <div v-if="scanResult" class="p-3 rounded-lg" :class="scanResult.passed ? 'bg-green-500/10' : 'bg-red-500/10'">
+          <div v-if="scanResult && submitForm.visibility !== 'private'" class="p-3 rounded-lg" :class="scanResult.passed ? 'bg-green-500/10' : 'bg-red-500/10'">
             <div class="flex items-center justify-between">
               <span class="text-sm font-medium">Security Score</span>
               <span class="text-lg font-bold" :class="scanResult.score >= 80 ? 'text-green-400' : scanResult.score >= 60 ? 'text-yellow-400' : 'text-red-400'">
@@ -468,6 +525,31 @@
             </select>
           </div>
 
+          <!-- Visibility -->
+          <div>
+            <label class="block text-sm font-medium mb-2">Visibility</label>
+            <div class="space-y-2">
+              <label class="flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors"
+                :class="submitForm.visibility === 'public' ? 'border-makoclaw-accent bg-makoclaw-accent/5' : 'border-makoclaw-border hover:border-makoclaw-accent/50'">
+                <input type="radio" v-model="submitForm.visibility" value="public" class="mt-0.5 accent-makoclaw-accent" />
+                <div>
+                  <div class="text-sm font-medium">Public</div>
+                  <div class="text-xs text-makoclaw-text-secondary">Visible to everyone in the marketplace</div>
+                </div>
+              </label>
+              <label class="flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors"
+                :class="submitForm.visibility === 'private' ? 'border-makoclaw-accent bg-makoclaw-accent/5' : 'border-makoclaw-border hover:border-makoclaw-accent/50'">
+                <input type="radio" v-model="submitForm.visibility" value="private" class="mt-0.5 accent-makoclaw-accent" />
+                <div>
+                  <div class="text-sm font-medium flex items-center gap-1.5">
+                    <span>&#128274;</span> Private
+                  </div>
+                  <div class="text-xs text-makoclaw-text-secondary">Only visible to you — auto-approved instantly</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
           <!-- Tags -->
           <div>
             <label class="block text-sm font-medium mb-1">Tags (comma-separated)</label>
@@ -483,7 +565,7 @@
           <button @click="closeSubmitModal" class="px-4 py-2 text-sm text-makoclaw-text-secondary hover:text-makoclaw-text">Cancel</button>
           <button
             @click="handleSubmitToMarketplace"
-            :disabled="submitting || (scanResult && !scanResult.passed)"
+            :disabled="submitting || (scanResult && !scanResult.passed && submitForm.visibility !== 'private')"
             class="px-4 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {{ submitting ? 'Submitting...' : 'Submit' }}
@@ -511,15 +593,21 @@ const available = ref([])
 const marketplaceSkills = ref([])
 const mySubmissions = ref([])
 const installing = ref(null)
+const forking = ref(null)
 const viewingSkill = ref(null)
 const editingSkill = ref(null)
 const editContent = ref('')
 const savingSkill = ref(false)
 
+// Rating Widget State
+const ratingOpenSlug = ref(null)
+const pendingRating = ref({})
+const submittingRating = ref(false)
+
 // Submit Modal State
 const showSubmitModal = ref(false)
 const submittingSkill = ref(null)
-const submitForm = ref({ category: 'general', tags: '' })
+const submitForm = ref({ category: 'general', tags: '', visibility: 'public' })
 const submitting = ref(false)
 const scanResult = ref(null)
 
@@ -540,6 +628,49 @@ const generateFormErrors = ref({
   name: '',
   description: ''
 })
+
+const toggleRatingWidget = (slug) => {
+  if (ratingOpenSlug.value === slug) {
+    ratingOpenSlug.value = null
+  } else {
+    ratingOpenSlug.value = slug
+    if (!pendingRating.value[slug]) {
+      pendingRating.value[slug] = { stars: 0, review: '' }
+    }
+  }
+}
+
+const setStars = (slug, stars) => {
+  if (!pendingRating.value[slug]) {
+    pendingRating.value[slug] = { stars: 0, review: '' }
+  }
+  pendingRating.value[slug].stars = stars
+}
+
+const submitRating = async (skill) => {
+  const slug = skill.slug
+  const pr = pendingRating.value[slug]
+  if (!pr || pr.stars < 1 || pr.stars > 5) {
+    toast.error('Please select a star rating (1–5)')
+    return
+  }
+  submittingRating.value = true
+  try {
+    const summary = await advancedService.rateSkill(slug, pr.stars, pr.review || '')
+    // Update the card in-place
+    const idx = marketplaceSkills.value.findIndex(s => s.slug === slug)
+    if (idx !== -1) {
+      marketplaceSkills.value[idx].average_rating = summary.average_rating
+      marketplaceSkills.value[idx].rating_count = summary.rating_count
+    }
+    ratingOpenSlug.value = null
+    toast.success('Rating submitted!')
+  } catch (err) {
+    toast.error('Failed to submit rating')
+  } finally {
+    submittingRating.value = false
+  }
+}
 
 const loadSkills = async () => {
   loading.value = true
@@ -602,8 +733,18 @@ const loadMySubmissions = async () => {
 const installMarketplaceSkill = async (slug) => {
   installing.value = slug
   try {
-    await advancedService.installMarketplaceSkill(slug)
-    toast.success('Skill installed successfully')
+    const skill = marketplaceSkills.value.find(s => s.slug === slug)
+    const result = await advancedService.installMarketplaceSkill(slug)
+    const autoInstalled = result.auto_installed || []
+    if (autoInstalled.length > 0) {
+      toast.success(`Installed ${skill ? skill.name : slug}. Also installed: ${autoInstalled.join(', ')}`)
+    } else {
+      toast.success('Skill installed successfully')
+    }
+    const unresolvable = result.unresolvable || []
+    if (unresolvable.length > 0) {
+      toast.info(`Warning: could not find dependencies: ${unresolvable.join(', ')}`)
+    }
     await loadSkills()
   } catch (err) {
     toast.error('Failed to install skill')
@@ -612,11 +753,25 @@ const installMarketplaceSkill = async (slug) => {
   }
 }
 
+const forkSkill = async (skill) => {
+  forking.value = skill.slug
+  try {
+    const result = await advancedService.forkSkill(skill.slug)
+    toast.success(result.message || `Forked to workspace as '${result.skill_name}'. Edit from Installed tab.`)
+    skill.fork_count = (skill.fork_count || 0) + 1
+    await loadSkills()
+  } catch (err) {
+    toast.error(err.response?.data || 'Failed to fork skill')
+  } finally {
+    forking.value = null
+  }
+}
+
 const openSubmitModal = async (skill) => {
   try {
     const data = await advancedService.viewSkill(skill.name)
     submittingSkill.value = { ...skill, content: data.content }
-    submitForm.value = { category: 'general', tags: '' }
+    submitForm.value = { category: 'general', tags: '', visibility: 'public' }
     scanResult.value = null
     showSubmitModal.value = true
 
@@ -648,7 +803,8 @@ const handleSubmitToMarketplace = async () => {
       description: submittingSkill.value.description || '',
       content: submittingSkill.value.content,
       category: submitForm.value.category,
-      tags
+      tags,
+      visibility: submitForm.value.visibility
     })
 
     toast.success(result.message || 'Skill submitted successfully')

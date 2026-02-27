@@ -1,35 +1,35 @@
 <template>
-  <div class="space-y-8 max-w-7xl mx-auto animate-fade-in-up">
+  <div class="space-y-5 max-w-7xl mx-auto animate-fade-in-up">
     <!-- Filters -->
-    <div class="glass-panel rounded-[2rem] p-8 border border-makoclaw-border/50 relative overflow-hidden group">
+    <div class="glass-panel rounded-2xl p-5 border border-makoclaw-border/50 relative overflow-hidden group">
       <div class="absolute -top-12 -right-12 w-48 h-48 bg-makoclaw-accent/5 blur-[50px] rounded-full group-hover:bg-makoclaw-accent/10 transition-all duration-1000"></div>
       
       <div class="relative z-10">
-        <h3 class="text-[11px] font-black uppercase tracking-[0.2em] text-makoclaw-text-secondary/70 italic mb-8 flex items-center gap-3">
+        <h3 class="text-[11px] font-medium uppercase tracking-wide text-makoclaw-text-secondary/70 mb-5 flex items-center gap-2">
           <IconFilter class="w-4 h-4 text-makoclaw-accent" />
           Neural Trace Filters
         </h3>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div class="space-y-2">
-            <label class="text-[10px] font-black uppercase tracking-widest text-makoclaw-text-secondary/60 ml-1">Active Subject</label>
-            <select v-model="filters.user_id" class="w-full bg-makoclaw-bg/40 border-2 border-makoclaw-border/50 rounded-2xl px-5 py-3 text-sm font-bold text-makoclaw-text focus:border-makoclaw-accent outline-none transition-all cursor-pointer">
+            <label class="text-[10px] font-medium uppercase tracking-wide text-makoclaw-text-secondary/60 ml-1">Active Subject</label>
+            <select v-model="filters.user_id" class="w-full bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl px-4 py-2.5 text-sm font-medium text-makoclaw-text focus:border-makoclaw-accent outline-none transition-all cursor-pointer">
               <option value="">All Identities</option>
               <option v-for="user in users" :key="user.id" :value="user.id">{{ user.username }}</option>
             </select>
           </div>
 
           <div class="space-y-2">
-            <label class="text-[10px] font-black uppercase tracking-widest text-makoclaw-text-secondary/60 ml-1">Socket Interface</label>
-            <select v-model="filters.tool" class="w-full bg-makoclaw-bg/40 border-2 border-makoclaw-border/50 rounded-2xl px-5 py-3 text-sm font-bold text-makoclaw-text focus:border-makoclaw-accent outline-none transition-all cursor-pointer">
+            <label class="text-[10px] font-medium uppercase tracking-wide text-makoclaw-text-secondary/60 ml-1">Socket Interface</label>
+            <select v-model="filters.tool" class="w-full bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl px-4 py-2.5 text-sm font-medium text-makoclaw-text focus:border-makoclaw-accent outline-none transition-all cursor-pointer">
               <option value="" class="text-makoclaw-text">All Tools</option>
               <option v-for="tool in toolsList" :key="tool" :value="tool">{{ tool.toUpperCase() }}</option>
             </select>
           </div>
 
           <div class="space-y-2">
-            <label class="text-[10px] font-black uppercase tracking-widest text-makoclaw-text-secondary/60 ml-1">Result Status</label>
-            <select v-model="filters.success" class="w-full bg-makoclaw-bg/40 border-2 border-makoclaw-border/50 rounded-2xl px-5 py-3 text-sm font-bold text-makoclaw-text focus:border-makoclaw-accent outline-none transition-all cursor-pointer">
+            <label class="text-[10px] font-medium uppercase tracking-wide text-makoclaw-text-secondary/60 ml-1">Result Status</label>
+            <select v-model="filters.success" class="w-full bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl px-4 py-2.5 text-sm font-medium text-makoclaw-text focus:border-makoclaw-accent outline-none transition-all cursor-pointer">
               <option value="">All Cycles</option>
               <option value="true" class="text-makoclaw-success">Success Verified</option>
               <option value="false" class="text-red-400">Failed / Restricted</option>
@@ -39,7 +39,7 @@
           <div class="flex items-end">
             <button 
               @click="loadAuditLog"
-              class="w-full px-6 py-3.5 bg-makoclaw-accent hover:bg-makoclaw-accent-hover text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-makoclaw-accent/20 transition-all flex items-center justify-center gap-2 active:scale-95"
+              class="w-full px-5 py-2.5 bg-makoclaw-accent hover:bg-makoclaw-accent-hover text-white rounded-xl font-semibold shadow-lg shadow-makoclaw-accent/20 transition-all flex items-center justify-center gap-2 active:scale-95"
             >
               <IconSearch class="w-4 h-4" />
               Apply Trace
@@ -50,15 +50,15 @@
     </div>
 
     <!-- Audit Log Table -->
-    <div class="glass-panel rounded-[2.5rem] p-1 border border-makoclaw-border/50 overflow-hidden relative">
-      <div class="p-8 pb-4 flex items-center justify-between">
+    <div class="glass-panel rounded-2xl border border-makoclaw-border/50 overflow-hidden relative">
+      <div class="p-5 pb-3 flex items-center justify-between">
         <div>
-          <h3 class="text-xl font-black text-makoclaw-text italic flex items-center gap-3">
-             <IconAudit class="w-6 h-6 text-makoclaw-accent" />
+          <h3 class="text-base font-semibold text-makoclaw-text flex items-center gap-2">
+             <IconAudit class="w-4 h-4 text-makoclaw-accent" />
              Core Audit Trail
              <span v-if="auditLogs.length > 0" class="ml-2 px-2.5 py-1 text-[10px] font-black bg-makoclaw-accent/10 text-makoclaw-accent rounded-xl border border-makoclaw-accent/20">{{ auditLogs.length }} TRACES</span>
           </h3>
-          <p class="text-[10px] font-black uppercase tracking-[0.2em] text-makoclaw-text-secondary/40 mt-1">High-fidelity mission activity logs</p>
+          <p class="text-[10px] font-medium tracking-wide text-makoclaw-text-secondary/40 mt-1">High-fidelity mission activity logs</p>
         </div>
         <button 
           @click="refreshLog"
@@ -71,18 +71,18 @@
 
       <div v-if="loading && auditLogs.length === 0" class="flex flex-col items-center justify-center py-32 gap-6">
         <div class="w-16 h-16 border-4 border-makoclaw-accent/20 border-t-makoclaw-accent rounded-full animate-spin"></div>
-        <p class="text-xs font-black uppercase tracking-widest text-makoclaw-text-secondary animate-pulse">Syncing Mission History...</p>
+        <p class="text-xs font-medium tracking-wide text-makoclaw-text-secondary animate-pulse">Syncing Mission History...</p>
       </div>
 
       <div v-else-if="auditLogs.length === 0" class="flex flex-col items-center justify-center py-32 bg-makoclaw-bg/20">
         <IconEmpty class="w-20 h-20 text-makoclaw-text-secondary/10 mb-6" />
-        <p class="text-xs font-black uppercase tracking-[0.3em] text-makoclaw-text-secondary/40 italic">No activity logs recorded</p>
-        <p class="text-[10px] font-medium text-makoclaw-text-secondary/20 mt-2 uppercase tracking-widest">The matrix is quiet</p>
+        <p class="text-xs font-medium tracking-wide text-makoclaw-text-secondary/40">No activity logs recorded</p>
+        <p class="text-[10px] font-medium text-makoclaw-text-secondary/20 mt-2 uppercase tracking-wide">The matrix is quiet</p>
       </div>
 
       <div v-else class="overflow-x-auto custom-scrollbar">
         <table class="w-full text-left text-sm whitespace-nowrap">
-          <thead class="bg-makoclaw-bg/40 text-[10px] font-black uppercase tracking-[0.2em] text-makoclaw-text-secondary/60">
+          <thead class="bg-makoclaw-bg/40 text-[10px] font-medium uppercase tracking-wide text-makoclaw-text-secondary/60">
             <tr>
               <th scope="col" class="px-8 py-5">Temporal Stamp</th>
               <th scope="col" class="px-6 py-5">Subject</th>
@@ -113,11 +113,11 @@
                 </span>
               </td>
               <td class="px-6 py-5 text-center">
-                <span v-if="log.success" class="inline-flex items-center gap-1.5 px-3 py-1 text-[9px] font-black uppercase rounded-full bg-makoclaw-success/10 text-makoclaw-success border border-makoclaw-success/20">
+                <span v-if="log.success" class="inline-flex items-center gap-1.5 px-2 py-0.5 text-[9px] font-medium uppercase rounded-full bg-makoclaw-success/10 text-makoclaw-success border border-makoclaw-success/20">
                   <span class="w-1.5 h-1.5 rounded-full bg-makoclaw-success"></span>
                   Verified
                 </span>
-                <span v-else class="inline-flex items-center gap-1.5 px-3 py-1 text-[9px] font-black uppercase rounded-full bg-red-500/10 text-red-400 border border-red-500/20" :title="log.error">
+                <span v-else class="inline-flex items-center gap-1.5 px-2 py-0.5 text-[9px] font-medium uppercase rounded-full bg-red-500/10 text-red-400 border border-red-500/20" :title="log.error">
                   <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
                   Failed
                 </span>
@@ -128,7 +128,7 @@
               <td class="px-8 py-5 text-right">
                 <button 
                   @click="showDetails(log)"
-                  class="px-4 py-2 bg-makoclaw-bg border border-makoclaw-border hover:border-makoclaw-accent/50 text-makoclaw-text-secondary hover:text-makoclaw-accent rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:scale-105"
+                  class="px-4 py-1.5 bg-makoclaw-bg border border-makoclaw-border hover:border-makoclaw-accent/50 text-makoclaw-text-secondary hover:text-makoclaw-accent rounded-xl text-[10px] font-medium tracking-wide transition-all hover:scale-105"
                 >
                   Inspect
                 </button>
@@ -139,13 +139,13 @@
 
         <!-- Load More Section -->
         <div class="flex items-center justify-between p-8 border-t border-makoclaw-border/50 bg-makoclaw-bg/20">
-          <div class="text-[10px] font-black uppercase tracking-widest text-makoclaw-text-secondary/40">
+          <div class="text-[10px] font-medium tracking-wide text-makoclaw-text-secondary/40">
             Rendered Traces: {{ auditLogs.length }}
           </div>
           <button 
             @click="loadMore"
             :disabled="loading || auditLogs.length < filters.limit"
-            class="px-8 py-3 bg-makoclaw-surface border border-makoclaw-border/50 text-makoclaw-text-secondary hover:text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-20 flex items-center gap-3 group/more"
+            class="px-5 py-2 bg-makoclaw-surface border border-makoclaw-border/50 text-makoclaw-text-secondary hover:text-white rounded-xl text-[10px] font-medium tracking-wide transition-all active:scale-95 disabled:opacity-20 flex items-center gap-2 group/more"
           >
             <IconPlus class="w-3.5 h-3.5 group-hover/more:rotate-90 transition-transform" />
             Synchronize More
@@ -158,13 +158,13 @@
     <Teleport to="body">
     <Transition name="modal">
     <div v-if="selectedLog" class="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-center justify-center z-[100] p-4" @click.self="selectedLog = null">
-      <div class="glass-panel border border-makoclaw-border/50 rounded-[2.5rem] shadow-2xl max-w-4xl w-full max-h-[85vh] overflow-hidden flex flex-col relative animate-zoom" @click.stop>
+      <div class="glass-panel border border-makoclaw-border/50 rounded-2xl shadow-xl max-w-4xl w-full max-h-[85vh] overflow-hidden flex flex-col relative animate-zoom" @click.stop>
         <div class="absolute -top-12 -left-12 w-48 h-48 bg-makoclaw-accent/10 blur-[60px] rounded-full pointer-events-none"></div>
 
         <div class="p-10 pb-6 flex items-center justify-between relative z-10">
           <div>
             <h3 class="text-2xl font-black text-makoclaw-text italic tracking-tight">Trace Inspection</h3>
-            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-makoclaw-text-secondary/40 mt-1">Detailed packet payload and state</p>
+            <p class="text-[10px] font-medium tracking-wide text-makoclaw-text-secondary/40 mt-1">Detailed packet payload and state</p>
           </div>
           <button @click="selectedLog = null" class="p-3 rounded-2xl bg-makoclaw-bg/60 border border-makoclaw-border/50 text-makoclaw-text-secondary hover:text-white transition-all">
             <IconClose class="w-6 h-6" />
@@ -172,49 +172,49 @@
         </div>
         
         <div class="px-10 py-6 overflow-y-auto custom-scrollbar space-y-10 relative z-10 flex-1">
-          <div class="grid grid-cols-2 lg:grid-cols-4 gap-8">
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-5">
             <div class="space-y-1">
-              <span class="text-[9px] font-black uppercase tracking-widest text-makoclaw-text-secondary/40">Temporal Mark</span>
+              <span class="text-[9px] font-medium tracking-wide text-makoclaw-text-secondary/40">Temporal Mark</span>
               <div class="text-xs font-black text-makoclaw-text font-mono truncate">{{ formatTimestamp(selectedLog.timestamp) }}</div>
             </div>
             <div class="space-y-1">
-              <span class="text-[9px] font-black uppercase tracking-widest text-makoclaw-text-secondary/40">Active Subject</span>
-              <div class="text-xs font-black text-makoclaw-accent uppercase tracking-widest truncate">{{ selectedLog.username }}</div>
+              <span class="text-[9px] font-medium tracking-wide text-makoclaw-text-secondary/40">Active Subject</span>
+              <div class="text-xs font-medium text-makoclaw-accent uppercase truncate">{{ selectedLog.username }}</div>
             </div>
             <div class="space-y-1">
-              <span class="text-[9px] font-black uppercase tracking-widest text-makoclaw-text-secondary/40">Control Socket</span>
-              <div class="text-xs font-black text-makoclaw-text uppercase tracking-widest truncate italic">{{ selectedLog.tool }}</div>
+              <span class="text-[9px] font-medium tracking-wide text-makoclaw-text-secondary/40">Control Socket</span>
+              <div class="text-xs font-medium text-makoclaw-text truncate">{{ selectedLog.tool }}</div>
             </div>
             <div class="space-y-1">
-              <span class="text-[9px] font-black uppercase tracking-widest text-makoclaw-text-secondary/40">Protocol Result</span>
-              <div class="text-xs font-black uppercase tracking-widest truncate" :class="selectedLog.success ? 'text-makoclaw-success' : 'text-red-400'">
+              <span class="text-[9px] font-medium tracking-wide text-makoclaw-text-secondary/40">Protocol Result</span>
+              <div class="text-xs font-medium uppercase truncate" :class="selectedLog.success ? 'text-makoclaw-success' : 'text-red-400'">
                 {{ selectedLog.success ? '✓ SUCCESS' : '✗ FAILED' }}
               </div>
             </div>
           </div>
 
           <div class="space-y-4">
-            <h4 class="text-[10px] font-black uppercase tracking-[0.3em] text-makoclaw-text-secondary/40 flex items-center gap-2">
+            <h4 class="text-[10px] font-medium tracking-wide text-makoclaw-text-secondary/40 flex items-center gap-2">
                <IconTerminal class="w-4 h-4" /> Payload Arguments
             </h4>
             <div class="bg-makoclaw-bg/60 border-2 border-makoclaw-border/30 rounded-3xl p-8 relative group">
                <pre class="text-xs font-black font-mono text-makoclaw-text-secondary/90 leading-relaxed overflow-x-auto text-wrap selection:bg-makoclaw-accent selection:text-white">{{ formatJSON(selectedLog.arguments) }}</pre>
-               <div class="absolute top-4 right-4 text-[8px] font-black uppercase bg-makoclaw-bg px-2 py-1 rounded-lg border border-makoclaw-border/50 text-makoclaw-text-secondary/30">JSON.PROTO</div>
+               <div class="absolute top-4 right-4 text-[8px] font-medium bg-makoclaw-bg px-2 py-0.5 rounded-md border border-makoclaw-border/50 text-makoclaw-text-secondary/30">JSON.PROTO</div>
             </div>
           </div>
 
           <div v-if="selectedLog.error" class="space-y-4">
-            <h4 class="text-[10px] font-black uppercase tracking-[0.3em] text-red-400/50 flex items-center gap-2">
+            <h4 class="text-[10px] font-medium tracking-wide text-red-400/50 flex items-center gap-2">
                <IconAlert class="w-4 h-4" /> Interruption report
             </h4>
             <div class="bg-red-500/5 border-2 border-red-500/20 rounded-3xl p-8">
-               <p class="text-xs font-black text-red-400 leading-relaxed italic uppercase tracking-widest">{{ selectedLog.error }}</p>
+               <p class="text-xs font-medium text-red-400 leading-relaxed">{{ selectedLog.error }}</p>
             </div>
           </div>
         </div>
 
         <div class="p-8 pt-4 border-t border-makoclaw-border/30 flex justify-end relative z-10 bg-makoclaw-bg/10 backdrop-blur-sm">
-          <button @click="selectedLog = null" class="px-10 py-4 bg-makoclaw-accent hover:bg-makoclaw-accent-hover text-white rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-makoclaw-accent/30 transition-all active:scale-95">
+          <button @click="selectedLog = null" class="px-5 py-2.5 bg-makoclaw-accent hover:bg-makoclaw-accent-hover text-white rounded-xl text-[11px] font-semibold shadow-lg shadow-makoclaw-accent/30 transition-all active:scale-95">
             Dismiss inspection
           </button>
         </div>

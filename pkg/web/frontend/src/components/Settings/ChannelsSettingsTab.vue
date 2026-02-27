@@ -1,17 +1,17 @@
 <template>
-  <div class="space-y-8 max-w-5xl mx-auto animate-fade-in-up">
+  <div class="space-y-5 max-w-5xl mx-auto animate-fade-in-up">
      <!-- Section Header Decor -->
      <div class="flex items-center gap-4 mb-2 opacity-50">
         <div class="h-[1px] flex-1 bg-gradient-to-r from-transparent to-makoclaw-border"></div>
-        <span class="text-[9px] font-black uppercase tracking-[0.4em] text-makoclaw-text-secondary">Neural Uplink Channels</span>
+        <span class="text-[9px] font-medium uppercase tracking-wide text-makoclaw-text-secondary">Channels</span>
         <div class="h-[1px] flex-1 bg-gradient-to-l from-transparent to-makoclaw-border"></div>
      </div>
 
-     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         <div 
           v-for="channel in availableChannels" 
           :key="channel.id"
-          class="glass-panel rounded-[2rem] p-8 transition-all duration-500 hover:shadow-2xl hover:shadow-makoclaw-accent/5 hover:-translate-y-2 group relative overflow-hidden flex flex-col h-full border border-makoclaw-border/50 hover:border-makoclaw-accent/40"
+          class="glass-panel rounded-2xl p-5 transition-all duration-300 hover:shadow-xl hover:shadow-makoclaw-accent/5 hover:-translate-y-1 group relative overflow-hidden flex flex-col h-full border border-makoclaw-border/50 hover:border-makoclaw-accent/40"
         >
           <!-- Background Glow -->
           <div 
@@ -19,16 +19,16 @@
             :class="channels[channel.id]?.enabled ? 'bg-makoclaw-accent' : 'bg-makoclaw-text-secondary/50'"
           ></div>
 
-          <div class="flex items-center justify-between mb-8 relative z-10">
-            <div class="flex items-center gap-4">
+          <div class="flex items-center justify-between mb-4 relative z-10">
+            <div class="flex items-center gap-3">
               <div 
-                class="w-14 h-14 rounded-2xl flex items-center justify-center bg-makoclaw-surface border-2 border-makoclaw-border/50 text-makoclaw-text-secondary transition-all duration-500 group-hover:scale-110 group-hover:rotate-3 shadow-lg"
-                :class="{'!bg-makoclaw-accent !border-makoclaw-accent/20 !text-white shadow-makoclaw-accent/40': channels[channel.id]?.enabled}"
+                class="w-10 h-10 rounded-xl flex items-center justify-center bg-makoclaw-surface border border-makoclaw-border/50 text-makoclaw-text-secondary transition-all duration-300 group-hover:scale-105 group-hover:rotate-3 shadow-md"
+                :class="{'!bg-makoclaw-accent !border-makoclaw-accent/20 !text-white shadow-makoclaw-accent/30': channels[channel.id]?.enabled}"
                 v-html="channel.icon"
               ></div>
               <div>
-                <h3 class="font-black text-lg text-makoclaw-text tracking-tight italic">{{ channel.name }}</h3>
-                <span class="text-[9px] font-bold uppercase tracking-widest text-makoclaw-text-secondary/50">Frequency: VHF-B</span>
+                <h3 class="font-semibold text-base text-makoclaw-text tracking-tight">{{ channel.name }}</h3>
+                <span class="text-[9px] font-medium uppercase tracking-wide text-makoclaw-text-secondary/50">Uplink Channel</span>
               </div>
             </div>
 
@@ -45,14 +45,14 @@
             </button>
           </div>
 
-          <p class="text-xs font-medium text-makoclaw-text-secondary/60 mb-10 leading-relaxed h-10 line-clamp-2 relative z-10 group-hover:text-makoclaw-text-secondary transition-colors">
+          <p class="text-xs font-medium text-makoclaw-text-secondary/60 mb-5 leading-relaxed h-10 line-clamp-2 relative z-10 group-hover:text-makoclaw-text-secondary transition-colors">
             {{ channel.description }}
           </p>
 
           <div class="mt-auto flex items-center gap-3 relative z-10">
             <button 
               @click="$emit('config', channel)"
-              class="flex-1 py-4 text-[10px] font-black uppercase tracking-[0.2em] bg-makoclaw-bg/40 border-2 border-makoclaw-border/50 rounded-2xl hover:border-makoclaw-accent/40 hover:bg-makoclaw-surface transition-all flex items-center justify-center text-makoclaw-text group/btn active:scale-95"
+              class="flex-1 py-2.5 text-[10px] font-medium uppercase tracking-wide bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl hover:border-makoclaw-accent/40 hover:bg-makoclaw-surface transition-all flex items-center justify-center text-makoclaw-text group/btn active:scale-95"
             >
               <IconConfig class="h-4 w-4 mr-3 transition-transform group-hover/btn:rotate-180 duration-1000" />
               Tune Channel
@@ -60,7 +60,7 @@
             
             <div 
               v-if="channels[channel.id]?.enabled"
-              class="w-14 h-14 rounded-2xl bg-makoclaw-accent/10 border-2 border-makoclaw-accent/20 flex items-center justify-center text-makoclaw-accent shadow-inner"
+              class="w-10 h-10 rounded-xl bg-makoclaw-accent/10 border border-makoclaw-accent/20 flex items-center justify-center text-makoclaw-accent"
               title="Active Link"
             >
               <div class="relative">
@@ -73,12 +73,12 @@
      </div>
 
      <!-- Security Note -->
-     <div class="glass-panel p-6 rounded-[2rem] bg-amber-500/5 border border-amber-500/10 flex items-center gap-6 mt-12 animate-fade-in-up" style="animation-delay: 0.2s">
-        <div class="p-4 rounded-2xl bg-amber-500/10 text-amber-500 shadow-xl shadow-amber-500/5">
-           <IconShield class="w-6 h-6" />
+     <div class="glass-panel p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10 flex items-center gap-4 mt-6 animate-fade-in-up" style="animation-delay: 0.2s">
+        <div class="p-2 rounded-xl bg-amber-500/10 text-amber-500">
+           <IconShield class="w-4 h-4" />
         </div>
         <div>
-           <h4 class="text-xs font-black uppercase tracking-widest text-makoclaw-text italic">Protocol Warning</h4>
+           <h4 class="text-xs font-medium tracking-wide text-makoclaw-text">Protocol Warning</h4>
            <p class="text-xs font-medium text-makoclaw-text-secondary/50 mt-1">Changing neural channel configurations may temporarily sever active uplinks. Ensure backup encryption is enabled for sensitive transmissions.</p>
         </div>
      </div>
