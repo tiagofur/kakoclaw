@@ -6,11 +6,11 @@
     <!-- Sidebar (History) -->
     <div 
       :class="[
-        'flex-shrink-0 border-r border-makoclaw-border bg-makoclaw-surface/50 backdrop-blur-md transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] flex flex-col',
+        'flex-shrink-0 border-r border-makoclaw-border/20 bg-makoclaw-surface/30 backdrop-blur-xl transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] flex flex-col ring-1 ring-white/[0.03]',
         showSidebar ? 'w-56 md:w-64 opacity-100' : 'w-0 opacity-0 border-none overflow-hidden scale-95 origin-left'
       ]"
     >
-      <div class="p-2 md:p-4 border-b border-makoclaw-border flex justify-between items-center gap-2">
+      <div class="p-2 sm:p-3 md:p-4 border-b border-makoclaw-border/30 flex justify-between items-center gap-2">
         <h2 class="font-semibold text-xs md:text-sm text-makoclaw-text-secondary">History</h2>
         <button @click="startNewChat" class="p-1 md:p-1.5 hover:bg-makoclaw-bg rounded-md text-makoclaw-accent transition-colors flex-shrink-0" title="Nuevo Chat">
           <svg class="w-4 md:w-5 h-4 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
@@ -96,38 +96,37 @@
 
     <!-- Main Chat Area -->
     <div class="flex-1 flex flex-col min-w-0 relative bg-makoclaw-bg/50">
-      <!-- Top Bar: Mobile toggle + Model selector -->
-      <div class="flex items-center justify-between px-2 md:px-4 py-1.5 md:py-2 border-b border-makoclaw-border/30 bg-makoclaw-surface/30 backdrop-blur-sm z-20 gap-2 flex-wrap">
-        <div class="flex items-center gap-2">
-          <button 
-            @click="toggleSidebar"
-            class="p-2 hover:bg-makoclaw-accent/10 rounded-xl text-makoclaw-text-secondary hover:text-makoclaw-accent transition-all duration-300 glass border border-transparent hover:border-makoclaw-accent/30 flex items-center justify-center group"
-            title="Toggle Sidebar"
-          >
-            <svg class="w-5 h-5 transition-transform duration-500" :class="{'rotate-180': !showSidebar}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-            </svg>
-          </button>
-          <div class="hidden md:block"></div>
-        </div>
+      <!-- Top Bar -->
+      <div class="flex items-center px-2 sm:px-3 md:px-4 py-1.5 md:py-2 border-b border-makoclaw-border/20 bg-makoclaw-surface/30 backdrop-blur-xl z-20 gap-2">
+        <!-- Sidebar toggle (fixed left) -->
+        <button
+          @click="toggleSidebar"
+          class="p-2 min-h-[36px] min-w-[36px] flex items-center justify-center hover:bg-makoclaw-accent/10 rounded-xl text-makoclaw-text-secondary hover:text-makoclaw-accent transition-all flex-shrink-0"
+          title="Toggle Sidebar"
+        >
+          <svg class="w-4 h-4 md:w-5 md:h-5 transition-transform duration-500" :class="{'rotate-180': !showSidebar}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+          </svg>
+        </button>
 
-        <!-- Global Loading Indicator -->
-        <div v-if="chatStore.globalIsLoading" class="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1 md:py-1.5 bg-makoclaw-accent/10 border border-makoclaw-accent rounded-lg order-3 md:order-2 w-full md:w-auto text-center md:text-left">
-          <svg class="w-3.5 md:w-4 h-3.5 md:h-4 text-makoclaw-accent animate-spin flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <!-- Agent status (flex-1, truncates) -->
+        <div v-if="chatStore.globalIsLoading" class="flex-1 flex items-center gap-1.5 px-2 py-1 bg-makoclaw-accent/10 border border-makoclaw-accent/30 rounded-lg min-w-0">
+          <svg class="w-3.5 h-3.5 text-makoclaw-accent animate-spin flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
-          <span class="text-[10px] md:text-xs font-medium text-makoclaw-accent">Agent working...</span>
+          <span class="text-[10px] md:text-xs font-medium text-makoclaw-accent truncate">Agent working...</span>
         </div>
+        <div v-else class="flex-1"></div>
 
-        <!-- Model Selector -->
-        <div class="flex items-center gap-1 md:gap-2 flex-shrink-0 order-2 md:order-3">
-          <svg class="w-3.5 md:w-4 h-3.5 md:h-4 text-makoclaw-text-secondary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <!-- Model selector (fixed right) -->
+        <div class="flex items-center gap-1 flex-shrink-0">
+          <svg class="w-3 h-3 md:w-3.5 md:h-3.5 text-makoclaw-text-secondary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
           </svg>
           <select
             v-model="chatStore.selectedModel"
             :disabled="chatStore.allModels.length === 0"
-            class="bg-makoclaw-bg/50 border border-makoclaw-border rounded-lg px-2 md:px-3 py-1 md:py-1.5 text-[10px] md:text-xs text-makoclaw-text focus:ring-2 focus:ring-makoclaw-accent/50 focus:border-makoclaw-accent transition-all cursor-pointer max-w-[180px] md:max-w-[280px]"
+            class="bg-makoclaw-bg/50 border border-makoclaw-border rounded-lg px-2 py-1 text-[10px] md:text-xs text-makoclaw-text focus:ring-2 focus:ring-makoclaw-accent/50 focus:border-makoclaw-accent transition-all cursor-pointer max-w-[140px] md:max-w-[240px]"
           >
             <option v-if="chatStore.allModels.length === 0" value="">
               No models available
@@ -140,23 +139,23 @@
       </div>
 
       <!-- Specialists Panel -->
-      <div class="px-3 md:px-4 pt-3">
+      <div class="px-2 sm:px-3 md:px-4 pt-2 sm:pt-3">
         <SpecialistsPanel />
       </div>
 
       <!-- Messages Area -->
       <div 
         ref="messagesContainer"
-        class="flex-1 overflow-y-auto p-3 md:p-4 space-y-4 md:space-y-6 z-10"
+        class="flex-1 overflow-y-auto p-2 sm:p-3 md:p-4 space-y-3 md:space-y-4 z-10"
       >
-        <div v-if="messages.length === 0" class="flex flex-col items-center justify-center h-full text-makoclaw-text-secondary opacity-60">
-          <div class="bg-makoclaw-surface/50 p-6 rounded-full mb-4">
-            <svg class="w-12 h-12 text-makoclaw-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div v-if="messages.length === 0" class="flex flex-col items-center justify-center h-full text-makoclaw-text-secondary animate-fadeIn">
+          <div class="glass-panel p-6 sm:p-8 rounded-2xl mb-4 shadow-lg shadow-makoclaw-accent/5">
+            <svg class="w-10 h-10 sm:w-12 sm:h-12 text-makoclaw-accent animate-pulse" style="animation-duration: 3s;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
           </div>
-          <p class="text-lg font-medium">Start a conversation</p>
-          <p class="text-sm">Ask anything or run a task</p>
+          <p class="text-base sm:text-lg font-semibold text-makoclaw-text mt-2">Start a conversation</p>
+          <p class="text-xs sm:text-sm text-makoclaw-text-secondary/70 mt-1">Ask anything or run a task</p>
         </div>
 
         <!-- Messages -->
@@ -190,7 +189,7 @@
       </div>
 
       <!-- Input Area -->
-      <div class="border-t border-makoclaw-border/50 bg-makoclaw-surface/80 backdrop-blur-md p-2.5 md:p-4 z-20 relative">
+      <div class="border-t border-makoclaw-border/30 bg-makoclaw-surface/60 backdrop-blur-xl p-2 sm:p-3 md:p-4 z-20 relative ring-1 ring-white/[0.05]">
         <!-- Slash Command Autocomplete -->
         <div v-if="showAutocomplete" class="absolute bottom-full left-4 right-4 max-w-4xl mx-auto mb-1">
           <div class="bg-makoclaw-surface border border-makoclaw-border rounded-xl shadow-xl overflow-hidden max-h-64 overflow-y-auto">
@@ -210,7 +209,152 @@
           </div>
         </div>
 
-        <form @submit.prevent="sendMessage" class="flex flex-col gap-2 md:gap-3 max-w-4xl mx-auto w-full">
+        <form @submit.prevent="sendMessage" class="flex flex-col gap-1.5 sm:gap-2 max-w-4xl mx-auto w-full">
+          <!-- Compact Toolbar Row -->
+          <div class="flex items-center justify-between px-1">
+            <!-- Left group: file, prompts, tools -->
+            <div class="flex items-center gap-0.5 sm:gap-1">
+              <!-- Attach File -->
+              <button
+                type="button"
+                @click="fileInputRef?.click()"
+                :disabled="!isConnected || isLoading || uploadingFile"
+                class="p-2 min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg text-makoclaw-text-secondary hover:text-makoclaw-accent hover:bg-makoclaw-accent/10 transition-all disabled:opacity-40"
+                title="Attach file"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                </svg>
+              </button>
+              <!-- Prompt Library -->
+              <button
+                type="button"
+                @click="showPromptLibrary = true"
+                :disabled="!isConnected || isLoading"
+                class="p-2 min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg text-makoclaw-text-secondary hover:text-makoclaw-accent hover:bg-makoclaw-accent/10 transition-all disabled:opacity-40"
+                title="Prompt Library"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+              </button>
+              <!-- Tools Manager -->
+              <div class="relative">
+                <button
+                  type="button"
+                  @click="showToolsPopover = !showToolsPopover"
+                  :class="[
+                    'p-2 min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg transition-all relative',
+                    chatStore.enabledTools.length < chatStore.availableTools.length
+                      ? 'text-amber-600 hover:bg-amber-500/10'
+                      : 'text-makoclaw-text-secondary hover:text-makoclaw-accent hover:bg-makoclaw-accent/10'
+                  ]"
+                  title="Manage AI Tools"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span v-if="chatStore.enabledTools.length < chatStore.availableTools.length" class="absolute -top-0.5 -right-0.5 flex h-3 w-3">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                  </span>
+                </button>
+
+                <!-- Tools Popover (keep existing Teleport) -->
+                <Teleport to="body">
+                  <div v-if="showToolsPopover" class="fixed inset-0 z-modal" @click="showToolsPopover = false"></div>
+                  <div
+                    v-if="showToolsPopover"
+                    class="fixed bottom-24 right-4 md:right-auto md:left-1/2 md:-translate-x-1/2 w-64 md:w-72 bg-makoclaw-surface border border-makoclaw-border rounded-2xl shadow-2xl z-modal-nested overflow-hidden animate-slideUp"
+                  >
+                    <div class="p-3 border-b border-makoclaw-border bg-makoclaw-bg/50">
+                      <h3 class="text-xs font-bold uppercase tracking-wider text-makoclaw-text-secondary">AI Tools</h3>
+                    </div>
+                    <div class="max-h-64 overflow-y-auto p-2 space-y-1 custom-scrollbar">
+                      <div v-if="chatStore.availableTools.length === 0" class="text-center py-4 text-xs text-makoclaw-text-secondary">
+                        Loading tools...
+                      </div>
+                      <button
+                        v-for="tool in chatStore.availableTools"
+                        :key="tool"
+                        @click="chatStore.toggleTool(tool)"
+                        class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-colors"
+                        :class="chatStore.enabledTools.includes(tool) ? 'bg-makoclaw-accent/10 text-makoclaw-accent' : 'hover:bg-makoclaw-bg text-makoclaw-text-secondary'"
+                      >
+                        <div class="flex items-center gap-2">
+                          <div
+                            class="w-4 h-4 rounded border flex items-center justify-center transition-colors"
+                            :class="chatStore.enabledTools.includes(tool) ? 'bg-makoclaw-accent border-makoclaw-accent text-white' : 'border-makoclaw-border'"
+                          >
+                            <svg v-if="chatStore.enabledTools.includes(tool)" class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
+                          </div>
+                          <span class="font-mono">{{ tool }}</span>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                </Teleport>
+              </div>
+            </div>
+
+            <!-- Right group: mic, send/stop -->
+            <div class="flex items-center gap-0.5 sm:gap-1">
+              <!-- Mic Button -->
+              <button
+                type="button"
+                @mousedown="startRecording"
+                @mouseup="stopRecording"
+                @mouseleave="stopRecording"
+                @touchstart.prevent="startRecording"
+                @touchend.prevent="stopRecording"
+                :disabled="!isConnected || isLoading || isTranscribing"
+                :class="[
+                  'p-2 min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg transition-all',
+                  isRecording
+                    ? 'bg-makoclaw-error text-white shadow-lg shadow-makoclaw-error/30 animate-pulse'
+                    : isTranscribing
+                      ? 'text-makoclaw-text-secondary cursor-wait opacity-50'
+                      : 'text-makoclaw-text-secondary hover:text-makoclaw-accent hover:bg-makoclaw-accent/10'
+                ]"
+                :title="isRecording ? 'Suelta para transcribir' : isTranscribing ? 'Transcribiendo...' : 'Mantén presionado para grabar'"
+              >
+                <svg v-if="isTranscribing" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+                <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+              </button>
+              <!-- Send Button -->
+              <button
+                v-if="!isLoading"
+                type="submit"
+                :disabled="!isConnected || !messageInput.trim()"
+                class="p-2 min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg bg-makoclaw-accent hover:bg-makoclaw-accent-hover disabled:bg-makoclaw-surface disabled:text-makoclaw-text-secondary text-white transition-all shadow-md shadow-makoclaw-accent/20 hover:shadow-makoclaw-accent/40"
+                title="Enviar mensaje"
+              >
+                <svg class="w-4 h-4 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+              </button>
+              <!-- Stop Button -->
+              <button
+                v-else
+                type="button"
+                @click="cancelExecution"
+                class="p-2 min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg bg-makoclaw-error/10 hover:bg-makoclaw-error/20 text-makoclaw-error transition-all"
+                title="Detener agente"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
           <!-- File Attachment Preview Strip -->
           <div v-if="attachments.length > 0" class="flex flex-wrap gap-2 px-1">
             <div
@@ -230,164 +374,21 @@
             </div>
           </div>
 
-          <div class="flex gap-2 md:gap-3 md:items-end">
-            <!-- Hidden file input -->
-            <input ref="fileInputRef" type="file" class="hidden" accept=".txt,.md,.json,.csv,.html,.xml,.yaml,.yml,.py,.go,.js,.ts,.java,.c,.cpp,.h,.cs,.rb,.rs,.php,.log,.pdf" @change="handleFileAttach">
+          <!-- Hidden file input -->
+          <input ref="fileInputRef" type="file" class="hidden" accept=".txt,.md,.json,.csv,.html,.xml,.yaml,.yml,.py,.go,.js,.ts,.java,.c,.cpp,.h,.cs,.rb,.rs,.php,.log,.pdf" @change="handleFileAttach">
 
-            <div class="flex-1 relative min-w-0">
-            <textarea
-              ref="chatInput"
-              v-model="messageInput"
-              @input="onInputChange"
-              @keydown="onInputKeydown"
-              placeholder="Type a message or / for commands..."
-              rows="1"
-              class="w-full px-3 md:px-4 py-2 md:py-3 bg-makoclaw-bg/50 border border-makoclaw-border rounded-lg md:rounded-xl focus:ring-2 focus:ring-makoclaw-accent/50 focus:border-makoclaw-accent transition-all text-sm shadow-inner resize-none overflow-hidden"
-              :disabled="!isConnected || isLoading"
-              style="max-height: 120px;"
-            ></textarea>
-            </div>
-
-            <!-- Action Buttons Row -->
-            <div class="flex gap-2 md:gap-3 flex-shrink-0 flex-wrap sm:flex-nowrap">
-              <!-- Attach File Button -->
-              <button
-                type="button"
-                @click="fileInputRef?.click()"
-                :disabled="!isConnected || isLoading || uploadingFile"
-                class="flex-none px-2 md:px-3 py-2 md:py-3 rounded-lg md:rounded-xl bg-makoclaw-surface border border-makoclaw-border text-makoclaw-text-secondary hover:text-makoclaw-accent hover:bg-makoclaw-bg transition-all flex items-center justify-center min-h-[2.5rem] md:min-h-auto"
-                title="Attach file"
-              >
-                <svg class="w-4 md:w-5 h-4 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                </svg>
-              </button>
-
-              <!-- Prompt Library Button -->
-              <button
-                type="button"
-                @click="showPromptLibrary = true"
-                :disabled="!isConnected || isLoading"
-                class="flex-none px-2 md:px-3 py-2 md:py-3 rounded-lg md:rounded-xl bg-makoclaw-surface border border-makoclaw-border text-makoclaw-text-secondary hover:text-makoclaw-accent hover:bg-makoclaw-bg transition-all flex items-center justify-center min-h-[2.5rem] md:min-h-auto"
-                title="Prompt Library"
-              >
-                <svg class="w-4 md:w-5 h-4 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-              </button>
-
-              <!-- Tools Manager Popover Toggle -->
-            <div class="relative">
-              <button
-                type="button"
-                @click="showToolsPopover = !showToolsPopover"
-                :class="[
-                  'flex-1 md:flex-none px-2 md:px-3 py-2 md:py-3 rounded-lg md:rounded-xl transition-all font-medium flex items-center justify-center min-h-[2.5rem] md:min-h-auto md:min-w-[3rem] border text-sm md:text-base',
-                  chatStore.enabledTools.length < chatStore.availableTools.length
-                    ? 'bg-amber-500/10 border-amber-500/40 text-amber-600 hover:bg-amber-500/20'
-                    : 'bg-makoclaw-surface border-makoclaw-border text-makoclaw-text-secondary hover:text-makoclaw-accent hover:bg-makoclaw-bg'
-                ]"
-                title="Manage AI Tools"
-              >
-                <svg class="w-4 md:w-5 h-4 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                <span v-if="chatStore.enabledTools.length < chatStore.availableTools.length" class="absolute -top-1 -right-1 flex h-3 w-3">
-                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                  <span class="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
-                </span>
-              </button>
-
-              <!-- Tools Popover -->
-              <Teleport to="body">
-                <div v-if="showToolsPopover" class="fixed inset-0 z-modal" @click="showToolsPopover = false"></div>
-                <div
-                  v-if="showToolsPopover"
-                  class="fixed bottom-24 right-4 md:right-auto md:left-1/2 md:-translate-x-1/2 w-64 md:w-72 bg-makoclaw-surface border border-makoclaw-border rounded-2xl shadow-2xl z-modal-nested overflow-hidden animate-slideUp"
-                >
-                  <div class="p-3 border-b border-makoclaw-border bg-makoclaw-bg/50">
-                    <h3 class="text-xs font-bold uppercase tracking-wider text-makoclaw-text-secondary">AI Tools</h3>
-                  </div>
-                  <div class="max-h-64 overflow-y-auto p-2 space-y-1 custom-scrollbar">
-                    <div v-if="chatStore.availableTools.length === 0" class="text-center py-4 text-xs text-makoclaw-text-secondary">
-                      Loading tools...
-                    </div>
-                    <button
-                      v-for="tool in chatStore.availableTools"
-                      :key="tool"
-                      @click="chatStore.toggleTool(tool)"
-                      class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-colors"
-                      :class="chatStore.enabledTools.includes(tool) ? 'bg-makoclaw-accent/10 text-makoclaw-accent' : 'hover:bg-makoclaw-bg text-makoclaw-text-secondary'"
-                    >
-                      <div class="flex items-center gap-2">
-                        <div 
-                          class="w-4 h-4 rounded border flex items-center justify-center transition-colors"
-                          :class="chatStore.enabledTools.includes(tool) ? 'bg-makoclaw-accent border-makoclaw-accent text-white' : 'border-makoclaw-border'"
-                        >
-                          <svg v-if="chatStore.enabledTools.includes(tool)" class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
-                        </div>
-                        <span class="font-mono">{{ tool }}</span>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-              </Teleport>
-            </div>
-            <!-- Mic Button -->
-            <button
-              type="button"
-              @mousedown="startRecording"
-              @mouseup="stopRecording"
-              @mouseleave="stopRecording"
-              @touchstart.prevent="startRecording"
-              @touchend.prevent="stopRecording"
-              :disabled="!isConnected || isLoading || isTranscribing"
-              :class="[
-                'flex-1 md:flex-none px-2 md:px-3 py-2 md:py-3 rounded-lg md:rounded-xl transition-all font-medium flex items-center justify-center min-h-[2.5rem] md:min-h-auto md:min-w-[3rem] text-sm md:text-base',
-                isRecording
-                  ? 'bg-makoclaw-error hover:bg-makoclaw-error/80 text-white shadow-lg shadow-makoclaw-error/30 animate-pulse'
-                  : isTranscribing
-                    ? 'bg-makoclaw-surface text-makoclaw-text-secondary cursor-wait'
-                    : 'bg-makoclaw-surface hover:bg-makoclaw-bg border border-makoclaw-border text-makoclaw-text-secondary hover:text-makoclaw-accent'
-              ]"
-              :title="isRecording ? 'Suelta para transcribir' : isTranscribing ? 'Transcribiendo...' : 'Mantén presionado para grabar'"
-            >
-              <svg v-if="isTranscribing" class="w-4 md:w-5 h-4 md:h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-              </svg>
-              <svg v-else class="w-4 md:w-5 h-4 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-              </svg>
-            </button>
-            <!-- Send/Stop Button (transforms based on loading state) -->
-            <button
-              v-if="!isLoading"
-              type="submit"
-              :disabled="!isConnected || !messageInput.trim()"
-              class="flex-1 md:flex-none px-3 md:px-5 py-2 md:py-3 bg-makoclaw-accent hover:bg-makoclaw-accent-hover disabled:bg-makoclaw-surface disabled:text-makoclaw-text-secondary text-white rounded-lg md:rounded-xl transition-all shadow-lg shadow-makoclaw-accent/20 hover:shadow-makoclaw-accent/40 font-medium flex items-center justify-center min-h-[2.5rem] md:min-h-auto md:min-w-[3rem] text-sm md:text-base"
-              title="Enviar mensaje"
-            >
-              <svg class="w-4 md:w-5 h-4 md:h-5 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-              </svg>
-            </button>
-            <!-- Stop Button (visible when loading) -->
-            <button
-              v-else
-              type="button"
-              @click="cancelExecution"
-              class="flex-1 md:flex-none px-3 md:px-5 py-2 md:py-3 bg-makoclaw-error hover:bg-makoclaw-error/80 text-white rounded-lg md:rounded-xl transition-all shadow-lg font-medium flex items-center justify-center min-h-[2.5rem] md:min-h-auto md:min-w-[3rem] text-sm md:text-base"
-              title="Detener agente"
-            >
-              <svg class="w-4 md:w-5 h-4 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
-              </svg>
-            </button>
-          </div>
-          </div><!-- end flex row wrapper -->
+          <!-- Textarea (full width) -->
+          <textarea
+            ref="chatInput"
+            v-model="messageInput"
+            @input="onInputChange"
+            @keydown="onInputKeydown"
+            placeholder="Type a message or / for commands..."
+            rows="1"
+            class="w-full px-3 md:px-4 py-2 md:py-2.5 bg-makoclaw-bg/50 border border-makoclaw-border rounded-xl focus:ring-2 focus:ring-makoclaw-accent/50 focus:border-makoclaw-accent transition-all text-sm shadow-inner resize-none overflow-hidden"
+            :disabled="!isConnected || isLoading"
+            style="max-height: 120px;"
+          ></textarea>
         </form>
 
         <!-- Connection Status -->

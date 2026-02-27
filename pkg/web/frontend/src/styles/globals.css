@@ -117,7 +117,7 @@ button:focus-visible {
   }
 
   .glass-panel {
-    @apply bg-makoclaw-surface/40 backdrop-blur-xl border border-makoclaw-border/30 shadow-xl;
+    @apply bg-makoclaw-surface/40 backdrop-blur-xl border border-makoclaw-border/20 shadow-xl ring-1 ring-white/[0.05];
   }
 
   .glass-sticky {

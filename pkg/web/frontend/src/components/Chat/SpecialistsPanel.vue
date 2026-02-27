@@ -29,7 +29,7 @@
         <div
           v-for="specialist in specialists"
           :key="specialist.name"
-          class="flex items-start gap-3 p-2 rounded-lg hover:bg-makoclaw-bg/30 transition-colors"
+          class="flex items-start gap-3 p-2 sm:p-2.5 rounded-xl bg-makoclaw-surface/20 hover:bg-makoclaw-surface/40 border border-makoclaw-border/10 hover:border-makoclaw-border/20 backdrop-blur-sm transition-all duration-200"
         >
           <SpecialistBadge :name="specialist.name" class="text-xs flex-shrink-0 mt-0.5" />
 

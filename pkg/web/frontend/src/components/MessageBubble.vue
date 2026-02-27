@@ -7,10 +7,10 @@
   >
     <div
       :class="[
-        'max-w-[90%] sm:max-w-[85%] lg:max-w-2xl px-4 md:px-5 py-2.5 md:py-3 shadow-lg transition-all duration-300 transform hover:scale-[1.002] animate-slideUp',
+        'max-w-[92%] sm:max-w-[88%] md:max-w-[85%] lg:max-w-3xl xl:max-w-4xl 2xl:max-w-5xl px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 md:py-3 shadow-lg transition-all duration-300 transform hover:scale-[1.002] animate-slideUp',
         msg.role === 'user'
           ? 'bg-gradient-to-br from-makoclaw-accent to-makoclaw-accent-hover text-white rounded-2xl rounded-br-none shadow-makoclaw-accent/10'
-          : 'glass-panel text-makoclaw-text rounded-2xl rounded-bl-none shadow-black/5'
+          : 'glass-panel text-makoclaw-text rounded-2xl rounded-bl-none shadow-lg shadow-black/[0.03] dark:shadow-black/20'
       ]"
     >
       <p v-if="msg.role === 'user'" class="text-sm md:text-base whitespace-pre-wrap break-words leading-relaxed">{{ msg.content }}</p>
@@ -67,7 +67,7 @@
             v-if="currentSessionId && msg.id"
             @click="$emit('fork', msg)"
             :disabled="isLoading"
-            class="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 sm:p-1 rounded-md hover:bg-makoclaw-bg/80 text-makoclaw-text-secondary hover:text-makoclaw-accent disabled:opacity-30"
+            class="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 sm:p-2 rounded-lg hover:bg-makoclaw-bg/80 text-makoclaw-text-secondary hover:text-makoclaw-accent disabled:opacity-30"
             title="Ramificar conversación (Continuar desde aquí)"
           >
             <svg class="w-3 sm:w-3.5 h-3 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -78,7 +78,7 @@
           <button
             v-if="msg.role === 'assistant' && !msg.streaming"
             @click="$emit('copy', msg.content)"
-            class="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 sm:p-1 rounded-md hover:bg-makoclaw-bg/80 text-makoclaw-text-secondary hover:text-makoclaw-accent"
+            class="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 sm:p-2 rounded-lg hover:bg-makoclaw-bg/80 text-makoclaw-text-secondary hover:text-makoclaw-accent"
             title="Copiar respuesta"
           >
             <svg class="w-3 sm:w-3.5 h-3 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -90,7 +90,7 @@
             v-if="msg.role === 'assistant' && isLastAssistantMessage"
             @click="$emit('regenerate')"
             :disabled="isLoading"
-            class="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 sm:p-1 rounded-md hover:bg-makoclaw-bg/80 text-makoclaw-text-secondary hover:text-makoclaw-accent disabled:opacity-30"
+            class="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 sm:p-2 rounded-lg hover:bg-makoclaw-bg/80 text-makoclaw-text-secondary hover:text-makoclaw-accent disabled:opacity-30"
             title="Regenerar respuesta"
           >
             <svg class="w-3 sm:w-3.5 h-3 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
