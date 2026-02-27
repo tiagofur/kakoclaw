@@ -1075,6 +1075,44 @@ func (cs *CentralStorage) GetSkillRatingSummary(submissionID int64) (*SkillRatin
 	return &summary, nil
 }
 
+// GetSkillRatingSummaries returns a map of submission_id → SkillRatingSummary for the given IDs.
+// IDs with no ratings will not be present in the map.
+func (cs *CentralStorage) GetSkillRatingSummaries(submissionIDs []int64) (map[int64]*SkillRatingSummary, error) {
+	if len(submissionIDs) == 0 {
+		return map[int64]*SkillRatingSummary{}, nil
+	}
+	// Build placeholders: ?,?,?
+	placeholders := make([]string, len(submissionIDs))
+	args := make([]interface{}, len(submissionIDs))
+	for i, id := range submissionIDs {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+	query := fmt.Sprintf(
+		`SELECT submission_id, AVG(rating), COUNT(*) FROM skill_ratings WHERE submission_id IN (%s) GROUP BY submission_id`,
+		strings.Join(placeholders, ","),
+	)
+	rows, err := cs.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make(map[int64]*SkillRatingSummary)
+	for rows.Next() {
+		var submID int64
+		var avg sql.NullFloat64
+		var count int
+		if err := rows.Scan(&submID, &avg, &count); err != nil {
+			return nil, err
+		}
+		result[submID] = &SkillRatingSummary{
+			AverageRating: avg.Float64,
+			RatingCount:   count,
+		}
+	}
+	return result, rows.Err()
+}
+
 // GetSkillRatings returns a paginated list of ratings for a skill
 func (cs *CentralStorage) GetSkillRatings(submissionID int64, limit, offset int) ([]*SkillRating, error) {
 	rows, err := cs.db.Query(`

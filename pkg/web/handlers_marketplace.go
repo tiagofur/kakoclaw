@@ -69,6 +69,16 @@ func (s *Server) handleMarketplaceSkills(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Fetch all rating summaries in a single query to avoid N+1
+	ids := make([]int64, len(submissions))
+	for i, s := range submissions {
+		ids[i] = s.ID
+	}
+	summaries, err := s.centralStore.GetSkillRatingSummaries(ids)
+	if err != nil {
+		summaries = map[int64]*storage.SkillRatingSummary{}
+	}
+
 	// Convert to public format (without full content)
 	publicSkills := make([]PublicSkillResponse, 0, len(submissions))
 	for _, sub := range submissions {
@@ -86,8 +96,7 @@ func (s *Server) handleMarketplaceSkills(w http.ResponseWriter, r *http.Request)
 			PublishedAt:   sub.PublishedAt,
 			Visibility:    sub.Visibility,
 		}
-		// Populate rating summary (non-fatal if unavailable)
-		if summary, err := s.centralStore.GetSkillRatingSummary(sub.ID); err == nil {
+		if summary, ok := summaries[sub.ID]; ok {
 			skillResp.AverageRating = summary.AverageRating
 			skillResp.RatingCount = summary.RatingCount
 		}
@@ -639,6 +648,10 @@ func (s *Server) handleSkillRating(w http.ResponseWriter, r *http.Request) {
 		}
 		if body.Rating < 1 || body.Rating > 5 {
 			http.Error(w, "rating must be between 1 and 5", http.StatusBadRequest)
+			return
+		}
+		if len(body.Review) > 500 {
+			http.Error(w, "review must be 500 characters or fewer", http.StatusBadRequest)
 			return
 		}
 

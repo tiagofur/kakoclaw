@@ -150,14 +150,16 @@
                   <span v-else>Install</span>
                 </button>
                 <span v-if="skill.install_count" class="text-xs text-makoclaw-text-secondary">{{ skill.install_count }} installs</span>
-                <span v-if="skill.rating_count > 0" class="text-xs text-yellow-400 ml-auto">
-                  &#9733; {{ skill.average_rating?.toFixed(1) ?? '—' }} ({{ skill.rating_count }})
-                </span>
-                <button
-                  @click="toggleRatingWidget(skill.slug)"
-                  class="text-xs px-2 py-1 bg-makoclaw-bg rounded-lg hover:bg-makoclaw-border/50 transition-colors ml-auto"
-                  :class="{ 'text-yellow-400': ratingOpenSlug === skill.slug }"
-                >Rate</button>
+                <div class="flex items-center gap-2 ml-auto">
+                  <span v-if="skill.rating_count > 0" class="text-xs text-yellow-400">
+                    &#9733; {{ skill.average_rating?.toFixed(1) ?? '—' }} ({{ skill.rating_count }})
+                  </span>
+                  <button
+                    @click="toggleRatingWidget(skill.slug)"
+                    class="text-xs px-2 py-1 bg-makoclaw-bg rounded-lg hover:bg-makoclaw-border/50 transition-colors"
+                    :class="{ 'text-yellow-400': ratingOpenSlug === skill.slug }"
+                  >Rate</button>
+                </div>
               </div>
 
               <!-- Inline Rating Widget -->
