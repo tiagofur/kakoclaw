@@ -49,127 +49,130 @@
             <div class="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1)_0%,transparent_50%)]"></div>
           </div>
           
-          <div class="absolute top-0 right-0 p-8 transform rotate-12 opacity-[0.07] transition-transform group-hover:rotate-45 group-hover:scale-110 duration-1000 hidden md:block">
-            <svg class="w-44 h-44" fill="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          <div class="absolute top-0 right-0 p-8 transform rotate-12 opacity-[0.1] transition-transform group-hover:rotate-45 group-hover:scale-110 duration-1000 hidden md:block">
+            <svg class="w-24 h-24" fill="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
           </div>
 
-          <div class="relative z-10">
-            <span class="inline-block px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-[10px] font-medium text-white uppercase tracking-wide mb-4">Command Center</span>
-            <h3 class="text-2xl md:text-3xl font-black text-white leading-tight">Welcome back,<br/>{{ authStore.user?.username || 'Commander' }}</h3>
-            <p class="text-white/70 mt-3 text-sm max-w-xl leading-relaxed">Your AI fleet is standing by. All systems are nominal across 10+ channels. What are we building today?</p>
+          <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div>
+              <span class="inline-block px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-[10px] font-bold text-white uppercase tracking-wider mb-4">Command Center</span>
+              <h3 class="text-2xl md:text-3xl font-black text-white leading-tight">Welcome back, {{ authStore.user?.username || 'Commander' }}</h3>
+              <p class="text-white/80 mt-2 text-sm max-w-lg leading-relaxed font-medium">Your AI fleet is standing by. All systems are nominal across 10+ channels. What are we building today?</p>
+            </div>
             
-            <div class="mt-5 flex flex-wrap gap-3">
-               <router-link to="/chat" class="px-5 py-2 bg-white text-makoclaw-accent rounded-xl font-semibold shadow-xl hover:shadow-white/20 transition-all hover:-translate-y-0.5 active:scale-95 text-sm">Launch New Session</router-link>
-               <router-link to="/tasks" class="px-5 py-2 bg-white/10 backdrop-blur-md border border-white/20 text-white rounded-xl font-medium hover:bg-white/20 transition-all active:scale-95 text-sm">Tasks Dashboard</router-link>
+            <div class="flex flex-wrap gap-3">
+               <router-link to="/chat" class="px-5 py-2.5 bg-white text-makoclaw-accent rounded-xl font-bold shadow-xl hover:shadow-white/20 transition-all hover:-translate-y-0.5 active:scale-95 text-xs">Launch New Session</router-link>
+               <router-link to="/tasks" class="px-5 py-2.5 bg-white/10 backdrop-blur-md border border-white/20 text-white rounded-xl font-bold hover:bg-white/20 transition-all active:scale-95 text-xs">Tasks Dashboard</router-link>
             </div>
           </div>
         </div>
 
         <!-- Stats Grid -->
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
           <div v-for="(stat, idx) in statItems" :key="stat.label" 
-               class="glass-panel rounded-xl p-4 transition-all duration-300 hover:shadow-xl hover:shadow-makoclaw-accent/10 hover:-translate-y-1 group animate-fade-in-up"
+               class="glass-panel rounded-[1.25rem] p-5 transition-all duration-500 hover:shadow-2xl hover:shadow-makoclaw-accent/10 hover:-translate-y-1.5 group animate-fade-in-up border-white/5 hover:border-makoclaw-accent/30"
                :style="{ 'animation-delay': (200 + idx * 100) + 'ms' }">
             <div class="flex justify-between items-start">
-              <div class="p-2 rounded-xl bg-gradient-to-br transition-colors duration-300" :class="stat.iconBg">
-                <component :is="stat.icon" class="w-4 h-4 text-white" />
+              <div class="w-10 h-10 rounded-xl bg-gradient-to-br flex items-center justify-center transition-all duration-500 group-hover:scale-110 group-hover:rotate-3 shadow-lg" :class="stat.iconBg">
+                <component :is="stat.icon" class="w-5 h-5 text-white" />
               </div>
-              <div v-if="stat.trend" class="px-2 py-1 rounded-full bg-makoclaw-success/10 text-[10px] font-bold text-makoclaw-success border border-makoclaw-success/20">
-                +{{ stat.trend }}%
+              <div v-if="stat.trend" class="px-2 py-0.5 rounded-full bg-makoclaw-success/10 text-[9px] font-bold text-makoclaw-success border border-makoclaw-success/20 flex items-center gap-1">
+                <svg class="w-2 h-2" fill="currentColor" viewBox="0 0 24 24"><path d="M24 22h-24l12-20z"/></svg>
+                {{ stat.trend }}%
               </div>
             </div>
             <div class="mt-4">
-              <div class="text-[10px] font-medium uppercase tracking-wide text-makoclaw-text-secondary/60">{{ stat.label }}</div>
-              <div class="text-3xl font-bold mt-1 bg-gradient-to-br from-makoclaw-text to-makoclaw-text-secondary bg-clip-text text-transparent">{{ stat.value }}</div>
+              <div class="text-[9px] font-bold uppercase tracking-[0.2em] text-makoclaw-text-secondary/50 group-hover:text-makoclaw-accent transition-colors leading-none mb-1">{{ stat.label }}</div>
+              <div class="text-2xl font-black bg-gradient-to-br from-makoclaw-text to-makoclaw-text-secondary bg-clip-text text-transparent tracking-tight">{{ stat.value }}</div>
             </div>
           </div>
         </div>
 
         <!-- Main Dashboard Section -->
-        <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
           
           <!-- Activity Charts (Left Area) -->
-          <div class="xl:col-span-2 space-y-5">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-               <div class="glass-panel rounded-2xl p-5 flex flex-col animate-fade-in-up" style="animation-delay: 600ms">
-                <div class="flex items-center justify-between mb-5">
-                  <h3 class="text-xs font-medium uppercase tracking-wide text-makoclaw-text-secondary/70">Model Intelligence</h3>
-                  <div class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+          <div class="xl:col-span-2 space-y-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+               <div class="glass-panel rounded-[2rem] p-7 flex flex-col animate-fade-in-up border-white/[0.03]" style="animation-delay: 600ms">
+                <div class="flex items-center justify-between mb-8">
+                  <h3 class="text-xs font-bold uppercase tracking-widest text-makoclaw-text-secondary/60">Model Intelligence</h3>
+                  <div class="w-2 h-2 rounded-full bg-blue-500 animate-pulse shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div>
                 </div>
-                <div class="w-full relative flex-1 min-h-[300px] flex items-center justify-center">
+                <div class="w-full relative flex-1 min-h-[320px] flex items-center justify-center">
                    <Doughnut v-if="modelChartData.labels.length > 0" :data="modelChartData" :options="chartOptions" />
-                   <div v-else class="text-sm font-medium text-makoclaw-text-secondary/50 italic">A waiting data stream...</div>
+                   <div v-else class="text-sm font-medium text-makoclaw-text-secondary/50 italic">Synchronizing neural data...</div>
                 </div>
               </div>
               
-               <div class="glass-panel rounded-2xl p-5 flex flex-col animate-fade-in-up" style="animation-delay: 750ms">
-                 <div class="flex items-center justify-between mb-5">
-                  <h3 class="text-xs font-medium uppercase tracking-wide text-makoclaw-text-secondary/70">Operations Status</h3>
-                  <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
+               <div class="glass-panel rounded-[2rem] p-7 flex flex-col animate-fade-in-up border-white/[0.03]" style="animation-delay: 750ms">
+                 <div class="flex items-center justify-between mb-8">
+                  <h3 class="text-xs font-bold uppercase tracking-widest text-makoclaw-text-secondary/60">Operations Status</h3>
+                  <div class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
                 </div>
-                 <div class="w-full relative flex-1 min-h-[300px] flex items-center justify-center">
+                 <div class="w-full relative flex-1 min-h-[320px] flex items-center justify-center">
                     <Bar v-if="taskChartData.labels.length > 0" :data="taskChartData" :options="barOptions" />
-                    <div v-else class="text-sm font-medium text-makoclaw-text-secondary/50 italic">A waiting data stream...</div>
+                    <div v-else class="text-sm font-medium text-makoclaw-text-secondary/50 italic">Tracking current cycle...</div>
                  </div>
               </div>
             </div>
 
             <!-- Detailed Stats Table-like grid -->
-            <div class="glass-panel rounded-2xl p-5 animate-fade-in-up" style="animation-delay: 900ms">
-              <h3 class="text-xs font-medium uppercase tracking-wide text-makoclaw-text-secondary/70 mb-5 px-1">Live System Metrics</h3>
-              <div class="grid grid-cols-2 sm:grid-cols-4 gap-5">
-                <div v-for="metric in detailedMetrics" :key="metric.label" class="p-3 rounded-xl hover:bg-makoclaw-surface/50 transition-colors group">
-                  <div class="text-[10px] font-medium text-makoclaw-text-secondary/50 uppercase tracking-wide mb-1 group-hover:text-makoclaw-accent transition-colors">{{ metric.label }}</div>
-                  <div class="text-xl font-bold text-makoclaw-text">{{ metric.value }}</div>
-                  <div class="h-1 w-8 bg-makoclaw-accent/20 rounded-full mt-2 group-hover:w-full transition-all duration-500"></div>
+            <div class="glass-panel rounded-[1.5rem] p-8 animate-fade-in-up border-white/[0.03]" style="animation-delay: 900ms">
+              <h3 class="text-xs font-bold uppercase tracking-widest text-makoclaw-text-secondary/60 mb-8 px-2">Live System Metrics</h3>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-10">
+                <div v-for="metric in detailedMetrics" :key="metric.label" class="p-4 rounded-2xl hover:bg-makoclaw-accent/5 transition-all group border border-transparent hover:border-makoclaw-accent/10">
+                  <div class="text-[10px] font-bold text-makoclaw-text-secondary/50 uppercase tracking-widest mb-1.5 group-hover:text-makoclaw-accent transition-colors">{{ metric.label }}</div>
+                  <div class="text-2xl font-black text-makoclaw-text tracking-tighter">{{ metric.value }}</div>
+                  <div class="h-1 w-6 bg-makoclaw-accent/20 rounded-full mt-2.5 group-hover:w-full transition-all duration-700"></div>
                 </div>
               </div>
             </div>
           </div>
 
           <!-- Feed & Actions (Right Sidebar Area) -->
-          <div class="space-y-5">
+          <div class="space-y-8">
             <!-- Launchpad (Replaces Quick Actions) -->
-            <div class="glass-panel rounded-2xl p-5 animate-fade-in-up" style="animation-delay: 400ms">
-              <h3 class="text-xs font-medium uppercase tracking-wide text-makoclaw-text-secondary/70 mb-4 px-1">Action Launchpad</h3>
-              <div class="grid grid-cols-2 gap-3">
+            <div class="glass-panel rounded-[2rem] p-7 animate-fade-in-up border-white/[0.03]" style="animation-delay: 400ms">
+              <h3 class="text-xs font-bold uppercase tracking-widest text-makoclaw-text-secondary/60 mb-7 px-2">Action Launchpad</h3>
+              <div class="grid grid-cols-2 gap-4">
                  <router-link v-for="action in launchpadActions" :key="action.label" :to="action.to"
-                   class="flex flex-col items-center justify-center p-3 rounded-xl border border-makoclaw-border hover:border-makoclaw-accent/40 bg-makoclaw-surface/30 hover:bg-makoclaw-accent/5 transition-all group active:scale-95"
+                   class="flex flex-col items-center justify-center p-5 rounded-[1.5rem] border border-makoclaw-border/40 hover:border-makoclaw-accent/40 bg-makoclaw-surface/20 hover:bg-makoclaw-accent/5 transition-all group active:scale-95 shadow-sm"
                  >
-                   <div class="w-8 h-8 rounded-lg flex items-center justify-center mb-2 transition-transform group-hover:scale-105 group-hover:rotate-3" :class="action.color">
-                     <component :is="action.icon" class="w-4 h-4 text-white" />
+                   <div class="w-11 h-11 rounded-2xl flex items-center justify-center mb-4 transition-all group-hover:scale-110 group-hover:-rotate-3 shadow-lg" :class="action.color">
+                     <component :is="action.icon" class="w-5 h-5 text-white" />
                    </div>
-                   <span class="text-[11px] font-medium uppercase tracking-wide text-makoclaw-text-secondary/80 group-hover:text-makoclaw-accent">{{ action.label }}</span>
+                   <span class="text-[10px] font-bold uppercase tracking-wide text-makoclaw-text-secondary/70 group-hover:text-makoclaw-accent">{{ action.label }}</span>
                  </router-link>
               </div>
             </div>
 
             <!-- Recent Activity Feed -->
-            <div class="glass-panel rounded-2xl p-5 animate-fade-in-up flex flex-col h-[420px]" style="animation-delay: 550ms">
-              <div class="flex items-center justify-between mb-4 px-1">
-                <h3 class="text-xs font-medium uppercase tracking-wide text-makoclaw-text-secondary/70">Recent Pulse</h3>
-                <router-link to="/history" class="text-[10px] font-medium text-makoclaw-accent uppercase hover:underline tracking-wide">All History</router-link>
+            <div class="glass-panel rounded-[2rem] p-7 animate-fade-in-up flex flex-col h-[520px] border-white/[0.03]" style="animation-delay: 550ms">
+              <div class="flex items-center justify-between mb-8 px-2">
+                <h3 class="text-xs font-bold uppercase tracking-widest text-makoclaw-text-secondary/60">Pulse Stream</h3>
+                <router-link to="/history" class="text-[9px] font-black text-makoclaw-accent uppercase hover:underline tracking-widest bg-makoclaw-accent/5 px-2 py-1 rounded-md">View All</router-link>
               </div>
               
-              <div class="flex-1 overflow-auto custom-scrollbar space-y-3 px-1">
-                <div v-if="recentActivity.length === 0" class="flex flex-col items-center justify-center py-20 text-center">
-                  <div class="w-12 h-12 rounded-full border-2 border-dashed border-makoclaw-border flex items-center justify-center mb-4">
-                    <svg class="w-6 h-6 text-makoclaw-text-secondary/30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <div class="flex-1 overflow-auto custom-scrollbar space-y-4 px-1">
+                <div v-if="recentActivity.length === 0" class="flex flex-col items-center justify-center py-20 text-center opacity-40">
+                  <div class="w-14 h-14 rounded-full border border-dashed border-makoclaw-border flex items-center justify-center mb-5">
+                    <svg class="w-6 h-6 text-makoclaw-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                   </div>
-                  <p class="text-xs font-medium text-makoclaw-text-secondary/40 uppercase tracking-wide leading-relaxed">No data detected<br/>in current cycle</p>
+                  <p class="text-[10px] font-bold text-makoclaw-text-secondary uppercase tracking-[0.2em] leading-relaxed">No data detected<br/>in current cycle</p>
                 </div>
                 
                 <div v-for="item in recentActivity" :key="item.id" 
-                     class="flex items-center gap-3 p-3 rounded-xl bg-makoclaw-surface/40 border border-makoclaw-border/30 hover:border-makoclaw-accent/30 transition-all group cursor-pointer">
-                  <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors" :class="item.iconBg">
-                    <component :is="item.icon" class="w-4 h-4 text-white" />
+                     class="flex items-center gap-4 p-4 rounded-[1.25rem] bg-makoclaw-surface/30 border border-transparent hover:border-makoclaw-accent/20 hover:bg-makoclaw-surface/50 transition-all group cursor-pointer shadow-sm">
+                  <div class="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all group-hover:scale-110 shadow-lg" :class="item.iconBg">
+                    <component :is="item.icon" class="w-5 h-5 text-white" />
                   </div>
                   <div class="flex-1 min-w-0">
-                    <div class="text-[11px] font-bold text-makoclaw-text truncate group-hover:text-makoclaw-accent transition-colors">{{ item.title }}</div>
-                    <div class="flex items-center gap-2 mt-1">
-                      <span class="text-[10px] font-medium uppercase tracking-wide text-makoclaw-text-secondary/50">{{ item.time }}</span>
+                    <div class="text-[11px] font-black text-makoclaw-text truncate group-hover:text-makoclaw-accent transition-colors tracking-tight">{{ item.title }}</div>
+                    <div class="flex items-center gap-2 mt-1.5 opacity-60">
+                      <span class="text-[9px] font-bold uppercase tracking-widest text-makoclaw-text-secondary">{{ item.time }}</span>
                       <span class="w-1 h-1 rounded-full bg-makoclaw-border"></span>
-                      <span class="text-[10px] font-bold text-makoclaw-accent">{{ item.type }}</span>
+                      <span class="text-[9px] font-black text-makoclaw-accent uppercase tracking-tighter">{{ item.type }}</span>
                     </div>
                   </div>
                 </div>
