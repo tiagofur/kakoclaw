@@ -106,6 +106,22 @@ export default {
     return response.data
   },
 
+  // Bundles
+  fetchMarketplaceBundles: async (page = 1) => {
+    const response = await client.get('/marketplace/bundles', { params: { page } })
+    return response.data
+  },
+
+  installBundle: async (slug) => {
+    const response = await client.post(`/marketplace/bundles/${encodeURIComponent(slug)}/install`, {}, { timeout: 60000 })
+    return response.data
+  },
+
+  submitBundle: async (payload) => {
+    const response = await client.post('/marketplace/bundles', payload)
+    return response.data
+  },
+
   // Cron
   fetchCronJobs: async (includeDisabled = true) => {
     const response = await client.get('/cron', { params: { include_disabled: includeDisabled ? 'true' : 'false' } })

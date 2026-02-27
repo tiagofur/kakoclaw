@@ -28,6 +28,11 @@
             :class="[activeTab === 'marketplace' ? 'tab-button-active' : 'tab-button-inactive']"
           >Marketplace</button>
           <button
+            @click="activeTab = 'bundles'; loadBundles()"
+            class="tab-button"
+            :class="[activeTab === 'bundles' ? 'tab-button-active' : 'tab-button-inactive']"
+          >Bundles</button>
+          <button
             @click="activeTab = 'submissions'; loadMySubmissions()"
             class="tab-button"
             :class="[activeTab === 'submissions' ? 'tab-button-active' : 'tab-button-inactive']"
@@ -201,6 +206,43 @@
                   >{{ submittingRating ? 'Submitting...' : 'Submit Rating' }}</button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bundles -->
+        <div v-else-if="activeTab === 'bundles'" key="bundles">
+          <div v-if="loadingBundles" class="flex items-center justify-center py-12">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-makoclaw-accent"></div>
+          </div>
+          <div v-else-if="bundles.length === 0" class="text-center py-12 text-makoclaw-text-secondary">
+            <p class="text-lg">No bundles available</p>
+            <p class="text-sm mt-2">Bundles are curated skill collections for one-click install</p>
+          </div>
+          <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div
+              v-for="bundle in bundles"
+              :key="bundle.slug"
+              class="card p-4 flex flex-col gap-3"
+            >
+              <div class="flex items-start gap-3">
+                <span class="text-2xl">{{ bundle.icon }}</span>
+                <div class="flex-1 min-w-0">
+                  <h3 class="font-medium text-sm">{{ bundle.name }}</h3>
+                  <p class="text-xs text-makoclaw-text-secondary mt-1 line-clamp-2">{{ bundle.description }}</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-3 text-xs text-makoclaw-text-secondary">
+                <span>{{ bundle.skill_slugs?.length ?? 0 }} skills</span>
+                <span>{{ bundle.install_count }} installs</span>
+              </div>
+              <button
+                @click="installBundle(bundle)"
+                :disabled="installingBundle === bundle.slug"
+                class="btn-primary text-xs w-full"
+              >
+                {{ installingBundle === bundle.slug ? 'Installing...' : 'Install Bundle' }}
+              </button>
             </div>
           </div>
         </div>
@@ -594,6 +636,9 @@ const marketplaceSkills = ref([])
 const mySubmissions = ref([])
 const installing = ref(null)
 const forking = ref(null)
+const bundles = ref([])
+const loadingBundles = ref(false)
+const installingBundle = ref(null)
 const viewingSkill = ref(null)
 const editingSkill = ref(null)
 const editContent = ref('')
@@ -727,6 +772,41 @@ const loadMySubmissions = async () => {
     toast.error('Failed to load submissions')
   } finally {
     loadingSubmissions.value = false
+  }
+}
+
+const loadBundles = async () => {
+  loadingBundles.value = true
+  try {
+    const data = await advancedService.fetchMarketplaceBundles()
+    bundles.value = data.bundles || []
+  } catch (err) {
+    console.error('Failed to load bundles:', err)
+  } finally {
+    loadingBundles.value = false
+  }
+}
+
+const installBundle = async (bundle) => {
+  installingBundle.value = bundle.slug
+  try {
+    const result = await advancedService.installBundle(bundle.slug)
+    const installed = result.installed || []
+    const failed = result.failed || []
+    if (installed.length > 0) {
+      toast.success(`Installed ${installed.length} skill(s) from "${bundle.name}"`)
+    } else {
+      toast.info(`All skills from "${bundle.name}" were already installed`)
+    }
+    if (failed.length > 0) {
+      toast.error(`Could not install: ${failed.join(', ')}`)
+    }
+    bundle.install_count = (bundle.install_count || 0) + 1
+    await loadSkills()
+  } catch (err) {
+    toast.error(err.response?.data || 'Failed to install bundle')
+  } finally {
+    installingBundle.value = null
   }
 }
 
@@ -1027,7 +1107,10 @@ const handleSaveGenerated = async (overwrite = false) => {
   }
 }
 
-onMounted(() => loadSkills())
+onMounted(() => {
+  loadSkills()
+  loadBundles()
+})
 </script>
 
 <style scoped>

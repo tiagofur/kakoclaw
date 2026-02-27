@@ -219,6 +219,26 @@ func (cs *CentralStorage) migrate() error {
 		`ALTER TABLE skill_submissions ADD COLUMN fork_count INTEGER NOT NULL DEFAULT 0;`,
 		`ALTER TABLE skill_submissions ADD COLUMN forked_from_id INTEGER REFERENCES skill_submissions(id);`,
 		`ALTER TABLE skill_submissions ADD COLUMN dependencies TEXT DEFAULT '[]';`,
+
+		// Skill bundles table for Feature E
+		`CREATE TABLE IF NOT EXISTS skill_bundles (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			name TEXT NOT NULL,
+			slug TEXT NOT NULL UNIQUE,
+			description TEXT NOT NULL,
+			icon TEXT DEFAULT '📦',
+			skill_slugs TEXT NOT NULL DEFAULT '[]',
+			author TEXT NOT NULL,
+			status TEXT NOT NULL DEFAULT 'pending',
+			install_count INTEGER NOT NULL DEFAULT 0,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			published_at DATETIME,
+			FOREIGN KEY(user_id) REFERENCES users(id)
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_skill_bundles_status ON skill_bundles(status);`,
+		`CREATE INDEX IF NOT EXISTS idx_skill_bundles_user_id ON skill_bundles(user_id);`,
 	}
 
 	for _, query := range queries {
@@ -1213,4 +1233,126 @@ func (cs *CentralStorage) GetSkillCategories() ([]*SkillCategory, error) {
 		categories = append(categories, &cat)
 	}
 	return categories, rows.Err()
+}
+
+// ==================== SKILL BUNDLES ====================
+
+// SkillBundle represents a named collection of marketplace skills
+type SkillBundle struct {
+	ID           int64    `json:"id"`
+	UserID       int64    `json:"user_id"`
+	Name         string   `json:"name"`
+	Slug         string   `json:"slug"`
+	Description  string   `json:"description"`
+	Icon         string   `json:"icon"`
+	SkillSlugs   []string `json:"skill_slugs"`
+	Author       string   `json:"author"`
+	Status       string   `json:"status"`
+	InstallCount int      `json:"install_count"`
+	CreatedAt    string   `json:"created_at"`
+	UpdatedAt    string   `json:"updated_at"`
+	PublishedAt  *string  `json:"published_at,omitempty"`
+}
+
+// CreateBundle inserts a new skill bundle and returns its ID.
+func (cs *CentralStorage) CreateBundle(b *SkillBundle) (int64, error) {
+	slugsJSON, err := json.Marshal(b.SkillSlugs)
+	if err != nil {
+		slugsJSON = []byte("[]")
+	}
+
+	res, err := cs.db.Exec(`
+		INSERT INTO skill_bundles (
+			user_id, name, slug, description, icon, skill_slugs,
+			author, status, published_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		b.UserID, b.Name, b.Slug, b.Description, b.Icon, string(slugsJSON),
+		b.Author, b.Status, b.PublishedAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+// GetBundleBySlug retrieves a bundle by its slug. Returns nil, nil if not found.
+func (cs *CentralStorage) GetBundleBySlug(slug string) (*SkillBundle, error) {
+	row := cs.db.QueryRow(`
+		SELECT id, user_id, name, slug, description, COALESCE(icon, '📦'), skill_slugs,
+		       author, status, install_count, created_at, updated_at, published_at
+		FROM skill_bundles WHERE slug = ?`, slug)
+	return cs.scanBundle(row)
+}
+
+// GetApprovedBundles returns approved bundles ordered by most recently published.
+func (cs *CentralStorage) GetApprovedBundles(limit, offset int) ([]*SkillBundle, error) {
+	rows, err := cs.db.Query(`
+		SELECT id, user_id, name, slug, description, COALESCE(icon, '📦'), skill_slugs,
+		       author, status, install_count, created_at, updated_at, published_at
+		FROM skill_bundles
+		WHERE status = 'approved'
+		ORDER BY published_at DESC
+		LIMIT ? OFFSET ?`, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var bundles []*SkillBundle
+	for rows.Next() {
+		var b SkillBundle
+		var slugsJSON string
+		var publishedAt sql.NullString
+
+		if err := rows.Scan(
+			&b.ID, &b.UserID, &b.Name, &b.Slug, &b.Description, &b.Icon, &slugsJSON,
+			&b.Author, &b.Status, &b.InstallCount, &b.CreatedAt, &b.UpdatedAt, &publishedAt,
+		); err != nil {
+			return nil, err
+		}
+		if publishedAt.Valid {
+			b.PublishedAt = &publishedAt.String
+		}
+		_ = json.Unmarshal([]byte(slugsJSON), &b.SkillSlugs)
+		if b.SkillSlugs == nil {
+			b.SkillSlugs = []string{}
+		}
+		bundles = append(bundles, &b)
+	}
+	return bundles, rows.Err()
+}
+
+// IncrementBundleInstallCount increments install_count for a bundle.
+func (cs *CentralStorage) IncrementBundleInstallCount(id int64) error {
+	_, err := cs.db.Exec(`
+		UPDATE skill_bundles
+		SET install_count = install_count + 1, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?`, id)
+	return err
+}
+
+// scanBundle scans a single bundle row returned by QueryRow.
+func (cs *CentralStorage) scanBundle(row *sql.Row) (*SkillBundle, error) {
+	var b SkillBundle
+	var slugsJSON string
+	var publishedAt sql.NullString
+
+	err := row.Scan(
+		&b.ID, &b.UserID, &b.Name, &b.Slug, &b.Description, &b.Icon, &slugsJSON,
+		&b.Author, &b.Status, &b.InstallCount, &b.CreatedAt, &b.UpdatedAt, &publishedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if publishedAt.Valid {
+		b.PublishedAt = &publishedAt.String
+	}
+	_ = json.Unmarshal([]byte(slugsJSON), &b.SkillSlugs)
+	if b.SkillSlugs == nil {
+		b.SkillSlugs = []string{}
+	}
+	return &b, nil
 }
