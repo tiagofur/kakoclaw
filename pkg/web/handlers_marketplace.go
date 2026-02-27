@@ -3,7 +3,10 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -27,6 +30,7 @@ type PublicSkillResponse struct {
 	Category      string   `json:"category"`
 	SecurityScore int      `json:"security_score"`
 	InstallCount  int      `json:"install_count"`
+	ForkCount     int      `json:"fork_count"`
 	PublishedAt   *string  `json:"published_at"`
 	Visibility    string   `json:"visibility"`
 	AverageRating float64  `json:"average_rating"`
@@ -93,6 +97,7 @@ func (s *Server) handleMarketplaceSkills(w http.ResponseWriter, r *http.Request)
 			Category:      sub.Category,
 			SecurityScore: sub.SecurityScore,
 			InstallCount:  sub.InstallCount,
+			ForkCount:     sub.ForkCount,
 			PublishedAt:   sub.PublishedAt,
 			Visibility:    sub.Visibility,
 		}
@@ -216,6 +221,79 @@ func (s *Server) handleMarketplaceInstall(w http.ResponseWriter, r *http.Request
 		"status":  "installed",
 		"skill":   sub.SkillSlug,
 		"version": sub.Version,
+	})
+}
+
+// handleMarketplaceFork forks a marketplace skill to the user's workspace for customization
+func (s *Server) handleMarketplaceFork(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	slug := strings.TrimPrefix(r.URL.Path, "/api/v1/marketplace/skills/")
+	slug = strings.TrimSuffix(slug, "/fork")
+
+	if s.centralStore == nil {
+		http.Error(w, "marketplace unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	sub, err := s.centralStore.GetSkillSubmissionBySlug(slug)
+	if err != nil {
+		http.Error(w, "failed to fetch skill", http.StatusInternalServerError)
+		return
+	}
+	if sub == nil {
+		http.Error(w, "skill not found", http.StatusNotFound)
+		return
+	}
+	if sub.Status != "approved" || sub.Visibility != "public" {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+
+	_, userUUID, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	userWorkspace, err := config.EnsureUserWorkspace(userUUID)
+	if err != nil {
+		http.Error(w, "failed to access workspace", http.StatusInternalServerError)
+		return
+	}
+
+	// Determine a unique fork name (up to 10 attempts)
+	baseName := sub.SkillSlug + "-fork"
+	forkedName := baseName
+	for i := 2; i <= 10; i++ {
+		skillMD := filepath.Join(userWorkspace, "skills", forkedName, "SKILL.md")
+		if _, statErr := os.Stat(skillMD); os.IsNotExist(statErr) {
+			break
+		}
+		forkedName = fmt.Sprintf("%s-%d", baseName, i)
+	}
+
+	skillDir := filepath.Join(userWorkspace, "skills", forkedName)
+	if err := os.MkdirAll(skillDir, 0755); err != nil {
+		http.Error(w, "failed to create skill directory", http.StatusInternalServerError)
+		return
+	}
+
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(sub.Content), 0644); err != nil {
+		http.Error(w, "failed to write skill content", http.StatusInternalServerError)
+		return
+	}
+
+	_ = s.centralStore.IncrementSkillForkCount(sub.ID)
+
+	writeJSONResponse(w, map[string]interface{}{
+		"skill_name": forkedName,
+		"message":    "Skill forked to your workspace. Edit it from the Installed tab.",
 	})
 }
 
@@ -673,9 +751,14 @@ func (s *Server) handleSkillRating(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handleMarketplaceSkillAction routes to detail or install based on path
+// handleMarketplaceSkillAction routes to detail, fork, install, or rate based on path
 func (s *Server) handleMarketplaceSkillAction(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/api/v1/marketplace/skills/")
+
+	if strings.HasSuffix(path, "/fork") {
+		s.handleMarketplaceFork(w, r)
+		return
+	}
 
 	if strings.HasSuffix(path, "/install") {
 		s.handleMarketplaceInstall(w, r)

@@ -149,7 +149,15 @@
                   <span v-if="installing === skill.slug">Installing...</span>
                   <span v-else>Install</span>
                 </button>
+                <button
+                  @click="forkSkill(skill)"
+                  :disabled="forking === skill.slug"
+                  class="btn-ghost text-xs px-2 py-1"
+                >
+                  {{ forking === skill.slug ? 'Forking...' : 'Fork' }}
+                </button>
                 <span v-if="skill.install_count" class="text-xs text-makoclaw-text-secondary">{{ skill.install_count }} installs</span>
+                <span v-if="skill.fork_count > 0" class="text-xs text-makoclaw-text-secondary">{{ skill.fork_count }} forks</span>
                 <div class="flex items-center gap-2 ml-auto">
                   <span v-if="skill.rating_count > 0" class="text-xs text-yellow-400">
                     &#9733; {{ skill.average_rating?.toFixed(1) ?? '—' }} ({{ skill.rating_count }})
@@ -582,6 +590,7 @@ const available = ref([])
 const marketplaceSkills = ref([])
 const mySubmissions = ref([])
 const installing = ref(null)
+const forking = ref(null)
 const viewingSkill = ref(null)
 const editingSkill = ref(null)
 const editContent = ref('')
@@ -728,6 +737,20 @@ const installMarketplaceSkill = async (slug) => {
     toast.error('Failed to install skill')
   } finally {
     installing.value = null
+  }
+}
+
+const forkSkill = async (skill) => {
+  forking.value = skill.slug
+  try {
+    const result = await advancedService.forkSkill(skill.slug)
+    toast.success(result.message || `Forked to workspace as '${result.skill_name}'. Edit from Installed tab.`)
+    skill.fork_count = (skill.fork_count || 0) + 1
+    await loadSkills()
+  } catch (err) {
+    toast.error(err.response?.data || 'Failed to fork skill')
+  } finally {
+    forking.value = null
   }
 }
 
