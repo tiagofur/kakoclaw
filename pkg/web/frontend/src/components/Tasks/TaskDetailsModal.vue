@@ -1,9 +1,9 @@
 <template>
   <Transition name="modal">
-  <div class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-modal overflow-y-auto">
-    <div class="bg-makoclaw-surface border border-makoclaw-border rounded-lg max-w-4xl w-full shadow-lg my-4">
+  <div class="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 z-modal overflow-y-auto">
+    <div class="glass-panel rounded-2xl max-w-2xl md:max-w-3xl lg:max-w-4xl w-full shadow-2xl my-4">
       <!-- Header -->
-      <div class="flex items-center justify-between p-4 border-b border-makoclaw-border">
+      <div class="flex items-center justify-between p-3 sm:p-4 border-b border-makoclaw-border/30">
         <div>
           <h3 class="text-lg font-semibold">{{ task.title }}</h3>
           <div class="flex items-center gap-3 mt-1">
@@ -16,7 +16,7 @@
         </div>
         <button
           @click="$emit('close')"
-          class="p-1 hover:bg-makoclaw-border rounded transition-smooth"
+          class="p-2 min-h-[36px] min-w-[36px] flex items-center justify-center hover:bg-makoclaw-accent/10 rounded-xl text-makoclaw-text-secondary hover:text-makoclaw-accent transition-all"
         >
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -25,14 +25,14 @@
       </div>
 
       <!-- Content -->
-      <div class="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
+      <div class="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 max-h-[60vh] sm:max-h-[70vh] overflow-y-auto custom-scrollbar">
         <!-- Title -->
         <div>
           <label class="block text-sm font-medium mb-2">Title</label>
           <input
             v-model="editForm.title"
             type="text"
-            class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded focus-ring text-sm"
+            class="w-full px-2.5 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-xl focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent text-sm transition-all backdrop-blur-sm"
             :disabled="isLoading"
           />
         </div>
@@ -42,7 +42,7 @@
           <label class="block text-sm font-medium mb-2">Description</label>
           <textarea
             v-model="editForm.description"
-            class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded focus-ring text-sm resize-y"
+            class="w-full px-2.5 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-xl focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent text-sm transition-all backdrop-blur-sm resize-y"
             rows="5"
             :disabled="isLoading"
           ></textarea>
@@ -53,7 +53,7 @@
           <label class="block text-sm font-medium mb-2">Status</label>
           <select
             v-model="editForm.status"
-            class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded focus-ring text-sm"
+            class="w-full px-2.5 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-xl focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent text-sm transition-all backdrop-blur-sm"
             :disabled="isLoading"
           >
             <option value="backlog">Backlog</option>
@@ -82,7 +82,7 @@
           <div class="relative group">
             <textarea
               v-model="editForm.result"
-              class="w-full px-4 py-3 bg-makoclaw-bg border border-makoclaw-border rounded-xl focus:ring-2 focus:ring-makoclaw-accent/50 focus:border-makoclaw-accent text-base font-mono resize-y leading-relaxed"
+              class="w-full px-3 sm:px-4 py-2 sm:py-3 bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-xl focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent text-sm sm:text-base font-mono resize-y leading-relaxed backdrop-blur-sm transition-all"
               rows="12"
               placeholder="Task result/output"
               :disabled="isLoading"
@@ -93,7 +93,7 @@
         <!-- Logs -->
         <div v-if="logs.length > 0">
           <label class="block text-sm font-medium mb-2">Execution Logs</label>
-          <div class="bg-makoclaw-bg border border-makoclaw-border rounded p-3 text-xs max-h-48 overflow-y-auto">
+          <div class="bg-makoclaw-bg/50 border border-makoclaw-border/30 rounded-xl p-2 sm:p-3 text-xs max-h-36 sm:max-h-48 overflow-y-auto backdrop-blur-sm custom-scrollbar">
             <table class="w-full text-left">
               <tbody class="divide-y divide-makoclaw-border">
                 <tr v-for="log in logs" :key="log.id" class="hover:bg-makoclaw-surface transition-smooth">
@@ -116,11 +116,11 @@
 
       <!-- Actions -->
       <!-- Actions -->
-      <div class="border-t border-makoclaw-border p-4 flex gap-2 justify-end">
+      <div class="border-t border-makoclaw-border/30 p-3 sm:p-4 flex gap-1.5 sm:gap-2 justify-end flex-wrap">
         <button
           v-if="!task.archived"
           @click="handleArchive"
-          class="px-4 py-2 bg-yellow-500/20 text-yellow-500 hover:bg-yellow-500/30 border border-yellow-500/50 rounded transition-smooth text-sm font-medium disabled:opacity-50"
+          class="px-3 sm:px-4 py-2 min-h-[36px] bg-yellow-500/20 text-yellow-500 hover:bg-yellow-500/30 border border-yellow-500/50 rounded-xl transition-all text-sm font-medium disabled:opacity-50"
           :disabled="isLoading"
         >
           Archive
@@ -128,28 +128,28 @@
         <button
           v-if="task.archived"
           @click="handleUnarchive"
-          class="px-4 py-2 bg-blue-500/20 text-blue-500 hover:bg-blue-500/30 border border-blue-500/50 rounded transition-smooth text-sm font-medium disabled:opacity-50"
+          class="px-3 sm:px-4 py-2 min-h-[36px] bg-blue-500/20 text-blue-500 hover:bg-blue-500/30 border border-blue-500/50 rounded-xl transition-all text-sm font-medium disabled:opacity-50"
           :disabled="isLoading"
         >
           Unarchive
         </button>
         <button
           @click="handleDelete"
-          class="px-4 py-2 bg-makoclaw-error hover:bg-makoclaw-error/80 text-white rounded transition-smooth text-sm font-medium disabled:opacity-50"
+          class="px-3 sm:px-4 py-2 min-h-[36px] bg-makoclaw-error hover:bg-makoclaw-error/80 text-white rounded-xl transition-all text-sm font-medium disabled:opacity-50"
           :disabled="isLoading"
         >
           Delete
         </button>
         <button
           @click="$emit('close')"
-          class="px-4 py-2 border border-makoclaw-border rounded hover:bg-makoclaw-border transition-smooth text-sm"
+          class="px-3 sm:px-4 py-2 min-h-[36px] border border-makoclaw-border/50 rounded-xl hover:bg-makoclaw-bg transition-all text-sm"
           :disabled="isLoading"
         >
           Cancel
         </button>
         <button
           @click="handleUpdate"
-          class="px-4 py-2 bg-makoclaw-accent hover:bg-makoclaw-accent-hover text-white rounded transition-smooth text-sm font-medium disabled:opacity-50"
+          class="px-3 sm:px-4 py-2 min-h-[36px] bg-makoclaw-accent hover:bg-makoclaw-accent-hover text-white rounded-xl transition-all shadow-md shadow-makoclaw-accent/20 hover:shadow-makoclaw-accent/40 text-sm font-medium disabled:opacity-50"
           :disabled="isLoading"
         >
           {{ isLoading ? 'Saving...' : 'Save Changes' }}

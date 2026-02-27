@@ -1,13 +1,13 @@
 <template>
   <Transition name="modal">
-  <div class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-modal">
-    <div class="bg-makoclaw-surface border border-makoclaw-border rounded-lg max-w-md w-full shadow-lg">
+  <div class="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 z-modal">
+    <div class="glass-panel rounded-2xl max-w-md w-full shadow-2xl">
       <!-- Header -->
-      <div class="flex items-center justify-between p-4 border-b border-makoclaw-border">
+      <div class="flex items-center justify-between p-3 sm:p-4 border-b border-makoclaw-border/30">
         <h3 class="text-lg font-semibold">Create New Task</h3>
         <button
           @click="$emit('close')"
-          class="p-1 hover:bg-makoclaw-border rounded transition-smooth"
+          class="p-2 min-h-[36px] min-w-[36px] flex items-center justify-center hover:bg-makoclaw-accent/10 rounded-xl text-makoclaw-text-secondary hover:text-makoclaw-accent transition-all"
         >
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -16,7 +16,7 @@
       </div>
 
       <!-- Form -->
-      <form @submit.prevent="handleCreateTask" class="p-4 space-y-4">
+      <form @submit.prevent="handleCreateTask" class="p-3 sm:p-4 md:p-5 space-y-3 sm:space-y-4">
         <!-- Title -->
         <div>
           <label for="title" class="block text-sm font-medium mb-2">
@@ -27,7 +27,7 @@
             id="title"
             type="text"
             placeholder="Enter task title"
-            class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded focus-ring text-sm"
+            class="w-full px-2.5 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-xl focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent text-sm transition-all backdrop-blur-sm"
             required
             :disabled="isLoading"
           />
@@ -42,7 +42,7 @@
             v-model="form.description"
             id="description"
             placeholder="Enter task description"
-            class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded focus-ring text-sm resize-none"
+            class="w-full px-2.5 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-xl focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent text-sm transition-all backdrop-blur-sm resize-none"
             rows="3"
             :disabled="isLoading"
           ></textarea>
@@ -56,7 +56,7 @@
           <select
             v-model="form.status"
             id="status"
-            class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded focus-ring text-sm"
+            class="w-full px-2.5 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-xl focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent text-sm transition-all backdrop-blur-sm"
             :disabled="isLoading"
           >
             <option value="backlog">Backlog</option>
@@ -73,18 +73,18 @@
         </div>
 
         <!-- Actions -->
-        <div class="flex gap-3 pt-4 border-t border-makoclaw-border">
+        <div class="flex gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-makoclaw-border/30">
           <button
             type="button"
             @click="$emit('close')"
-            class="flex-1 px-3 py-2 border border-makoclaw-border rounded hover:bg-makoclaw-border transition-smooth"
+            class="flex-1 px-3 py-2 min-h-[36px] border border-makoclaw-border/50 rounded-xl hover:bg-makoclaw-bg transition-all text-sm"
             :disabled="isLoading"
           >
             Cancel
           </button>
           <button
             type="submit"
-            class="flex-1 px-3 py-2 bg-makoclaw-accent hover:bg-makoclaw-accent-hover text-white rounded transition-smooth disabled:opacity-50"
+            class="flex-1 px-3 py-2 min-h-[36px] bg-makoclaw-accent hover:bg-makoclaw-accent-hover text-white rounded-xl transition-all shadow-md shadow-makoclaw-accent/20 hover:shadow-makoclaw-accent/40 text-sm font-medium disabled:opacity-50"
             :disabled="isLoading"
           >
             {{ isLoading ? 'Creating...' : 'Create Task' }}

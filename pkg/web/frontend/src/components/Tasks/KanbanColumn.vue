@@ -1,5 +1,5 @@
 <template>
-  <div class="glass-panel rounded-2xl p-4 flex flex-col h-full min-w-[288px] sm:min-w-[320px] shadow-sm">
+  <div class="glass-panel rounded-2xl p-2.5 sm:p-3 md:p-4 flex flex-col h-full min-w-[256px] sm:min-w-[288px] md:min-w-[320px] shadow-sm">
     <!-- Column Header -->
     <div class="mb-4 pb-0 flex flex-col">
       <div class="pb-3 flex items-center justify-between">
@@ -15,7 +15,7 @@
 
     <!-- Tasks List -->
     <div
-      class="flex-1 space-y-3 overflow-y-auto px-1 -mx-1"
+      class="flex-1 space-y-2 sm:space-y-3 overflow-y-auto px-0.5 sm:px-1 -mx-0.5 sm:-mx-1 custom-scrollbar"
       @dragover.prevent
       @drop="handleDrop"
     >
@@ -25,7 +25,7 @@
         draggable="true"
         @dragstart="dragStart($event, task)"
         @click="$emit('task-click', task)"
-        class="bg-makoclaw-surface/50 border border-makoclaw-border/50 rounded-xl p-4 cursor-grab active:cursor-grabbing hover:border-makoclaw-accent/40 hover:shadow-xl hover:-translate-y-[2px] transition-all duration-300 group relative overflow-hidden backdrop-blur-sm"
+        class="bg-makoclaw-surface/30 border border-makoclaw-border/20 rounded-xl p-3 sm:p-3.5 md:p-4 cursor-grab active:cursor-grabbing hover:border-makoclaw-accent/30 hover:shadow-xl hover:-translate-y-[2px] transition-all duration-200 group relative overflow-hidden backdrop-blur-md ring-1 ring-white/[0.03] hover:ring-white/[0.08]"
       >
         <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-makoclaw-accent to-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
 
@@ -40,7 +40,7 @@
           {{ task.description }}
         </p>
 
-        <div class="flex items-center gap-2 mt-2 pt-2 border-t border-makoclaw-border/50">
+        <div class="flex items-center gap-2 mt-2 pt-2 border-t border-makoclaw-border/20">
           <span :class="['text-[10px] px-1.5 py-0.5 rounded font-medium uppercase tracking-wide', getStatusColor(task.status)]">
             {{ getStatusLabel(task.status) }}
           </span>
@@ -51,7 +51,7 @@
       </div>
 
       <!-- Empty State -->
-      <div v-if="tasks.length === 0" class="flex flex-col items-center justify-center py-8 text-makoclaw-text-secondary/50 border-2 border-dashed border-makoclaw-border/30 rounded-lg">
+      <div v-if="tasks.length === 0" class="flex flex-col items-center justify-center py-6 sm:py-8 text-makoclaw-text-secondary/50 border-2 border-dashed border-makoclaw-border/20 rounded-xl">
         <svg class="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
         <p class="text-xs">No tasks</p>
       </div>

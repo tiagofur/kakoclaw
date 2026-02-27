@@ -4,26 +4,51 @@
     <div class="absolute inset-0 pointer-events-none opacity-20 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-blue-500/20 via-transparent to-transparent"></div>
 
     <!-- Filters & Controls -->
-    <div class="glass-sticky top-0 z-20 p-4 border-b border-makoclaw-border/30">
-      <!-- Search & Sort Row -->
-      <div class="flex gap-4 flex-col lg:flex-row lg:items-center">
-        <div class="flex-1 relative group">
-          <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-makoclaw-text-secondary group-focus-within:text-makoclaw-accent transition-colors">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+    <div class="glass-sticky top-0 z-20 p-2 sm:p-3 md:p-4 border-b border-makoclaw-border/20">
+      <div class="flex flex-col gap-2 sm:gap-3">
+        <!-- Always visible row: Search + filter toggle + create -->
+        <div class="flex items-center gap-2 sm:gap-3">
+          <!-- Search -->
+          <div class="flex-1 relative group">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-makoclaw-text-secondary group-focus-within:text-makoclaw-accent transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="Search tasks..."
+              class="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent transition-all text-sm backdrop-blur-sm min-h-[36px]"
+            >
           </div>
-          <input
-            v-model="searchQuery"
-            type="text"
-            placeholder="Search tasks by name or description..."
-            class="w-full pl-10 pr-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent transition-all text-sm backdrop-blur-sm"
-          />
+
+          <!-- Filter toggle (mobile only) -->
+          <button
+            @click="showFilters = !showFilters"
+            class="md:hidden p-2 min-h-[36px] min-w-[36px] flex items-center justify-center rounded-xl border border-makoclaw-border/50 hover:bg-makoclaw-accent/10 hover:text-makoclaw-accent transition-all"
+            :class="showFilters ? 'bg-makoclaw-accent/10 text-makoclaw-accent border-makoclaw-accent/30' : 'text-makoclaw-text-secondary'"
+            title="Toggle filters"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+          </button>
+
+          <!-- Create task button -->
+          <button
+            @click="showNewTaskModal = true"
+            class="px-3 sm:px-5 py-2 min-h-[36px] bg-makoclaw-accent hover:bg-makoclaw-accent-hover text-white rounded-xl transition-all shadow-lg shadow-makoclaw-accent/20 hover:shadow-makoclaw-accent/40 text-sm font-bold flex items-center gap-1.5 sm:gap-2 active:scale-95 flex-shrink-0"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+            <span class="hidden sm:inline">New Task</span>
+          </button>
         </div>
 
-        <div class="flex items-center gap-3 overflow-x-auto pb-1 md:pb-0 scrollbar-hide">
+        <!-- Collapsible filters row (hidden on mobile by default) -->
+        <div :class="['flex items-center gap-2 sm:gap-3 overflow-x-auto scrollbar-hide transition-all duration-200', showFilters ? '' : 'hidden md:flex']">
           <select
             v-model="sortBy"
             @change="taskStore.setSortBy(sortBy)"
-            class="px-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl focus:ring-2 focus:ring-makoclaw-accent/30 text-sm hover:border-makoclaw-accent/30 transition-all cursor-pointer backdrop-blur-sm outline-none"
+            class="px-3 sm:px-4 py-2 min-h-[36px] bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl focus:ring-2 focus:ring-makoclaw-accent/30 text-sm hover:border-makoclaw-accent/30 transition-all cursor-pointer backdrop-blur-sm outline-none"
           >
             <option value="recent">Recent First</option>
             <option value="oldest">Oldest First</option>
@@ -34,7 +59,7 @@
           <select
             v-model="statusFilter"
             @change="taskStore.setFilter('status', statusFilter)"
-            class="px-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl focus:ring-2 focus:ring-makoclaw-accent/30 text-sm hover:border-makoclaw-accent/30 transition-all cursor-pointer backdrop-blur-sm outline-none"
+            class="px-3 sm:px-4 py-2 min-h-[36px] bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl focus:ring-2 focus:ring-makoclaw-accent/30 text-sm hover:border-makoclaw-accent/30 transition-all cursor-pointer backdrop-blur-sm outline-none"
           >
             <option value="">All Statuses</option>
             <option value="backlog">Backlog</option>
@@ -43,35 +68,24 @@
             <option value="review">Review</option>
             <option value="done">Done</option>
           </select>
-        </div>
 
-        <div class="flex items-center gap-3">
-          <div class="flex items-center gap-2 px-3 py-2 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl backdrop-blur-sm">
-            <input 
-              type="checkbox" 
-              id="showArchived" 
+          <label class="flex items-center gap-2 px-3 py-1.5 sm:py-2 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl backdrop-blur-sm cursor-pointer min-h-[36px] flex-shrink-0">
+            <input
+              type="checkbox"
               v-model="showArchived"
               class="rounded border-makoclaw-border bg-makoclaw-surface text-makoclaw-accent focus:ring-makoclaw-accent transition-all cursor-pointer"
             >
-            <label for="showArchived" class="text-xs font-medium text-makoclaw-text-secondary select-none cursor-pointer hover:text-makoclaw-text">Archived</label>
-          </div>
-
-          <button
-            @click="showNewTaskModal = true"
-            class="px-5 py-2.5 bg-makoclaw-accent hover:bg-makoclaw-accent-hover text-white rounded-xl transition-all shadow-lg shadow-makoclaw-accent/20 hover:shadow-makoclaw-accent/40 text-sm font-bold flex items-center gap-2 active:scale-95"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-            <span class="hidden sm:inline">New Task</span>
-          </button>
+            <span class="text-xs sm:text-sm text-makoclaw-text-secondary whitespace-nowrap">Archived</span>
+          </label>
         </div>
       </div>
     </div>
 
     <!-- Kanban Board -->
-    <div class="flex-1 overflow-x-auto p-4" style="scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;">
+    <div class="flex-1 overflow-x-auto p-2 sm:p-3 md:p-4" style="scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;">
       <div class="flex gap-4 min-h-full">
         <!-- Column: Backlog -->
-        <div class="flex-shrink-0 w-72 sm:w-80" style="scroll-snap-align: start;">
+        <div class="flex-shrink-0 w-64 sm:w-72 md:w-80 lg:w-[340px]" style="scroll-snap-align: start;">
           <KanbanColumn
             status="backlog"
             title="Backlog"
@@ -82,7 +96,7 @@
         </div>
 
         <!-- Column: To Do -->
-        <div class="flex-shrink-0 w-72 sm:w-80" style="scroll-snap-align: start;">
+        <div class="flex-shrink-0 w-64 sm:w-72 md:w-80 lg:w-[340px]" style="scroll-snap-align: start;">
           <KanbanColumn
             status="todo"
             title="To Do"
@@ -93,7 +107,7 @@
         </div>
 
         <!-- Column: In Progress -->
-        <div class="flex-shrink-0 w-72 sm:w-80" style="scroll-snap-align: start;">
+        <div class="flex-shrink-0 w-64 sm:w-72 md:w-80 lg:w-[340px]" style="scroll-snap-align: start;">
           <KanbanColumn
             status="in_progress"
             title="In Progress"
@@ -104,7 +118,7 @@
         </div>
 
         <!-- Column: Review -->
-        <div class="flex-shrink-0 w-72 sm:w-80" style="scroll-snap-align: start;">
+        <div class="flex-shrink-0 w-64 sm:w-72 md:w-80 lg:w-[340px]" style="scroll-snap-align: start;">
           <KanbanColumn
             status="review"
             title="Review"
@@ -115,7 +129,7 @@
         </div>
 
         <!-- Column: Done -->
-        <div class="flex-shrink-0 w-72 sm:w-80" style="scroll-snap-align: start;">
+        <div class="flex-shrink-0 w-64 sm:w-72 md:w-80 lg:w-[340px]" style="scroll-snap-align: start;">
           <KanbanColumn
             status="done"
             title="Done"
@@ -167,6 +181,7 @@ const showArchived = ref(false)
 const showNewTaskModal = ref(false)
 const selectedTask = ref(null)
 const showExportMenu = ref(false)
+const showFilters = ref(false)
 const exportDropdownRef = ref(null)
 
 const taskWs = new TaskWebSocket()
