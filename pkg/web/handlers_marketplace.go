@@ -29,6 +29,8 @@ type PublicSkillResponse struct {
 	InstallCount  int      `json:"install_count"`
 	PublishedAt   *string  `json:"published_at"`
 	Visibility    string   `json:"visibility"`
+	AverageRating float64  `json:"average_rating"`
+	RatingCount   int      `json:"rating_count"`
 }
 
 // ==================== MARKETPLACE ====================
@@ -70,7 +72,7 @@ func (s *Server) handleMarketplaceSkills(w http.ResponseWriter, r *http.Request)
 	// Convert to public format (without full content)
 	publicSkills := make([]PublicSkillResponse, 0, len(submissions))
 	for _, sub := range submissions {
-		publicSkills = append(publicSkills, PublicSkillResponse{
+		skillResp := PublicSkillResponse{
 			ID:            sub.ID,
 			Name:          sub.SkillName,
 			Slug:          sub.SkillSlug,
@@ -83,7 +85,13 @@ func (s *Server) handleMarketplaceSkills(w http.ResponseWriter, r *http.Request)
 			InstallCount:  sub.InstallCount,
 			PublishedAt:   sub.PublishedAt,
 			Visibility:    sub.Visibility,
-		})
+		}
+		// Populate rating summary (non-fatal if unavailable)
+		if summary, err := s.centralStore.GetSkillRatingSummary(sub.ID); err == nil {
+			skillResp.AverageRating = summary.AverageRating
+			skillResp.RatingCount = summary.RatingCount
+		}
+		publicSkills = append(publicSkills, skillResp)
 	}
 
 	writeJSONResponse(w, map[string]interface{}{
@@ -553,12 +561,116 @@ func (s *Server) handleAdminRejectSubmission(w http.ResponseWriter, r *http.Requ
 	writeJSONResponse(w, map[string]string{"status": "rejected"})
 }
 
+// handleSkillRating handles GET and POST for skill ratings
+// GET /api/v1/marketplace/skills/{slug}/rate — returns summary, reviews, and caller's rating
+// POST /api/v1/marketplace/skills/{slug}/rate — submits or updates a rating (auth required)
+func (s *Server) handleSkillRating(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if s.centralStore == nil {
+		http.Error(w, "marketplace unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	// Extract slug — strip prefix and trailing /rate
+	slug := strings.TrimPrefix(r.URL.Path, "/api/v1/marketplace/skills/")
+	slug = strings.TrimSuffix(slug, "/rate")
+
+	sub, err := s.centralStore.GetSkillSubmissionBySlug(slug)
+	if err != nil {
+		http.Error(w, "failed to fetch skill", http.StatusInternalServerError)
+		return
+	}
+	if sub == nil || sub.Status != "approved" {
+		http.Error(w, "skill not found", http.StatusNotFound)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		summary, err := s.centralStore.GetSkillRatingSummary(sub.ID)
+		if err != nil {
+			http.Error(w, "failed to fetch ratings", http.StatusInternalServerError)
+			return
+		}
+
+		reviews, err := s.centralStore.GetSkillRatings(sub.ID, 20, 0)
+		if err != nil {
+			reviews = nil
+		}
+		if reviews == nil {
+			reviews = []*storage.SkillRating{}
+		}
+
+		var userRating interface{} // nil if not authenticated or not rated
+		if _, userUUID, ok := s.getUserStorage(r); ok {
+			if userID, _ := s.getUserIDFromUUID(userUUID); userID != 0 {
+				if r, err := s.centralStore.GetUserRatingForSkill(sub.ID, userID); err == nil {
+					userRating = r
+				}
+			}
+		}
+
+		writeJSONResponse(w, map[string]interface{}{
+			"user_rating": userRating,
+			"reviews":     reviews,
+			"summary":     summary,
+		})
+
+	case http.MethodPost:
+		_, userUUID, ok := s.getUserStorage(r)
+		if !ok {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		userID, _ := s.getUserIDFromUUID(userUUID)
+		if userID == 0 {
+			http.Error(w, "user not found", http.StatusUnauthorized)
+			return
+		}
+
+		var body struct {
+			Rating int    `json:"rating"`
+			Review string `json:"review"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+		if body.Rating < 1 || body.Rating > 5 {
+			http.Error(w, "rating must be between 1 and 5", http.StatusBadRequest)
+			return
+		}
+
+		if err := s.centralStore.UpsertSkillRating(sub.ID, userID, body.Rating, body.Review); err != nil {
+			http.Error(w, "failed to save rating", http.StatusInternalServerError)
+			return
+		}
+
+		summary, err := s.centralStore.GetSkillRatingSummary(sub.ID)
+		if err != nil {
+			http.Error(w, "failed to fetch updated summary", http.StatusInternalServerError)
+			return
+		}
+
+		writeJSONResponse(w, summary)
+
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
 // handleMarketplaceSkillAction routes to detail or install based on path
 func (s *Server) handleMarketplaceSkillAction(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/api/v1/marketplace/skills/")
 
 	if strings.HasSuffix(path, "/install") {
 		s.handleMarketplaceInstall(w, r)
+		return
+	}
+
+	if strings.HasSuffix(path, "/rate") {
+		s.handleSkillRating(w, r)
 		return
 	}
 

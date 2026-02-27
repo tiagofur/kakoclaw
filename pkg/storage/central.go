@@ -201,6 +201,21 @@ func (cs *CentralStorage) migrate() error {
 			('integrations', 'Integrations', 'APIs, services, external tools', '🔗', 4),
 			('ai-agents', 'AI Agents', 'Agent behaviors and workflows', '🤖', 5),
 			('general', 'General', 'General purpose skills', '📦', 6);`,
+
+		// Skill ratings table for community ratings feature
+		`CREATE TABLE IF NOT EXISTS skill_ratings (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			submission_id INTEGER NOT NULL,
+			user_id INTEGER NOT NULL,
+			rating INTEGER NOT NULL CHECK(rating >= 1 AND rating <= 5),
+			review TEXT,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(submission_id, user_id),
+			FOREIGN KEY(submission_id) REFERENCES skill_submissions(id),
+			FOREIGN KEY(user_id) REFERENCES users(id)
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_skill_ratings_submission_id ON skill_ratings(submission_id);`,
 	}
 
 	for _, query := range queries {
@@ -1007,6 +1022,95 @@ func (cs *CentralStorage) IncrementSkillInstallCount(id int64) error {
 		SET install_count = install_count + 1, updated_at = CURRENT_TIMESTAMP
 		WHERE id = ?`, id)
 	return err
+}
+
+// ==================== SKILL RATINGS ====================
+
+// SkillRating represents a user's rating for a marketplace skill
+type SkillRating struct {
+	ID           int64  `json:"id"`
+	SubmissionID int64  `json:"submission_id"`
+	UserID       int64  `json:"user_id"`
+	Rating       int    `json:"rating"`
+	Review       string `json:"review,omitempty"`
+	CreatedAt    string `json:"created_at"`
+	UpdatedAt    string `json:"updated_at"`
+}
+
+// SkillRatingSummary contains aggregate rating data for a skill
+type SkillRatingSummary struct {
+	AverageRating float64 `json:"average_rating"`
+	RatingCount   int     `json:"rating_count"`
+}
+
+// UpsertSkillRating inserts or updates a user's rating for a skill
+func (cs *CentralStorage) UpsertSkillRating(submissionID, userID int64, rating int, review string) error {
+	_, err := cs.db.Exec(`
+		INSERT INTO skill_ratings (submission_id, user_id, rating, review)
+		VALUES (?, ?, ?, ?)
+		ON CONFLICT(submission_id, user_id) DO UPDATE SET
+			rating = excluded.rating,
+			review = excluded.review,
+			updated_at = CURRENT_TIMESTAMP`,
+		submissionID, userID, rating, review)
+	return err
+}
+
+// GetSkillRatingSummary returns the average rating and count for a skill
+func (cs *CentralStorage) GetSkillRatingSummary(submissionID int64) (*SkillRatingSummary, error) {
+	var summary SkillRatingSummary
+	var avg sql.NullFloat64
+	var count int
+	err := cs.db.QueryRow(`
+		SELECT AVG(rating), COUNT(*)
+		FROM skill_ratings
+		WHERE submission_id = ?`, submissionID).Scan(&avg, &count)
+	if err != nil {
+		return nil, err
+	}
+	if avg.Valid {
+		summary.AverageRating = avg.Float64
+	}
+	summary.RatingCount = count
+	return &summary, nil
+}
+
+// GetSkillRatings returns a paginated list of ratings for a skill
+func (cs *CentralStorage) GetSkillRatings(submissionID int64, limit, offset int) ([]*SkillRating, error) {
+	rows, err := cs.db.Query(`
+		SELECT id, submission_id, user_id, rating, COALESCE(review, ''), created_at, updated_at
+		FROM skill_ratings
+		WHERE submission_id = ?
+		ORDER BY created_at DESC
+		LIMIT ? OFFSET ?`, submissionID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ratings []*SkillRating
+	for rows.Next() {
+		var r SkillRating
+		if err := rows.Scan(&r.ID, &r.SubmissionID, &r.UserID, &r.Rating, &r.Review, &r.CreatedAt, &r.UpdatedAt); err != nil {
+			return nil, err
+		}
+		ratings = append(ratings, &r)
+	}
+	return ratings, rows.Err()
+}
+
+// GetUserRatingForSkill returns a user's rating for a specific skill, or sql.ErrNoRows if not rated
+func (cs *CentralStorage) GetUserRatingForSkill(submissionID, userID int64) (*SkillRating, error) {
+	var r SkillRating
+	err := cs.db.QueryRow(`
+		SELECT id, submission_id, user_id, rating, COALESCE(review, ''), created_at, updated_at
+		FROM skill_ratings
+		WHERE submission_id = ? AND user_id = ?`, submissionID, userID).
+		Scan(&r.ID, &r.SubmissionID, &r.UserID, &r.Rating, &r.Review, &r.CreatedAt, &r.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &r, nil
 }
 
 // GetSkillCategories returns all skill categories

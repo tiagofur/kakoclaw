@@ -150,6 +150,43 @@
                   <span v-else>Install</span>
                 </button>
                 <span v-if="skill.install_count" class="text-xs text-makoclaw-text-secondary">{{ skill.install_count }} installs</span>
+                <span v-if="skill.rating_count > 0" class="text-xs text-yellow-400 ml-auto">
+                  &#9733; {{ skill.average_rating?.toFixed(1) ?? '—' }} ({{ skill.rating_count }})
+                </span>
+                <button
+                  @click="toggleRatingWidget(skill.slug)"
+                  class="text-xs px-2 py-1 bg-makoclaw-bg rounded-lg hover:bg-makoclaw-border/50 transition-colors ml-auto"
+                  :class="{ 'text-yellow-400': ratingOpenSlug === skill.slug }"
+                >Rate</button>
+              </div>
+
+              <!-- Inline Rating Widget -->
+              <div v-if="ratingOpenSlug === skill.slug" class="mt-3 p-3 bg-makoclaw-bg rounded-lg border border-makoclaw-border">
+                <p class="text-xs font-medium mb-2">Your rating</p>
+                <div class="flex gap-1 mb-2">
+                  <button
+                    v-for="star in 5"
+                    :key="star"
+                    @click="setStars(skill.slug, star)"
+                    class="text-xl leading-none transition-colors"
+                    :class="(pendingRating[skill.slug]?.stars ?? 0) >= star ? 'text-yellow-400' : 'text-makoclaw-text-secondary'"
+                  >&#9733;</button>
+                </div>
+                <textarea
+                  v-model="pendingRating[skill.slug].review"
+                  placeholder="Optional review (max 500 chars)"
+                  maxlength="500"
+                  rows="2"
+                  class="w-full px-2 py-1.5 text-xs bg-makoclaw-surface border border-makoclaw-border rounded-lg resize-none focus:ring-1 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent transition-all"
+                ></textarea>
+                <div class="flex justify-end gap-2 mt-2">
+                  <button @click="ratingOpenSlug = null" class="text-xs px-3 py-1 text-makoclaw-text-secondary hover:text-makoclaw-text transition-colors">Cancel</button>
+                  <button
+                    @click="submitRating(skill)"
+                    :disabled="submittingRating || !(pendingRating[skill.slug]?.stars > 0)"
+                    class="text-xs px-3 py-1 bg-makoclaw-accent text-white rounded-lg hover:bg-makoclaw-accent/90 transition-colors disabled:opacity-50"
+                  >{{ submittingRating ? 'Submitting...' : 'Submit Rating' }}</button>
+                </div>
               </div>
             </div>
           </div>
@@ -548,6 +585,11 @@ const editingSkill = ref(null)
 const editContent = ref('')
 const savingSkill = ref(false)
 
+// Rating Widget State
+const ratingOpenSlug = ref(null)
+const pendingRating = ref({})
+const submittingRating = ref(false)
+
 // Submit Modal State
 const showSubmitModal = ref(false)
 const submittingSkill = ref(null)
@@ -572,6 +614,49 @@ const generateFormErrors = ref({
   name: '',
   description: ''
 })
+
+const toggleRatingWidget = (slug) => {
+  if (ratingOpenSlug.value === slug) {
+    ratingOpenSlug.value = null
+  } else {
+    ratingOpenSlug.value = slug
+    if (!pendingRating.value[slug]) {
+      pendingRating.value[slug] = { stars: 0, review: '' }
+    }
+  }
+}
+
+const setStars = (slug, stars) => {
+  if (!pendingRating.value[slug]) {
+    pendingRating.value[slug] = { stars: 0, review: '' }
+  }
+  pendingRating.value[slug].stars = stars
+}
+
+const submitRating = async (skill) => {
+  const slug = skill.slug
+  const pr = pendingRating.value[slug]
+  if (!pr || pr.stars < 1 || pr.stars > 5) {
+    toast.error('Please select a star rating (1–5)')
+    return
+  }
+  submittingRating.value = true
+  try {
+    const summary = await advancedService.rateSkill(slug, pr.stars, pr.review || '')
+    // Update the card in-place
+    const idx = marketplaceSkills.value.findIndex(s => s.slug === slug)
+    if (idx !== -1) {
+      marketplaceSkills.value[idx].average_rating = summary.average_rating
+      marketplaceSkills.value[idx].rating_count = summary.rating_count
+    }
+    ratingOpenSlug.value = null
+    toast.success('Rating submitted!')
+  } catch (err) {
+    toast.error('Failed to submit rating')
+  } finally {
+    submittingRating.value = false
+  }
+}
 
 const loadSkills = async () => {
   loading.value = true

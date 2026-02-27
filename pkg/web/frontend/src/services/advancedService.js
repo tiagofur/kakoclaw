@@ -91,6 +91,16 @@ export default {
     return response.data
   },
 
+  rateSkill: async (slug, rating, review = '') => {
+    const response = await client.post(`/marketplace/skills/${encodeURIComponent(slug)}/rate`, { rating, review })
+    return response.data
+  },
+
+  fetchSkillRatings: async (slug) => {
+    const response = await client.get(`/marketplace/skills/${encodeURIComponent(slug)}/rate`)
+    return response.data
+  },
+
   // Cron
   fetchCronJobs: async (includeDisabled = true) => {
     const response = await client.get('/cron', { params: { include_disabled: includeDisabled ? 'true' : 'false' } })
