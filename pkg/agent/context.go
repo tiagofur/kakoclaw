@@ -262,7 +262,7 @@ The following skills extend your capabilities. To use a skill, read its SKILL.md
 				for _, sk := range loadedSkills {
 					_ = userStore.RecordSkillUsage(sk.Name, sk.Source, sessionKey)
 					if centralStore != nil {
-						_ = centralStore.IncrementSkillUsageCount(sk.Name)
+						_ = centralStore.IncrementSkillUsageCount(sk.Slug)
 					}
 				}
 			}()
