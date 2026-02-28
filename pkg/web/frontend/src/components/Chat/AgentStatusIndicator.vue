@@ -78,7 +78,8 @@ const statusText = computed(() => {
   const statusMap = {
     analyzing: `Analyzing your request...`,
     delegating: `Delegating to ${agent || 'specialist'}...`,
-    working: `${agent || 'Agent'} is working on your request...`
+    working: `${agent || 'Agent'} is working on your request...`,
+    fallback: `No specialist matched, using ${agent || 'general agent'}...`
   }
 
   return statusMap[status] || 'Processing...'
@@ -89,7 +90,8 @@ const iconColorClass = computed(() => {
   return {
     analyzing: 'text-blue-400',
     delegating: 'text-purple-400',
-    working: 'text-green-400'
+    working: 'text-green-400',
+    fallback: 'text-amber-400'
   }[status] || 'text-makoclaw-text-secondary'
 })
 
@@ -100,7 +102,8 @@ const borderColorClass = computed(() => {
   return {
     analyzing: 'border-blue-400',
     delegating: 'border-purple-400',
-    working: 'border-green-400'
+    working: 'border-green-400',
+    fallback: 'border-amber-400'
   }[status] || 'border-makoclaw-text-secondary'
 })
 </script>

@@ -11,7 +11,7 @@
 
       <!-- Mobile Header -->
       <header class="md:hidden h-14 bg-makoclaw-surface border-b border-makoclaw-border flex items-center justify-between px-4 flex-shrink-0 z-sticky safe-top">
-         <div class="font-bold text-lg text-makoclaw-accent">makoclaw</div>
+         <div class="font-bold text-lg bg-gradient-to-r from-makoclaw-accent to-blue-500 bg-clip-text text-transparent">MakoClaw</div>
          <button @click="uiStore.toggleSidebar()" class="p-2 text-makoclaw-text hover:bg-makoclaw-surface-hover rounded-lg transition-colors touch-target">
            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />

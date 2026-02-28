@@ -15,7 +15,7 @@
               <path d="M20.8,10c-0.5-1-1.5-1.5-2.5-1.5c-0.5,0-1,0.1-1.5,0.4L14,10.4L11,8L4,6v2l5.5,1.5L7,13l-2.5-1L2,11.5v2l2,1l1.5,0.5l-0.5,2h2l1-2h5l1,2h2l-0.5-2l1.5-0.5l2-1v-2l-2.5,0.5L14,13l-1.5-3.5l2.8-1.5c0.2-0.1,0.4-0.2,0.7-0.2c0.5,0,0.9,0.3,1.1,0.7c0.2,0.4,0.2,0.9,0,1.3L16,12l1.5,0.5l1-2.2C19.1,9.3,19.2,8.1,20.8,10z M10,9.5c-0.3,0-0.5,0.2-0.5,0.5s0.2,0.5,0.5,0.5s0.5-0.2,0.5-0.5S10.3,9.5,10,9.5z"/>
             </svg>
         </div>
-        <span class="bg-gradient-to-r from-makoclaw-text to-makoclaw-text-secondary bg-clip-text text-transparent">makoclaw</span>
+        <span class="bg-gradient-to-r from-makoclaw-text via-makoclaw-text to-makoclaw-accent bg-clip-text text-transparent">MakoClaw</span>
       </div>
       <div v-else class="w-8 h-8 rounded-lg bg-gradient-to-br from-makoclaw-accent to-blue-600 flex items-center justify-center mx-auto shadow-lg shadow-makoclaw-accent/20">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
@@ -281,7 +281,7 @@
         v-if="uiStore.canInstallPwa"
         @click="uiStore.installPwa()"
         class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-makoclaw-accent/10 text-makoclaw-accent transition-colors text-sm group relative"
-        title="Install makoclaw app"
+        title="Install MakoClaw app"
       >
         <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -397,5 +397,27 @@ const closeMobileSidebar = () => {
 </script>
 
 <style scoped>
-/* Add any specific styles here if tailwind isn't enough */
+/* Tooltip styles for collapsed sidebar */
+.tooltip {
+  @apply absolute left-full ml-3 px-3 py-1.5 bg-makoclaw-surface/95 backdrop-blur-xl border border-makoclaw-border/50 rounded-lg text-xs font-medium text-makoclaw-text whitespace-nowrap shadow-lg ring-1 ring-white/10 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-dropdown;
+}
+
+.tooltip::before {
+  content: '';
+  @apply absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-makoclaw-border/50;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-makoclaw-border/30 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-makoclaw-border/50;
+}
 </style>

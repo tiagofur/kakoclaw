@@ -1,178 +1,215 @@
 <template>
   <div class="h-full flex flex-col bg-makoclaw-bg relative overflow-hidden">
-    <!-- Decorative background blobs -->
-    <div class="absolute -top-24 -right-24 w-96 h-96 bg-makoclaw-accent/10 blur-[100px] rounded-full pointer-events-none animate-pulse"></div>
-    <div class="absolute top-1/2 -left-24 w-72 h-72 bg-blue-500/5 blur-[80px] rounded-full pointer-events-none" style="animation: float 20s infinite ease-in-out"></div>
+    <!-- Background Gradient Mesh -->
+    <div class="absolute inset-0 pointer-events-none">
+      <div class="absolute inset-0 opacity-25 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-makoclaw-accent/30 via-transparent to-transparent"></div>
+      <div class="absolute inset-0 opacity-15 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-indigo-500/20 via-transparent to-transparent"></div>
+    </div>
 
     <!-- Header -->
-    <div class="flex-none p-6 glass-sticky z-20">
-      <div class="flex items-center justify-between">
-        <div>
-          <h2 class="text-2xl font-black tracking-tight bg-gradient-to-r from-makoclaw-accent via-blue-400 to-cyan-400 bg-clip-text text-transparent">
-            Workspace Overview
-          </h2>
-          <p class="text-xs font-medium text-makoclaw-text-secondary/70 mt-1 flex items-center gap-2">
-            <span class="w-1.5 h-1.5 rounded-full bg-makoclaw-success animate-pulse"></span>
-            System operational • {{ authStore.user?.username || 'Commander' }}
-          </p>
-        </div>
-        <div class="flex gap-2">
-           <button @click="reloadData" class="p-2 rounded-xl bg-makoclaw-surface border border-makoclaw-border hover:border-makoclaw-accent/50 transition-all active:scale-90 group">
-             <svg class="w-5 h-5 text-makoclaw-text-secondary group-hover:text-makoclaw-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-             </svg>
-           </button>
+    <div class="glass-sticky top-0 z-20 border-b border-makoclaw-border/20">
+      <div class="px-4 sm:px-6 pt-4 sm:pt-5 pb-3">
+        <div class="flex items-center gap-3">
+          <!-- Icon Container -->
+          <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-makoclaw-accent/20 to-indigo-500/20 flex items-center justify-center ring-1 ring-white/10 shadow-lg shadow-makoclaw-accent/10">
+            <svg class="w-5 h-5 sm:w-6 sm:h-6 text-makoclaw-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+            </svg>
+          </div>
+
+          <!-- Title -->
+          <div class="flex-1 min-w-0">
+            <h1 class="text-xl sm:text-2xl font-bold bg-gradient-to-r from-makoclaw-text via-makoclaw-text to-makoclaw-accent bg-clip-text text-transparent">
+              Dashboard
+            </h1>
+            <p class="text-xs sm:text-sm text-makoclaw-text-secondary mt-0.5 flex items-center gap-2">
+              <span class="w-1.5 h-1.5 rounded-full bg-makoclaw-success animate-pulse"></span>
+              System operational • {{ authStore.user?.username || 'User' }}
+            </p>
+          </div>
+
+          <!-- Refresh Button -->
+          <button
+            class="p-2.5 min-h-[40px] min-w-[40px] rounded-xl bg-makoclaw-surface/50 border border-makoclaw-border/50 hover:bg-makoclaw-surface-hover hover:border-makoclaw-accent/30 transition-all flex items-center justify-center active:scale-95"
+            @click="reloadData"
+          >
+            <svg class="w-4 h-4 text-makoclaw-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
         </div>
       </div>
     </div>
 
     <!-- Content -->
-    <div class="flex-1 overflow-auto p-4 md:p-6 space-y-5 custom-scrollbar relative z-10">
-
+    <div class="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 relative z-10">
       <!-- Loading Skeleton -->
       <div v-if="loading" class="space-y-5 animate-pulse">
-        <div class="h-48 bg-makoclaw-surface/50 rounded-3xl border border-makoclaw-border"></div>
+        <div class="h-40 bg-makoclaw-surface/30 rounded-2xl border border-makoclaw-border/30"></div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div v-for="i in 4" :key="i" class="h-32 bg-makoclaw-surface/50 rounded-2xl border border-makoclaw-border"></div>
+          <div v-for="i in 4" :key="i" class="h-28 bg-makoclaw-surface/30 rounded-2xl border border-makoclaw-border/30"></div>
         </div>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div class="h-80 bg-makoclaw-surface/50 rounded-3xl border border-makoclaw-border"></div>
-          <div class="h-80 bg-makoclaw-surface/50 rounded-3xl border border-makoclaw-border"></div>
+          <div class="h-72 bg-makoclaw-surface/30 rounded-2xl border border-makoclaw-border/30"></div>
+          <div class="h-72 bg-makoclaw-surface/30 rounded-2xl border border-makoclaw-border/30"></div>
         </div>
       </div>
 
       <template v-else>
-        <!-- Welcome banner -->
-        <div class="relative overflow-hidden bg-gradient-to-br from-makoclaw-accent via-blue-600 to-indigo-700 rounded-2xl p-6 md:p-8 shadow-2xl shadow-makoclaw-accent/20 group animate-fade-in-up">
-          <!-- Animated Background mesh -->
-          <div class="absolute inset-0 opacity-20 group-hover:opacity-30 transition-opacity duration-1000">
-            <div class="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1)_0%,transparent_50%)]"></div>
-          </div>
-          
-          <div class="absolute top-0 right-0 p-8 transform rotate-12 opacity-[0.1] transition-transform group-hover:rotate-45 group-hover:scale-110 duration-1000 hidden md:block">
-            <svg class="w-24 h-24" fill="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-          </div>
-
-          <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div>
-              <span class="inline-block px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-[10px] font-bold text-white uppercase tracking-wider mb-4">Command Center</span>
-              <h3 class="text-2xl md:text-3xl font-black text-white leading-tight">Welcome back, {{ authStore.user?.username || 'Commander' }}</h3>
-              <p class="text-white/80 mt-2 text-sm max-w-lg leading-relaxed font-medium">Your AI fleet is standing by. All systems are nominal across 10+ channels. What are we building today?</p>
+        <div class="max-w-7xl mx-auto space-y-6">
+          <!-- Welcome Banner -->
+          <div class="relative overflow-hidden bg-gradient-to-br from-makoclaw-accent via-blue-600 to-indigo-700 rounded-2xl p-5 sm:p-6 shadow-xl shadow-makoclaw-accent/20 group">
+            <!-- Subtle mesh overlay -->
+            <div class="absolute inset-0 opacity-20">
+              <div class="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1)_0%,transparent_50%)]"></div>
             </div>
-            
-            <div class="flex flex-wrap gap-3">
-               <router-link to="/chat" class="px-5 py-2.5 bg-white text-makoclaw-accent rounded-xl font-bold shadow-xl hover:shadow-white/20 transition-all hover:-translate-y-0.5 active:scale-95 text-xs">Launch New Session</router-link>
-               <router-link to="/tasks" class="px-5 py-2.5 bg-white/10 backdrop-blur-md border border-white/20 text-white rounded-xl font-bold hover:bg-white/20 transition-all active:scale-95 text-xs">Tasks Dashboard</router-link>
-            </div>
-          </div>
-        </div>
 
-        <!-- Stats Grid -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-          <div v-for="(stat, idx) in statItems" :key="stat.label" 
-               class="glass-panel rounded-[1.25rem] p-5 transition-all duration-500 hover:shadow-2xl hover:shadow-makoclaw-accent/10 hover:-translate-y-1.5 group animate-fade-in-up border-white/5 hover:border-makoclaw-accent/30"
-               :style="{ 'animation-delay': (200 + idx * 100) + 'ms' }">
-            <div class="flex justify-between items-start">
-              <div class="w-10 h-10 rounded-xl bg-gradient-to-br flex items-center justify-center transition-all duration-500 group-hover:scale-110 group-hover:rotate-3 shadow-lg" :class="stat.iconBg">
-                <component :is="stat.icon" class="w-5 h-5 text-white" />
+            <div class="absolute top-0 right-0 p-6 opacity-10 hidden md:block">
+              <svg class="w-20 h-20" fill="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            </div>
+
+            <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <span class="inline-block px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-[10px] font-bold text-white uppercase tracking-wider mb-3">Overview</span>
+                <h3 class="text-xl sm:text-2xl font-bold text-white">Welcome back, {{ authStore.user?.username || 'User' }}</h3>
+                <p class="text-white/80 mt-1 text-sm max-w-lg">Your workspace is ready. All systems operational across connected channels.</p>
               </div>
-              <div v-if="stat.trend" class="px-2 py-0.5 rounded-full bg-makoclaw-success/10 text-[9px] font-bold text-makoclaw-success border border-makoclaw-success/20 flex items-center gap-1">
-                <svg class="w-2 h-2" fill="currentColor" viewBox="0 0 24 24"><path d="M24 22h-24l12-20z"/></svg>
-                {{ stat.trend }}%
+
+              <div class="flex flex-wrap gap-3">
+                <router-link to="/chat" class="px-4 sm:px-5 py-2.5 min-h-[40px] bg-white text-makoclaw-accent rounded-xl font-bold shadow-lg hover:shadow-white/20 transition-all active:scale-95 text-sm flex items-center gap-2">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span class="hidden sm:inline">New Session</span>
+                  <span class="sm:hidden">New</span>
+                </router-link>
+                <router-link to="/tasks" class="px-4 sm:px-5 py-2.5 min-h-[40px] bg-white/10 backdrop-blur-md border border-white/20 text-white rounded-xl font-bold hover:bg-white/20 transition-all active:scale-95 text-sm">
+                  View Tasks
+                </router-link>
               </div>
             </div>
-            <div class="mt-4">
-              <div class="text-[9px] font-bold uppercase tracking-[0.2em] text-makoclaw-text-secondary/50 group-hover:text-makoclaw-accent transition-colors leading-none mb-1">{{ stat.label }}</div>
-              <div class="text-2xl font-black bg-gradient-to-br from-makoclaw-text to-makoclaw-text-secondary bg-clip-text text-transparent tracking-tight">{{ stat.value }}</div>
-            </div>
           </div>
-        </div>
 
-        <!-- Main Dashboard Section -->
-        <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
-          
-          <!-- Activity Charts (Left Area) -->
-          <div class="xl:col-span-2 space-y-8">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-               <div class="glass-panel rounded-[2rem] p-7 flex flex-col animate-fade-in-up border-white/[0.03]" style="animation-delay: 600ms">
-                <div class="flex items-center justify-between mb-8">
-                  <h3 class="text-xs font-bold uppercase tracking-widest text-makoclaw-text-secondary/60">Model Intelligence</h3>
-                  <div class="w-2 h-2 rounded-full bg-blue-500 animate-pulse shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div>
+          <!-- Stats Grid -->
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div
+              v-for="stat in statItems"
+              :key="stat.label"
+              class="bg-makoclaw-surface/30 backdrop-blur-sm border border-makoclaw-border/30 rounded-2xl p-4 sm:p-5 transition-all duration-300 hover:bg-makoclaw-surface/50 hover:border-makoclaw-accent/20 hover:shadow-lg hover:shadow-makoclaw-accent/5 group ring-1 ring-white/5"
+            >
+              <div class="flex justify-between items-start">
+                <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-lg transition-transform duration-300 group-hover:scale-105" :class="stat.iconBg">
+                  <component :is="stat.icon" class="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                 </div>
-                <div class="w-full relative flex-1 min-h-[320px] flex items-center justify-center">
-                   <Doughnut v-if="modelChartData.labels.length > 0" :data="modelChartData" :options="chartOptions" />
-                   <div v-else class="text-sm font-medium text-makoclaw-text-secondary/50 italic">Synchronizing neural data...</div>
+                <div v-if="stat.trend" class="px-2 py-0.5 rounded-full bg-makoclaw-success/10 text-[9px] font-bold text-makoclaw-success border border-makoclaw-success/20 flex items-center gap-1">
+                  <svg class="w-2 h-2" fill="currentColor" viewBox="0 0 24 24"><path d="M24 22h-24l12-20z"/></svg>
+                  {{ stat.trend }}%
                 </div>
               </div>
-              
-               <div class="glass-panel rounded-[2rem] p-7 flex flex-col animate-fade-in-up border-white/[0.03]" style="animation-delay: 750ms">
-                 <div class="flex items-center justify-between mb-8">
-                  <h3 class="text-xs font-bold uppercase tracking-widest text-makoclaw-text-secondary/60">Operations Status</h3>
-                  <div class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
+              <div class="mt-3 sm:mt-4">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-makoclaw-text-secondary/60 mb-1">{{ stat.label }}</div>
+                <div class="text-xl sm:text-2xl font-bold text-makoclaw-text">{{ stat.value }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Main Dashboard Grid -->
+          <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            <!-- Charts Section (Left) -->
+            <div class="xl:col-span-2 space-y-6">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Model Usage Chart -->
+                <div class="bg-makoclaw-surface/30 backdrop-blur-sm border border-makoclaw-border/30 rounded-2xl p-5 ring-1 ring-white/5">
+                  <div class="flex items-center justify-between mb-5">
+                    <h3 class="text-sm font-bold text-makoclaw-text">Model Usage</h3>
+                    <div class="w-2 h-2 rounded-full bg-blue-500 animate-pulse shadow-lg shadow-blue-500/50"></div>
+                  </div>
+                  <div class="relative min-h-[280px] flex items-center justify-center">
+                    <Doughnut v-if="modelChartData.labels.length > 0" :data="modelChartData" :options="chartOptions" />
+                    <div v-else class="text-sm text-makoclaw-text-secondary/50">No data available</div>
+                  </div>
                 </div>
-                 <div class="w-full relative flex-1 min-h-[320px] flex items-center justify-center">
+
+                <!-- Task Status Chart -->
+                <div class="bg-makoclaw-surface/30 backdrop-blur-sm border border-makoclaw-border/30 rounded-2xl p-5 ring-1 ring-white/5">
+                  <div class="flex items-center justify-between mb-5">
+                    <h3 class="text-sm font-bold text-makoclaw-text">Task Status</h3>
+                    <div class="w-2 h-2 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/50"></div>
+                  </div>
+                  <div class="relative min-h-[280px] flex items-center justify-center">
                     <Bar v-if="taskChartData.labels.length > 0" :data="taskChartData" :options="barOptions" />
-                    <div v-else class="text-sm font-medium text-makoclaw-text-secondary/50 italic">Tracking current cycle...</div>
-                 </div>
+                    <div v-else class="text-sm text-makoclaw-text-secondary/50">No tasks yet</div>
+                  </div>
+                </div>
               </div>
-            </div>
 
-            <!-- Detailed Stats Table-like grid -->
-            <div class="glass-panel rounded-[1.5rem] p-8 animate-fade-in-up border-white/[0.03]" style="animation-delay: 900ms">
-              <h3 class="text-xs font-bold uppercase tracking-widest text-makoclaw-text-secondary/60 mb-8 px-2">Live System Metrics</h3>
-              <div class="grid grid-cols-2 sm:grid-cols-4 gap-10">
-                <div v-for="metric in detailedMetrics" :key="metric.label" class="p-4 rounded-2xl hover:bg-makoclaw-accent/5 transition-all group border border-transparent hover:border-makoclaw-accent/10">
-                  <div class="text-[10px] font-bold text-makoclaw-text-secondary/50 uppercase tracking-widest mb-1.5 group-hover:text-makoclaw-accent transition-colors">{{ metric.label }}</div>
-                  <div class="text-2xl font-black text-makoclaw-text tracking-tighter">{{ metric.value }}</div>
-                  <div class="h-1 w-6 bg-makoclaw-accent/20 rounded-full mt-2.5 group-hover:w-full transition-all duration-700"></div>
+              <!-- Metrics Summary -->
+              <div class="bg-makoclaw-surface/30 backdrop-blur-sm border border-makoclaw-border/30 rounded-2xl p-5 ring-1 ring-white/5">
+                <h3 class="text-sm font-bold text-makoclaw-text mb-5">System Metrics</h3>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
+                  <div
+                    v-for="metric in detailedMetrics"
+                    :key="metric.label"
+                    class="p-3 sm:p-4 rounded-xl hover:bg-makoclaw-accent/5 transition-all group border border-transparent hover:border-makoclaw-accent/10"
+                  >
+                    <div class="text-[10px] font-bold text-makoclaw-text-secondary/60 uppercase tracking-wider mb-1 group-hover:text-makoclaw-accent transition-colors">{{ metric.label }}</div>
+                    <div class="text-xl sm:text-2xl font-bold text-makoclaw-text">{{ metric.value }}</div>
+                    <div class="h-1 w-8 bg-makoclaw-accent/20 rounded-full mt-2 group-hover:w-full transition-all duration-500"></div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <!-- Feed & Actions (Right Sidebar Area) -->
-          <div class="space-y-8">
-            <!-- Launchpad (Replaces Quick Actions) -->
-            <div class="glass-panel rounded-[2rem] p-7 animate-fade-in-up border-white/[0.03]" style="animation-delay: 400ms">
-              <h3 class="text-xs font-bold uppercase tracking-widest text-makoclaw-text-secondary/60 mb-7 px-2">Action Launchpad</h3>
-              <div class="grid grid-cols-2 gap-4">
-                 <router-link v-for="action in launchpadActions" :key="action.label" :to="action.to"
-                   class="flex flex-col items-center justify-center p-5 rounded-[1.5rem] border border-makoclaw-border/40 hover:border-makoclaw-accent/40 bg-makoclaw-surface/20 hover:bg-makoclaw-accent/5 transition-all group active:scale-95 shadow-sm"
-                 >
-                   <div class="w-11 h-11 rounded-2xl flex items-center justify-center mb-4 transition-all group-hover:scale-110 group-hover:-rotate-3 shadow-lg" :class="action.color">
-                     <component :is="action.icon" class="w-5 h-5 text-white" />
-                   </div>
-                   <span class="text-[10px] font-bold uppercase tracking-wide text-makoclaw-text-secondary/70 group-hover:text-makoclaw-accent">{{ action.label }}</span>
-                 </router-link>
-              </div>
-            </div>
-
-            <!-- Recent Activity Feed -->
-            <div class="glass-panel rounded-[2rem] p-7 animate-fade-in-up flex flex-col h-[520px] border-white/[0.03]" style="animation-delay: 550ms">
-              <div class="flex items-center justify-between mb-8 px-2">
-                <h3 class="text-xs font-bold uppercase tracking-widest text-makoclaw-text-secondary/60">Pulse Stream</h3>
-                <router-link to="/history" class="text-[9px] font-black text-makoclaw-accent uppercase hover:underline tracking-widest bg-makoclaw-accent/5 px-2 py-1 rounded-md">View All</router-link>
-              </div>
-              
-              <div class="flex-1 overflow-auto custom-scrollbar space-y-4 px-1">
-                <div v-if="recentActivity.length === 0" class="flex flex-col items-center justify-center py-20 text-center opacity-40">
-                  <div class="w-14 h-14 rounded-full border border-dashed border-makoclaw-border flex items-center justify-center mb-5">
-                    <svg class="w-6 h-6 text-makoclaw-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                  </div>
-                  <p class="text-[10px] font-bold text-makoclaw-text-secondary uppercase tracking-[0.2em] leading-relaxed">No data detected<br/>in current cycle</p>
+            <!-- Right Sidebar -->
+            <div class="space-y-6">
+              <!-- Quick Actions -->
+              <div class="bg-makoclaw-surface/30 backdrop-blur-sm border border-makoclaw-border/30 rounded-2xl p-5 ring-1 ring-white/5">
+                <h3 class="text-sm font-bold text-makoclaw-text mb-4">Quick Actions</h3>
+                <div class="grid grid-cols-2 gap-3">
+                  <router-link
+                    v-for="action in quickActions"
+                    :key="action.label"
+                    :to="action.to"
+                    class="flex flex-col items-center justify-center p-4 rounded-xl border border-makoclaw-border/30 hover:border-makoclaw-accent/30 bg-makoclaw-bg/30 hover:bg-makoclaw-accent/5 transition-all group active:scale-95"
+                  >
+                    <div class="w-10 h-10 rounded-xl flex items-center justify-center mb-3 transition-transform group-hover:scale-105 shadow-lg" :class="action.color">
+                      <component :is="action.icon" class="w-5 h-5 text-white" />
+                    </div>
+                    <span class="text-[10px] font-bold uppercase tracking-wide text-makoclaw-text-secondary group-hover:text-makoclaw-accent transition-colors">{{ action.label }}</span>
+                  </router-link>
                 </div>
-                
-                <div v-for="item in recentActivity" :key="item.id" 
-                     class="flex items-center gap-4 p-4 rounded-[1.25rem] bg-makoclaw-surface/30 border border-transparent hover:border-makoclaw-accent/20 hover:bg-makoclaw-surface/50 transition-all group cursor-pointer shadow-sm">
-                  <div class="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all group-hover:scale-110 shadow-lg" :class="item.iconBg">
-                    <component :is="item.icon" class="w-5 h-5 text-white" />
+              </div>
+
+              <!-- Recent Activity -->
+              <div class="bg-makoclaw-surface/30 backdrop-blur-sm border border-makoclaw-border/30 rounded-2xl p-5 ring-1 ring-white/5 flex flex-col h-[420px]">
+                <div class="flex items-center justify-between mb-4">
+                  <h3 class="text-sm font-bold text-makoclaw-text">Recent Activity</h3>
+                  <router-link to="/history" class="text-[10px] font-bold text-makoclaw-accent uppercase hover:underline tracking-wide">View All</router-link>
+                </div>
+
+                <div class="flex-1 overflow-y-auto custom-scrollbar space-y-3">
+                  <div v-if="recentActivity.length === 0" class="flex flex-col items-center justify-center py-12 text-center">
+                    <div class="w-12 h-12 rounded-xl bg-makoclaw-bg/50 border border-makoclaw-border/50 flex items-center justify-center mb-4">
+                      <svg class="w-5 h-5 text-makoclaw-text-secondary/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </div>
+                    <p class="text-xs text-makoclaw-text-secondary/60">No recent activity</p>
                   </div>
-                  <div class="flex-1 min-w-0">
-                    <div class="text-[11px] font-black text-makoclaw-text truncate group-hover:text-makoclaw-accent transition-colors tracking-tight">{{ item.title }}</div>
-                    <div class="flex items-center gap-2 mt-1.5 opacity-60">
-                      <span class="text-[9px] font-bold uppercase tracking-widest text-makoclaw-text-secondary">{{ item.time }}</span>
-                      <span class="w-1 h-1 rounded-full bg-makoclaw-border"></span>
-                      <span class="text-[9px] font-black text-makoclaw-accent uppercase tracking-tighter">{{ item.type }}</span>
+
+                  <div
+                    v-for="item in recentActivity"
+                    :key="item.id"
+                    class="flex items-center gap-3 p-3 rounded-xl bg-makoclaw-bg/30 border border-transparent hover:border-makoclaw-accent/20 hover:bg-makoclaw-surface/30 transition-all group cursor-pointer"
+                  >
+                    <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md" :class="item.iconBg">
+                      <component :is="item.icon" class="w-4 h-4 text-white" />
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="text-xs font-bold text-makoclaw-text truncate group-hover:text-makoclaw-accent transition-colors">{{ item.title }}</div>
+                      <div class="flex items-center gap-2 mt-1">
+                        <span class="text-[10px] text-makoclaw-text-secondary/60">{{ item.time }}</span>
+                        <span class="w-1 h-1 rounded-full bg-makoclaw-border"></span>
+                        <span class="text-[10px] font-bold text-makoclaw-accent uppercase">{{ item.type }}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -194,7 +231,7 @@ import { useToast } from '../composables/useToast'
 import { Doughnut, Bar } from 'vue-chartjs'
 import { Chart as ChartJS, Title, Tooltip, Legend, ArcElement, CategoryScale, LinearScale, BarElement } from 'chart.js'
 
-// Simple Functional Icons for modern look
+// Simple Functional Icons
 const IconTasks = { render: () => h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24', class: 'w-full h-full' }, [h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' })]) }
 const IconChat = { render: () => h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24', class: 'w-full h-full' }, [h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z' })]) }
 const IconMessage = { render: () => h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24', class: 'w-full h-full' }, [h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: 'M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z' })]) }
@@ -233,27 +270,27 @@ const stats = computed(() => {
 })
 
 const statItems = computed(() => [
-  { label: 'Intelligence Fleet', value: stats.value.totalTasks, icon: IconTasks, iconBg: 'from-blue-500 to-indigo-600', trend: 12 },
-  { label: 'Active Missions', value: stats.value.inProgress, icon: IconProgress, iconBg: 'from-makoclaw-accent to-blue-400', trend: 5 },
-  { label: 'Neural Links', value: stats.value.chatSessions, icon: IconChat, iconBg: 'from-cyan-500 to-blue-500', trend: 8 },
-  { label: 'Total Cognition', value: formatNumber(stats.value.totalMessages), icon: IconMessage, iconBg: 'from-indigo-500 to-purple-600', trend: 15 },
+  { label: 'Total Tasks', value: stats.value.totalTasks, icon: IconTasks, iconBg: 'from-blue-500 to-indigo-600', trend: 12 },
+  { label: 'In Progress', value: stats.value.inProgress, icon: IconProgress, iconBg: 'from-makoclaw-accent to-blue-400', trend: 5 },
+  { label: 'Chat Sessions', value: stats.value.chatSessions, icon: IconChat, iconBg: 'from-cyan-500 to-blue-500', trend: 8 },
+  { label: 'Messages', value: formatNumber(stats.value.totalMessages), icon: IconMessage, iconBg: 'from-indigo-500 to-purple-600', trend: 15 },
 ])
 
 const detailedMetrics = computed(() => {
   if (!metricsData.value) return []
   return [
     { label: 'LLM Calls', value: formatNumber(metricsData.value.llm_calls) },
-    { label: 'Tool Triggers', value: formatNumber(metricsData.value.tool_calls) },
-    { label: 'Agent Pulses', value: formatNumber(metricsData.value.agent_runs) },
-    { label: 'Bits Processed', value: formatNumber(metricsData.value.llm_tokens_in + metricsData.value.llm_tokens_out) },
+    { label: 'Tool Calls', value: formatNumber(metricsData.value.tool_calls) },
+    { label: 'Agent Runs', value: formatNumber(metricsData.value.agent_runs) },
+    { label: 'Tokens', value: formatNumber(metricsData.value.llm_tokens_in + metricsData.value.llm_tokens_out) },
   ]
 })
 
-const launchpadActions = [
-  { label: 'Initiate Link', to: '/chat', icon: IconPlus, color: 'bg-makoclaw-accent shadow-lg shadow-makoclaw-accent/20' },
-  { label: 'New Prototype', to: '/tasks', icon: IconTasks, color: 'bg-indigo-500 shadow-lg shadow-indigo-500/20' },
-  { label: 'Sync Records', to: '/history', icon: IconHistory, color: 'bg-cyan-500 shadow-lg shadow-cyan-500/20' },
-  { label: 'Refine Core', to: '/memory', icon: IconBrain, color: 'bg-blue-600 shadow-lg shadow-blue-600/20' },
+const quickActions = [
+  { label: 'New Chat', to: '/chat', icon: IconPlus, color: 'bg-makoclaw-accent shadow-lg shadow-makoclaw-accent/30' },
+  { label: 'Tasks', to: '/tasks', icon: IconTasks, color: 'bg-indigo-500 shadow-lg shadow-indigo-500/30' },
+  { label: 'History', to: '/history', icon: IconHistory, color: 'bg-cyan-500 shadow-lg shadow-cyan-500/30' },
+  { label: 'Memory', to: '/memory', icon: IconBrain, color: 'bg-blue-600 shadow-lg shadow-blue-600/30' },
 ]
 
 const recentActivity = computed(() => {
@@ -262,7 +299,7 @@ const recentActivity = computed(() => {
       id: t.id,
       title: t.title,
       time: formatDate(t.created_at),
-      type: 'TASK',
+      type: 'Task',
       icon: IconTasks,
       iconBg: 'bg-indigo-500'
     })),
@@ -270,7 +307,7 @@ const recentActivity = computed(() => {
       id: s.session_id,
       title: sessionLabel(s.session_id),
       time: formatDate(s.last_activity),
-      type: 'CHAT',
+      type: 'Chat',
       icon: IconChat,
       iconBg: 'bg-cyan-500'
     }))
@@ -284,20 +321,20 @@ const statusBreakdown = computed(() => {
     if (counts[t.status] !== undefined) counts[t.status]++
   })
   return [
-    { status: 'backlog', label: 'Backlog', count: counts.backlog, color: 'text-makoclaw-text-secondary' },
-    { status: 'todo', label: 'To Do', count: counts.todo, color: 'text-makoclaw-warning' },
-    { status: 'in_progress', label: 'In Progress', count: counts.in_progress, color: 'text-makoclaw-accent' },
-    { status: 'review', label: 'Review', count: counts.review, color: 'text-makoclaw-warning' },
-    { status: 'done', label: 'Done', count: counts.done, color: 'text-makoclaw-success' }
+    { status: 'backlog', label: 'Backlog', count: counts.backlog },
+    { status: 'todo', label: 'To Do', count: counts.todo },
+    { status: 'in_progress', label: 'Active', count: counts.in_progress },
+    { status: 'review', label: 'Review', count: counts.review },
+    { status: 'done', label: 'Done', count: counts.done }
   ]
 })
 
 const sessionLabel = (sessionId) => {
   if (sessionId.startsWith('web:chat:')) {
-    return 'Hyper-Chat ' + sessionId.replace('web:chat:', '').substring(0, 6).toUpperCase()
+    return 'Chat ' + sessionId.replace('web:chat:', '').substring(0, 6).toUpperCase()
   }
   if (sessionId.startsWith('web:task:')) {
-    return 'Unit #' + sessionId.replace('web:task:', '')
+    return 'Task #' + sessionId.replace('web:task:', '')
   }
   return sessionId.substring(0, 12)
 }
@@ -321,10 +358,10 @@ const chartOptions = {
   plugins: {
     legend: {
       position: 'bottom',
-      labels: { color: 'rgba(156, 163, 175, 0.7)', font: { size: 10, weight: 'bold', family: 'Inter' }, padding: 20, usePointStyle: true }
+      labels: { color: 'rgba(156, 163, 175, 0.7)', font: { size: 10, weight: 'bold', family: 'Inter' }, padding: 15, usePointStyle: true }
     }
   },
-  cutout: '75%'
+  cutout: '72%'
 }
 
 const barOptions = {
@@ -334,8 +371,8 @@ const barOptions = {
   scales: {
     y: {
       beginAtZero: true,
-      grid: { color: 'rgba(255,255,255,0.02)', drawBorder: false },
-      ticks: { color: 'rgba(156, 163, 175, 0.4)', font: { size: 10 } }
+      grid: { color: 'rgba(255,255,255,0.03)', drawBorder: false },
+      ticks: { color: 'rgba(156, 163, 175, 0.5)', font: { size: 10 } }
     },
     x: {
       grid: { display: false },
@@ -353,7 +390,7 @@ const modelChartData = computed(() => {
     datasets: [{
       backgroundColor: ['#3b82f6', '#22c55e', '#84cc16', '#06b6d4', '#0891b2', '#14b8a6'],
       borderColor: 'transparent',
-      hoverOffset: 15,
+      hoverOffset: 10,
       data
     }]
   }
@@ -364,7 +401,7 @@ const taskChartData = computed(() => ({
   datasets: [{
     backgroundColor: ['#9ca3af', '#facc15', '#60a5fa', '#fb923c', '#4ade80'],
     data: statusBreakdown.value.map(s => s.count),
-    borderRadius: 8,
+    borderRadius: 6,
     barPercentage: 0.6
   }]
 }))
@@ -391,36 +428,17 @@ onMounted(loadDashboardData)
 </script>
 
 <style scoped>
-@keyframes float {
-  0%, 100% { transform: translateY(0) translateX(0); }
-  50% { transform: translateY(-20px) translateX(10px); }
-}
-
-@keyframes fade-in-up {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-fade-in-up {
-  animation: fade-in-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  opacity: 0;
-}
-
-/* Custom scrollbar override for more subtle look */
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
 }
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(156, 163, 175, 0.1);
+  background: rgba(156, 163, 175, 0.15);
   border-radius: 10px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(156, 163, 175, 0.2);
+  background: rgba(156, 163, 175, 0.25);
 }
 </style>

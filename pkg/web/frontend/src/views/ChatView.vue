@@ -1,25 +1,42 @@
 <template>
   <div class="flex h-full bg-makoclaw-bg relative overflow-hidden">
-    <!-- Background Gradient Mesh (Subtle) -->
-    <div class="absolute inset-0 pointer-events-none opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-makoclaw-accent/30 via-transparent to-transparent"></div>
+    <!-- Background Gradient Mesh (Enhanced) -->
+    <div class="absolute inset-0 pointer-events-none">
+      <div class="absolute inset-0 opacity-30 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-makoclaw-accent/40 via-transparent to-transparent"></div>
+      <div class="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-purple-500/30 via-transparent to-transparent"></div>
+    </div>
 
     <!-- Sidebar (History) -->
-    <div 
+    <div
       :class="[
-        'flex-shrink-0 border-r border-makoclaw-border/20 bg-makoclaw-surface/30 backdrop-blur-xl transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] flex flex-col ring-1 ring-white/[0.03]',
+        'flex-shrink-0 border-r border-makoclaw-border/20 bg-makoclaw-surface/40 backdrop-blur-2xl transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] flex flex-col ring-1 ring-white/[0.05]',
         showSidebar ? 'w-56 md:w-64 opacity-100' : 'w-0 opacity-0 border-none overflow-hidden scale-95 origin-left'
       ]"
     >
-      <div class="p-2 sm:p-3 md:p-4 border-b border-makoclaw-border/30 flex justify-between items-center gap-2">
-        <h2 class="font-semibold text-xs md:text-sm text-makoclaw-text-secondary">History</h2>
-        <button @click="startNewChat" class="p-1 md:p-1.5 hover:bg-makoclaw-bg rounded-md text-makoclaw-accent transition-colors flex-shrink-0" title="Nuevo Chat">
-          <svg class="w-4 md:w-5 h-4 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-        </button>
+      <div class="p-3 sm:p-4 border-b border-makoclaw-border/30 bg-makoclaw-surface/30">
+        <div class="flex justify-between items-center gap-2">
+          <div class="flex items-center gap-2">
+            <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-makoclaw-accent/20 to-purple-500/20 flex items-center justify-center ring-1 ring-white/10">
+              <svg class="w-3.5 h-3.5 text-makoclaw-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h2 class="font-semibold text-sm text-makoclaw-text">History</h2>
+          </div>
+          <button @click="startNewChat" class="p-1.5 hover:bg-makoclaw-accent/10 rounded-lg text-makoclaw-text-secondary hover:text-makoclaw-accent transition-all" title="New Chat">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+          </button>
+        </div>
       </div>
       
-      <div class="flex-1 overflow-y-auto p-1.5 md:p-2 space-y-0.5 md:space-y-1">
-        <div v-if="sessions.length === 0" class="text-[10px] md:text-xs text-makoclaw-text-secondary text-center py-4">
-          No history yet
+      <div class="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
+        <div v-if="sessions.length === 0" class="flex flex-col items-center justify-center py-8 text-center">
+          <div class="w-10 h-10 rounded-xl bg-makoclaw-surface/50 flex items-center justify-center mb-3">
+            <svg class="w-5 h-5 text-makoclaw-text-secondary/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+          </div>
+          <p class="text-xs text-makoclaw-text-secondary">No history yet</p>
         </div>
         <div
           v-for="session in sessions"
@@ -27,13 +44,13 @@
           class="relative group"
         >
           <!-- Inline rename -->
-          <div v-if="renamingSession === session.session_id" class="flex items-center gap-1 px-2 py-1">
+          <div v-if="renamingSession === session.session_id" class="flex items-center gap-1 px-2 py-1.5">
             <input
               v-model="renameInput"
               @keyup.enter="submitRename(session.session_id)"
               @keyup.escape="cancelRename"
               @blur="submitRename(session.session_id)"
-              class="flex-1 bg-makoclaw-bg border border-makoclaw-accent rounded px-2 py-1 text-xs text-makoclaw-text focus:outline-none"
+              class="flex-1 bg-makoclaw-bg border border-makoclaw-accent/50 rounded-lg px-2.5 py-1.5 text-xs text-makoclaw-text focus:outline-none focus:ring-2 focus:ring-makoclaw-accent/30"
               autofocus
               placeholder="Session title..."
             />
@@ -43,24 +60,31 @@
             v-else
             @click="loadSession(session.session_id)"
             :class="[
-              'w-full text-left px-2 md:px-3 py-1.5 md:py-2 rounded-lg text-xs md:text-sm transition-colors',
-              currentSessionId === session.session_id ? 'bg-makoclaw-accent/10 text-makoclaw-accent' : 'hover:bg-makoclaw-bg text-makoclaw-text-secondary hover:text-makoclaw-text'
+              'w-full text-left px-2.5 py-2 rounded-lg text-sm transition-all duration-200',
+              currentSessionId === session.session_id
+                ? 'bg-gradient-to-r from-makoclaw-accent/15 to-transparent text-makoclaw-text border-l-2 border-makoclaw-accent'
+                : 'hover:bg-makoclaw-surface/50 text-makoclaw-text-secondary hover:text-makoclaw-text border-l-2 border-transparent'
             ]"
           >
-            <div class="flex items-center gap-2">
-              <svg v-if="session.session_id.startsWith('web:task:')" class="w-3 md:w-3.5 h-3 md:h-3.5 text-amber-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
-              <svg v-else class="w-3 md:w-3.5 h-3 md:h-3.5 text-makoclaw-accent flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
-              <span class="truncate flex-1 text-[11px] md:text-sm">{{ session.title || session.last_message || 'Empty session' }}</span>
+            <div class="flex items-center gap-2.5">
+              <div :class="[
+                'w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0',
+                session.session_id.startsWith('web:task:') ? 'bg-amber-500/10' : 'bg-makoclaw-accent/10'
+              ]">
+                <svg v-if="session.session_id.startsWith('web:task:')" class="w-3 h-3 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+                <svg v-else class="w-3 h-3 text-makoclaw-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+              </div>
+              <span class="truncate flex-1 text-xs font-medium">{{ session.title || session.last_message || 'Empty session' }}</span>
               <!-- Context menu trigger -->
               <button
                 @click.stop="openContextMenu($event, session.session_id)"
-                class="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-makoclaw-border rounded transition-opacity flex-shrink-0"
-                title="Acciones de sesión"
+                class="opacity-0 group-hover:opacity-100 p-1 hover:bg-makoclaw-surface rounded-md transition-all flex-shrink-0"
+                title="Session actions"
               >
                 <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><circle cx="10" cy="4" r="1.5"/><circle cx="10" cy="10" r="1.5"/><circle cx="10" cy="16" r="1.5"/></svg>
               </button>
             </div>
-            <div class="text-[9px] md:text-[10px] opacity-60 mt-0.5 pl-4 md:pl-5 flex justify-between">
+            <div class="text-[10px] opacity-60 mt-1 pl-8 flex justify-between">
               <span>{{ formatTime(session.updated_at) }}</span>
               <span v-if="session.message_count" class="text-makoclaw-text-secondary">{{ session.message_count }} msg{{ session.message_count !== 1 ? 's' : '' }}</span>
             </div>
@@ -72,21 +96,21 @@
       <Teleport to="body">
         <div v-if="contextMenu.show" class="fixed inset-0 z-dropdown" @click="closeContextMenu">
           <div
-            class="absolute bg-makoclaw-surface border border-makoclaw-border rounded-lg shadow-xl py-1 min-w-[140px]"
+            class="absolute bg-makoclaw-surface/95 backdrop-blur-xl border border-makoclaw-border/50 rounded-xl shadow-2xl py-1.5 min-w-[160px] animate-scaleIn ring-1 ring-white/10"
             :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
             @click.stop
           >
-            <button @click="startRename(contextMenu.sessionId)" class="w-full text-left px-3 py-1.5 text-sm hover:bg-makoclaw-bg transition-colors flex items-center gap-2">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+            <button @click="startRename(contextMenu.sessionId)" class="w-full text-left px-3 py-2 text-sm hover:bg-makoclaw-accent/10 hover:text-makoclaw-accent transition-all flex items-center gap-2.5">
+              <svg class="w-4 h-4 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
               Rename
             </button>
-            <button @click="archiveSession(contextMenu.sessionId)" class="w-full text-left px-3 py-1.5 text-sm hover:bg-makoclaw-bg transition-colors flex items-center gap-2">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+            <button @click="archiveSession(contextMenu.sessionId)" class="w-full text-left px-3 py-2 text-sm hover:bg-makoclaw-accent/10 hover:text-makoclaw-accent transition-all flex items-center gap-2.5">
+              <svg class="w-4 h-4 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
               Archive
             </button>
-            <div class="border-t border-makoclaw-border my-1"></div>
-            <button @click="deleteSession(contextMenu.sessionId)" class="w-full text-left px-3 py-1.5 text-sm hover:bg-makoclaw-error/10 text-makoclaw-error transition-colors flex items-center gap-2">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+            <div class="border-t border-makoclaw-border/50 my-1.5 mx-2"></div>
+            <button @click="deleteSession(contextMenu.sessionId)" class="w-full text-left px-3 py-2 text-sm hover:bg-makoclaw-error/10 text-makoclaw-error transition-all flex items-center gap-2.5">
+              <svg class="w-4 h-4 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
               Delete
             </button>
           </div>
@@ -97,7 +121,7 @@
     <!-- Main Chat Area -->
     <div class="flex-1 flex flex-col min-w-0 relative bg-makoclaw-bg/50">
       <!-- Top Bar -->
-      <div class="flex items-center px-2 sm:px-3 md:px-4 py-1.5 md:py-2 border-b border-makoclaw-border/20 bg-makoclaw-surface/30 backdrop-blur-xl z-20 gap-2">
+      <div class="flex items-center px-3 sm:px-4 py-2 sm:py-2.5 border-b border-makoclaw-border/20 bg-makoclaw-surface/40 backdrop-blur-2xl z-20 gap-3 ring-1 ring-white/[0.03]">
         <!-- Sidebar toggle (fixed left) -->
         <button
           @click="toggleSidebar"
@@ -110,23 +134,27 @@
         </button>
 
         <!-- Agent status (flex-1, truncates) -->
-        <div v-if="chatStore.globalIsLoading" class="flex-1 flex items-center gap-1.5 px-2 py-1 bg-makoclaw-accent/10 border border-makoclaw-accent/30 rounded-lg min-w-0">
-          <svg class="w-3.5 h-3.5 text-makoclaw-accent animate-spin flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-          <span class="text-[10px] md:text-xs font-medium text-makoclaw-accent truncate">Agent working...</span>
+        <div v-if="chatStore.globalIsLoading" class="flex-1 flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-makoclaw-accent/15 to-transparent border border-makoclaw-accent/30 rounded-xl min-w-0">
+          <div class="w-5 h-5 rounded-lg bg-makoclaw-accent/20 flex items-center justify-center flex-shrink-0">
+            <svg class="w-3 h-3 text-makoclaw-accent animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          <span class="text-xs font-medium text-makoclaw-accent truncate">Agent working...</span>
         </div>
         <div v-else class="flex-1"></div>
 
         <!-- Model selector (fixed right) -->
-        <div class="flex items-center gap-1 flex-shrink-0">
-          <svg class="w-3 h-3 md:w-3.5 md:h-3.5 text-makoclaw-text-secondary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-          </svg>
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <div class="w-7 h-7 rounded-lg bg-makoclaw-surface/50 flex items-center justify-center">
+            <svg class="w-3.5 h-3.5 text-makoclaw-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+          </div>
           <select
             v-model="chatStore.selectedModel"
             :disabled="chatStore.allModels.length === 0"
-            class="bg-makoclaw-bg/50 border border-makoclaw-border rounded-lg px-2 py-1 text-[10px] md:text-xs text-makoclaw-text focus:ring-2 focus:ring-makoclaw-accent/50 focus:border-makoclaw-accent transition-all cursor-pointer max-w-[140px] md:max-w-[240px]"
+            class="bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-xl px-3 py-1.5 text-xs text-makoclaw-text focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent transition-all cursor-pointer max-w-[160px] md:max-w-[280px]"
           >
             <option v-if="chatStore.allModels.length === 0" value="">
               No models available
@@ -144,18 +172,29 @@
       </div>
 
       <!-- Messages Area -->
-      <div 
+      <div
         ref="messagesContainer"
-        class="flex-1 overflow-y-auto p-2 sm:p-3 md:p-4 space-y-3 md:space-y-4 z-10"
+        class="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-4 z-10 custom-scrollbar"
       >
         <div v-if="messages.length === 0" class="flex flex-col items-center justify-center h-full text-makoclaw-text-secondary animate-fadeIn">
-          <div class="glass-panel p-6 sm:p-8 rounded-2xl mb-4 shadow-lg shadow-makoclaw-accent/5">
-            <svg class="w-10 h-10 sm:w-12 sm:h-12 text-makoclaw-accent animate-pulse" style="animation-duration: 3s;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
+          <div class="relative">
+            <!-- Glow effect -->
+            <div class="absolute inset-0 bg-gradient-to-br from-makoclaw-accent/30 to-purple-500/30 rounded-3xl blur-2xl opacity-50"></div>
+            <div class="relative glass-panel p-8 sm:p-10 rounded-2xl shadow-2xl shadow-makoclaw-accent/10 ring-1 ring-white/10">
+              <div class="w-16 h-16 sm:w-20 sm:h-20 mx-auto rounded-2xl bg-gradient-to-br from-makoclaw-accent/20 to-purple-500/20 flex items-center justify-center ring-1 ring-white/20">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-makoclaw-accent animate-pulse" style="animation-duration: 3s;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+              </div>
+            </div>
           </div>
-          <p class="text-base sm:text-lg font-semibold text-makoclaw-text mt-2">Start a conversation</p>
-          <p class="text-xs sm:text-sm text-makoclaw-text-secondary/70 mt-1">Ask anything or run a task</p>
+          <h3 class="text-lg sm:text-xl font-bold text-makoclaw-text mt-6 bg-gradient-to-r from-makoclaw-text to-makoclaw-text-secondary bg-clip-text">Start a conversation</h3>
+          <p class="text-sm text-makoclaw-text-secondary/70 mt-2 max-w-xs text-center">Ask anything, run a task, or use slash commands</p>
+          <div class="flex items-center gap-2 mt-4 text-xs text-makoclaw-text-secondary/50">
+            <span class="px-2 py-1 bg-makoclaw-surface/50 rounded-lg font-mono">/task</span>
+            <span class="px-2 py-1 bg-makoclaw-surface/50 rounded-lg font-mono">/help</span>
+            <span class="px-2 py-1 bg-makoclaw-surface/50 rounded-lg font-mono">/search</span>
+          </div>
         </div>
 
         <!-- Messages -->
@@ -173,11 +212,14 @@
 
         <!-- Loading indicator (only when not streaming — streaming shows the message directly) -->
         <div v-if="isLoading && !chatStore.isStreaming" class="flex justify-start">
-          <div class="bg-makoclaw-surface/80 border border-makoclaw-border rounded-2xl rounded-bl-sm px-2 sm:px-4 py-1.5 sm:py-3 shadow-sm">
-            <div class="flex gap-1">
-              <div class="w-1.5 sm:w-2 h-1.5 sm:h-2 bg-makoclaw-text-secondary/50 rounded-full animate-bounce" style="animation-delay: 0s"></div>
-              <div class="w-1.5 sm:w-2 h-1.5 sm:h-2 bg-makoclaw-text-secondary/50 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
-              <div class="w-1.5 sm:w-2 h-1.5 sm:h-2 bg-makoclaw-text-secondary/50 rounded-full animate-bounce" style="animation-delay: 0.4s"></div>
+          <div class="bg-makoclaw-surface/60 backdrop-blur-xl border border-makoclaw-border/50 rounded-2xl rounded-bl-md px-4 py-3 shadow-lg ring-1 ring-white/5">
+            <div class="flex items-center gap-2">
+              <div class="flex gap-1">
+                <div class="w-2 h-2 bg-makoclaw-accent rounded-full animate-bounce" style="animation-delay: 0s"></div>
+                <div class="w-2 h-2 bg-makoclaw-accent/70 rounded-full animate-bounce" style="animation-delay: 0.15s"></div>
+                <div class="w-2 h-2 bg-makoclaw-accent/40 rounded-full animate-bounce" style="animation-delay: 0.3s"></div>
+              </div>
+              <span class="text-xs text-makoclaw-text-secondary ml-1">Thinking...</span>
             </div>
           </div>
         </div>
@@ -189,21 +231,21 @@
       </div>
 
       <!-- Input Area -->
-      <div class="border-t border-makoclaw-border/30 bg-makoclaw-surface/60 backdrop-blur-xl p-2 sm:p-3 md:p-4 z-20 relative ring-1 ring-white/[0.05]">
+      <div class="border-t border-makoclaw-border/30 bg-makoclaw-surface/50 backdrop-blur-2xl p-3 sm:p-4 z-20 relative ring-1 ring-white/[0.05]">
         <!-- Slash Command Autocomplete -->
-        <div v-if="showAutocomplete" class="absolute bottom-full left-4 right-4 max-w-4xl mx-auto mb-1">
-          <div class="bg-makoclaw-surface border border-makoclaw-border rounded-xl shadow-xl overflow-hidden max-h-64 overflow-y-auto">
+        <div v-if="showAutocomplete" class="absolute bottom-full left-4 right-4 max-w-4xl mx-auto mb-2">
+          <div class="bg-makoclaw-surface/95 backdrop-blur-xl border border-makoclaw-border/50 rounded-2xl shadow-2xl overflow-hidden max-h-64 overflow-y-auto ring-1 ring-white/10 custom-scrollbar">
             <button
               v-for="(cmd, idx) in filteredCommands"
               :key="cmd.command"
               @click="selectCommand(cmd)"
-              class="w-full text-left px-4 py-2.5 text-sm transition-colors flex items-start gap-3 border-b border-makoclaw-border/50 last:border-0"
-              :class="idx === selectedCommandIndex ? 'bg-makoclaw-accent/10 text-makoclaw-accent' : 'hover:bg-makoclaw-bg text-makoclaw-text'"
+              class="w-full text-left px-4 py-3 text-sm transition-all flex items-start gap-3 border-b border-makoclaw-border/30 last:border-0"
+              :class="idx === selectedCommandIndex ? 'bg-gradient-to-r from-makoclaw-accent/15 to-transparent text-makoclaw-accent' : 'hover:bg-makoclaw-surface-hover text-makoclaw-text'"
             >
-              <span class="font-mono text-xs bg-makoclaw-bg px-1.5 py-0.5 rounded border border-makoclaw-border flex-shrink-0 mt-0.5">{{ cmd.command }}</span>
+              <span class="font-mono text-xs bg-makoclaw-bg/70 px-2 py-1 rounded-lg border border-makoclaw-border/50 flex-shrink-0 mt-0.5">{{ cmd.command }}</span>
               <div>
-                <div class="font-medium text-xs">{{ cmd.label }}</div>
-                <div class="text-[10px] text-makoclaw-text-secondary mt-0.5">{{ cmd.description }}</div>
+                <div class="font-semibold text-sm">{{ cmd.label }}</div>
+                <div class="text-xs text-makoclaw-text-secondary mt-0.5">{{ cmd.description }}</div>
               </div>
             </button>
           </div>
@@ -266,30 +308,41 @@
                   <div v-if="showToolsPopover" class="fixed inset-0 z-modal" @click="showToolsPopover = false"></div>
                   <div
                     v-if="showToolsPopover"
-                    class="fixed bottom-24 right-4 md:right-auto md:left-1/2 md:-translate-x-1/2 w-64 md:w-72 bg-makoclaw-surface border border-makoclaw-border rounded-2xl shadow-2xl z-modal-nested overflow-hidden animate-slideUp"
+                    class="fixed bottom-24 right-4 md:right-auto md:left-1/2 md:-translate-x-1/2 w-72 md:w-80 bg-makoclaw-surface/95 backdrop-blur-2xl border border-makoclaw-border/50 rounded-2xl shadow-2xl z-modal-nested overflow-hidden animate-scaleIn ring-1 ring-white/10"
                   >
-                    <div class="p-3 border-b border-makoclaw-border bg-makoclaw-bg/50">
-                      <h3 class="text-xs font-bold uppercase tracking-wider text-makoclaw-text-secondary">AI Tools</h3>
+                    <div class="p-4 border-b border-makoclaw-border/30 bg-gradient-to-r from-makoclaw-surface/50 to-transparent">
+                      <div class="flex items-center gap-2">
+                        <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-makoclaw-accent/20 to-purple-500/20 flex items-center justify-center">
+                          <svg class="w-3.5 h-3.5 text-makoclaw-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <h3 class="text-sm font-bold text-makoclaw-text">AI Tools</h3>
+                          <p class="text-[10px] text-makoclaw-text-secondary">{{ chatStore.enabledTools.length }}/{{ chatStore.availableTools.length }} enabled</p>
+                        </div>
+                      </div>
                     </div>
                     <div class="max-h-64 overflow-y-auto p-2 space-y-1 custom-scrollbar">
-                      <div v-if="chatStore.availableTools.length === 0" class="text-center py-4 text-xs text-makoclaw-text-secondary">
-                        Loading tools...
+                      <div v-if="chatStore.availableTools.length === 0" class="flex flex-col items-center justify-center py-6">
+                        <div class="w-8 h-8 border-2 border-makoclaw-accent/30 border-t-makoclaw-accent rounded-full animate-spin mb-2"></div>
+                        <p class="text-xs text-makoclaw-text-secondary">Loading tools...</p>
                       </div>
                       <button
                         v-for="tool in chatStore.availableTools"
                         :key="tool"
                         @click="chatStore.toggleTool(tool)"
-                        class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-colors"
-                        :class="chatStore.enabledTools.includes(tool) ? 'bg-makoclaw-accent/10 text-makoclaw-accent' : 'hover:bg-makoclaw-bg text-makoclaw-text-secondary'"
+                        class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs transition-all"
+                        :class="chatStore.enabledTools.includes(tool) ? 'bg-gradient-to-r from-makoclaw-accent/15 to-transparent text-makoclaw-accent' : 'hover:bg-makoclaw-surface-hover text-makoclaw-text-secondary'"
                       >
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-2.5">
                           <div
-                            class="w-4 h-4 rounded border flex items-center justify-center transition-colors"
-                            :class="chatStore.enabledTools.includes(tool) ? 'bg-makoclaw-accent border-makoclaw-accent text-white' : 'border-makoclaw-border'"
+                            class="w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all"
+                            :class="chatStore.enabledTools.includes(tool) ? 'bg-makoclaw-accent border-makoclaw-accent text-white' : 'border-makoclaw-border/50 bg-makoclaw-bg/30'"
                           >
                             <svg v-if="chatStore.enabledTools.includes(tool)" class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
                           </div>
-                          <span class="font-mono">{{ tool }}</span>
+                          <span class="font-mono text-xs">{{ tool }}</span>
                         </div>
                       </button>
                     </div>
@@ -385,16 +438,25 @@
             @keydown="onInputKeydown"
             placeholder="Type a message or / for commands..."
             rows="1"
-            class="w-full px-3 md:px-4 py-2 md:py-2.5 bg-makoclaw-bg/50 border border-makoclaw-border rounded-xl focus:ring-2 focus:ring-makoclaw-accent/50 focus:border-makoclaw-accent transition-all text-sm shadow-inner resize-none overflow-hidden"
+            class="w-full px-4 py-3 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent/50 transition-all text-sm shadow-inner resize-none overflow-hidden backdrop-blur-sm placeholder:text-makoclaw-text-secondary/50"
             :disabled="!isConnected || isLoading"
             style="max-height: 120px;"
           ></textarea>
         </form>
 
         <!-- Connection Status -->
-        <div class="absolute top-0 right-0 -mt-8 mr-4 px-2 py-0.5 rounded text-[10px] font-mono glass">
-           <span v-if="isConnected" class="text-makoclaw-success flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-makoclaw-success animate-pulse"></span> Connected</span>
-           <span v-else class="text-makoclaw-error flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-makoclaw-error"></span> Disconnected</span>
+        <div class="absolute top-0 right-0 -mt-9 mr-4 px-2.5 py-1 rounded-lg text-[10px] font-medium bg-makoclaw-surface/80 backdrop-blur-xl border border-makoclaw-border/30 shadow-sm">
+           <span v-if="isConnected" class="text-makoclaw-success flex items-center gap-1.5">
+             <span class="relative flex h-2 w-2">
+               <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-makoclaw-success opacity-75"></span>
+               <span class="relative inline-flex rounded-full h-2 w-2 bg-makoclaw-success"></span>
+             </span>
+             Connected
+           </span>
+           <span v-else class="text-makoclaw-error flex items-center gap-1.5">
+             <span class="w-2 h-2 rounded-full bg-makoclaw-error"></span>
+             Disconnected
+           </span>
         </div>
       </div>
     </div>

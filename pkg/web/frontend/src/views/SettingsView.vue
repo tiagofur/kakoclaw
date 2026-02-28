@@ -1,133 +1,152 @@
 <template>
   <div class="h-full flex flex-col bg-makoclaw-bg relative overflow-hidden">
-    <!-- Decorative background blobs -->
-    <div class="absolute -top-24 -right-24 w-96 h-96 bg-makoclaw-accent/5 blur-[100px] rounded-full pointer-events-none animate-pulse" />
-    <div
-      class="absolute bottom-0 -left-24 w-72 h-72 bg-blue-500/5 blur-[80px] rounded-full pointer-events-none"
-      style="animation: float 20s infinite ease-in-out"
-    />
+    <!-- Background Gradient Mesh -->
+    <div class="absolute inset-0 pointer-events-none">
+      <div class="absolute inset-0 opacity-25 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-makoclaw-accent/30 via-transparent to-transparent"></div>
+      <div class="absolute inset-0 opacity-15 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-blue-500/20 via-transparent to-transparent"></div>
+    </div>
 
-    <!-- Mobile Header/Nav -->
-    <div class="lg:hidden flex-none glass-sticky z-30 p-4 border-b border-makoclaw-border/50">
-      <div class="flex items-center justify-between mb-4">
-        <div>
-          <h2 class="text-xl font-black bg-gradient-to-r from-makoclaw-accent to-blue-500 bg-clip-text text-transparent italic">
-            Settings
-          </h2>
-          <p class="text-[10px] font-medium text-makoclaw-text-secondary uppercase tracking-widest">
-            Mission Configuration
-          </p>
-        </div>
-        <div class="flex gap-2">
+    <!-- Mobile Header -->
+    <div class="lg:hidden glass-sticky top-0 z-30 border-b border-makoclaw-border/20">
+      <div class="px-4 pt-4 pb-3">
+        <div class="flex items-center gap-3 mb-3">
+          <!-- Icon Container -->
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-makoclaw-accent/20 to-blue-500/20 flex items-center justify-center ring-1 ring-white/10 shadow-lg shadow-makoclaw-accent/10">
+            <svg class="w-5 h-5 text-makoclaw-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </div>
+          <div class="flex-1 min-w-0">
+            <h1 class="text-xl font-bold bg-gradient-to-r from-makoclaw-text via-makoclaw-text to-makoclaw-accent bg-clip-text text-transparent">
+              Settings
+            </h1>
+            <p class="text-xs text-makoclaw-text-secondary mt-0.5">Configure your workspace</p>
+          </div>
           <button
-            class="p-2 rounded-xl bg-makoclaw-surface border border-makoclaw-border active:scale-90 transition-transform"
+            class="p-2.5 min-h-[40px] min-w-[40px] rounded-xl bg-makoclaw-surface/50 border border-makoclaw-border/50 hover:bg-makoclaw-surface-hover transition-all flex items-center justify-center"
             @click="loadData"
           >
             <ArrowPathIcon class="w-4 h-4 text-makoclaw-text-secondary" />
           </button>
         </div>
-      </div>
-      
-      <!-- Mobile Tabs (Horizontal Scroll) -->
-      <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-none snap-x">
-        <button
-          v-for="tab in tabs"
-          :key="tab.key"
-          class="flex-none px-3 py-1.5 rounded-xl text-xs font-medium tracking-wide transition-all snap-start"
-          :class="[activeTab === tab.key 
-            ? 'bg-makoclaw-accent text-white shadow-lg shadow-makoclaw-accent/20' 
-            : 'bg-makoclaw-surface/50 text-makoclaw-text-secondary border border-makoclaw-border/50 hover:border-makoclaw-accent/30']"
-          @click="activeTab = tab.key"
-        >
-          {{ tab.label }}
-        </button>
-      </div>
-    </div>
 
-    <div class="flex-1 flex overflow-hidden">
-      <!-- Desktop Sidebar Navigation -->
-      <aside class="hidden lg:flex flex-col w-72 flex-none border-r border-makoclaw-border/10 p-6 space-y-6 z-20 bg-makoclaw-bg/20">
-
-        <nav class="flex-1 space-y-1.5 overflow-y-auto custom-scrollbar pr-2">
+        <!-- Mobile Tabs (Horizontal Scroll) -->
+        <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-none snap-x -mx-1 px-1">
           <button
             v-for="tab in tabs"
             :key="tab.key"
-            class="w-full flex items-center justify-between p-3 rounded-2xl transition-all duration-300 group relative overflow-hidden active:scale-[0.98]"
-            :class="activeTab === tab.key 
-              ? 'bg-makoclaw-accent text-white shadow-xl shadow-makoclaw-accent/20' 
-              : 'text-makoclaw-text-secondary hover:bg-white/5 hover:text-makoclaw-text'"
+            class="flex-none px-3.5 py-2 rounded-xl text-xs font-medium transition-all snap-start min-h-[36px]"
+            :class="[activeTab === tab.key
+              ? 'bg-gradient-to-r from-makoclaw-accent to-makoclaw-accent/80 text-white shadow-lg shadow-makoclaw-accent/25'
+              : 'bg-makoclaw-surface/40 text-makoclaw-text-secondary border border-makoclaw-border/30 hover:border-makoclaw-accent/30 hover:text-makoclaw-text backdrop-blur-sm']"
             @click="activeTab = tab.key"
           >
-            <div class="flex items-center gap-3 z-10">
-              <div
-                class="w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-500 group-hover:scale-110"
-                :class="activeTab === tab.key ? 'bg-white/20' : 'bg-makoclaw-surface border border-makoclaw-border/10 shadow-inner'"
-              >
-                <component
-                  :is="getTabIcon(tab.key)"
-                  class="w-4.5 h-4.5"
-                />
-              </div>
-              <div class="flex flex-col items-start translate-y-px">
-                <span class="text-[11px] font-black uppercase tracking-wider">
-                  {{ tab.label }}
-                </span>
-              </div>
+            {{ tab.label }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex-1 flex overflow-hidden relative">
+      <!-- Desktop Sidebar Navigation -->
+      <aside class="hidden lg:flex flex-col w-64 flex-none border-r border-makoclaw-border/20 bg-makoclaw-surface/20 backdrop-blur-sm z-20">
+        <!-- Sidebar Header -->
+        <div class="p-5 border-b border-makoclaw-border/20">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-makoclaw-accent/20 to-blue-500/20 flex items-center justify-center ring-1 ring-white/10 shadow-lg shadow-makoclaw-accent/10">
+              <svg class="w-5 h-5 text-makoclaw-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
             </div>
+            <div>
+              <h2 class="text-lg font-bold text-makoclaw-text">Settings</h2>
+              <p class="text-xs text-makoclaw-text-secondary">Configure your workspace</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="flex-1 p-3 space-y-1 overflow-y-auto custom-scrollbar">
+          <button
+            v-for="tab in tabs"
+            :key="tab.key"
+            class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group text-left"
+            :class="activeTab === tab.key
+              ? 'bg-gradient-to-r from-makoclaw-accent/15 to-transparent text-makoclaw-text border-l-2 border-makoclaw-accent'
+              : 'text-makoclaw-text-secondary hover:bg-makoclaw-surface/50 hover:text-makoclaw-text border-l-2 border-transparent'"
+            @click="activeTab = tab.key"
+          >
             <div
-              v-if="activeTab === tab.key"
-              class="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.8)] z-10 animate-pulse"
-            />
+              class="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
+              :class="activeTab === tab.key ? 'bg-makoclaw-accent/20' : 'bg-makoclaw-bg/50'"
+            >
+              <component
+                :is="getTabIcon(tab.key)"
+                class="w-4 h-4"
+                :class="activeTab === tab.key ? 'text-makoclaw-accent' : 'text-makoclaw-text-secondary group-hover:text-makoclaw-text'"
+              />
+            </div>
+            <span class="text-sm font-medium">{{ tab.label }}</span>
           </button>
         </nav>
       </aside>
 
       <!-- Main Content Area -->
-      <main class="flex-1 min-w-0 glass-panel border-0 border-l border-makoclaw-border/10">
-        <!-- Tab Content -->
-        <div class="h-full overflow-y-auto scrollbar-hide">
-          <div class="max-w-4xl mx-auto p-6 md:p-10 animate-fade-in">
-            <header class="mb-10">
-              <div class="flex items-center gap-3 text-makoclaw-accent mb-2">
-                <component
-                  :is="activeTabIcon"
-                  class="w-5 h-5"
-                />
-                <span class="text-[10px] font-bold uppercase tracking-[0.2em] leading-none">
-                  {{ activeTabLabel }}
-                </span>
+      <main class="flex-1 min-w-0 overflow-y-auto custom-scrollbar relative">
+        <div class="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
+          <!-- Content Header -->
+          <header class="mb-8">
+            <div class="flex items-center gap-4">
+              <!-- Icon Container -->
+              <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-gradient-to-br from-makoclaw-accent/20 to-blue-500/20 flex items-center justify-center ring-1 ring-white/10 shadow-lg shadow-makoclaw-accent/10">
+                <component :is="activeTabIcon" class="w-6 h-6 sm:w-7 sm:h-7 text-makoclaw-accent" />
               </div>
-              <h2 class="text-3xl font-black text-makoclaw-text tracking-tight uppercase italic">
-                {{ activeTabLabel }}
-              </h2>
-              <p class="text-makoclaw-text-secondary mt-2 text-sm font-medium">
-                {{ activeTabDescription }}
-              </p>
-            </header>
 
-            <div class="relative min-h-[400px]">
-              <transition
-                enter-active-class="transition duration-300 ease-out"
-                enter-from-class="opacity-0 translate-y-4"
-                enter-to-class="opacity-100 translate-y-0"
-                leave-active-class="transition duration-200 ease-in"
-                leave-from-class="opacity-100 translate-y-0"
-                leave-to-class="opacity-0 -translate-y-4"
-                mode="out-in"
-              >
-                <component
-                  :is="activeTabComponent"
-                  :key="activeTab"
-                  :agents="configData?.agents || { defaults: {}, orchestrator: {}, specialists: {} }"
-                  :providers="configData?.providers || {}"
-                  :providers-list="providersList"
-                  :saving="saving"
-                  @save="saveConfig"
-                  @toggle="toggleChannel"
-                  @config="openChannelConfig"
-                />
-              </transition>
+              <!-- Title + Description -->
+              <div class="flex-1 min-w-0">
+                <h2 class="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-makoclaw-text via-makoclaw-text to-makoclaw-accent bg-clip-text text-transparent">
+                  {{ activeTabLabel }}
+                </h2>
+                <p class="text-sm text-makoclaw-text-secondary mt-1">
+                  {{ activeTabDescription }}
+                </p>
+              </div>
             </div>
+          </header>
+
+          <!-- Tab Content -->
+          <div class="relative min-h-[400px]">
+            <transition
+              enter-active-class="transition duration-300 ease-out"
+              enter-from-class="opacity-0 translate-y-4"
+              enter-to-class="opacity-100 translate-y-0"
+              leave-active-class="transition duration-200 ease-in"
+              leave-from-class="opacity-100 translate-y-0"
+              leave-to-class="opacity-0 -translate-y-4"
+              mode="out-in"
+            >
+              <component
+                :is="activeTabComponent"
+                :key="activeTab"
+                :agents="configData?.agents || { defaults: {}, orchestrator: {}, specialists: {} }"
+                :providers="configData?.providers || {}"
+                :channels="configData?.channels || {}"
+                :config-data="configData"
+                :providers-list="providersList"
+                :users-list="usersList"
+                :saving="saving"
+                @save="saveConfig"
+                @toggle="toggleChannel"
+                @config="openChannelConfig"
+                @add-user="openUserModal()"
+                @edit-user="openUserModal"
+                @block-user="openBlockModal"
+                @unblock-user="openUnblockModal"
+                @delete-user="deleteUserLocal"
+              />
+            </transition>
           </div>
         </div>
       </main>
@@ -138,183 +157,201 @@
       <Transition name="modal">
         <div
           v-if="showChannelModal || showUserModal || showBlockModal || showUnblockModal"
-          class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-makoclaw-bg/80 backdrop-blur-xl"
+          class="fixed inset-0 z-modal flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          @click.self="closeAllModals"
         >
-          <!-- Shared Modal Wrapper -->
-          <div class="glass-panel rounded-2xl shadow-xl w-full max-w-lg border border-makoclaw-border/50 overflow-hidden animate-zoom">
-            <!-- Channel Config Modal -->
-            <div
-              v-if="showChannelModal"
-              class="p-8"
-            >
-              <div class="flex justify-between items-center mb-5">
-                <h3 class="text-xl font-black text-makoclaw-text italic flex items-center gap-3">
-                  <span
-                    class="p-2 bg-makoclaw-bg border border-makoclaw-border rounded-xl scale-90"
-                  >
+          <!-- Channel Config Modal -->
+          <div
+            v-if="showChannelModal"
+            class="bg-makoclaw-surface/95 backdrop-blur-2xl border border-makoclaw-border/50 rounded-2xl shadow-2xl ring-1 ring-white/10 w-full max-w-lg overflow-hidden animate-scaleIn"
+          >
+            <div class="p-5 border-b border-makoclaw-border/30 bg-gradient-to-r from-makoclaw-surface/50 to-transparent">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-makoclaw-accent/20 to-blue-500/20 flex items-center justify-center ring-1 ring-white/10 text-2xl">
                     {{ selectedChannel?.icon }}
-                  </span>
-                  Configure {{ selectedChannel?.name }}
-                </h3>
-                <button
-                  class="p-2 rounded-full hover:bg-white/5 transition-colors"
-                  @click="showChannelModal = false"
-                >
-                  <XMarkIcon class="w-6 h-6" />
-                </button>
-              </div>
-              
-              <div class="space-y-6">
-                <div
-                  v-if="['telegram', 'discord'].includes(selectedChannel?.id)"
-                  class="space-y-6"
-                >
-                  <div class="space-y-2">
-                    <label class="text-[10px] font-medium tracking-wide text-makoclaw-text-secondary/60">
-                      Bot Token / Secret Code
-                    </label>
-                    <input
-                      v-model="channelForm.token"
-                      type="password"
-                      class="w-full bg-makoclaw-bg/40 border-2 border-makoclaw-border/50 rounded-2xl px-5 py-3.5 text-sm font-bold text-makoclaw-text focus:border-makoclaw-accent transition-all outline-none"
-                    >
                   </div>
-                  <div class="space-y-2">
-                    <label class="text-[10px] font-medium tracking-wide text-makoclaw-text-secondary/60">
-                      Authorized Access Nodes
-                    </label>
-                    <input
-                      v-model="channelForm.allow_from"
-                      type="text"
-                      placeholder="ID-1, ID-2, @username"
-                      class="w-full bg-makoclaw-bg/40 border-2 border-makoclaw-border/50 rounded-2xl px-5 py-3.5 text-sm font-bold text-makoclaw-text focus:border-makoclaw-accent transition-all outline-none"
-                    >
+                  <div>
+                    <h3 class="text-lg font-bold text-makoclaw-text">Configure {{ selectedChannel?.name }}</h3>
+                    <p class="text-xs text-makoclaw-text-secondary">Set up your channel credentials</p>
                   </div>
                 </div>
-              </div>
-              <div class="flex justify-end gap-3 mt-12 pt-8 border-t border-makoclaw-border/30">
                 <button
-                  class="px-4 py-2 text-xs font-medium text-makoclaw-text-secondary hover:text-makoclaw-text"
+                  class="p-2 rounded-lg hover:bg-makoclaw-surface-hover transition-colors"
                   @click="showChannelModal = false"
                 >
-                  Abort
-                </button>
-                <button
-                  class="px-5 py-2.5 bg-makoclaw-accent text-white rounded-xl text-xs font-semibold shadow-lg shadow-makoclaw-accent/20 active:scale-95"
-                  @click="saveChannelConfig"
-                >
-                  Commit & Restart
+                  <XMarkIcon class="w-5 h-5 text-makoclaw-text-secondary" />
                 </button>
               </div>
             </div>
 
-            <!-- User Modal -->
-            <div
-              v-if="showUserModal"
-              class="p-8"
-            >
-              <h3 class="text-lg font-semibold text-makoclaw-text mb-5">
-                {{ userForm.id ? 'Modify Identity' : 'Register Identity' }}
-              </h3>
-              <div class="space-y-6">
-                <div class="space-y-2">
-                  <label class="text-[10px] font-medium tracking-wide text-makoclaw-text-secondary/60">
-                    Username
+            <div class="p-5 space-y-4">
+              <div
+                v-if="['telegram', 'discord'].includes(selectedChannel?.id)"
+                class="space-y-4"
+              >
+                <div>
+                  <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">
+                    Bot Token
                   </label>
                   <input
-                    v-model="userForm.username"
-                    :disabled="!!userForm.id"
-                    class="w-full bg-makoclaw-bg/40 border-2 border-makoclaw-border/50 rounded-2xl px-5 py-3.5 font-black text-makoclaw-text focus:border-makoclaw-accent outline-none disabled:opacity-40"
+                    v-model="channelForm.token"
+                    type="password"
+                    placeholder="Enter bot token..."
+                    class="w-full px-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent/50 transition-all min-h-[40px] backdrop-blur-sm"
                   >
                 </div>
-                <div class="space-y-2">
-                  <label class="text-[10px] font-medium tracking-wide text-makoclaw-text-secondary/60">
-                    Security Key
+                <div>
+                  <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">
+                    Allowed Users
                   </label>
                   <input
-                    v-model="userForm.password"
-                    type="password"
-                    class="w-full bg-makoclaw-bg/40 border-2 border-makoclaw-border/50 rounded-2xl px-5 py-3.5 text-makoclaw-text focus:border-makoclaw-accent outline-none"
+                    v-model="channelForm.allow_from"
+                    type="text"
+                    placeholder="ID-1, ID-2, @username"
+                    class="w-full px-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent/50 transition-all min-h-[40px] backdrop-blur-sm"
                   >
+                  <p class="text-xs text-makoclaw-text-secondary/60 mt-1.5">Comma-separated list of authorized user IDs</p>
                 </div>
               </div>
-              <div class="flex justify-end gap-3 mt-10">
+            </div>
+
+            <div class="p-5 border-t border-makoclaw-border/30 flex items-center justify-end gap-3 bg-makoclaw-bg/30">
+              <button
+                class="px-4 py-2.5 text-sm text-makoclaw-text-secondary hover:text-makoclaw-text transition-colors min-h-[40px]"
+                @click="showChannelModal = false"
+              >
+                Cancel
+              </button>
+              <button
+                class="px-5 py-2.5 min-h-[40px] bg-gradient-to-r from-makoclaw-accent to-makoclaw-accent/80 hover:from-makoclaw-accent-hover hover:to-makoclaw-accent text-white rounded-xl text-sm font-bold shadow-lg shadow-makoclaw-accent/25 transition-all active:scale-95"
+                @click="saveChannelConfig"
+              >
+                Save & Restart
+              </button>
+            </div>
+          </div>
+
+          <!-- User Modal -->
+          <div
+            v-if="showUserModal"
+            class="bg-makoclaw-surface/95 backdrop-blur-2xl border border-makoclaw-border/50 rounded-2xl shadow-2xl ring-1 ring-white/10 w-full max-w-lg overflow-hidden animate-scaleIn"
+          >
+            <div class="p-5 border-b border-makoclaw-border/30 bg-gradient-to-r from-makoclaw-surface/50 to-transparent">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-makoclaw-accent/20 to-blue-500/20 flex items-center justify-center ring-1 ring-white/10">
+                  <UserIcon class="w-5 h-5 text-makoclaw-accent" />
+                </div>
+                <div>
+                  <h3 class="text-lg font-bold text-makoclaw-text">
+                    {{ userForm.id ? 'Edit User' : 'Create User' }}
+                  </h3>
+                  <p class="text-xs text-makoclaw-text-secondary">{{ userForm.id ? 'Update user credentials' : 'Add a new user account' }}</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="p-5 space-y-4">
+              <div>
+                <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">
+                  Username
+                </label>
+                <input
+                  v-model="userForm.username"
+                  :disabled="!!userForm.id"
+                  placeholder="Enter username..."
+                  class="w-full px-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent/50 transition-all min-h-[40px] backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">
+                  Password
+                </label>
+                <input
+                  v-model="userForm.password"
+                  type="password"
+                  placeholder="Enter password..."
+                  class="w-full px-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent/50 transition-all min-h-[40px] backdrop-blur-sm"
+                >
+              </div>
+            </div>
+
+            <div class="p-5 border-t border-makoclaw-border/30 flex items-center justify-end gap-3 bg-makoclaw-bg/30">
+              <button
+                class="px-4 py-2.5 text-sm text-makoclaw-text-secondary hover:text-makoclaw-text transition-colors min-h-[40px]"
+                @click="showUserModal = false"
+              >
+                Cancel
+              </button>
+              <button
+                class="px-5 py-2.5 min-h-[40px] bg-gradient-to-r from-makoclaw-accent to-makoclaw-accent/80 hover:from-makoclaw-accent-hover hover:to-makoclaw-accent text-white rounded-xl text-sm font-bold shadow-lg shadow-makoclaw-accent/25 transition-all active:scale-95"
+                @click="saveUser"
+              >
+                {{ userForm.id ? 'Update' : 'Create' }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Block Modal -->
+          <div
+            v-if="showBlockModal"
+            class="bg-makoclaw-surface/95 backdrop-blur-2xl border border-makoclaw-border/50 rounded-2xl shadow-2xl ring-1 ring-white/10 w-full max-w-md overflow-hidden animate-scaleIn"
+          >
+            <div class="p-6 text-center">
+              <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-red-500/20 to-red-600/20 flex items-center justify-center ring-1 ring-red-500/30">
+                <NoSymbolIcon class="w-8 h-8 text-red-400" />
+              </div>
+              <h3 class="text-xl font-bold text-makoclaw-text mb-2">Block User?</h3>
+              <p class="text-sm text-makoclaw-text-secondary mb-5">
+                This will immediately revoke access for <span class="font-bold text-makoclaw-text">@{{ blockForm.user?.username }}</span>
+              </p>
+              <textarea
+                v-model="blockForm.reason"
+                placeholder="Reason for blocking (optional)..."
+                class="w-full px-4 py-3 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500/50 transition-all min-h-[100px] resize-none backdrop-blur-sm mb-5"
+              />
+              <div class="flex gap-3">
                 <button
-                  class="px-6 py-3 text-xs font-bold text-makoclaw-text-secondary"
-                  @click="showUserModal = false"
+                  class="flex-1 py-2.5 min-h-[40px] text-sm font-medium text-makoclaw-text-secondary hover:text-makoclaw-text transition-colors rounded-xl border border-makoclaw-border/50 hover:bg-makoclaw-surface/50"
+                  @click="showBlockModal = false"
                 >
                   Cancel
                 </button>
                 <button
-                  class="px-5 py-2.5 bg-makoclaw-accent text-white rounded-xl font-semibold shadow-lg shadow-makoclaw-accent/20"
-                  @click="saveUser"
-                >
-                  Commit
-                </button>
-              </div>
-            </div>
-            
-            <!-- Block Modal -->
-            <div
-              v-if="showBlockModal"
-              class="p-8 text-center"
-            >
-              <div class="w-16 h-16 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                <NoSymbolIcon class="w-8 h-8" />
-              </div>
-              <h3 class="text-xl font-black text-makoclaw-text mb-4">
-                Deactivate Node?
-              </h3>
-              <p class="text-sm font-medium text-makoclaw-text-secondary mb-5">
-                This will instantly sever all neural links for @{{ blockForm.user?.username }}.
-              </p>
-              <textarea
-                v-model="blockForm.reason"
-                placeholder="Neural Severance Reason..."
-                class="w-full bg-makoclaw-bg border border-makoclaw-border rounded-xl p-3 text-sm text-makoclaw-text outline-none focus:border-red-500 min-h-[100px] mb-5"
-              />
-              <div class="flex gap-4">
-                <button
-                  class="flex-1 py-2.5 text-xs font-medium text-makoclaw-text-secondary"
-                  @click="showBlockModal = false"
-                >
-                  Maintain Link
-                </button>
-                <button
-                  class="flex-1 py-2.5 bg-red-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-red-500/20"
+                  class="flex-1 py-2.5 min-h-[40px] bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-red-500/25 transition-all active:scale-95"
                   @click="blockUser"
                 >
-                  Sever Connection
+                  Block User
                 </button>
               </div>
             </div>
+          </div>
 
-            <!-- Unblock Modal -->
-            <div
-              v-if="showUnblockModal"
-              class="p-8 text-center"
-            >
-              <div class="w-16 h-16 bg-makoclaw-success/10 text-makoclaw-success rounded-full flex items-center justify-center mx-auto mb-6">
-                <CheckCircleIcon class="w-8 h-8" />
+          <!-- Unblock Modal -->
+          <div
+            v-if="showUnblockModal"
+            class="bg-makoclaw-surface/95 backdrop-blur-2xl border border-makoclaw-border/50 rounded-2xl shadow-2xl ring-1 ring-white/10 w-full max-w-md overflow-hidden animate-scaleIn"
+          >
+            <div class="p-6 text-center">
+              <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-makoclaw-success/20 to-emerald-500/20 flex items-center justify-center ring-1 ring-makoclaw-success/30">
+                <CheckCircleIcon class="w-8 h-8 text-makoclaw-success" />
               </div>
-              <h3 class="text-xl font-black text-makoclaw-text mb-4">
-                Restore Node Integration?
-              </h3>
-              <p class="text-sm font-medium text-makoclaw-text-secondary mb-5">
-                Re-establishing connection for @{{ unblockForm.user?.username }}...
+              <h3 class="text-xl font-bold text-makoclaw-text mb-2">Unblock User?</h3>
+              <p class="text-sm text-makoclaw-text-secondary mb-5">
+                Restore access for <span class="font-bold text-makoclaw-text">@{{ unblockForm.user?.username }}</span>
               </p>
-              <div class="flex gap-4">
+              <div class="flex gap-3">
                 <button
-                  class="flex-1 py-2.5 text-xs font-medium text-makoclaw-text-secondary"
+                  class="flex-1 py-2.5 min-h-[40px] text-sm font-medium text-makoclaw-text-secondary hover:text-makoclaw-text transition-colors rounded-xl border border-makoclaw-border/50 hover:bg-makoclaw-surface/50"
                   @click="showUnblockModal = false"
                 >
-                  Leave Offline
+                  Cancel
                 </button>
                 <button
-                  class="flex-1 py-2.5 bg-makoclaw-success text-white rounded-xl text-xs font-semibold shadow-lg shadow-green-500/20"
+                  class="flex-1 py-2.5 min-h-[40px] bg-gradient-to-r from-makoclaw-success to-emerald-500 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-makoclaw-success/25 transition-all active:scale-95"
                   @click="unblockUser"
                 >
-                  Activate Neural Link
+                  Unblock User
                 </button>
               </div>
             </div>
@@ -328,11 +365,11 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { 
-  UserIcon, 
-  ShieldCheckIcon, 
-  BeakerIcon, 
-  ChatBubbleLeftRightIcon, 
+import {
+  UserIcon,
+  ShieldCheckIcon,
+  BeakerIcon,
+  ChatBubbleLeftRightIcon,
   Cog6ToothIcon,
   ArrowPathIcon,
   UserGroupIcon,
@@ -349,6 +386,8 @@ import ProvidersSettingsTab from '../components/Settings/ProvidersSettingsTab.vu
 import ChannelsSettingsTab from '../components/Settings/ChannelsSettingsTab.vue'
 import ToolPermissionsTab from '../components/Settings/ToolPermissionsTab.vue'
 import AuditLogTab from '../components/Settings/AuditLogTab.vue'
+import CoreSystemTab from '../components/Settings/CoreSystemTab.vue'
+import AdminUsersTab from '../components/Settings/AdminUsersTab.vue'
 
 import advancedService from '../services/advancedService'
 import usersService from '../services/usersService'
@@ -373,11 +412,11 @@ const tabs = computed(() => {
     { key: 'channels', label: 'Channels' }
   ]
   if (authStore.user?.role === 'admin') {
-    base.push({ key: 'users', label: 'Node Management' })
-    base.push({ key: 'permissions', label: 'Safety Protocols' })
-    base.push({ key: 'audit', label: 'Pulse Logs' })
+    base.push({ key: 'users', label: 'Users' })
+    base.push({ key: 'permissions', label: 'Permissions' })
+    base.push({ key: 'audit', label: 'Audit Log' })
   }
-  base.push({ key: 'system', label: 'Core System' })
+  base.push({ key: 'system', label: 'System' })
   return base
 })
 
@@ -399,14 +438,14 @@ const activeTabLabel = computed(() => tabs.value.find(t => t.key === activeTab.v
 
 const activeTabDescription = computed(() => {
   const map = {
-    profile: 'Manage your primary mission profile',
-    agents: 'Configure neural specialist parameters',
-    providers: 'Connect external knowledge vectors',
-    channels: 'Manage communication protocols',
-    users: 'Control node access and identities',
-    permissions: 'Define tool safety boundaries',
-    audit: 'Review mission activity logs',
-    system: 'Update core system parameters'
+    profile: 'Manage your account and preferences',
+    agents: 'Configure AI specialists and orchestration',
+    providers: 'Connect LLM providers and models',
+    channels: 'Manage communication channels',
+    users: 'Manage registered user accounts',
+    permissions: 'Configure tool access and permissions',
+    audit: 'Review system activity logs',
+    system: 'Core system settings and maintenance'
   }
   return map[activeTab.value] || 'System configuration'
 })
@@ -419,9 +458,10 @@ const activeTabComponent = computed(() => {
     agents: AgentSettingsTab,
     providers: ProvidersSettingsTab,
     channels: ChannelsSettingsTab,
-    users: null,
+    users: AdminUsersTab,
     permissions: ToolPermissionsTab,
-    audit: AuditLogTab
+    audit: AuditLogTab,
+    system: CoreSystemTab
   }
   return map[activeTab.value] || null
 })
@@ -446,6 +486,13 @@ const showChannelModal = ref(false)
 const selectedChannel = ref(null)
 const channelForm = ref({})
 
+const closeAllModals = () => {
+  showChannelModal.value = false
+  showUserModal.value = false
+  showBlockModal.value = false
+  showUnblockModal.value = false
+}
+
 const loadData = async () => {
   loading.value = true
   try {
@@ -456,7 +503,7 @@ const loadData = async () => {
     providersList.value = results[1].providers || []
     if (results[2]) usersList.value = results[2]
   } catch {
-    toast.error('Sync failed')
+    toast.error('Failed to load settings')
   } finally {
     loading.value = false
   }
@@ -469,12 +516,38 @@ const saveConfig = async (payload) => {
     const hasUserSettings = payload.tools || payload.channels || payload.agents || payload.providers
     if (hasSystemSettings && authStore.user?.role === 'admin') await advancedService.updateConfig(payload)
     if (hasUserSettings) await advancedService.updateUserConfig(payload)
-    toast.success('Matrix updated')
+    toast.success('Settings saved')
     setTimeout(loadData, 500)
   } catch (err) {
-    toast.error('Update rejected: ' + err.message)
+    toast.error('Failed to save: ' + err.message)
   } finally {
     saving.value = false
+  }
+}
+
+const openUserModal = (user = null) => {
+  userForm.value = user ? { id: user.id, username: user.username, password: '', role: user.role } : { username: '', password: '', role: 'user' }
+  showUserModal.value = true
+}
+
+const openBlockModal = (user) => {
+  blockForm.value = { user, reason: '' }
+  showBlockModal.value = true
+}
+
+const openUnblockModal = (user) => {
+  unblockForm.value = { user }
+  showUnblockModal.value = true
+}
+
+const deleteUserLocal = async (user) => {
+  if (!confirm(`Delete user @${user.username}?`)) return
+  try {
+    await usersService.deleteUser(user.id)
+    toast.success('User deleted')
+    loadData()
+  } catch {
+    toast.error('Failed to delete user')
   }
 }
 
@@ -483,72 +556,57 @@ const saveUser = async () => {
   try {
     if (userForm.value.id) await usersService.updateUser(userForm.value.id, userForm.value.password, userForm.value.role)
     else await usersService.createUser(userForm.value.username, userForm.value.password, userForm.value.role)
-    toast.success('Record saved')
+    toast.success('User saved')
     showUserModal.value = false
     loadData()
   } catch {
-    toast.error('Save failed')
+    toast.error('Failed to save user')
   } finally {
     savingUser.value = false
   }
 }
 
-const blockUser = async () => { 
+const blockUser = async () => {
   await usersService.blockUser(blockForm.value.user.id, blockForm.value.reason)
+  toast.success('User blocked')
   showBlockModal.value = false
-  loadData() 
+  loadData()
 }
 
-const unblockUser = async () => { 
+const unblockUser = async () => {
   await usersService.unblockUser(unblockForm.value.user.id)
+  toast.success('User unblocked')
   showUnblockModal.value = false
-  loadData() 
+  loadData()
 }
 
-const saveChannelConfig = async () => { 
+const saveChannelConfig = async () => {
   const payload = { channels: { [selectedChannel.value.id]: { ...channelForm.value, enabled: true } } }
   await saveConfig(payload)
-  showChannelModal.value = false 
+  showChannelModal.value = false
 }
 
-const openChannelConfig = (c) => { 
+const openChannelConfig = (c) => {
   selectedChannel.value = c
   channelForm.value = { token: '', allow_from: '' }
-  showChannelModal.value = true 
+  showChannelModal.value = true
 }
 
-const toggleChannel = async (id) => { 
-  await saveConfig({ channels: { [id]: { enabled: !configData.value.channels[id]?.enabled } } }) 
+const toggleChannel = async (id) => {
+  await saveConfig({ channels: { [id]: { enabled: !configData.value.channels[id]?.enabled } } })
 }
 
-onMounted(() => { 
+onMounted(() => {
   setActiveTabFromRoute()
-  loadData() 
+  loadData()
 })
 
 watch(() => route.query.tab, setActiveTabFromRoute)
 </script>
 
 <style scoped>
-@keyframes float {
-  0%, 100% { transform: translateY(0) translateX(0); }
-  50% { transform: translateY(-20px) translateX(10px); }
-}
-
-@keyframes fade-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.animate-fade-in {
-  animation: fade-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
 .scrollbar-none::-webkit-scrollbar { display: none; }
 .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
-
-.custom-scrollbar::-webkit-scrollbar { width: 4px; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.1); border-radius: 10px; }
 
 .modal-enter-active, .modal-leave-active { transition: opacity 0.3s ease; }
 .modal-enter-from, .modal-leave-to { opacity: 0; }

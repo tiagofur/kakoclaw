@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-5 max-w-2xl mx-auto animate-fade-in-up">
+  <div class="space-y-5 max-w-4xl mx-auto animate-fade-in-up">
     <!-- Profile Card -->
     <div class="glass-panel rounded-2xl p-5 md:p-6 border border-makoclaw-border/50 relative overflow-hidden group">
       <div class="absolute -top-12 -right-12 w-48 h-48 bg-makoclaw-accent/10 blur-[60px] rounded-full group-hover:bg-makoclaw-accent/20 transition-all duration-1000" />

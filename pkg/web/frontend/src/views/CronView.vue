@@ -1,462 +1,579 @@
 <template>
-  <div class="h-full flex flex-col bg-makoclaw-bg">
+  <div class="flex flex-col h-full bg-makoclaw-bg relative overflow-hidden">
+    <!-- Background Gradient Mesh -->
+    <div class="absolute inset-0 pointer-events-none">
+      <div class="absolute inset-0 opacity-25 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-cyan-500/30 via-transparent to-transparent"></div>
+      <div class="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-blue-500/20 via-transparent to-transparent"></div>
+    </div>
+
     <!-- Header -->
-    <div class="flex-none p-4 border-b border-makoclaw-border bg-makoclaw-surface flex items-center justify-between">
-      <div>
-        <h2 class="text-xl font-bold bg-gradient-to-r from-makoclaw-accent to-blue-500 bg-clip-text text-transparent">Cron Jobs</h2>
-        <p class="text-sm text-makoclaw-text-secondary mt-1">Scheduled tasks and recurring automations</p>
+    <div class="glass-sticky top-0 z-20 border-b border-makoclaw-border/20">
+      <div class="px-4 sm:px-6 pt-4 sm:pt-5 pb-3">
+        <!-- Title Row -->
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center ring-1 ring-white/10 shadow-lg shadow-cyan-500/10">
+            <svg class="w-5 h-5 sm:w-6 sm:h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div class="flex-1 min-w-0">
+            <h1 class="text-xl sm:text-2xl font-bold bg-gradient-to-r from-makoclaw-text via-makoclaw-text to-cyan-400 bg-clip-text text-transparent">Cron Jobs</h1>
+            <p class="text-xs sm:text-sm text-makoclaw-text-secondary mt-0.5 hidden sm:block">Schedule automated tasks and reminders</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              @click="openAiCronModal"
+              class="px-3 sm:px-4 py-2.5 min-h-[40px] bg-makoclaw-surface/50 border border-makoclaw-border/50 text-makoclaw-text rounded-xl hover:bg-makoclaw-surface-hover hover:border-cyan-500/30 transition-all text-sm font-medium flex items-center gap-2 backdrop-blur-sm"
+            >
+              <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+              <span class="hidden sm:inline">Create with AI</span>
+            </button>
+            <button
+              @click="openCreateModal"
+              class="px-4 sm:px-5 py-2.5 min-h-[40px] bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white rounded-xl transition-all shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 text-sm font-bold flex items-center gap-2 active:scale-95 flex-shrink-0"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+              <span class="hidden sm:inline">New Job</span>
+            </button>
+          </div>
+        </div>
       </div>
-      <div class="flex items-center gap-2">
-        <button
-          @click="openAiCronModal"
-          class="flex items-center gap-2 px-4 py-2 bg-makoclaw-accent text-white rounded-lg hover:bg-makoclaw-accent-hover transition-colors text-sm"
-          title="Generate cron job from natural language"
+
+      <!-- Status Banner -->
+      <div class="px-4 sm:px-6 pb-3 sm:pb-4">
+        <div
+          v-if="!loading"
+          class="flex items-center gap-3 px-4 py-2.5 rounded-xl border transition-all backdrop-blur-sm"
+          :class="status.enabled
+            ? 'bg-cyan-500/5 border-cyan-500/20 text-cyan-400'
+            : 'bg-amber-500/5 border-amber-500/20 text-amber-400'"
         >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-          </svg>
-          Create with AI
-        </button>
-        <button
-          @click="openCreateModal"
-          class="flex items-center gap-2 px-4 py-2 bg-makoclaw-accent text-white rounded-lg hover:bg-makoclaw-accent/90 transition-colors text-sm"
-        >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-          New Job
-        </button>
+          <div class="flex items-center gap-2">
+            <div class="w-2 h-2 rounded-full animate-pulse" :class="status.enabled ? 'bg-cyan-400' : 'bg-amber-400'"></div>
+            <span class="text-sm font-medium">{{ statusLabel }}</span>
+          </div>
+          <span v-if="status.jobs !== undefined" class="text-xs opacity-75">{{ status.jobs }} active job{{ status.jobs !== 1 ? 's' : '' }}</span>
+        </div>
       </div>
     </div>
 
     <!-- Content -->
-    <div class="flex-1 overflow-auto p-4 md:p-6 custom-scrollbar">
-      <!-- Loading Skeleton -->
+    <div class="flex-1 overflow-auto p-4 sm:p-6 custom-scrollbar relative">
+      <!-- Loading State -->
       <div v-if="loading" class="space-y-3">
-        <div v-for="i in 3" :key="i" class="bg-makoclaw-surface border border-makoclaw-border rounded-xl p-5">
-          <div class="flex items-start justify-between">
-            <div class="flex-1">
-              <div class="flex items-center gap-2 mb-2">
-                <div class="skeleton h-4 w-36 rounded"></div>
-                <div class="skeleton h-5 w-14 rounded-full"></div>
-                <div class="skeleton h-5 w-20 rounded-full"></div>
-              </div>
-              <div class="skeleton h-3 w-3/4 rounded"></div>
+        <div v-for="i in 3" :key="i" class="cron-card-skeleton">
+          <div class="flex items-start gap-3">
+            <div class="skeleton w-10 h-10 rounded-xl"></div>
+            <div class="flex-1 space-y-2">
+              <div class="skeleton h-4 w-40 rounded"></div>
+              <div class="skeleton h-3 w-full rounded"></div>
             </div>
           </div>
-          <div class="flex items-center gap-4 mt-3">
-            <div class="skeleton h-3 w-40 rounded"></div>
-            <div class="skeleton h-3 w-24 rounded"></div>
-            <div class="skeleton h-3 w-28 rounded"></div>
+          <div class="flex gap-3 mt-4">
+            <div class="skeleton h-6 w-24 rounded-lg"></div>
+            <div class="skeleton h-6 w-20 rounded-lg"></div>
           </div>
         </div>
       </div>
 
       <template v-else>
-        <!-- Status Banner -->
-        <div class="mb-4 px-4 py-3 rounded-lg border"
-          :class="status.enabled ? 'bg-makoclaw-accent/10 border-makoclaw-accent/20 text-makoclaw-accent' : 'bg-makoclaw-warning/10 border-makoclaw-warning/20 text-makoclaw-warning'"
-        >
-          <span class="font-medium">Cron service: {{ statusLabel }}</span>
-          <span v-if="status.jobs !== undefined" class="ml-2 text-sm opacity-75">({{ status.jobs }} active jobs)</span>
-        </div>
-
-        <div v-if="jobs.length === 0" class="flex flex-col items-center justify-center py-16 text-center">
-          <div class="w-16 h-16 rounded-2xl bg-makoclaw-accent/10 flex items-center justify-center mb-4">
-            <svg class="w-8 h-8 text-makoclaw-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+        <!-- Empty State -->
+        <div v-if="jobs.length === 0" class="flex flex-col items-center justify-center py-12 text-center">
+          <div class="relative">
+            <div class="absolute inset-0 bg-gradient-to-br from-cyan-500/30 to-blue-500/30 rounded-3xl blur-2xl opacity-50"></div>
+            <div class="relative glass-panel p-8 rounded-2xl shadow-2xl ring-1 ring-white/10">
+              <div class="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center ring-1 ring-white/20">
+                <svg class="w-8 h-8 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
           </div>
-          <h3 class="font-semibold text-makoclaw-text mb-1">No scheduled jobs</h3>
-          <p class="text-sm text-makoclaw-text-secondary max-w-xs mb-4">Create cron jobs to automate tasks on a schedule.</p>
-          <button class="btn-primary" @click="openCreateModal">New Job</button>
+          <h3 class="text-lg font-bold text-makoclaw-text mt-6">No scheduled jobs</h3>
+          <p class="text-sm text-makoclaw-text-secondary/70 mt-2 max-w-xs">Create cron jobs to automate tasks and send scheduled reminders.</p>
+          <button @click="openCreateModal" class="mt-6 px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white rounded-xl font-bold shadow-lg shadow-cyan-500/25 transition-all active:scale-95 flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            Create Your First Job
+          </button>
         </div>
 
-        <div class="space-y-3">
+        <!-- Jobs List -->
+        <div v-else class="space-y-3">
           <div
             v-for="job in jobs"
             :key="job.id"
-            class="card-interactive p-5"
+            class="cron-card group"
           >
-            <div class="flex items-start justify-between">
+            <!-- Card Header -->
+            <div class="flex items-start gap-3 mb-3">
+              <div class="cron-icon" :class="job.enabled ? 'cron-icon-active' : 'cron-icon-disabled'">
+                <svg v-if="getJobTypeDisplay(job.payload) === 'task'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+              </div>
               <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2">
-                  <h3 class="font-semibold">{{ job.name }}</h3>
+                <div class="flex items-center gap-2 mb-1 flex-wrap">
+                  <h3 class="font-semibold text-makoclaw-text">{{ job.name }}</h3>
                   <span
-                    class="px-2 py-0.5 text-xs rounded-full"
-                    :class="[job.enabled ? 'bg-makoclaw-accent/10 text-makoclaw-accent animate-subtlePulse' : 'bg-makoclaw-text-secondary/10 text-makoclaw-text-secondary']"
-                  >{{ job.enabled ? 'Active' : 'Disabled' }}</span>
-                  <span class="px-2 py-0.5 text-xs rounded-full bg-makoclaw-text-secondary/10 text-makoclaw-text-secondary">
-                    {{ getJobTypeDisplay(job.payload) }}
+                    class="px-2 py-0.5 text-[10px] font-medium rounded-full"
+                    :class="job.enabled ? 'bg-cyan-500/10 text-cyan-400' : 'bg-makoclaw-text-secondary/10 text-makoclaw-text-secondary'"
+                  >
+                    {{ job.enabled ? 'Active' : 'Disabled' }}
+                  </span>
+                  <span class="px-2 py-0.5 text-[10px] font-medium rounded-full bg-makoclaw-bg/50 text-makoclaw-text-secondary">
+                    {{ getJobTypeDisplay(job.payload) === 'task' ? 'Task' : 'Reminder' }}
                   </span>
                 </div>
-                <p class="text-sm text-makoclaw-text-secondary mt-1">{{ job.payload.message }}</p>
+                <p class="text-sm text-makoclaw-text-secondary line-clamp-2">{{ job.payload.message }}</p>
               </div>
             </div>
 
-            <div class="flex items-center gap-4 mt-3 text-xs text-makoclaw-text-secondary">
-              <span>Schedule: <span class="font-mono bg-makoclaw-bg/50 px-1.5 py-0.5 rounded text-xs">{{ formatSchedule(job.schedule) }}</span></span>
-              <span v-if="job.schedule.tz" class="font-mono">TZ: {{ job.schedule.tz }}</span>
-              <span v-if="job.state.lastStatus">Last: {{ job.state.lastStatus }}</span>
-              <span v-if="job.state.nextRunAtMs">Next: {{ formatTimestamp(job.state.nextRunAtMs) }}</span>
+            <!-- Schedule Info -->
+            <div class="flex flex-wrap items-center gap-3 text-xs text-makoclaw-text-secondary mb-4">
+              <div class="flex items-center gap-1.5 px-2.5 py-1 bg-makoclaw-bg/50 rounded-lg">
+                <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span class="font-mono">{{ formatSchedule(job.schedule) }}</span>
+              </div>
+              <div v-if="job.schedule.tz" class="flex items-center gap-1.5 px-2.5 py-1 bg-makoclaw-bg/50 rounded-lg">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span class="font-mono">{{ job.schedule.tz }}</span>
+              </div>
+              <div v-if="job.state.lastStatus" class="flex items-center gap-1.5">
+                <span class="text-makoclaw-text-secondary/60">Last:</span>
+                <span :class="job.state.lastStatus === 'ok' ? 'text-emerald-400' : 'text-amber-400'">{{ job.state.lastStatus }}</span>
+              </div>
+              <div v-if="job.state.nextRunAtMs" class="flex items-center gap-1.5">
+                <span class="text-makoclaw-text-secondary/60">Next:</span>
+                <span>{{ formatTimestamp(job.state.nextRunAtMs) }}</span>
+              </div>
             </div>
 
-            <div class="flex items-center gap-2 mt-3">
+            <!-- Actions -->
+            <div class="flex items-center gap-2 pt-3 border-t border-makoclaw-border/30">
               <button
                 @click="runJob(job)"
-                class="px-3 py-1.5 text-xs text-makoclaw-accent bg-makoclaw-accent/10 rounded-lg hover:bg-makoclaw-accent/20 transition-colors"
-              >Run Now</button>
+                class="cron-action-btn text-cyan-400"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Run Now
+              </button>
               <button
                 @click="openEditModal(job)"
-                class="px-3 py-1.5 text-xs text-makoclaw-text-secondary bg-makoclaw-bg border border-makoclaw-border rounded-lg hover:bg-makoclaw-border transition-colors"
-              >Edit</button>
+                class="cron-action-btn"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Edit
+              </button>
               <button
                 @click="toggleJob(job.id, !job.enabled)"
-                class="px-3 py-1.5 text-xs rounded-lg transition-colors"
-                :class="job.enabled ? 'bg-makoclaw-warning/10 text-makoclaw-warning hover:bg-makoclaw-warning/20' : 'bg-makoclaw-accent/10 text-makoclaw-accent hover:bg-makoclaw-accent/20'"
-              >{{ job.enabled ? 'Disable' : 'Enable' }}</button>
+                class="cron-action-btn"
+                :class="job.enabled ? 'text-amber-400' : 'text-emerald-400'"
+              >
+                <svg v-if="job.enabled" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <svg v-else class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {{ job.enabled ? 'Disable' : 'Enable' }}
+              </button>
               <button
                 @click="confirmDeleteJob(job)"
-                class="px-3 py-1.5 text-xs text-makoclaw-error bg-makoclaw-error/10 rounded-lg hover:bg-makoclaw-error/20 transition-colors"
-              >Delete</button>
+                class="cron-action-btn text-makoclaw-error ml-auto opacity-0 group-hover:opacity-100"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
             </div>
           </div>
         </div>
       </template>
     </div>
 
-    <!-- Create / Edit Job Modal -->
+    <!-- Create/Edit Modal -->
     <Transition name="modal">
-    <div v-if="showModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-modal p-4" @click.self="showModal = false">
-      <div class="bg-makoclaw-surface border border-makoclaw-border rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="font-semibold text-lg">{{ editingJobId ? 'Edit Cron Job' : 'Create Cron Job' }}</h3>
-          <button
-            v-if="editingJobId"
-            @click="openJsonEditor"
-            class="flex items-center gap-2 px-3 py-1.5 text-xs text-makoclaw-accent bg-makoclaw-accent/10 rounded-lg hover:bg-makoclaw-accent/20 transition-colors"
-            title="Edit as JSON"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-            </svg>
-            Edit JSON
-          </button>
-        </div>
-        <div class="space-y-4">
-          <!-- Name -->
-          <div>
-            <label class="block text-sm font-medium mb-1">Name</label>
-            <input v-model="form.name" type="text" placeholder="My scheduled task"
-              class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent" />
-          </div>
-
-          <!-- Message -->
-          <div>
-            <label class="block text-sm font-medium mb-1">Message (what the agent should do)</label>
-            <textarea v-model="form.message" rows="3" placeholder="Summarize today's tasks and send a report..."
-              class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent resize-none" />
-          </div>
-
-          <!-- Schedule Type -->
-          <div>
-            <label class="block text-sm font-medium mb-1">Schedule Type</label>
-            <div class="grid grid-cols-3 gap-2">
-              <button
-                v-for="opt in scheduleOptions"
-                :key="opt.value"
-                @click="form.scheduleType = opt.value"
-                class="px-3 py-2 text-xs rounded-lg border transition-colors text-center"
-                :class="form.scheduleType === opt.value
-                  ? 'border-makoclaw-accent bg-makoclaw-accent/10 text-makoclaw-accent'
-                  : 'border-makoclaw-border bg-makoclaw-bg text-makoclaw-text-secondary hover:border-makoclaw-accent/50'"
-              >{{ opt.label }}</button>
-            </div>
-          </div>
-
-          <!-- Daily: time picker -->
-          <div v-if="form.scheduleType === 'daily'" class="space-y-2">
-            <label class="block text-sm font-medium">Run at</label>
-            <input v-model="form.time" type="time"
-              class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent" />
-          </div>
-
-          <!-- Weekly: day-of-week + time -->
-          <div v-if="form.scheduleType === 'weekly'" class="space-y-3">
-            <div>
-              <label class="block text-sm font-medium mb-2">Days</label>
-              <div class="flex gap-1.5">
-                <button
-                  v-for="(day, idx) in weekDays"
-                  :key="idx"
-                  @click="toggleWeekDay(idx)"
-                  class="w-9 h-9 text-xs rounded-lg border transition-colors flex items-center justify-center"
-                  :class="form.weekDays.includes(idx)
-                    ? 'border-makoclaw-accent bg-makoclaw-accent/10 text-makoclaw-accent'
-                    : 'border-makoclaw-border bg-makoclaw-bg text-makoclaw-text-secondary hover:border-makoclaw-accent/50'"
-                >{{ day }}</button>
+      <div v-if="showModal" class="modal-backdrop" @click.self="showModal = false">
+        <div class="modal-content max-w-lg max-h-[90vh]">
+          <div class="modal-header">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/20 to-makoclaw-accent/20 flex items-center justify-center">
+                <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <h2 class="font-bold text-lg text-makoclaw-text">{{ editingJobId ? 'Edit Job' : 'Create Job' }}</h2>
+                <p class="text-xs text-makoclaw-text-secondary">Schedule automated tasks</p>
               </div>
             </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">Time</label>
-              <input v-model="form.time" type="time"
-                class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent" />
+            <div class="flex items-center gap-2">
+              <button
+                v-if="editingJobId"
+                @click="openJsonEditor"
+                class="text-xs px-3 py-1.5 bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-lg hover:bg-makoclaw-surface transition-colors flex items-center gap-1.5"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                </svg>
+                JSON
+              </button>
+              <button @click="showModal = false" class="modal-close-btn">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
           </div>
 
-          <!-- Monthly: day-of-month + time -->
-          <div v-if="form.scheduleType === 'monthly'" class="space-y-3">
+          <div class="modal-body custom-scrollbar space-y-5">
+            <!-- Name -->
             <div>
-              <label class="block text-sm font-medium mb-2">Day of month</label>
-              <select v-model.number="form.monthDay"
-                class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent">
-                <option v-for="d in 31" :key="d" :value="d">{{ d }}</option>
+              <label class="block text-sm font-medium text-makoclaw-text mb-1.5">Name</label>
+              <input v-model="form.name" type="text" placeholder="My scheduled task" class="input-field" />
+            </div>
+
+            <!-- Message -->
+            <div>
+              <label class="block text-sm font-medium text-makoclaw-text mb-1.5">Message</label>
+              <textarea v-model="form.message" rows="3" placeholder="What should the agent do..." class="input-field resize-none" />
+            </div>
+
+            <!-- Job Type -->
+            <div>
+              <label class="block text-sm font-medium text-makoclaw-text mb-2">Job Type</label>
+              <div class="grid grid-cols-2 gap-2">
+                <label
+                  class="job-type-option"
+                  :class="form.job_type === 'task' ? 'job-type-option-active' : ''"
+                >
+                  <input type="radio" v-model="form.job_type" value="task" class="sr-only" />
+                  <svg class="w-5 h-5 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  <span class="text-sm font-medium">Task</span>
+                  <span class="text-[10px] text-makoclaw-text-secondary">Agent processes it</span>
+                </label>
+                <label
+                  class="job-type-option"
+                  :class="form.job_type === 'reminder' ? 'job-type-option-active' : ''"
+                >
+                  <input type="radio" v-model="form.job_type" value="reminder" class="sr-only" />
+                  <svg class="w-5 h-5 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  <span class="text-sm font-medium">Reminder</span>
+                  <span class="text-[10px] text-makoclaw-text-secondary">Direct message</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Schedule Type -->
+            <div>
+              <label class="block text-sm font-medium text-makoclaw-text mb-2">Schedule</label>
+              <div class="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                <button
+                  v-for="opt in scheduleOptions"
+                  :key="opt.value"
+                  @click="form.scheduleType = opt.value"
+                  class="schedule-type-btn"
+                  :class="form.scheduleType === opt.value ? 'schedule-type-btn-active' : ''"
+                >{{ opt.label }}</button>
+              </div>
+            </div>
+
+            <!-- Schedule-specific inputs -->
+            <div v-if="form.scheduleType === 'daily'" class="space-y-3">
+              <div>
+                <label class="block text-sm font-medium text-makoclaw-text mb-1.5">Time</label>
+                <input v-model="form.time" type="time" class="input-field" />
+              </div>
+            </div>
+
+            <div v-if="form.scheduleType === 'weekly'" class="space-y-3">
+              <div>
+                <label class="block text-sm font-medium text-makoclaw-text mb-2">Days</label>
+                <div class="flex gap-1.5">
+                  <button
+                    v-for="(day, idx) in weekDays"
+                    :key="idx"
+                    @click="toggleWeekDay(idx)"
+                    class="day-btn"
+                    :class="form.weekDays.includes(idx) ? 'day-btn-active' : ''"
+                  >{{ day }}</button>
+                </div>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-makoclaw-text mb-1.5">Time</label>
+                <input v-model="form.time" type="time" class="input-field" />
+              </div>
+            </div>
+
+            <div v-if="form.scheduleType === 'monthly'" class="space-y-3">
+              <div>
+                <label class="block text-sm font-medium text-makoclaw-text mb-1.5">Day of month</label>
+                <select v-model.number="form.monthDay" class="input-field">
+                  <option v-for="d in 31" :key="d" :value="d">{{ d }}</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-makoclaw-text mb-1.5">Time</label>
+                <input v-model="form.time" type="time" class="input-field" />
+              </div>
+            </div>
+
+            <div v-if="form.scheduleType === 'interval'" class="space-y-3">
+              <label class="block text-sm font-medium text-makoclaw-text mb-1.5">Repeat every</label>
+              <div class="flex gap-2">
+                <input v-model.number="form.intervalValue" type="number" min="1" placeholder="30" class="input-field flex-1" />
+                <select v-model="form.intervalUnit" class="input-field w-32">
+                  <option value="minutes">Minutes</option>
+                  <option value="hours">Hours</option>
+                </select>
+              </div>
+            </div>
+
+            <div v-if="form.scheduleType === 'onetime'" class="space-y-3">
+              <label class="block text-sm font-medium text-makoclaw-text mb-1.5">Run at</label>
+              <input v-model="form.oneTimeDateTime" type="datetime-local" class="input-field" />
+            </div>
+
+            <div v-if="form.scheduleType === 'custom'" class="space-y-3">
+              <label class="block text-sm font-medium text-makoclaw-text mb-1.5">Cron Expression</label>
+              <input v-model="form.cronExpr" type="text" placeholder="0 9 * * 1-5" class="input-field font-mono" />
+              <p class="text-xs text-makoclaw-text-secondary">minute hour day-of-month month day-of-week</p>
+            </div>
+
+            <!-- Timezone -->
+            <div v-if="['daily', 'weekly', 'monthly', 'custom'].includes(form.scheduleType)">
+              <label class="block text-sm font-medium text-makoclaw-text mb-1.5">Timezone</label>
+              <select v-model="form.timezone" class="input-field">
+                <option value="">UTC (default)</option>
+                <option v-for="tz in commonTimezones" :key="tz" :value="tz">{{ tz }}</option>
               </select>
             </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">Time</label>
-              <input v-model="form.time" type="time"
-                class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent" />
+
+            <!-- Preview -->
+            <div v-if="generatedExpr" class="p-3 bg-makoclaw-bg/50 rounded-xl border border-makoclaw-border/30">
+              <p class="text-xs text-makoclaw-text-secondary mb-1">Expression</p>
+              <code class="text-sm font-mono text-cyan-400">{{ generatedExpr }}</code>
+            </div>
+
+            <div v-if="nextRuns.length > 0" class="p-3 bg-makoclaw-bg/50 rounded-xl border border-makoclaw-border/30">
+              <p class="text-xs text-makoclaw-text-secondary mb-2">Next runs</p>
+              <ul class="space-y-1">
+                <li v-for="(run, i) in nextRuns" :key="i" class="text-xs font-mono text-makoclaw-text">{{ run }}</li>
+              </ul>
+            </div>
+
+            <!-- Channel -->
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-sm font-medium text-makoclaw-text mb-1.5">Channel</label>
+                <input v-model="form.channel" type="text" placeholder="telegram" class="input-field" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-makoclaw-text mb-1.5">To (Chat ID)</label>
+                <input v-model="form.to" type="text" placeholder="" class="input-field" />
+              </div>
             </div>
           </div>
 
-          <!-- Interval: every N minutes/hours -->
-          <div v-if="form.scheduleType === 'interval'" class="space-y-2">
-            <label class="block text-sm font-medium">Repeat every</label>
-            <div class="flex gap-2">
-              <input v-model.number="form.intervalValue" type="number" min="1" placeholder="30"
-                class="flex-1 px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent" />
-              <select v-model="form.intervalUnit"
-                class="px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent">
-                <option value="minutes">Minutes</option>
-                <option value="hours">Hours</option>
-              </select>
-            </div>
+          <div class="modal-footer">
+            <button @click="showModal = false" class="btn-ghost">Cancel</button>
+            <button @click="submitJob" :disabled="!canSubmit" class="btn-primary">
+              {{ editingJobId ? 'Save' : 'Create' }}
+            </button>
           </div>
-
-          <!-- One-time: date + time picker -->
-          <div v-if="form.scheduleType === 'onetime'" class="space-y-2">
-            <label class="block text-sm font-medium">Run at</label>
-            <input v-model="form.oneTimeDateTime" type="datetime-local"
-              class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent" />
-          </div>
-
-          <!-- Custom: raw cron expression -->
-          <div v-if="form.scheduleType === 'custom'" class="space-y-2">
-            <label class="block text-sm font-medium">Cron Expression</label>
-            <input v-model="form.cronExpr" type="text" placeholder="0 9 * * 1-5"
-              class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent font-mono" />
-            <p class="text-xs text-makoclaw-text-secondary">Standard 5-field cron: minute hour day-of-month month day-of-week</p>
-          </div>
-
-          <!-- Timezone (for cron-based schedules) -->
-          <div v-if="['daily', 'weekly', 'monthly', 'custom'].includes(form.scheduleType)" class="space-y-2">
-            <label class="block text-sm font-medium">Timezone</label>
-            <select v-model="form.timezone"
-              class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent">
-              <option value="">UTC (default)</option>
-              <option v-for="tz in commonTimezones" :key="tz" :value="tz">{{ tz }}</option>
-            </select>
-          </div>
-
-          <!-- Generated expression preview -->
-          <div v-if="generatedExpr" class="px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg">
-            <p class="text-xs text-makoclaw-text-secondary mb-1">Generated expression</p>
-            <code class="text-sm font-mono text-makoclaw-accent">{{ generatedExpr }}</code>
-          </div>
-
-          <!-- Next 3 runs preview -->
-          <div v-if="nextRuns.length > 0" class="px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg">
-            <p class="text-xs text-makoclaw-text-secondary mb-1">Next runs</p>
-            <ul class="space-y-0.5">
-              <li v-for="(run, i) in nextRuns" :key="i" class="text-sm text-makoclaw-text font-mono">{{ run }}</li>
-            </ul>
-          </div>
-
-          <!-- Job Type -->
-          <div>
-            <label class="block text-sm font-medium mb-2">Job Type</label>
-            <select v-model="form.job_type"
-              class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent">
-              <option value="task">🤖 Task (Process through agent)</option>
-              <option value="reminder">🔔 Reminder (Direct message)</option>
-            </select>
-            <p class="mt-1.5 text-xs text-makoclaw-text-secondary">
-              <strong>Task:</strong> Agent processes the prompt and sends the result (e.g., "Check weather" → "Today: Sunny, 22°C")<br>
-              <strong>Reminder:</strong> Sends the message directly without processing (e.g., "Meeting in 10 min!")
-            </p>
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-sm font-medium mb-1">Channel</label>
-              <input v-model="form.channel" type="text" placeholder="telegram"
-                class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent" />
-            </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">To (Chat ID)</label>
-              <input v-model="form.to" type="text" placeholder=""
-                class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent" />
-            </div>
-          </div>
-        </div>
-
-        <!-- Modal Actions -->
-        <div class="flex justify-end gap-3 mt-6">
-          <button @click="showModal = false"
-            class="px-4 py-2 text-sm text-makoclaw-text-secondary hover:text-makoclaw-text transition-colors">Cancel</button>
-          <button @click="submitJob" :disabled="!canSubmit"
-            class="px-4 py-2 text-sm bg-makoclaw-accent text-white rounded-lg hover:bg-makoclaw-accent/90 transition-colors disabled:opacity-50">
-            {{ editingJobId ? 'Save' : 'Create' }}
-          </button>
         </div>
       </div>
-    </div>
     </Transition>
 
-    <!-- Delete Confirmation Modal -->
+    <!-- Delete Confirmation -->
     <Transition name="modal">
-    <div v-if="showDeleteConfirm" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-modal p-4" @click.self="showDeleteConfirm = false">
-      <div class="bg-makoclaw-surface border border-makoclaw-border rounded-xl max-w-sm w-full p-6">
-        <h3 class="font-semibold text-lg mb-2">Delete Job</h3>
-        <p class="text-sm text-makoclaw-text-secondary mb-4">
-          Are you sure you want to delete <span class="font-medium text-makoclaw-text">{{ deletingJob?.name }}</span>? This action cannot be undone.
-        </p>
-        <div class="flex justify-end gap-3">
-          <button @click="showDeleteConfirm = false"
-            class="px-4 py-2 text-sm text-makoclaw-text-secondary hover:text-makoclaw-text transition-colors">Cancel</button>
-          <button @click="executeDeleteJob"
-            class="px-4 py-2 text-sm bg-makoclaw-error text-white rounded-lg hover:bg-makoclaw-error/80 transition-colors">Delete</button>
+      <div v-if="showDeleteConfirm" class="modal-backdrop" @click.self="showDeleteConfirm = false">
+        <div class="modal-content max-w-sm">
+          <div class="p-6 text-center">
+            <div class="w-16 h-16 rounded-2xl bg-makoclaw-error/10 flex items-center justify-center mx-auto mb-4">
+              <svg class="w-8 h-8 text-makoclaw-error" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            <h3 class="font-bold text-lg text-makoclaw-text mb-2">Delete Job</h3>
+            <p class="text-sm text-makoclaw-text-secondary mb-6">
+              Are you sure you want to delete <span class="font-medium text-makoclaw-text">{{ deletingJob?.name }}</span>?
+            </p>
+            <div class="flex justify-center gap-3">
+              <button @click="showDeleteConfirm = false" class="btn-ghost">Cancel</button>
+              <button @click="executeDeleteJob" class="btn-danger">Delete</button>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
     </Transition>
 
     <!-- JSON Editor Modal -->
     <Transition name="modal">
-    <div v-if="showJsonModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-modal p-4" @click.self="showJsonModal = false">
-      <div class="bg-makoclaw-surface border border-makoclaw-border rounded-xl max-w-3xl w-full max-h-[90vh] flex flex-col">
-        <div class="p-4 border-b border-makoclaw-border flex justify-between items-center">
-          <h3 class="font-semibold text-lg">Edit Job as JSON</h3>
-          <button
-            @click="requestAiJsonFix"
-            :disabled="savingJson"
-            class="flex items-center gap-2 px-3 py-1.5 text-xs text-makoclaw-accent bg-makoclaw-accent/10 rounded-lg hover:bg-makoclaw-accent/20 transition-colors disabled:opacity-50"
-            title="Use AI to fix JSON syntax and validation errors"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-            </svg>
-            AI Fix JSON
-          </button>
-        </div>
-        <div class="p-4 flex-1 overflow-hidden flex flex-col">
-          <textarea
-            v-model="jsonEditContent"
-            class="w-full h-full font-mono text-sm px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg resize-none outline-none focus:border-makoclaw-accent min-h-[400px]"
-            placeholder="JSON content..."
-            spellcheck="false"
-          />
-          <div v-if="jsonEditError" class="mt-2 p-2 bg-makoclaw-error/10 text-makoclaw-error text-xs rounded border border-makoclaw-error/20">
-            {{ jsonEditError }}
+      <div v-if="showJsonModal" class="modal-backdrop" @click.self="showJsonModal = false">
+        <div class="modal-content max-w-3xl h-[80vh]">
+          <div class="modal-header">
+            <div class="flex items-center gap-3">
+              <h2 class="font-bold text-lg text-makoclaw-text">Edit as JSON</h2>
+            </div>
+            <div class="flex items-center gap-2">
+              <button
+                @click="requestAiJsonFix"
+                :disabled="savingJson"
+                class="text-xs px-3 py-1.5 bg-cyan-500/10 text-cyan-400 rounded-lg hover:bg-cyan-500/20 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+                AI Fix
+              </button>
+              <button @click="showJsonModal = false" class="modal-close-btn">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="flex-1 overflow-hidden p-4">
+            <textarea
+              v-model="jsonEditContent"
+              class="w-full h-full input-field font-mono text-sm resize-none"
+              placeholder="JSON content..."
+              spellcheck="false"
+            ></textarea>
+            <div v-if="jsonEditError" class="mt-2 p-3 bg-makoclaw-error/10 border border-makoclaw-error/20 rounded-lg text-xs text-makoclaw-error">
+              {{ jsonEditError }}
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button @click="showJsonModal = false" class="btn-ghost">Cancel</button>
+            <button @click="saveFromJson" :disabled="savingJson" class="btn-primary">
+              {{ savingJson ? 'Saving...' : 'Save' }}
+            </button>
           </div>
         </div>
-        <div class="p-4 border-t border-makoclaw-border flex justify-end gap-3">
-          <button
-            @click="showJsonModal = false"
-            class="px-4 py-2 text-sm text-makoclaw-text-secondary hover:text-makoclaw-text transition-colors"
-          >Cancel</button>
-          <button
-            @click="saveFromJson"
-            :disabled="savingJson"
-            class="px-4 py-2 text-sm bg-makoclaw-accent text-white rounded-lg hover:bg-makoclaw-accent/80 transition-colors disabled:opacity-50"
-          >
-            {{ savingJson ? 'Saving...' : 'Save Changes' }}
-          </button>
-        </div>
       </div>
-    </div>
     </Transition>
 
     <!-- AI Cron Creator Modal -->
     <Transition name="modal">
-    <div v-if="showAiModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-modal p-4" @click.self="closeAiModal">
-      <div class="bg-makoclaw-surface border border-makoclaw-border rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div class="p-4 border-b border-makoclaw-border">
-          <h3 class="font-semibold text-lg">Create Cron Job with AI</h3>
-          <p class="text-xs text-makoclaw-text-secondary mt-1">Describe what you want in plain language</p>
-        </div>
-        <div class="p-6 space-y-4">
-          <div>
-            <label class="block text-sm font-medium mb-2">What should this cron job do?</label>
-            <textarea
-              v-model="aiPrompt"
-              rows="3"
-              placeholder="e.g., Send me weather every day at 8am, or Backup my tasks every 2 hours"
-              class="w-full px-3 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent resize-none"
-              :disabled="aiGenerating"
-            />
+      <div v-if="showAiModal" class="modal-backdrop" @click.self="closeAiModal">
+        <div class="modal-content max-w-2xl">
+          <div class="modal-header">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/20 to-makoclaw-accent/20 flex items-center justify-center">
+                <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+              </div>
+              <div>
+                <h2 class="font-bold text-lg text-makoclaw-text">Create with AI</h2>
+                <p class="text-xs text-makoclaw-text-secondary">Describe what you want in plain language</p>
+              </div>
+            </div>
+            <button @click="closeAiModal" class="modal-close-btn">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
-          <button
-            @click="generateCronWithAI"
-            :disabled="!aiPrompt.trim() || aiGenerating"
-            class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-makoclaw-accent text-white rounded-lg hover:bg-makoclaw-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <svg v-if="aiGenerating" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-            </svg>
-            {{ aiGenerating ? 'Generating...' : 'Generate Job' }}
-          </button>
 
-          <!-- AI Result Preview -->
-          <div v-if="aiResult" class="space-y-3 pt-4 border-t border-makoclaw-border">
-            <div class="p-3 bg-makoclaw-accent/10 border border-makoclaw-accent/20 rounded-lg">
-              <p class="text-sm text-makoclaw-accent">{{ aiExplanation }}</p>
+          <div class="modal-body space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-makoclaw-text mb-2">What should this job do?</label>
+              <textarea
+                v-model="aiPrompt"
+                rows="3"
+                placeholder="e.g., Send me weather every day at 8am, or Backup tasks every 2 hours"
+                class="input-field resize-none"
+                :disabled="aiGenerating"
+              ></textarea>
             </div>
-            <div class="p-4 bg-makoclaw-bg border border-makoclaw-border rounded-lg space-y-2">
-              <div><span class="text-sm font-medium">Name:</span> <span class="text-sm text-makoclaw-text-secondary">{{ aiResult.name }}</span></div>
-              <div><span class="text-sm font-medium">Message:</span> <span class="text-sm text-makoclaw-text-secondary">{{ aiResult.message || aiResult.payload?.message }}</span></div>
-              <div><span class="text-sm font-medium">Schedule:</span> <span class="text-sm text-makoclaw-text-secondary">{{ formatSchedule(aiResult.schedule) }}</span></div>
-            </div>
-            <div class="flex gap-2">
-              <button
-                @click="editAiResult"
-                class="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-makoclaw-border rounded-lg hover:bg-makoclaw-bg transition-colors text-sm"
-              >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                </svg>
-                Edit Before Saving
-              </button>
-              <button
-                @click="saveAiResult"
-                class="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-makoclaw-accent text-white rounded-lg hover:bg-makoclaw-accent/80 transition-colors text-sm"
-              >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                </svg>
-                Create Job
-              </button>
+            <button
+              @click="generateCronWithAI"
+              :disabled="!aiPrompt.trim() || aiGenerating"
+              class="w-full py-3 bg-gradient-to-r from-cyan-500 to-makoclaw-accent text-white rounded-xl font-semibold shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/30 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              <svg v-if="aiGenerating" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+              </svg>
+              <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              {{ aiGenerating ? 'Generating...' : 'Generate Job' }}
+            </button>
+
+            <!-- AI Result -->
+            <div v-if="aiResult" class="space-y-4 pt-4 border-t border-makoclaw-border/30">
+              <div class="p-3 bg-cyan-500/10 border border-cyan-500/20 rounded-xl">
+                <p class="text-sm text-cyan-400">{{ aiExplanation }}</p>
+              </div>
+              <div class="p-4 bg-makoclaw-bg/50 border border-makoclaw-border/30 rounded-xl space-y-2">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-medium text-makoclaw-text-secondary w-20">Name:</span>
+                  <span class="text-sm text-makoclaw-text">{{ aiResult.name }}</span>
+                </div>
+                <div class="flex items-start gap-2">
+                  <span class="text-sm font-medium text-makoclaw-text-secondary w-20">Message:</span>
+                  <span class="text-sm text-makoclaw-text">{{ aiResult.message || aiResult.payload?.message }}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-medium text-makoclaw-text-secondary w-20">Schedule:</span>
+                  <span class="text-sm text-makoclaw-text font-mono">{{ formatSchedule(aiResult.schedule) }}</span>
+                </div>
+              </div>
+              <div class="flex gap-2">
+                <button @click="editAiResult" class="flex-1 btn-secondary flex items-center justify-center gap-2">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                  Edit
+                </button>
+                <button @click="saveAiResult" class="flex-1 btn-primary flex items-center justify-center gap-2">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Create
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-        <div class="p-4 border-t border-makoclaw-border flex justify-end">
-          <button
-            @click="closeAiModal"
-            class="px-4 py-2 text-sm text-makoclaw-text-secondary hover:text-makoclaw-text transition-colors"
-          >
-            {{ aiResult ? 'Cancel' : 'Close' }}
-          </button>
+
+          <div class="modal-footer" v-if="!aiResult">
+            <button @click="closeAiModal" class="btn-ghost">Close</button>
+          </div>
         </div>
       </div>
-    </div>
     </Transition>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import advancedService from '../services/advancedService'
 import { useToast } from '../composables/useToast'
 
@@ -469,13 +586,11 @@ const editingJobId = ref(null)
 const showDeleteConfirm = ref(false)
 const deletingJob = ref(null)
 
-// JSON Editor state
 const showJsonModal = ref(false)
 const jsonEditContent = ref('')
 const jsonEditError = ref(null)
 const savingJson = ref(false)
 
-// AI Cron Creator state
 const showAiModal = ref(false)
 const aiPrompt = ref('')
 const aiGenerating = ref(false)
@@ -489,7 +604,7 @@ const scheduleOptions = [
   { value: 'weekly', label: 'Weekly' },
   { value: 'monthly', label: 'Monthly' },
   { value: 'interval', label: 'Interval' },
-  { value: 'onetime', label: 'One-time' },
+  { value: 'onetime', label: 'Once' },
   { value: 'custom', label: 'Custom' }
 ]
 
@@ -502,9 +617,9 @@ const commonTimezones = [
 ]
 
 const statusLabel = computed(() => {
-  if (status.value.enabled) return 'Running'
+  if (status.value.enabled) return 'Cron service running'
   if (status.value.reason === 'not_initialized') return 'Not available for this user'
-  return 'Not available'
+  return 'Service not available'
 })
 
 const defaultForm = () => ({
@@ -512,14 +627,14 @@ const defaultForm = () => ({
   message: '',
   scheduleType: 'daily',
   time: '09:00',
-  weekDays: [0], // Monday
+  weekDays: [0],
   monthDay: 1,
   intervalValue: 30,
   intervalUnit: 'minutes',
   oneTimeDateTime: '',
   cronExpr: '',
   timezone: '',
-  job_type: 'task', // Default to agent processing
+  job_type: 'task',
   channel: '',
   to: ''
 })
@@ -530,61 +645,45 @@ const toggleWeekDay = (idx) => {
   const arr = form.value.weekDays
   const pos = arr.indexOf(idx)
   if (pos >= 0) {
-    if (arr.length > 1) arr.splice(pos, 1) // keep at least one selected
+    if (arr.length > 1) arr.splice(pos, 1)
   } else {
     arr.push(idx)
     arr.sort()
   }
 }
 
-// Build cron expression from the visual form
 const generatedExpr = computed(() => {
   const f = form.value
   if (f.scheduleType === 'interval' || f.scheduleType === 'onetime') return ''
-
   const [hh, mm] = (f.time || '09:00').split(':').map(Number)
-
-  if (f.scheduleType === 'daily') {
-    return `${mm} ${hh} * * *`
-  }
+  if (f.scheduleType === 'daily') return `${mm} ${hh} * * *`
   if (f.scheduleType === 'weekly') {
-    // Cron days: 0=Sun,1=Mon..6=Sat  Our array: 0=Mon..6=Sun
     const cronDays = f.weekDays.map(d => (d + 1) % 7).sort().join(',')
     return `${mm} ${hh} * * ${cronDays}`
   }
-  if (f.scheduleType === 'monthly') {
-    return `${mm} ${hh} ${f.monthDay} * *`
-  }
-  if (f.scheduleType === 'custom') {
-    return f.cronExpr || ''
-  }
+  if (f.scheduleType === 'monthly') return `${mm} ${hh} ${f.monthDay} * *`
+  if (f.scheduleType === 'custom') return f.cronExpr || ''
   return ''
 })
 
-// Compute next 3 runs (client-side approximation)
 const nextRuns = computed(() => {
   const f = form.value
-
   if (f.scheduleType === 'onetime') {
     if (!f.oneTimeDateTime) return []
     const d = new Date(f.oneTimeDateTime)
     if (isNaN(d.getTime())) return []
     return [d.toLocaleString()]
   }
-
   if (f.scheduleType === 'interval') {
     const ms = f.intervalUnit === 'hours' ? f.intervalValue * 3600000 : f.intervalValue * 60000
     if (!ms || ms <= 0) return []
     const now = Date.now()
     return [1, 2, 3].map(i => new Date(now + ms * i).toLocaleString())
   }
-
-  // For cron-based schedules, compute from the expression
   const expr = generatedExpr.value
   if (!expr || expr.trim().split(/\s+/).length !== 5) return []
-
   try {
-    const runs = getNextCronRuns(expr, 3, f.timezone)
+    const runs = getNextCronRuns(expr, 3)
     return runs.map(d => d.toLocaleString())
   } catch {
     return []
@@ -600,18 +699,16 @@ const canSubmit = computed(() => {
   return true
 })
 
-// Build the API payload from the form
 function buildPayload() {
   const f = form.value
   const payload = {
     name: f.name.trim(),
     message: f.message.trim(),
-    job_type: f.job_type || 'task', // Default to task
+    job_type: f.job_type || 'task',
     channel: f.channel,
     to: f.to,
     schedule: {}
   }
-
   if (f.scheduleType === 'interval') {
     const ms = f.intervalUnit === 'hours' ? f.intervalValue * 3600000 : f.intervalValue * 60000
     payload.schedule = { kind: 'every', everyMs: ms }
@@ -619,29 +716,25 @@ function buildPayload() {
     const ts = new Date(f.oneTimeDateTime).getTime()
     payload.schedule = { kind: 'at', atMs: ts }
   } else {
-    // daily, weekly, monthly, custom → all produce a cron expression
     payload.schedule = {
       kind: 'cron',
       expr: generatedExpr.value,
       tz: f.timezone || undefined
     }
   }
-
   return payload
 }
 
-// Reverse-parse a job into form fields for editing
 function jobToForm(job) {
   const f = defaultForm()
   f.name = job.name
   f.message = job.payload.message
-  // Migrate old format if needed
   if (job.payload.job_type) {
     f.job_type = job.payload.job_type
   } else if (job.payload.deliver !== undefined) {
     f.job_type = job.payload.deliver ? 'reminder' : 'task'
   } else {
-    f.job_type = 'task' // Default
+    f.job_type = 'task'
   }
   f.channel = job.payload.channel || ''
   f.to = job.payload.to || ''
@@ -661,7 +754,6 @@ function jobToForm(job) {
     f.scheduleType = 'onetime'
     if (job.schedule.atMs) {
       const d = new Date(job.schedule.atMs)
-      // Format as YYYY-MM-DDTHH:MM for datetime-local input
       const pad = n => String(n).padStart(2, '0')
       f.oneTimeDateTime = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
     }
@@ -677,63 +769,42 @@ function jobToForm(job) {
       f.cronExpr = job.schedule.expr
     }
   }
-
   return f
 }
 
-// Try to detect if a cron expression matches a simple daily/weekly/monthly pattern
 function parseCronExpr(expr) {
   const parts = expr.trim().split(/\s+/)
   if (parts.length !== 5) return null
-
   const [min, hr, dom, mon, dow] = parts
   const mm = parseInt(min, 10)
   const hh = parseInt(hr, 10)
   if (isNaN(mm) || isNaN(hh)) return null
-
   const pad = n => String(n).padStart(2, '0')
   const time = `${pad(hh)}:${pad(mm)}`
-
-  // Daily: M H * * *
-  if (dom === '*' && mon === '*' && dow === '*') {
-    return { type: 'daily', time }
-  }
-
-  // Weekly: M H * * 0,1,5  (comma-separated days)
+  if (dom === '*' && mon === '*' && dow === '*') return { type: 'daily', time }
   if (dom === '*' && mon === '*' && dow !== '*') {
     const cronDays = dow.split(',').map(Number).filter(n => !isNaN(n))
     if (cronDays.length > 0) {
-      // Convert from cron days (0=Sun..6=Sat) to our index (0=Mon..6=Sun)
       const weekDays = cronDays.map(d => d === 0 ? 6 : d - 1).sort()
       return { type: 'weekly', time, weekDays }
     }
   }
-
-  // Monthly: M H D * *
   if (mon === '*' && dow === '*') {
     const d = parseInt(dom, 10)
-    if (!isNaN(d) && d >= 1 && d <= 31) {
-      return { type: 'monthly', time, monthDay: d }
-    }
+    if (!isNaN(d) && d >= 1 && d <= 31) return { type: 'monthly', time, monthDay: d }
   }
-
   return null
 }
 
-// Simple cron next-run calculator (client-side approximation for preview)
-function getNextCronRuns(expr, count, tz) {
+function getNextCronRuns(expr, count) {
   const parts = expr.trim().split(/\s+/)
   if (parts.length !== 5) return []
-
   const runs = []
   const now = new Date()
   let candidate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes() + 1, 0, 0)
-
-  const maxIterations = 525960 // ~1 year of minutes
+  const maxIterations = 525960
   for (let i = 0; i < maxIterations && runs.length < count; i++) {
-    if (matchesCron(parts, candidate)) {
-      runs.push(new Date(candidate))
-    }
+    if (matchesCron(parts, candidate)) runs.push(new Date(candidate))
     candidate = new Date(candidate.getTime() + 60000)
   }
   return runs
@@ -741,32 +812,23 @@ function getNextCronRuns(expr, count, tz) {
 
 function matchesCron(parts, date) {
   const [minP, hrP, domP, monP, dowP] = parts
-  const min = date.getMinutes()
-  const hr = date.getHours()
-  const dom = date.getDate()
-  const mon = date.getMonth() + 1
-  const dow = date.getDay() // 0=Sun
-
-  return matchField(minP, min, 0, 59)
-    && matchField(hrP, hr, 0, 23)
-    && matchField(domP, dom, 1, 31)
-    && matchField(monP, mon, 1, 12)
-    && matchField(dowP, dow, 0, 6)
+  return matchField(minP, date.getMinutes(), 0, 59)
+    && matchField(hrP, date.getHours(), 0, 23)
+    && matchField(domP, date.getDate(), 1, 31)
+    && matchField(monP, date.getMonth() + 1, 1, 12)
+    && matchField(dowP, date.getDay(), 0, 6)
 }
 
-function matchField(field, value, min, max) {
+function matchField(field, value) {
   if (field === '*') return true
-  // Handle */n
   if (field.startsWith('*/')) {
     const step = parseInt(field.substring(2), 10)
     return !isNaN(step) && step > 0 && value % step === 0
   }
-  // Handle ranges like 1-5
   if (field.includes('-') && !field.includes(',')) {
     const [lo, hi] = field.split('-').map(Number)
     return value >= lo && value <= hi
   }
-  // Handle comma-separated values (possibly with ranges)
   const vals = new Set()
   for (const part of field.split(',')) {
     if (part.includes('-')) {
@@ -780,18 +842,10 @@ function matchField(field, value, min, max) {
 }
 
 function getJobTypeDisplay(payload) {
-  // Migrate old format if needed
   let jobType = payload.job_type
-  if (!jobType && payload.deliver !== undefined) {
-    jobType = payload.deliver ? 'reminder' : 'task'
-  }
-  if (!jobType) {
-    jobType = 'task' // Default
-  }
-  return jobType === 'reminder' ? '🔔 Reminder' : '🤖 Task'
+  if (!jobType && payload.deliver !== undefined) jobType = payload.deliver ? 'reminder' : 'task'
+  return jobType || 'task'
 }
-
-// ---- Actions ----
 
 const loadJobs = async () => {
   loading.value = true
@@ -799,9 +853,8 @@ const loadJobs = async () => {
     const data = await advancedService.fetchCronJobs()
     jobs.value = data.jobs || []
     status.value = data.status || { enabled: false }
-  } catch (err) {
+  } catch {
     toast.error('Failed to load cron jobs')
-    console.error('Failed to load cron jobs:', err)
   } finally {
     loading.value = false
   }
@@ -833,7 +886,7 @@ const submitJob = async () => {
     await loadJobs()
   } catch (err) {
     const msg = err?.response?.data || err.message || 'Unknown error'
-    toast.error(`Failed to ${editingJobId.value ? 'update' : 'create'} job: ${msg}`)
+    toast.error(`Failed: ${msg}`)
   }
 }
 
@@ -842,7 +895,7 @@ const toggleJob = async (id, enabled) => {
     await advancedService.toggleCronJob(id, enabled)
     toast.success(enabled ? 'Job enabled' : 'Job disabled')
     await loadJobs()
-  } catch (err) {
+  } catch {
     toast.error('Failed to toggle job')
   }
 }
@@ -853,8 +906,8 @@ const runJob = async (job) => {
     toast.success(`Job '${job.name}' triggered`)
     await loadJobs()
   } catch (err) {
-    const msg = err?.response?.data || err.message || 'Unknown error'
-    toast.error(`Failed to run job: ${msg}`)
+    const msg = err?.response?.data || err.message
+    toast.error(`Failed: ${msg}`)
   }
 }
 
@@ -871,12 +924,11 @@ const executeDeleteJob = async () => {
     showDeleteConfirm.value = false
     deletingJob.value = null
     await loadJobs()
-  } catch (err) {
+  } catch {
     toast.error('Failed to delete job')
   }
 }
 
-// JSON Editor methods
 const openJsonEditor = () => {
   const job = jobs.value.find(j => j.id === editingJobId.value)
   if (!job) {
@@ -892,24 +944,17 @@ const openJsonEditor = () => {
 const saveFromJson = async () => {
   try {
     const parsed = JSON.parse(jsonEditContent.value)
-
-    // Validate required fields
     if (!parsed.name || !parsed.schedule) {
-      jsonEditError.value = 'Invalid job structure: name and schedule are required'
+      jsonEditError.value = 'Invalid structure: name and schedule required'
       return
     }
-
-    // Validate payload structure
     const payload = parsed.payload || {}
     if (!payload.message && !parsed.message) {
-      jsonEditError.value = 'Invalid job structure: message is required'
+      jsonEditError.value = 'Invalid structure: message required'
       return
     }
-
     savingJson.value = true
     jsonEditError.value = null
-
-    // Construct API payload
     const apiPayload = {
       name: parsed.name,
       message: payload.message || parsed.message,
@@ -918,16 +963,15 @@ const saveFromJson = async () => {
       to: payload.to || parsed.to || '',
       schedule: parsed.schedule
     }
-
     await advancedService.updateCronJob(editingJobId.value, apiPayload)
-    toast.success('Job updated from JSON')
+    toast.success('Job updated')
     showJsonModal.value = false
     await loadJobs()
   } catch (err) {
     if (err instanceof SyntaxError) {
       jsonEditError.value = `JSON Parse Error: ${err.message}`
     } else {
-      jsonEditError.value = `Failed to save: ${err.response?.data?.error || err.message}`
+      jsonEditError.value = `Failed: ${err.response?.data?.error || err.message}`
     }
   } finally {
     savingJson.value = false
@@ -936,16 +980,15 @@ const saveFromJson = async () => {
 
 const requestAiJsonFix = async () => {
   if (!jsonEditContent.value.trim()) {
-    toast.error('No JSON content to fix')
+    toast.error('No JSON content')
     return
   }
-
   savingJson.value = true
   try {
     const result = await advancedService.fixJsonWithAI(jsonEditContent.value, 'cron_job')
     jsonEditContent.value = result.fixed_json
     jsonEditError.value = null
-    toast.success(result.changes || 'AI validated JSON - no changes needed')
+    toast.success(result.changes || 'JSON validated')
   } catch (err) {
     toast.error(err?.response?.data?.error || 'AI fix failed')
   } finally {
@@ -953,7 +996,6 @@ const requestAiJsonFix = async () => {
   }
 }
 
-// AI Cron Creator methods
 const openAiCronModal = () => {
   aiPrompt.value = ''
   aiResult.value = null
@@ -971,16 +1013,15 @@ const closeAiModal = () => {
 
 const generateCronWithAI = async () => {
   if (!aiPrompt.value.trim()) {
-    toast.error('Please enter a description')
+    toast.error('Enter a description')
     return
   }
-
   aiGenerating.value = true
   try {
     const result = await advancedService.createCronWithAI(aiPrompt.value.trim())
     aiResult.value = result.job
     aiExplanation.value = result.explanation
-    toast.success('Cron job generated successfully')
+    toast.success('Job generated')
   } catch (err) {
     toast.error(err?.response?.data?.error || 'AI generation failed')
   } finally {
@@ -990,43 +1031,33 @@ const generateCronWithAI = async () => {
 
 const editAiResult = () => {
   if (!aiResult.value) return
+  form.value = defaultForm()
+  form.value.name = aiResult.value.name || ''
+  form.value.message = aiResult.value.message || aiResult.value.payload?.message || ''
+  form.value.job_type = aiResult.value.job_type || 'task'
+  form.value.channel = aiResult.value.channel || ''
+  form.value.to = aiResult.value.to || ''
 
-  // Populate the form with AI-generated values
-  form.name = aiResult.value.name || ''
-  form.message = aiResult.value.message || aiResult.value.payload?.message || ''
-  form.job_type = aiResult.value.job_type || 'task'
-  form.channel = aiResult.value.channel || ''
-  form.to = aiResult.value.to || ''
-
-  // Parse schedule
   const schedule = aiResult.value.schedule
   if (schedule) {
     if (schedule.kind === 'cron' && schedule.expr) {
       const parsed = parseCronExpr(schedule.expr)
       if (parsed) {
-        if (parsed.type === 'daily') {
-          form.scheduleType = 'daily'
-          form.time = parsed.time
-        } else if (parsed.type === 'weekly') {
-          form.scheduleType = 'weekly'
-          form.weekDays = parsed.weekDays
-          form.time = parsed.time
-        } else {
-          form.scheduleType = 'custom'
-          form.cronExpr = schedule.expr
-        }
+        form.value.scheduleType = parsed.type
+        form.value.time = parsed.time
+        if (parsed.type === 'weekly') form.value.weekDays = parsed.weekDays
+      } else {
+        form.value.scheduleType = 'custom'
+        form.value.cronExpr = schedule.expr
       }
     } else if (schedule.kind === 'every' && schedule.everyMs) {
-      form.scheduleType = 'interval'
-      form.intervalMinutes = Math.round(schedule.everyMs / 60000)
+      form.value.scheduleType = 'interval'
+      form.value.intervalValue = Math.round(schedule.everyMs / 60000)
+      form.value.intervalUnit = 'minutes'
     }
-
-    if (schedule.tz) {
-      form.timezone = schedule.tz
-    }
+    if (schedule.tz) form.value.timezone = schedule.tz
   }
 
-  // Close AI modal and open edit modal
   showAiModal.value = false
   editingJobId.value = null
   showModal.value = true
@@ -1034,7 +1065,6 @@ const editAiResult = () => {
 
 const saveAiResult = async () => {
   if (!aiResult.value) return
-
   try {
     const payload = {
       name: aiResult.value.name,
@@ -1044,9 +1074,8 @@ const saveAiResult = async () => {
       to: aiResult.value.to || '',
       schedule: aiResult.value.schedule
     }
-
     await advancedService.createCronJob(payload)
-    toast.success('AI cron job created')
+    toast.success('Job created')
     showAiModal.value = false
     await loadJobs()
   } catch (err) {
@@ -1085,5 +1114,94 @@ const formatTimestamp = (ms) => {
 onMounted(() => loadJobs())
 </script>
 
+<style scoped>
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 
+/* Cron Cards */
+.cron-card {
+  @apply bg-makoclaw-surface/80 backdrop-blur-sm border border-makoclaw-border/50 rounded-xl p-4
+         transition-all duration-200 hover:border-makoclaw-accent/20 hover:shadow-lg hover:shadow-cyan-500/5;
+}
 
+.cron-card-skeleton {
+  @apply bg-makoclaw-surface/50 border border-makoclaw-border/30 rounded-xl p-4;
+}
+
+.cron-icon {
+  @apply w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors;
+}
+
+.cron-icon-active {
+  @apply bg-gradient-to-br from-cyan-500/20 to-makoclaw-accent/20 text-cyan-400;
+}
+
+.cron-icon-disabled {
+  @apply bg-makoclaw-text-secondary/10 text-makoclaw-text-secondary;
+}
+
+.cron-action-btn {
+  @apply px-3 py-1.5 text-xs font-medium text-makoclaw-text-secondary bg-makoclaw-bg/50 rounded-lg
+         hover:bg-makoclaw-bg transition-all flex items-center gap-1.5;
+}
+
+/* Schedule Type Buttons */
+.schedule-type-btn {
+  @apply px-2 py-2 text-xs font-medium rounded-lg border border-makoclaw-border/50 bg-makoclaw-bg/30
+         text-makoclaw-text-secondary hover:text-makoclaw-text hover:border-makoclaw-accent/30 transition-all;
+}
+
+.schedule-type-btn-active {
+  @apply border-cyan-500/50 bg-cyan-500/10 text-cyan-400;
+}
+
+/* Day Buttons */
+.day-btn {
+  @apply w-9 h-9 text-xs font-medium rounded-lg border border-makoclaw-border/50 bg-makoclaw-bg/30
+         text-makoclaw-text-secondary hover:border-makoclaw-accent/30 transition-all;
+}
+
+.day-btn-active {
+  @apply border-cyan-500/50 bg-cyan-500/10 text-cyan-400;
+}
+
+/* Job Type Options */
+.job-type-option {
+  @apply flex flex-col items-center justify-center p-4 rounded-xl border border-makoclaw-border/50 bg-makoclaw-bg/30
+         cursor-pointer transition-all hover:border-makoclaw-accent/30 text-center;
+}
+
+.job-type-option-active {
+  @apply border-cyan-500/50 bg-cyan-500/10 text-cyan-400;
+}
+
+/* Modal Styles */
+.modal-backdrop {
+  @apply fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-modal p-4;
+}
+
+.modal-content {
+  @apply bg-makoclaw-surface border border-makoclaw-border/50 rounded-2xl w-full shadow-2xl flex flex-col overflow-hidden;
+}
+
+.modal-header {
+  @apply flex items-center justify-between p-4 border-b border-makoclaw-border/30;
+}
+
+.modal-body {
+  @apply flex-1 overflow-auto p-4;
+}
+
+.modal-footer {
+  @apply flex justify-end gap-3 p-4 border-t border-makoclaw-border/30;
+}
+
+.modal-close-btn {
+  @apply p-2 hover:bg-makoclaw-bg rounded-lg text-makoclaw-text-secondary hover:text-makoclaw-text transition-colors;
+}
+</style>
