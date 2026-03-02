@@ -632,7 +632,12 @@ const unblockUser = async () => {
 }
 
 const saveChannelConfig = async () => {
-  const payload = { channels: { [selectedChannel.value.id]: { ...channelForm.value, enabled: true } } }
+  const formData = { ...channelForm.value, enabled: true }
+  // Convert comma-separated allow_from string to array for backend
+  if (typeof formData.allow_from === 'string') {
+    formData.allow_from = formData.allow_from.split(',').map(s => s.trim()).filter(Boolean)
+  }
+  const payload = { channels: { [selectedChannel.value.id]: formData } }
   await saveConfig(payload)
   showChannelModal.value = false
 }
