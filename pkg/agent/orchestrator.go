@@ -94,6 +94,87 @@ type DelegationResult struct {
 	Error          string `json:"error,omitempty"`
 }
 
+// SpecialistReport represents structured feedback from a specialist
+// This enables the orchestrator to make intelligent re-delegation decisions
+type SpecialistReport struct {
+	SpecialistName string   `json:"specialist_name"` // Who generated this report
+	Status         string   `json:"status"`          // "complete", "needs_help", "partial", "failed"
+	Result         string   `json:"result"`          // The actual output
+	Confidence     float64  `json:"confidence"`      // 0.0-1.0 confidence in result
+	Suggestions    []string `json:"suggestions"`     // Recommendations for improvement
+	NeedsReview    bool     `json:"needs_review"`    // Request orchestrator review
+	RequestHelp    string   `json:"request_help"`    // Request another specialist (e.g., "security")
+	HelpContext    string   `json:"help_context"`    // Context for the help request
+	Artifacts      []string `json:"artifacts"`       // Files created/modified
+	TimeSpent      string   `json:"time_spent"`      // Execution time
+	Iteration      int      `json:"iteration"`       // Which iteration this is from
+}
+
+// TeamContext holds shared state for multi-specialist collaboration
+type TeamContext struct {
+	TaskID        string            `json:"task_id"`
+	OriginalTask  string            `json:"original_task"`
+	Subtasks      []Subtask         `json:"subtasks"`
+	Progress      map[string]string `json:"progress"`       // specialist -> status
+	SharedNotes   []TeamNote        `json:"shared_notes"`   // cross-specialist notes
+	Artifacts     []string          `json:"artifacts"`      // files created
+	Decisions     []TeamDecision    `json:"decisions"`      // key decisions made
+	Communications []TeamComm       `json:"communications"` // inter-specialist messages
+}
+
+// Subtask represents a decomposed part of a larger task
+type Subtask struct {
+	ID           int      `json:"id"`
+	Description  string   `json:"description"`
+	Specialist   string   `json:"specialist"`
+	Dependencies []int    `json:"dependencies"` // IDs of prerequisite subtasks
+	Priority     int      `json:"priority"`
+	Status       string   `json:"status"` // "pending", "in_progress", "complete", "failed"
+	Result       string   `json:"result"`
+}
+
+// TeamNote represents a shared note between specialists
+type TeamNote struct {
+	Author    string    `json:"author"`
+	Content   string    `json:"content"`
+	Timestamp time.Time `json:"timestamp"`
+	ForAgent  string    `json:"for_agent,omitempty"` // if directed at specific agent
+}
+
+// TeamDecision records a decision made during task execution
+type TeamDecision struct {
+	Author      string    `json:"author"`
+	Decision    string    `json:"decision"`
+	Rationale   string    `json:"rationale"`
+	Timestamp   time.Time `json:"timestamp"`
+	AffectedBy  []string  `json:"affected_by"` // other agents affected
+}
+
+// TeamComm represents communication between specialists
+type TeamComm struct {
+	From      string    `json:"from"`
+	To        string    `json:"to"`
+	Message   string    `json:"message"`
+	Type      string    `json:"type"` // "request", "response", "info"
+	Timestamp time.Time `json:"timestamp"`
+}
+
+// Context key for team context
+type teamContextKey struct{}
+
+// ContextWithTeamContext embeds TeamContext into the context
+func ContextWithTeamContext(ctx context.Context, tc *TeamContext) context.Context {
+	return context.WithValue(ctx, teamContextKey{}, tc)
+}
+
+// TeamContextFromCtx retrieves TeamContext from context
+func TeamContextFromCtx(ctx context.Context) *TeamContext {
+	if v, ok := ctx.Value(teamContextKey{}).(*TeamContext); ok {
+		return v
+	}
+	return nil
+}
+
 // NewOrchestratorAgent creates a new orchestrator agent
 func NewOrchestratorAgent(
 	cfg *config.Config,
@@ -462,6 +543,184 @@ func (oa *OrchestratorAgent) ProcessOrchestratorMessage(ctx context.Context, use
 	}
 
 	return result, nil
+}
+
+// ProcessWithFeedbackLoop processes a user message with iterative feedback and re-delegation
+// This enables true team collaboration where specialists can report back and request help
+func (oa *OrchestratorAgent) ProcessWithFeedbackLoop(ctx context.Context, userMessage string) (string, error) {
+	maxIterations := 3
+	var reports []SpecialistReport
+
+	// Initialize team context for this task
+	teamCtx := &TeamContext{
+		TaskID:         fmt.Sprintf("task_%d", time.Now().UnixNano()),
+		OriginalTask:   userMessage,
+		Progress:       make(map[string]string),
+		SharedNotes:    []TeamNote{},
+		Artifacts:      []string{},
+		Decisions:      []TeamDecision{},
+		Communications: []TeamComm{},
+	}
+	ctx = ContextWithTeamContext(ctx, teamCtx)
+
+	// Emit initial status
+	emitAgentStatus(ctx, AgentStatusEvent{
+		Agent:     "orchestrator",
+		Status:    "analyzing",
+		Reason:    "Analyzing task and planning delegation strategy",
+		Timestamp: time.Now(),
+	})
+
+	for iteration := 0; iteration < maxIterations; iteration++ {
+		// Build context including previous reports for re-analysis
+		var contextBuilder strings.Builder
+		contextBuilder.WriteString(oa.BuildOrchestratorContext())
+		contextBuilder.WriteString("\n\n## User Request:\n")
+		contextBuilder.WriteString(userMessage)
+
+		if len(reports) > 0 {
+			contextBuilder.WriteString("\n\n## Previous Specialist Reports:\n")
+			for _, r := range reports {
+				contextBuilder.WriteString(fmt.Sprintf("\n### Report from %s (Iteration %d):\n", r.SpecialistName, r.Iteration))
+				contextBuilder.WriteString(fmt.Sprintf("- Status: %s\n", r.Status))
+				contextBuilder.WriteString(fmt.Sprintf("- Confidence: %.0f%%\n", r.Confidence*100))
+				if r.NeedsReview {
+					contextBuilder.WriteString("- ⚠️ Requested orchestrator review\n")
+				}
+				if r.RequestHelp != "" {
+					contextBuilder.WriteString(fmt.Sprintf("- 🤝 Requested help from: %s\n", r.RequestHelp))
+					contextBuilder.WriteString(fmt.Sprintf("  Context: %s\n", r.HelpContext))
+				}
+				if len(r.Suggestions) > 0 {
+					contextBuilder.WriteString("- Suggestions:\n")
+					for _, s := range r.Suggestions {
+						contextBuilder.WriteString(fmt.Sprintf("  - %s\n", s))
+					}
+				}
+				contextBuilder.WriteString(fmt.Sprintf("- Result Preview: %s\n", truncate(r.Result, 500)))
+			}
+
+			contextBuilder.WriteString("\n## Instructions:\n")
+			contextBuilder.WriteString("Based on the previous reports:\n")
+			contextBuilder.WriteString("1. If a specialist requested help, delegate to that specialist first\n")
+			contextBuilder.WriteString("2. If a specialist needs review, analyze their result and decide next steps\n")
+			contextBuilder.WriteString("3. If results are partial or low confidence, consider re-delegating or getting additional input\n")
+			contextBuilder.WriteString("4. If all tasks are complete with high confidence, aggregate and return the final result\n")
+		}
+
+		// Process through orchestrator
+		result, err := oa.ProcessDirect(ctx, contextBuilder.String(), fmt.Sprintf("orchestrator_iteration_%d", iteration))
+		if err != nil {
+			return "", fmt.Errorf("orchestrator iteration %d failed: %w", iteration, err)
+		}
+
+		// Check if we received a structured report (from delegation tool)
+		// The last report will be from the most recent delegation
+		lastReport := oa.getLastSpecialistReport()
+		if lastReport != nil {
+			lastReport.Iteration = iteration
+			reports = append(reports, *lastReport)
+			teamCtx.Progress[lastReport.SpecialistName] = lastReport.Status
+
+			// Record communication
+			teamCtx.Communications = append(teamCtx.Communications, TeamComm{
+				From:      lastReport.SpecialistName,
+				To:        "orchestrator",
+				Message:   fmt.Sprintf("Completed with status: %s, confidence: %.0f%%", lastReport.Status, lastReport.Confidence*100),
+				Type:      "response",
+				Timestamp: time.Now(),
+			})
+
+			// Check if we need to handle help request
+			if lastReport.RequestHelp != "" && lastReport.Status != "complete" {
+				// Emit help request status
+				emitAgentStatus(ctx, AgentStatusEvent{
+					Agent:          lastReport.SpecialistName,
+					Status:         "requesting_help",
+					SpecialistName: lastReport.RequestHelp,
+					Reason:         lastReport.HelpContext,
+					Timestamp:      time.Now(),
+				})
+
+				// Record communication
+				teamCtx.Communications = append(teamCtx.Communications, TeamComm{
+					From:      lastReport.SpecialistName,
+					To:        lastReport.RequestHelp,
+					Message:   lastReport.HelpContext,
+					Type:      "request",
+					Timestamp: time.Now(),
+				})
+				continue // Next iteration will handle the help request
+			}
+
+			// Check if complete
+			if lastReport.Status == "complete" && !lastReport.NeedsReview && lastReport.Confidence >= 0.8 {
+				logger.InfoCF("agent", "Task completed with high confidence", map[string]interface{}{
+					"specialist": lastReport.SpecialistName,
+					"confidence": lastReport.Confidence,
+					"iterations": iteration + 1,
+				})
+				break
+			}
+		} else {
+			// No structured report - treat as final result
+			return result, nil
+		}
+	}
+
+	// Aggregate results from all reports
+	return oa.aggregateReports(reports, teamCtx), nil
+}
+
+// getLastSpecialistReport retrieves the last specialist report if available
+// This is set by the delegation tool after a specialist completes
+func (oa *OrchestratorAgent) getLastSpecialistReport() *SpecialistReport {
+	// This would be populated by the delegation tool during execution
+	// For now, return nil - will be implemented when delegation tool is updated
+	return nil
+}
+
+// aggregateReports combines results from multiple specialist reports
+func (oa *OrchestratorAgent) aggregateReports(reports []SpecialistReport, teamCtx *TeamContext) string {
+	if len(reports) == 0 {
+		return "No specialist reports to aggregate."
+	}
+
+	var result strings.Builder
+	result.WriteString("## Task Completion Summary\n\n")
+
+	// Add team activity summary
+	if len(teamCtx.Communications) > 0 {
+		result.WriteString("### Team Collaboration\n")
+		for _, comm := range teamCtx.Communications {
+			result.WriteString(fmt.Sprintf("- %s → %s: %s\n", comm.From, comm.To, truncate(comm.Message, 100)))
+		}
+		result.WriteString("\n")
+	}
+
+	// Collect results from specialists
+	result.WriteString("### Specialist Contributions\n\n")
+	for _, r := range reports {
+		if r.Status == "complete" || r.Status == "partial" {
+			result.WriteString(fmt.Sprintf("**%s** (Confidence: %.0f%%):\n", r.SpecialistName, r.Confidence*100))
+			result.WriteString(r.Result)
+			result.WriteString("\n\n")
+		}
+	}
+
+	// Add any artifacts created
+	allArtifacts := make([]string, 0)
+	for _, r := range reports {
+		allArtifacts = append(allArtifacts, r.Artifacts...)
+	}
+	if len(allArtifacts) > 0 {
+		result.WriteString("### Artifacts Created\n")
+		for _, a := range allArtifacts {
+			result.WriteString(fmt.Sprintf("- %s\n", a))
+		}
+	}
+
+	return result.String()
 }
 
 // TimeUnixNano returns current time in nanoseconds since epoch

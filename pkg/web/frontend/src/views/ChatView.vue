@@ -511,6 +511,16 @@
           <AgentStatusIndicator />
         </div>
 
+        <!-- Team Activity Panel -->
+        <div class="px-2.5 md:px-4">
+          <TeamActivityPanel
+            ref="teamActivityRef"
+            :agent-status="teamAgentStatus"
+            :team-communications="teamCommunications"
+            :involved-agents-list="involvedAgentsList"
+          />
+        </div>
+
         <!-- Input Area -->
         <div class="border-t border-makoclaw-border/30 bg-makoclaw-surface/50 backdrop-blur-2xl p-3 sm:p-4 z-20 relative ring-1 ring-white/[0.05] group/input">
           <!-- Gradient accent line at the top of input area -->
@@ -935,6 +945,7 @@ import { storeToRefs } from 'pinia'
 import MessageBubble from '../components/MessageBubble.vue'
 import AgentStatusIndicator from '../components/Chat/AgentStatusIndicator.vue'
 import SpecialistsPanel from '../components/Chat/SpecialistsPanel.vue'
+import TeamActivityPanel from '../components/Chat/TeamActivityPanel.vue'
 import PromptLibrary from '../components/PromptModal.vue'
 import { useChatStore } from '../stores/chatStore'
 import { getChatWebSocket } from '../services/websocketService'
@@ -964,6 +975,12 @@ const renamingSession = ref(null)
 const renameInput = ref('')
 const showToolsPopover = ref(false)
 const showPromptLibrary = ref(false)
+
+// Team activity state
+const teamActivityRef = ref(null)
+const teamAgentStatus = ref(null)
+const teamCommunications = ref([])
+const involvedAgentsList = ref([])
 
 // File attachments state
 const fileInputRef = ref(null)
@@ -1106,7 +1123,15 @@ const loadSession = async (sessionId, options = { updateRoute: true }) => {
   if (options.updateRoute) {
     router.replace({ query: { id: normalizedSessionId } })
   }
-  
+
+  // Reset team activity for new session
+  teamAgentStatus.value = null
+  teamCommunications.value = []
+  involvedAgentsList.value = []
+  if (teamActivityRef.value?.reset) {
+    teamActivityRef.value.reset()
+  }
+
   try {
     const data = await taskService.fetchSessionMessages(normalizedSessionId)
     chatStore.setMessages((data.messages || []).map(m => {
@@ -1142,6 +1167,13 @@ const startNewChat = () => {
   }
   chatStore.clearMessages()
   showSidebar.value = false
+  // Reset team activity for new chat
+  teamAgentStatus.value = null
+  teamCommunications.value = []
+  involvedAgentsList.value = []
+  if (teamActivityRef.value?.reset) {
+    teamActivityRef.value.reset()
+  }
   // Focus input
   // nextTick(() => document.querySelector('input')?.focus())
 }
@@ -1242,6 +1274,10 @@ const handleMessage = (message) => {
   if (message.type === 'stream_start') {
     chatStore.startStreamingMessage()
     chatStore.clearAgentStatus() // Resetear para nuevo mensaje
+    // Reset team activity for new message
+    teamAgentStatus.value = null
+    teamCommunications.value = []
+    involvedAgentsList.value = []
   }
   if (message.type === 'stream') {
     chatStore.appendStreamToken(message.content || '')
@@ -1262,6 +1298,34 @@ const handleMessage = (message) => {
       message.specialist_name,
       message.reason
     )
+    // Update team activity panel
+    teamAgentStatus.value = {
+      agent: message.agent,
+      status: message.status,
+      specialistName: message.specialist_name,
+      reason: message.reason
+    }
+    // Track involved agents
+    if (message.agent && !involvedAgentsList.value.includes(message.agent)) {
+      involvedAgentsList.value.push(message.agent)
+    }
+    // Track inter-specialist communications
+    if (message.status === 'requesting_help' && message.specialist_name) {
+      teamCommunications.value.push({
+        from: message.agent,
+        to: message.specialist_name,
+        message: message.reason || 'Requesting assistance',
+        timestamp: new Date().toISOString()
+      })
+    }
+    if (message.status === 'colleague_complete') {
+      teamCommunications.value.push({
+        from: message.agent,
+        to: 'orchestrator',
+        message: 'Completed assistance',
+        timestamp: new Date().toISOString()
+      })
+    }
   }
   if (message.type === 'content_segment') {
     chatStore.addContentSegment(message)
@@ -1401,20 +1465,31 @@ const sendMessage = async () => {
     router.replace({ query: { id: currentSessionId.value } })
   }
 
+  // Parse @specialist_name mentions for direct invocation
+  // Syntax: @specialist_name message content
+  const mentionMatch = content.match(/^@(\w+)\s+(.+)$/s)
+  let targetSpecialist = null
+  let messageContent = content
+
+  if (mentionMatch) {
+    targetSpecialist = mentionMatch[1]
+    messageContent = mentionMatch[2]
+  }
+
   // Add attachment content to message if present
-  let finalContent = content
+  let finalContent = messageContent
   if (attachments.value.length > 0) {
     const attachmentText = attachments.value.map(a =>
       `\n\n--- Attached file: ${a.name} ---\n${a.content}\n--- End of ${a.name} ---`
     ).join('')
-    finalContent = content + attachmentText
+    finalContent = messageContent + attachmentText
     attachments.value = []
   }
 
-  // Add user message locally
+  // Add user message locally (show original content with @mention)
   chatStore.addMessage({
     role: 'user',
-    content: finalContent,
+    content: content,
     timestamp: new Date().toISOString()
   })
 
@@ -1440,7 +1515,8 @@ const sendMessage = async () => {
       session_id: currentSessionId.value,
       model: chatStore.selectedModel || undefined,
       web_search: chatStore.webSearchEnabled,
-      exclude_tools: excludeTools
+      exclude_tools: excludeTools,
+      target_specialist: targetSpecialist  // Direct specialist invocation
     })
     // Refresh sessions to show new thread
     setTimeout(fetchSessions, 500)

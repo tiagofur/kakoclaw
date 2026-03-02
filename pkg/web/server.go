@@ -1147,12 +1147,13 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var req struct {
-			Type         string   `json:"type"`
-			Content      string   `json:"content"`
-			SessionID    string   `json:"session_id"`
-			Model        string   `json:"model"`
-			WebSearch    *bool    `json:"web_search"`    // legacy: nil = default (enabled), false = exclude web_search tool
-			ExcludeTools []string `json:"exclude_tools"` // new: granular control
+			Type             string   `json:"type"`
+			Content          string   `json:"content"`
+			SessionID        string   `json:"session_id"`
+			Model            string   `json:"model"`
+			WebSearch        *bool    `json:"web_search"`        // legacy: nil = default (enabled), false = exclude web_search tool
+			ExcludeTools     []string `json:"exclude_tools"`     // new: granular control
+			TargetSpecialist string   `json:"target_specialist"` // direct specialist invocation via @name
 		}
 
 		// Try to decode as JSON
@@ -1212,6 +1213,61 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 				s.execMu.Unlock()
 				cancel()
 			}(execID)
+
+			// Direct specialist invocation via @name
+			if req.TargetSpecialist != "" {
+				registry := agentMgr.GetSpecialistRegistry()
+				if registry != nil {
+					specialist, err := registry.GetSpecialist(req.TargetSpecialist)
+					if err == nil && specialist != nil {
+						wsMu.Lock()
+						_ = conn.WriteJSON(map[string]interface{}{"type": "stream_start"})
+						_ = conn.WriteJSON(map[string]interface{}{
+							"type":            "agent_status",
+							"agent":           req.TargetSpecialist,
+							"status":          "working",
+							"specialist_name": req.TargetSpecialist,
+							"reason":          "Direct invocation via @" + req.TargetSpecialist,
+							"timestamp":       time.Now().Format(time.RFC3339),
+						})
+						wsMu.Unlock()
+
+						response, err := specialist.ProcessWithSpeciality(ctx, input)
+
+						wsMu.Lock()
+						if err != nil {
+							_ = conn.WriteJSON(map[string]interface{}{
+								"type":    "stream_end",
+								"content": "",
+								"error":   err.Error(),
+							})
+						} else {
+							_ = conn.WriteJSON(map[string]interface{}{
+								"type":            "agent_status",
+								"agent":           req.TargetSpecialist,
+								"status":          "complete",
+								"specialist_name": req.TargetSpecialist,
+								"timestamp":       time.Now().Format(time.RFC3339),
+							})
+							_ = conn.WriteJSON(map[string]interface{}{
+								"type":    "stream_end",
+								"content": response,
+								"agents":  []string{req.TargetSpecialist},
+							})
+						}
+						_ = conn.WriteJSON(map[string]interface{}{"type": "ready"})
+						wsMu.Unlock()
+						return
+					}
+					// Specialist not found - fall back to normal processing with warning
+					wsMu.Lock()
+					_ = conn.WriteJSON(map[string]interface{}{
+						"type":    "stream",
+						"content": fmt.Sprintf("⚠️ Specialist '%s' not found. Processing with default agent.\n\n", req.TargetSpecialist),
+					})
+					wsMu.Unlock()
+				}
+			}
 
 			// Use streaming if supported
 			if activeAgentLoop.SupportsStreaming() {
@@ -3262,13 +3318,16 @@ func (s *Server) handleAgents(w http.ResponseWriter, r *http.Request) {
 		if userCfg, _ := config.LoadConfigForUser(userUUID); userCfg != nil {
 			for name, spec := range userCfg.Agents.Specialists {
 				agentsList = append(agentsList, map[string]interface{}{
-					"name":        name,
-					"description": spec.Description,
-					"prompt":      spec.Prompt,
-					"tools":       spec.Tools,
-					"provider":    spec.Provider,
-					"model":       spec.Model,
-					"keywords":    spec.Keywords,
+					"name":                name,
+					"description":         spec.Description,
+					"prompt":              spec.Prompt,
+					"tools":               spec.Tools,
+					"provider":            spec.Provider,
+					"model":               spec.Model,
+					"keywords":            spec.Keywords,
+					"max_tokens":          spec.MaxTokens,
+					"temperature":         spec.Temperature,
+					"max_tool_iterations": spec.MaxToolIterations,
 				})
 			}
 			// Return the full orchestrator config so the frontend can restore
@@ -3604,12 +3663,16 @@ func (s *Server) handleSpecialistCreate(w http.ResponseWriter, r *http.Request) 
 	response := map[string]interface{}{
 		"success": true,
 		"specialist": map[string]interface{}{
-			"name":        specialistReq.Name,
-			"description": specialistReq.Description,
-			"provider":    specialistReq.Provider,
-			"model":       specialistReq.Model,
-			"tools":       specialistReq.Tools,
-			"keywords":    specialistReq.Keywords,
+			"name":                specialistReq.Name,
+			"description":         specialistReq.Description,
+			"prompt":              specialistReq.Prompt,
+			"provider":            specialistReq.Provider,
+			"model":               specialistReq.Model,
+			"tools":               specialistReq.Tools,
+			"keywords":            specialistReq.Keywords,
+			"max_tokens":          specialistReq.MaxTokens,
+			"temperature":         specialistReq.Temperature,
+			"max_tool_iterations": specialistReq.MaxToolIter,
 		},
 	}
 
@@ -3763,7 +3826,16 @@ func (s *Server) handleSpecialistUpdate(w http.ResponseWriter, r *http.Request, 
 	response := map[string]interface{}{
 		"success": true,
 		"specialist": map[string]interface{}{
-			"name": newSpecialistName,
+			"name":                specCfg.Name,
+			"description":         specCfg.Description,
+			"prompt":              specCfg.Prompt,
+			"provider":            specCfg.Provider,
+			"model":               specCfg.Model,
+			"tools":               specCfg.Tools,
+			"keywords":            specCfg.Keywords,
+			"max_tokens":          specCfg.MaxTokens,
+			"temperature":         specCfg.Temperature,
+			"max_tool_iterations": specCfg.MaxToolIterations,
 		},
 	}
 
