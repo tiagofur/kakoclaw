@@ -504,7 +504,7 @@ func (s *Server) authMiddleware(next http.Handler) http.HandlerFunc {
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
-		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net blob:; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss: https://cdn.jsdelivr.net; worker-src 'self' blob:; upgrade-insecure-requests")
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws: wss: https://cdn.jsdelivr.net; worker-src 'self' blob:; upgrade-insecure-requests")
 
 		if strings.HasPrefix(r.URL.Path, "/api/v1/auth/login") {
 			next.ServeHTTP(w, r)
@@ -531,7 +531,7 @@ func (s *Server) authMiddleware(next http.Handler) http.HandlerFunc {
 		// API docs are public (Swagger UI needs to load without auth)
 		if r.URL.Path == "/api/docs" || r.URL.Path == "/api/v1/openapi.json" {
 			// Relax CSP for Swagger UI page to load external scripts/styles
-			w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com; connect-src 'self' ws: wss:; img-src 'self' data: https://unpkg.com")
+			w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws: wss:; img-src 'self' data: https://unpkg.com")
 			next.ServeHTTP(w, r)
 			return
 		}

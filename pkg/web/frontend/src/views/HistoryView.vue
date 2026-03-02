@@ -146,12 +146,46 @@
           </div>
         </div>
 
-        <!-- Search + Filters Row -->
-        <div class="mt-3 flex flex-col sm:flex-row gap-3">
-          <!-- Search bar -->
-          <div class="relative flex-1">
+      <div class="px-4 sm:px-6 pb-3">
+        <!-- AppBar Subtitle -->
+        <p class="text-xs sm:text-sm text-makoclaw-text-secondary mt-0.5">
+          Browse, search, and manage past conversations
+        </p>
+      </div>
+      </div>
+    </div>
+
+    <div class="flex-1 flex overflow-hidden relative z-10">
+      <!-- Session List / Search Results -->
+      <div 
+        class="border-r border-makoclaw-border/30 overflow-hidden bg-makoclaw-surface/30 backdrop-blur-sm transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] flex flex-col ring-1 ring-white/5"
+        :class="isSidebarCollapsed ? 'w-0 opacity-0 border-none overflow-hidden scale-95 origin-left' : 'w-72 opacity-100 flex-shrink-0'"
+      >
+        <!-- Mini Header inside Sidebar -->
+        <div class="p-3 sm:p-4 border-b border-makoclaw-border/30 bg-makoclaw-surface/30">
+          <div class="flex items-center gap-2 mb-3">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500/20 to-amber-500/20 flex items-center justify-center ring-1 ring-white/10">
+              <svg
+                class="w-4 h-4 text-orange-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </div>
+            <h2 class="text-sm font-bold text-makoclaw-text uppercase tracking-wider">Session History</h2>
+          </div>
+
+          <!-- Search bar in Sidebar -->
+          <div class="relative group/search mb-3">
             <svg
-              class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-makoclaw-text-secondary"
+              class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-makoclaw-text-secondary group-focus-within/search:text-orange-400 transition-colors"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -164,8 +198,8 @@
             <input
               v-model="searchQuery"
               type="text"
-              placeholder="Search message content..."
-              class="w-full pl-10 pr-8 py-2 bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-xl text-sm outline-none focus:border-orange-400/50 focus:ring-2 focus:ring-orange-400/20 transition-all"
+              placeholder="Search history..."
+              class="w-full pl-10 pr-8 py-1.5 bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-xl text-xs outline-none focus:border-orange-400/50 focus:ring-2 focus:ring-orange-400/20 transition-all font-medium"
               @input="onSearchInput"
             >
             <button
@@ -174,7 +208,7 @@
               @click="clearSearch"
             >
               <svg
-                class="w-4 h-4"
+                class="w-3.5 h-3.5"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -187,62 +221,29 @@
             </button>
           </div>
 
-          <!-- Filters -->
-          <div class="flex items-center gap-3">
+          <!-- Filters Selects in Sidebar -->
+          <div class="flex items-center gap-2">
             <select
               v-model="filterType"
-              class="bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-xl px-3 py-2 text-sm outline-none focus:border-orange-400/50 cursor-pointer"
+              class="flex-1 bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-lg px-2 py-1 text-[10px] outline-none focus:border-orange-400/50 cursor-pointer appearance-none text-center font-bold text-makoclaw-text-secondary hover:text-makoclaw-text transition-colors"
             >
-              <option value="all">
-                All Sessions
-              </option>
-              <option value="chat">
-                Chats Only
-              </option>
-              <option value="task">
-                Tasks Only
-              </option>
+              <option value="all">All Sessions</option>
+              <option value="chat">Chats Only</option>
+              <option value="task">Tasks Only</option>
             </select>
             <select
               v-model="filterDate"
-              class="bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-xl px-3 py-2 text-sm outline-none focus:border-orange-400/50 cursor-pointer"
+              class="flex-1 bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-lg px-2 py-1 text-[10px] outline-none focus:border-orange-400/50 cursor-pointer appearance-none text-center font-bold text-makoclaw-text-secondary hover:text-makoclaw-text transition-colors"
             >
-              <option value="all">
-                All Time
-              </option>
-              <option value="today">
-                Today
-              </option>
-              <option value="7d">
-                Last 7 Days
-              </option>
-              <option value="30d">
-                Last 30 Days
-              </option>
+              <option value="all">All Time</option>
+              <option value="today">Today</option>
+              <option value="7d">Last 7d</option>
+              <option value="30d">Last 30d</option>
             </select>
-            <label class="flex items-center gap-1.5 text-sm text-makoclaw-text-secondary cursor-pointer">
-              <input
-                v-model="showArchived"
-                type="checkbox"
-                class="rounded border-makoclaw-border text-orange-500 focus:ring-orange-400"
-                @change="loadSessions"
-              >
-              Archived
-            </label>
-            <span class="text-xs text-makoclaw-text-secondary ml-auto">
-              {{ isSearchMode ? `${filteredSearchResults.length} results` : `${filteredSessions.length} sessions` }}
-            </span>
           </div>
         </div>
-      </div>
-    </div>
 
-    <div class="flex-1 flex overflow-hidden relative z-10">
-      <!-- Session List / Search Results -->
-      <div 
-        class="border-r border-makoclaw-border/30 overflow-y-auto p-2 space-y-1 bg-makoclaw-surface/30 backdrop-blur-sm transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] custom-scrollbar ring-1 ring-white/5"
-        :class="isSidebarCollapsed ? 'w-0 opacity-0 p-0 border-none overflow-hidden scale-95 origin-left' : 'w-1/3 opacity-100'"
-      >
+        <div class="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
         <div
           v-if="loading"
           class="text-center py-4 text-makoclaw-text-secondary animate-pulse"
@@ -457,18 +458,19 @@
           </button>
         </div>
       </div>
+    </div>
 
-      <!-- Message View -->
+    <!-- Message View -->
       <div class="flex-1 overflow-y-auto p-4 bg-makoclaw-bg/30 relative custom-scrollbar">
         <div
           v-if="!selectedSession && !selectedSearchResultSession"
           class="h-full flex flex-col items-center justify-center text-makoclaw-text-secondary"
         >
-          <div class="relative glass-panel p-6 sm:p-8 rounded-2xl mb-4 shadow-lg shadow-makoclaw-accent/5 group/empty">
+          <div class="relative glass-panel p-6 sm:p-8 rounded-2xl mb-4 shadow-lg shadow-orange-500/5 group/empty">
             <!-- Gradient glow behind icon -->
-            <div class="absolute -top-8 -right-8 w-24 h-24 bg-gradient-to-br from-makoclaw-accent to-blue-500 rounded-full opacity-15 blur-[25px] group-hover/empty:opacity-30 group-hover/empty:scale-110 transition-all duration-500" />
+            <div class="absolute -top-8 -right-8 w-24 h-24 bg-gradient-to-br from-orange-500 to-amber-500 rounded-full opacity-15 blur-[25px] group-hover/empty:opacity-30 group-hover/empty:scale-110 transition-all duration-500" />
             <svg
-              class="w-12 h-12 text-makoclaw-accent drop-shadow-sm relative z-10 transition-transform duration-500 group-hover/empty:scale-110 group-hover/empty:rotate-3"
+              class="w-12 h-12 text-orange-400 drop-shadow-sm relative z-10 transition-transform duration-500 group-hover/empty:scale-110 group-hover/empty:rotate-3"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
