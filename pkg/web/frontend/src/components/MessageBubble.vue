@@ -13,15 +13,30 @@
           : 'glass-panel text-makoclaw-text rounded-2xl rounded-bl-none shadow-lg shadow-black/[0.03] dark:shadow-black/20'
       ]"
     >
-      <p v-if="msg.role === 'user'" class="text-sm md:text-base whitespace-pre-wrap break-words leading-relaxed">{{ msg.content }}</p>
+      <p
+        v-if="msg.role === 'user'"
+        class="text-sm md:text-base whitespace-pre-wrap break-words leading-relaxed"
+      >
+        {{ msg.content }}
+      </p>
       <template v-else>
         <!-- Tool Calls Rendering -->
-        <div v-if="msg.toolCalls && msg.toolCalls.length > 0" class="mb-4 space-y-2">
-          <ToolCallItem v-for="tc in msg.toolCalls" :key="tc.id" :tc="tc" />
+        <div
+          v-if="msg.toolCalls && msg.toolCalls.length > 0"
+          class="mb-4 space-y-2"
+        >
+          <ToolCallItem
+            v-for="tc in msg.toolCalls"
+            :key="tc.id"
+            :tc="tc"
+          />
         </div>
 
         <!-- Contenido Segmentado (cuando hay múltiples agentes) -->
-        <div v-if="msg.segments && msg.segments.length > 0" class="segmented-content">
+        <div
+          v-if="msg.segments && msg.segments.length > 0"
+          class="segmented-content"
+        >
           <div
             v-for="segment in msg.segments"
             :key="segment.segmentId"
@@ -29,26 +44,44 @@
           >
             <!-- Header de atribución -->
             <div class="flex items-center gap-2 mb-2">
-              <SpecialistBadge :name="segment.agent" class="text-xs" />
+              <SpecialistBadge
+                :name="segment.agent"
+                class="text-xs"
+              />
               <span class="text-xs text-makoclaw-text-secondary">contributed:</span>
             </div>
 
             <!-- Contenido del segmento -->
-            <MarkdownRenderer :content="segment.content" class="text-sm md:text-base pl-6" />
+            <MarkdownRenderer
+              :content="segment.content"
+              class="text-sm md:text-base pl-6"
+            />
           </div>
         </div>
 
         <!-- Fallback: contenido unificado (cuando no hay segmentos) -->
         <div v-else>
           <!-- Streaming Content -->
-          <p v-if="msg.streaming" class="text-sm md:text-base whitespace-pre-wrap break-words leading-relaxed">{{ msg.content }}<span class="streaming-cursor"></span></p>
+          <p
+            v-if="msg.streaming"
+            class="text-sm md:text-base whitespace-pre-wrap break-words leading-relaxed"
+          >
+            {{ msg.content }}<span class="streaming-cursor" />
+          </p>
           <!-- Final Markdown Content -->
-          <MarkdownRenderer v-else :content="msg.content" class="text-sm md:text-base" />
+          <MarkdownRenderer
+            v-else
+            :content="msg.content"
+            class="text-sm md:text-base"
+          />
         </div>
       </template>
       
       <!-- Agent Badges -->
-      <div v-if="msg.agents && msg.agents.length > 0" class="agents-badge-row">
+      <div
+        v-if="msg.agents && msg.agents.length > 0"
+        class="agents-badge-row"
+      >
         <SpecialistBadge 
           v-for="agent in msg.agents" 
           :key="agent"
@@ -65,36 +98,66 @@
           <!-- Fork button -->
           <button
             v-if="currentSessionId && msg.id"
-            @click="$emit('fork', msg)"
             :disabled="isLoading"
             class="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 sm:p-2 rounded-lg hover:bg-makoclaw-bg/80 text-makoclaw-text-secondary hover:text-makoclaw-accent disabled:opacity-30"
             title="Ramificar conversación (Continuar desde aquí)"
+            @click="$emit('fork', msg)"
           >
-            <svg class="w-3 sm:w-3.5 h-3 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+            <svg
+              class="w-3 sm:w-3.5 h-3 sm:h-3.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+              />
             </svg>
           </button>
           <!-- Copy button -->
           <button
             v-if="msg.role === 'assistant' && !msg.streaming"
-            @click="$emit('copy', msg.content)"
             class="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 sm:p-2 rounded-lg hover:bg-makoclaw-bg/80 text-makoclaw-text-secondary hover:text-makoclaw-accent"
             title="Copiar respuesta"
+            @click="$emit('copy', msg.content)"
           >
-            <svg class="w-3 sm:w-3.5 h-3 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            <svg
+              class="w-3 sm:w-3.5 h-3 sm:h-3.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+              />
             </svg>
           </button>
           <!-- Regenerate button -->
           <button
             v-if="msg.role === 'assistant' && isLastAssistantMessage"
-            @click="$emit('regenerate')"
             :disabled="isLoading"
             class="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 sm:p-2 rounded-lg hover:bg-makoclaw-bg/80 text-makoclaw-text-secondary hover:text-makoclaw-accent disabled:opacity-30"
             title="Regenerar respuesta"
+            @click="$emit('regenerate')"
           >
-            <svg class="w-3 sm:w-3.5 h-3 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            <svg
+              class="w-3 sm:w-3.5 h-3 sm:h-3.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
             </svg>
           </button>
         </div>

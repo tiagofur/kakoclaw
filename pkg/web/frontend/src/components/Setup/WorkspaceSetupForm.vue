@@ -1,6 +1,8 @@
 <template>
   <div class="workspace-setup-form animate-fade-in">
-    <h2 class="text-2xl font-bold text-white mb-4">Set up your Workspace</h2>
+    <h2 class="text-2xl font-bold text-white mb-4">
+      Set up your Workspace
+    </h2>
     <p class="text-slate-300 mb-6">
       Customize your workspace with skills and example files to get started quickly.
     </p>
@@ -22,11 +24,11 @@
           class="flex items-start p-4 bg-slate-700/50 rounded-lg cursor-pointer hover:bg-slate-700 transition-colors border border-transparent hover:border-blue-500/30"
         >
           <input
+            v-model="selectedSkills"
             type="checkbox"
             :value="skill.id"
-            v-model="selectedSkills"
             class="mt-1 mr-3 w-5 h-5 text-blue-600 bg-slate-600 border-slate-500 rounded focus:ring-blue-500 focus:ring-2"
-          />
+          >
           <div class="flex-1">
             <div class="font-medium text-white">{{ skill.name }}</div>
             <div class="text-sm text-slate-400 mt-1">{{ skill.description }}</div>
@@ -35,8 +37,8 @@
       </div>
 
       <button
-        @click="selectAllSkills"
         class="mt-4 text-sm text-blue-400 hover:text-blue-300 underline"
+        @click="selectAllSkills"
       >
         Select All Skills
       </button>
@@ -54,10 +56,10 @@
 
       <label class="flex items-start p-4 bg-slate-700/50 rounded-lg cursor-pointer hover:bg-slate-700 transition-colors">
         <input
-          type="checkbox"
           v-model="includeExampleFiles"
+          type="checkbox"
           class="mt-1 mr-3 w-5 h-5 text-blue-600 bg-slate-600 border-slate-500 rounded focus:ring-blue-500 focus:ring-2"
-        />
+        >
         <div class="flex-1">
           <div class="font-medium text-white">Create Example Files</div>
           <div class="text-sm text-slate-400 mt-1">
@@ -70,8 +72,8 @@
     <!-- Quick Setup Button -->
     <div class="mb-6">
       <button
-        @click="useDefaults"
         class="w-full py-3 px-4 rounded-lg font-medium bg-slate-700 text-blue-300 hover:bg-slate-600 transition-colors border border-blue-500/30"
+        @click="useDefaults"
       >
         ⚡ Use Recommended Defaults
       </button>
@@ -81,8 +83,13 @@
     </div>
 
     <!-- Preview Section -->
-    <div v-if="selectedSkills.length > 0 || includeExampleFiles" class="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
-      <h4 class="font-medium text-blue-300 mb-2">What will be installed:</h4>
+    <div
+      v-if="selectedSkills.length > 0 || includeExampleFiles"
+      class="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4"
+    >
+      <h4 class="font-medium text-blue-300 mb-2">
+        What will be installed:
+      </h4>
       <ul class="space-y-1 text-sm text-blue-200">
         <li v-if="selectedSkills.length > 0">
           ✓ {{ selectedSkills.length }} skill{{ selectedSkills.length > 1 ? 's' : '' }}

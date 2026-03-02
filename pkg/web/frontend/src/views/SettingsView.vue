@@ -2,8 +2,8 @@
   <div class="h-full flex flex-col bg-makoclaw-bg relative overflow-hidden">
     <!-- Background Gradient Mesh -->
     <div class="absolute inset-0 pointer-events-none">
-      <div class="absolute inset-0 opacity-25 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-makoclaw-accent/30 via-transparent to-transparent"></div>
-      <div class="absolute inset-0 opacity-15 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-blue-500/20 via-transparent to-transparent"></div>
+      <div class="absolute inset-0 opacity-25 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-makoclaw-accent/30 via-transparent to-transparent" />
+      <div class="absolute inset-0 opacity-15 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-blue-500/20 via-transparent to-transparent" />
     </div>
 
     <!-- Mobile Header -->
@@ -12,16 +12,33 @@
         <div class="flex items-center gap-3 mb-3">
           <!-- Icon Container -->
           <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-makoclaw-accent/20 to-blue-500/20 flex items-center justify-center ring-1 ring-white/10 shadow-lg shadow-makoclaw-accent/10">
-            <svg class="w-5 h-5 text-makoclaw-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <svg
+              class="w-5 h-5 text-makoclaw-accent"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+              />
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+              />
             </svg>
           </div>
           <div class="flex-1 min-w-0">
             <h1 class="text-xl font-bold bg-gradient-to-r from-makoclaw-text via-makoclaw-text to-makoclaw-accent bg-clip-text text-transparent">
               Settings
             </h1>
-            <p class="text-xs text-makoclaw-text-secondary mt-0.5">Configure your workspace</p>
+            <p class="text-xs text-makoclaw-text-secondary mt-0.5">
+              Configure your workspace
+            </p>
           </div>
           <button
             class="p-2.5 min-h-[40px] min-w-[40px] rounded-xl bg-makoclaw-surface/50 border border-makoclaw-border/50 hover:bg-makoclaw-surface-hover transition-all flex items-center justify-center"
@@ -55,14 +72,33 @@
         <div class="p-5 border-b border-makoclaw-border/20">
           <div class="flex items-center gap-3">
             <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-makoclaw-accent/20 to-blue-500/20 flex items-center justify-center ring-1 ring-white/10 shadow-lg shadow-makoclaw-accent/10">
-              <svg class="w-5 h-5 text-makoclaw-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <svg
+                class="w-5 h-5 text-makoclaw-accent"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                />
               </svg>
             </div>
             <div>
-              <h2 class="text-lg font-bold text-makoclaw-text">Settings</h2>
-              <p class="text-xs text-makoclaw-text-secondary">Configure your workspace</p>
+              <h2 class="text-lg font-bold text-makoclaw-text">
+                Settings
+              </h2>
+              <p class="text-xs text-makoclaw-text-secondary">
+                Configure your workspace
+              </p>
             </div>
           </div>
         </div>
@@ -101,7 +137,10 @@
             <div class="flex items-center gap-4">
               <!-- Icon Container -->
               <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-gradient-to-br from-makoclaw-accent/20 to-blue-500/20 flex items-center justify-center ring-1 ring-white/10 shadow-lg shadow-makoclaw-accent/10">
-                <component :is="activeTabIcon" class="w-6 h-6 sm:w-7 sm:h-7 text-makoclaw-accent" />
+                <component
+                  :is="activeTabIcon"
+                  class="w-6 h-6 sm:w-7 sm:h-7 text-makoclaw-accent"
+                />
               </div>
 
               <!-- Title + Description -->
@@ -172,8 +211,12 @@
                     {{ selectedChannel?.icon }}
                   </div>
                   <div>
-                    <h3 class="text-lg font-bold text-makoclaw-text">Configure {{ selectedChannel?.name }}</h3>
-                    <p class="text-xs text-makoclaw-text-secondary">Set up your channel credentials</p>
+                    <h3 class="text-lg font-bold text-makoclaw-text">
+                      Configure {{ selectedChannel?.name }}
+                    </h3>
+                    <p class="text-xs text-makoclaw-text-secondary">
+                      Set up your channel credentials
+                    </p>
                   </div>
                 </div>
                 <button
@@ -211,7 +254,9 @@
                     placeholder="ID-1, ID-2, @username"
                     class="w-full px-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent/50 transition-all min-h-[40px] backdrop-blur-sm"
                   >
-                  <p class="text-xs text-makoclaw-text-secondary/60 mt-1.5">Comma-separated list of authorized user IDs</p>
+                  <p class="text-xs text-makoclaw-text-secondary/60 mt-1.5">
+                    Comma-separated list of authorized user IDs
+                  </p>
                 </div>
               </div>
             </div>
@@ -246,7 +291,9 @@
                   <h3 class="text-lg font-bold text-makoclaw-text">
                     {{ userForm.id ? 'Edit User' : 'Create User' }}
                   </h3>
-                  <p class="text-xs text-makoclaw-text-secondary">{{ userForm.id ? 'Update user credentials' : 'Add a new user account' }}</p>
+                  <p class="text-xs text-makoclaw-text-secondary">
+                    {{ userForm.id ? 'Update user credentials' : 'Add a new user account' }}
+                  </p>
                 </div>
               </div>
             </div>
@@ -301,7 +348,9 @@
               <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-red-500/20 to-red-600/20 flex items-center justify-center ring-1 ring-red-500/30">
                 <NoSymbolIcon class="w-8 h-8 text-red-400" />
               </div>
-              <h3 class="text-xl font-bold text-makoclaw-text mb-2">Block User?</h3>
+              <h3 class="text-xl font-bold text-makoclaw-text mb-2">
+                Block User?
+              </h3>
               <p class="text-sm text-makoclaw-text-secondary mb-5">
                 This will immediately revoke access for <span class="font-bold text-makoclaw-text">@{{ blockForm.user?.username }}</span>
               </p>
@@ -336,7 +385,9 @@
               <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-makoclaw-success/20 to-emerald-500/20 flex items-center justify-center ring-1 ring-makoclaw-success/30">
                 <CheckCircleIcon class="w-8 h-8 text-makoclaw-success" />
               </div>
-              <h3 class="text-xl font-bold text-makoclaw-text mb-2">Unblock User?</h3>
+              <h3 class="text-xl font-bold text-makoclaw-text mb-2">
+                Unblock User?
+              </h3>
               <p class="text-sm text-makoclaw-text-secondary mb-5">
                 Restore access for <span class="font-bold text-makoclaw-text">@{{ unblockForm.user?.username }}</span>
               </p>

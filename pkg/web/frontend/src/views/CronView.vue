@@ -2,8 +2,8 @@
   <div class="flex flex-col h-full bg-makoclaw-bg relative overflow-hidden">
     <!-- Background Gradient Mesh -->
     <div class="absolute inset-0 pointer-events-none">
-      <div class="absolute inset-0 opacity-25 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-cyan-500/30 via-transparent to-transparent"></div>
-      <div class="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-blue-500/20 via-transparent to-transparent"></div>
+      <div class="absolute inset-0 opacity-25 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-cyan-500/30 via-transparent to-transparent" />
+      <div class="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-blue-500/20 via-transparent to-transparent" />
     </div>
 
     <!-- Header -->
@@ -12,30 +12,64 @@
         <!-- Title Row -->
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center ring-1 ring-white/10 shadow-lg shadow-cyan-500/10">
-            <svg class="w-5 h-5 sm:w-6 sm:h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <svg
+              class="w-5 h-5 sm:w-6 sm:h-6 text-cyan-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
           </div>
           <div class="flex-1 min-w-0">
-            <h1 class="text-xl sm:text-2xl font-bold bg-gradient-to-r from-makoclaw-text via-makoclaw-text to-cyan-400 bg-clip-text text-transparent">Cron Jobs</h1>
-            <p class="text-xs sm:text-sm text-makoclaw-text-secondary mt-0.5 hidden sm:block">Schedule automated tasks and reminders</p>
+            <h1 class="text-xl sm:text-2xl font-bold bg-gradient-to-r from-makoclaw-text via-makoclaw-text to-cyan-400 bg-clip-text text-transparent">
+              Cron Jobs
+            </h1>
+            <p class="text-xs sm:text-sm text-makoclaw-text-secondary mt-0.5 hidden sm:block">
+              Schedule automated tasks and reminders
+            </p>
           </div>
           <div class="flex items-center gap-2">
             <button
-              @click="openAiCronModal"
               class="px-3 sm:px-4 py-2.5 min-h-[40px] bg-makoclaw-surface/50 border border-makoclaw-border/50 text-makoclaw-text rounded-xl hover:bg-makoclaw-surface-hover hover:border-cyan-500/30 transition-all text-sm font-medium flex items-center gap-2 backdrop-blur-sm"
+              @click="openAiCronModal"
             >
-              <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              <svg
+                class="w-4 h-4 text-cyan-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                />
               </svg>
               <span class="hidden sm:inline">Create with AI</span>
             </button>
             <button
-              @click="openCreateModal"
               class="px-4 sm:px-5 py-2.5 min-h-[40px] bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white rounded-xl transition-all shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 text-sm font-bold flex items-center gap-2 active:scale-95 flex-shrink-0"
+              @click="openCreateModal"
             >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              <svg
+                class="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 4v16m8-8H4"
+                />
               </svg>
               <span class="hidden sm:inline">New Job</span>
             </button>
@@ -53,10 +87,16 @@
             : 'bg-amber-500/5 border-amber-500/20 text-amber-400'"
         >
           <div class="flex items-center gap-2">
-            <div class="w-2 h-2 rounded-full animate-pulse" :class="status.enabled ? 'bg-cyan-400' : 'bg-amber-400'"></div>
+            <div
+              class="w-2 h-2 rounded-full animate-pulse"
+              :class="status.enabled ? 'bg-cyan-400' : 'bg-amber-400'"
+            />
             <span class="text-sm font-medium">{{ statusLabel }}</span>
           </div>
-          <span v-if="status.jobs !== undefined" class="text-xs opacity-75">{{ status.jobs }} active job{{ status.jobs !== 1 ? 's' : '' }}</span>
+          <span
+            v-if="status.jobs !== undefined"
+            class="text-xs opacity-75"
+          >{{ status.jobs }} active job{{ status.jobs !== 1 ? 's' : '' }}</span>
         </div>
       </div>
     </div>
@@ -64,47 +104,87 @@
     <!-- Content -->
     <div class="flex-1 overflow-auto p-4 sm:p-6 custom-scrollbar relative">
       <!-- Loading State -->
-      <div v-if="loading" class="space-y-3">
-        <div v-for="i in 3" :key="i" class="cron-card-skeleton">
+      <div
+        v-if="loading"
+        class="space-y-3"
+      >
+        <div
+          v-for="i in 3"
+          :key="i"
+          class="cron-card-skeleton"
+        >
           <div class="flex items-start gap-3">
-            <div class="skeleton w-10 h-10 rounded-xl"></div>
+            <div class="skeleton w-10 h-10 rounded-xl" />
             <div class="flex-1 space-y-2">
-              <div class="skeleton h-4 w-40 rounded"></div>
-              <div class="skeleton h-3 w-full rounded"></div>
+              <div class="skeleton h-4 w-40 rounded" />
+              <div class="skeleton h-3 w-full rounded" />
             </div>
           </div>
           <div class="flex gap-3 mt-4">
-            <div class="skeleton h-6 w-24 rounded-lg"></div>
-            <div class="skeleton h-6 w-20 rounded-lg"></div>
+            <div class="skeleton h-6 w-24 rounded-lg" />
+            <div class="skeleton h-6 w-20 rounded-lg" />
           </div>
         </div>
       </div>
 
       <template v-else>
         <!-- Empty State -->
-        <div v-if="jobs.length === 0" class="flex flex-col items-center justify-center py-12 text-center">
+        <div
+          v-if="jobs.length === 0"
+          class="flex flex-col items-center justify-center py-12 text-center"
+        >
           <div class="relative">
-            <div class="absolute inset-0 bg-gradient-to-br from-cyan-500/30 to-blue-500/30 rounded-3xl blur-2xl opacity-50"></div>
+            <div class="absolute inset-0 bg-gradient-to-br from-cyan-500/30 to-blue-500/30 rounded-3xl blur-2xl opacity-50" />
             <div class="relative glass-panel p-8 rounded-2xl shadow-2xl ring-1 ring-white/10">
               <div class="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center ring-1 ring-white/20">
-                <svg class="w-8 h-8 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg
+                  class="w-8 h-8 text-cyan-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.5"
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
               </div>
             </div>
           </div>
-          <h3 class="text-lg font-bold text-makoclaw-text mt-6">No scheduled jobs</h3>
-          <p class="text-sm text-makoclaw-text-secondary/70 mt-2 max-w-xs">Create cron jobs to automate tasks and send scheduled reminders.</p>
-          <button @click="openCreateModal" class="mt-6 px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white rounded-xl font-bold shadow-lg shadow-cyan-500/25 transition-all active:scale-95 flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          <h3 class="text-lg font-bold text-makoclaw-text mt-6">
+            No scheduled jobs
+          </h3>
+          <p class="text-sm text-makoclaw-text-secondary/70 mt-2 max-w-xs">
+            Create cron jobs to automate tasks and send scheduled reminders.
+          </p>
+          <button
+            class="mt-6 px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white rounded-xl font-bold shadow-lg shadow-cyan-500/25 transition-all active:scale-95 flex items-center gap-2"
+            @click="openCreateModal"
+          >
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 4v16m8-8H4"
+              />
             </svg>
             Create Your First Job
           </button>
         </div>
 
         <!-- Jobs List -->
-        <div v-else class="space-y-3">
+        <div
+          v-else
+          class="space-y-3"
+        >
           <div
             v-for="job in jobs"
             :key="job.id"
@@ -112,17 +192,44 @@
           >
             <!-- Card Header -->
             <div class="flex items-start gap-3 mb-3">
-              <div class="cron-icon" :class="job.enabled ? 'cron-icon-active' : 'cron-icon-disabled'">
-                <svg v-if="getJobTypeDisplay(job.payload) === 'task'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              <div
+                class="cron-icon"
+                :class="job.enabled ? 'cron-icon-active' : 'cron-icon-disabled'"
+              >
+                <svg
+                  v-if="getJobTypeDisplay(job.payload) === 'task'"
+                  class="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.5"
+                    d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                  />
                 </svg>
-                <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                <svg
+                  v-else
+                  class="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.5"
+                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                  />
                 </svg>
               </div>
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 mb-1 flex-wrap">
-                  <h3 class="font-semibold text-makoclaw-text">{{ job.name }}</h3>
+                  <h3 class="font-semibold text-makoclaw-text">
+                    {{ job.name }}
+                  </h3>
                   <span
                     class="px-2 py-0.5 text-[10px] font-medium rounded-full"
                     :class="job.enabled ? 'bg-cyan-500/10 text-cyan-400' : 'bg-makoclaw-text-secondary/10 text-makoclaw-text-secondary'"
@@ -133,29 +240,60 @@
                     {{ getJobTypeDisplay(job.payload) === 'task' ? 'Task' : 'Reminder' }}
                   </span>
                 </div>
-                <p class="text-sm text-makoclaw-text-secondary line-clamp-2">{{ job.payload.message }}</p>
+                <p class="text-sm text-makoclaw-text-secondary line-clamp-2">
+                  {{ job.payload.message }}
+                </p>
               </div>
             </div>
 
             <!-- Schedule Info -->
             <div class="flex flex-wrap items-center gap-3 text-xs text-makoclaw-text-secondary mb-4">
               <div class="flex items-center gap-1.5 px-2.5 py-1 bg-makoclaw-bg/50 rounded-lg">
-                <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg
+                  class="w-3.5 h-3.5 text-cyan-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
                 <span class="font-mono">{{ formatSchedule(job.schedule) }}</span>
               </div>
-              <div v-if="job.schedule.tz" class="flex items-center gap-1.5 px-2.5 py-1 bg-makoclaw-bg/50 rounded-lg">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <div
+                v-if="job.schedule.tz"
+                class="flex items-center gap-1.5 px-2.5 py-1 bg-makoclaw-bg/50 rounded-lg"
+              >
+                <svg
+                  class="w-3.5 h-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
                 <span class="font-mono">{{ job.schedule.tz }}</span>
               </div>
-              <div v-if="job.state.lastStatus" class="flex items-center gap-1.5">
+              <div
+                v-if="job.state.lastStatus"
+                class="flex items-center gap-1.5"
+              >
                 <span class="text-makoclaw-text-secondary/60">Last:</span>
                 <span :class="job.state.lastStatus === 'ok' ? 'text-emerald-400' : 'text-amber-400'">{{ job.state.lastStatus }}</span>
               </div>
-              <div v-if="job.state.nextRunAtMs" class="flex items-center gap-1.5">
+              <div
+                v-if="job.state.nextRunAtMs"
+                class="flex items-center gap-1.5"
+              >
                 <span class="text-makoclaw-text-secondary/60">Next:</span>
                 <span>{{ formatTimestamp(job.state.nextRunAtMs) }}</span>
               </div>
@@ -164,44 +302,106 @@
             <!-- Actions -->
             <div class="flex items-center gap-2 pt-3 border-t border-makoclaw-border/30">
               <button
-                @click="runJob(job)"
                 class="cron-action-btn text-cyan-400"
+                @click="runJob(job)"
               >
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg
+                  class="w-3.5 h-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                  />
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
                 Run Now
               </button>
               <button
-                @click="openEditModal(job)"
                 class="cron-action-btn"
+                @click="openEditModal(job)"
               >
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                <svg
+                  class="w-3.5 h-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                  />
                 </svg>
                 Edit
               </button>
               <button
-                @click="toggleJob(job.id, !job.enabled)"
                 class="cron-action-btn"
                 :class="job.enabled ? 'text-amber-400' : 'text-emerald-400'"
+                @click="toggleJob(job.id, !job.enabled)"
               >
-                <svg v-if="job.enabled" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg
+                  v-if="job.enabled"
+                  class="w-3.5 h-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
-                <svg v-else class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg
+                  v-else
+                  class="w-3.5 h-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                  />
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
                 {{ job.enabled ? 'Disable' : 'Enable' }}
               </button>
               <button
-                @click="confirmDeleteJob(job)"
                 class="cron-action-btn text-makoclaw-error ml-auto opacity-0 group-hover:opacity-100"
+                @click="confirmDeleteJob(job)"
               >
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                <svg
+                  class="w-3.5 h-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
                 </svg>
               </button>
             </div>
@@ -212,34 +412,75 @@
 
     <!-- Create/Edit Modal -->
     <Transition name="modal">
-      <div v-if="showModal" class="modal-backdrop" @click.self="showModal = false">
+      <div
+        v-if="showModal"
+        class="modal-backdrop"
+        @click.self="showModal = false"
+      >
         <div class="modal-content max-w-lg max-h-[90vh]">
           <div class="modal-header">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/20 to-makoclaw-accent/20 flex items-center justify-center">
-                <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg
+                  class="w-5 h-5 text-cyan-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
               </div>
               <div>
-                <h2 class="font-bold text-lg text-makoclaw-text">{{ editingJobId ? 'Edit Job' : 'Create Job' }}</h2>
-                <p class="text-xs text-makoclaw-text-secondary">Schedule automated tasks</p>
+                <h2 class="font-bold text-lg text-makoclaw-text">
+                  {{ editingJobId ? 'Edit Job' : 'Create Job' }}
+                </h2>
+                <p class="text-xs text-makoclaw-text-secondary">
+                  Schedule automated tasks
+                </p>
               </div>
             </div>
             <div class="flex items-center gap-2">
               <button
                 v-if="editingJobId"
-                @click="openJsonEditor"
                 class="text-xs px-3 py-1.5 bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-lg hover:bg-makoclaw-surface transition-colors flex items-center gap-1.5"
+                @click="openJsonEditor"
               >
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                <svg
+                  class="w-3.5 h-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
+                  />
                 </svg>
                 JSON
               </button>
-              <button @click="showModal = false" class="modal-close-btn">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              <button
+                class="modal-close-btn"
+                @click="showModal = false"
+              >
+                <svg
+                  class="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </div>
@@ -249,13 +490,23 @@
             <!-- Name -->
             <div>
               <label class="block text-sm font-medium text-makoclaw-text mb-1.5">Name</label>
-              <input v-model="form.name" type="text" placeholder="My scheduled task" class="input-field" />
+              <input
+                v-model="form.name"
+                type="text"
+                placeholder="My scheduled task"
+                class="input-field"
+              >
             </div>
 
             <!-- Message -->
             <div>
               <label class="block text-sm font-medium text-makoclaw-text mb-1.5">Message</label>
-              <textarea v-model="form.message" rows="3" placeholder="What should the agent do..." class="input-field resize-none" />
+              <textarea
+                v-model="form.message"
+                rows="3"
+                placeholder="What should the agent do..."
+                class="input-field resize-none"
+              />
             </div>
 
             <!-- Job Type -->
@@ -266,9 +517,24 @@
                   class="job-type-option"
                   :class="form.job_type === 'task' ? 'job-type-option-active' : ''"
                 >
-                  <input type="radio" v-model="form.job_type" value="task" class="sr-only" />
-                  <svg class="w-5 h-5 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  <input
+                    v-model="form.job_type"
+                    type="radio"
+                    value="task"
+                    class="sr-only"
+                  >
+                  <svg
+                    class="w-5 h-5 mb-1"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="1.5"
+                      d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                    />
                   </svg>
                   <span class="text-sm font-medium">Task</span>
                   <span class="text-[10px] text-makoclaw-text-secondary">Agent processes it</span>
@@ -277,9 +543,24 @@
                   class="job-type-option"
                   :class="form.job_type === 'reminder' ? 'job-type-option-active' : ''"
                 >
-                  <input type="radio" v-model="form.job_type" value="reminder" class="sr-only" />
-                  <svg class="w-5 h-5 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  <input
+                    v-model="form.job_type"
+                    type="radio"
+                    value="reminder"
+                    class="sr-only"
+                  >
+                  <svg
+                    class="w-5 h-5 mb-1"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="1.5"
+                      d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                    />
                   </svg>
                   <span class="text-sm font-medium">Reminder</span>
                   <span class="text-[10px] text-makoclaw-text-secondary">Direct message</span>
@@ -294,94 +575,188 @@
                 <button
                   v-for="opt in scheduleOptions"
                   :key="opt.value"
-                  @click="form.scheduleType = opt.value"
                   class="schedule-type-btn"
                   :class="form.scheduleType === opt.value ? 'schedule-type-btn-active' : ''"
-                >{{ opt.label }}</button>
+                  @click="form.scheduleType = opt.value"
+                >
+                  {{ opt.label }}
+                </button>
               </div>
             </div>
 
             <!-- Schedule-specific inputs -->
-            <div v-if="form.scheduleType === 'daily'" class="space-y-3">
+            <div
+              v-if="form.scheduleType === 'daily'"
+              class="space-y-3"
+            >
               <div>
                 <label class="block text-sm font-medium text-makoclaw-text mb-1.5">Time</label>
-                <input v-model="form.time" type="time" class="input-field" />
+                <input
+                  v-model="form.time"
+                  type="time"
+                  class="input-field"
+                >
               </div>
             </div>
 
-            <div v-if="form.scheduleType === 'weekly'" class="space-y-3">
+            <div
+              v-if="form.scheduleType === 'weekly'"
+              class="space-y-3"
+            >
               <div>
                 <label class="block text-sm font-medium text-makoclaw-text mb-2">Days</label>
                 <div class="flex gap-1.5">
                   <button
                     v-for="(day, idx) in weekDays"
                     :key="idx"
-                    @click="toggleWeekDay(idx)"
                     class="day-btn"
                     :class="form.weekDays.includes(idx) ? 'day-btn-active' : ''"
-                  >{{ day }}</button>
+                    @click="toggleWeekDay(idx)"
+                  >
+                    {{ day }}
+                  </button>
                 </div>
               </div>
               <div>
                 <label class="block text-sm font-medium text-makoclaw-text mb-1.5">Time</label>
-                <input v-model="form.time" type="time" class="input-field" />
+                <input
+                  v-model="form.time"
+                  type="time"
+                  class="input-field"
+                >
               </div>
             </div>
 
-            <div v-if="form.scheduleType === 'monthly'" class="space-y-3">
+            <div
+              v-if="form.scheduleType === 'monthly'"
+              class="space-y-3"
+            >
               <div>
                 <label class="block text-sm font-medium text-makoclaw-text mb-1.5">Day of month</label>
-                <select v-model.number="form.monthDay" class="input-field">
-                  <option v-for="d in 31" :key="d" :value="d">{{ d }}</option>
+                <select
+                  v-model.number="form.monthDay"
+                  class="input-field"
+                >
+                  <option
+                    v-for="d in 31"
+                    :key="d"
+                    :value="d"
+                  >
+                    {{ d }}
+                  </option>
                 </select>
               </div>
               <div>
                 <label class="block text-sm font-medium text-makoclaw-text mb-1.5">Time</label>
-                <input v-model="form.time" type="time" class="input-field" />
+                <input
+                  v-model="form.time"
+                  type="time"
+                  class="input-field"
+                >
               </div>
             </div>
 
-            <div v-if="form.scheduleType === 'interval'" class="space-y-3">
+            <div
+              v-if="form.scheduleType === 'interval'"
+              class="space-y-3"
+            >
               <label class="block text-sm font-medium text-makoclaw-text mb-1.5">Repeat every</label>
               <div class="flex gap-2">
-                <input v-model.number="form.intervalValue" type="number" min="1" placeholder="30" class="input-field flex-1" />
-                <select v-model="form.intervalUnit" class="input-field w-32">
-                  <option value="minutes">Minutes</option>
-                  <option value="hours">Hours</option>
+                <input
+                  v-model.number="form.intervalValue"
+                  type="number"
+                  min="1"
+                  placeholder="30"
+                  class="input-field flex-1"
+                >
+                <select
+                  v-model="form.intervalUnit"
+                  class="input-field w-32"
+                >
+                  <option value="minutes">
+                    Minutes
+                  </option>
+                  <option value="hours">
+                    Hours
+                  </option>
                 </select>
               </div>
             </div>
 
-            <div v-if="form.scheduleType === 'onetime'" class="space-y-3">
+            <div
+              v-if="form.scheduleType === 'onetime'"
+              class="space-y-3"
+            >
               <label class="block text-sm font-medium text-makoclaw-text mb-1.5">Run at</label>
-              <input v-model="form.oneTimeDateTime" type="datetime-local" class="input-field" />
+              <input
+                v-model="form.oneTimeDateTime"
+                type="datetime-local"
+                class="input-field"
+              >
             </div>
 
-            <div v-if="form.scheduleType === 'custom'" class="space-y-3">
+            <div
+              v-if="form.scheduleType === 'custom'"
+              class="space-y-3"
+            >
               <label class="block text-sm font-medium text-makoclaw-text mb-1.5">Cron Expression</label>
-              <input v-model="form.cronExpr" type="text" placeholder="0 9 * * 1-5" class="input-field font-mono" />
-              <p class="text-xs text-makoclaw-text-secondary">minute hour day-of-month month day-of-week</p>
+              <input
+                v-model="form.cronExpr"
+                type="text"
+                placeholder="0 9 * * 1-5"
+                class="input-field font-mono"
+              >
+              <p class="text-xs text-makoclaw-text-secondary">
+                minute hour day-of-month month day-of-week
+              </p>
             </div>
 
             <!-- Timezone -->
             <div v-if="['daily', 'weekly', 'monthly', 'custom'].includes(form.scheduleType)">
               <label class="block text-sm font-medium text-makoclaw-text mb-1.5">Timezone</label>
-              <select v-model="form.timezone" class="input-field">
-                <option value="">UTC (default)</option>
-                <option v-for="tz in commonTimezones" :key="tz" :value="tz">{{ tz }}</option>
+              <select
+                v-model="form.timezone"
+                class="input-field"
+              >
+                <option value="">
+                  UTC (default)
+                </option>
+                <option
+                  v-for="tz in commonTimezones"
+                  :key="tz"
+                  :value="tz"
+                >
+                  {{ tz }}
+                </option>
               </select>
             </div>
 
             <!-- Preview -->
-            <div v-if="generatedExpr" class="p-3 bg-makoclaw-bg/50 rounded-xl border border-makoclaw-border/30">
-              <p class="text-xs text-makoclaw-text-secondary mb-1">Expression</p>
+            <div
+              v-if="generatedExpr"
+              class="p-3 bg-makoclaw-bg/50 rounded-xl border border-makoclaw-border/30"
+            >
+              <p class="text-xs text-makoclaw-text-secondary mb-1">
+                Expression
+              </p>
               <code class="text-sm font-mono text-cyan-400">{{ generatedExpr }}</code>
             </div>
 
-            <div v-if="nextRuns.length > 0" class="p-3 bg-makoclaw-bg/50 rounded-xl border border-makoclaw-border/30">
-              <p class="text-xs text-makoclaw-text-secondary mb-2">Next runs</p>
+            <div
+              v-if="nextRuns.length > 0"
+              class="p-3 bg-makoclaw-bg/50 rounded-xl border border-makoclaw-border/30"
+            >
+              <p class="text-xs text-makoclaw-text-secondary mb-2">
+                Next runs
+              </p>
               <ul class="space-y-1">
-                <li v-for="(run, i) in nextRuns" :key="i" class="text-xs font-mono text-makoclaw-text">{{ run }}</li>
+                <li
+                  v-for="(run, i) in nextRuns"
+                  :key="i"
+                  class="text-xs font-mono text-makoclaw-text"
+                >
+                  {{ run }}
+                </li>
               </ul>
             </div>
 
@@ -389,18 +764,37 @@
             <div class="grid grid-cols-2 gap-3">
               <div>
                 <label class="block text-sm font-medium text-makoclaw-text mb-1.5">Channel</label>
-                <input v-model="form.channel" type="text" placeholder="telegram" class="input-field" />
+                <input
+                  v-model="form.channel"
+                  type="text"
+                  placeholder="telegram"
+                  class="input-field"
+                >
               </div>
               <div>
                 <label class="block text-sm font-medium text-makoclaw-text mb-1.5">To (Chat ID)</label>
-                <input v-model="form.to" type="text" placeholder="" class="input-field" />
+                <input
+                  v-model="form.to"
+                  type="text"
+                  placeholder=""
+                  class="input-field"
+                >
               </div>
             </div>
           </div>
 
           <div class="modal-footer">
-            <button @click="showModal = false" class="btn-ghost">Cancel</button>
-            <button @click="submitJob" :disabled="!canSubmit" class="btn-primary">
+            <button
+              class="btn-ghost"
+              @click="showModal = false"
+            >
+              Cancel
+            </button>
+            <button
+              :disabled="!canSubmit"
+              class="btn-primary"
+              @click="submitJob"
+            >
               {{ editingJobId ? 'Save' : 'Create' }}
             </button>
           </div>
@@ -410,21 +804,47 @@
 
     <!-- Delete Confirmation -->
     <Transition name="modal">
-      <div v-if="showDeleteConfirm" class="modal-backdrop" @click.self="showDeleteConfirm = false">
+      <div
+        v-if="showDeleteConfirm"
+        class="modal-backdrop"
+        @click.self="showDeleteConfirm = false"
+      >
         <div class="modal-content max-w-sm">
           <div class="p-6 text-center">
             <div class="w-16 h-16 rounded-2xl bg-makoclaw-error/10 flex items-center justify-center mx-auto mb-4">
-              <svg class="w-8 h-8 text-makoclaw-error" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              <svg
+                class="w-8 h-8 text-makoclaw-error"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.5"
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                />
               </svg>
             </div>
-            <h3 class="font-bold text-lg text-makoclaw-text mb-2">Delete Job</h3>
+            <h3 class="font-bold text-lg text-makoclaw-text mb-2">
+              Delete Job
+            </h3>
             <p class="text-sm text-makoclaw-text-secondary mb-6">
               Are you sure you want to delete <span class="font-medium text-makoclaw-text">{{ deletingJob?.name }}</span>?
             </p>
             <div class="flex justify-center gap-3">
-              <button @click="showDeleteConfirm = false" class="btn-ghost">Cancel</button>
-              <button @click="executeDeleteJob" class="btn-danger">Delete</button>
+              <button
+                class="btn-ghost"
+                @click="showDeleteConfirm = false"
+              >
+                Cancel
+              </button>
+              <button
+                class="btn-danger"
+                @click="executeDeleteJob"
+              >
+                Delete
+              </button>
             </div>
           </div>
         </div>
@@ -433,26 +853,55 @@
 
     <!-- JSON Editor Modal -->
     <Transition name="modal">
-      <div v-if="showJsonModal" class="modal-backdrop" @click.self="showJsonModal = false">
+      <div
+        v-if="showJsonModal"
+        class="modal-backdrop"
+        @click.self="showJsonModal = false"
+      >
         <div class="modal-content max-w-3xl h-[80vh]">
           <div class="modal-header">
             <div class="flex items-center gap-3">
-              <h2 class="font-bold text-lg text-makoclaw-text">Edit as JSON</h2>
+              <h2 class="font-bold text-lg text-makoclaw-text">
+                Edit as JSON
+              </h2>
             </div>
             <div class="flex items-center gap-2">
               <button
-                @click="requestAiJsonFix"
                 :disabled="savingJson"
                 class="text-xs px-3 py-1.5 bg-cyan-500/10 text-cyan-400 rounded-lg hover:bg-cyan-500/20 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                @click="requestAiJsonFix"
               >
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                <svg
+                  class="w-3.5 h-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                  />
                 </svg>
                 AI Fix
               </button>
-              <button @click="showJsonModal = false" class="modal-close-btn">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              <button
+                class="modal-close-btn"
+                @click="showJsonModal = false"
+              >
+                <svg
+                  class="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </div>
@@ -463,14 +912,26 @@
               class="w-full h-full input-field font-mono text-sm resize-none"
               placeholder="JSON content..."
               spellcheck="false"
-            ></textarea>
-            <div v-if="jsonEditError" class="mt-2 p-3 bg-makoclaw-error/10 border border-makoclaw-error/20 rounded-lg text-xs text-makoclaw-error">
+            />
+            <div
+              v-if="jsonEditError"
+              class="mt-2 p-3 bg-makoclaw-error/10 border border-makoclaw-error/20 rounded-lg text-xs text-makoclaw-error"
+            >
               {{ jsonEditError }}
             </div>
           </div>
           <div class="modal-footer">
-            <button @click="showJsonModal = false" class="btn-ghost">Cancel</button>
-            <button @click="saveFromJson" :disabled="savingJson" class="btn-primary">
+            <button
+              class="btn-ghost"
+              @click="showJsonModal = false"
+            >
+              Cancel
+            </button>
+            <button
+              :disabled="savingJson"
+              class="btn-primary"
+              @click="saveFromJson"
+            >
               {{ savingJson ? 'Saving...' : 'Save' }}
             </button>
           </div>
@@ -480,23 +941,54 @@
 
     <!-- AI Cron Creator Modal -->
     <Transition name="modal">
-      <div v-if="showAiModal" class="modal-backdrop" @click.self="closeAiModal">
+      <div
+        v-if="showAiModal"
+        class="modal-backdrop"
+        @click.self="closeAiModal"
+      >
         <div class="modal-content max-w-2xl">
           <div class="modal-header">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/20 to-makoclaw-accent/20 flex items-center justify-center">
-                <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                <svg
+                  class="w-5 h-5 text-cyan-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                  />
                 </svg>
               </div>
               <div>
-                <h2 class="font-bold text-lg text-makoclaw-text">Create with AI</h2>
-                <p class="text-xs text-makoclaw-text-secondary">Describe what you want in plain language</p>
+                <h2 class="font-bold text-lg text-makoclaw-text">
+                  Create with AI
+                </h2>
+                <p class="text-xs text-makoclaw-text-secondary">
+                  Describe what you want in plain language
+                </p>
               </div>
             </div>
-            <button @click="closeAiModal" class="modal-close-btn">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            <button
+              class="modal-close-btn"
+              @click="closeAiModal"
+            >
+              <svg
+                class="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           </div>
@@ -510,27 +1002,59 @@
                 placeholder="e.g., Send me weather every day at 8am, or Backup tasks every 2 hours"
                 class="input-field resize-none"
                 :disabled="aiGenerating"
-              ></textarea>
+              />
             </div>
             <button
-              @click="generateCronWithAI"
               :disabled="!aiPrompt.trim() || aiGenerating"
               class="w-full py-3 bg-gradient-to-r from-cyan-500 to-makoclaw-accent text-white rounded-xl font-semibold shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/30 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              @click="generateCronWithAI"
             >
-              <svg v-if="aiGenerating" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+              <svg
+                v-if="aiGenerating"
+                class="animate-spin w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  class="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  stroke-width="4"
+                />
+                <path
+                  class="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                />
               </svg>
-              <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              <svg
+                v-else
+                class="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M13 10V3L4 14h7v7l9-11h-7z"
+                />
               </svg>
               {{ aiGenerating ? 'Generating...' : 'Generate Job' }}
             </button>
 
             <!-- AI Result -->
-            <div v-if="aiResult" class="space-y-4 pt-4 border-t border-makoclaw-border/30">
+            <div
+              v-if="aiResult"
+              class="space-y-4 pt-4 border-t border-makoclaw-border/30"
+            >
               <div class="p-3 bg-cyan-500/10 border border-cyan-500/20 rounded-xl">
-                <p class="text-sm text-cyan-400">{{ aiExplanation }}</p>
+                <p class="text-sm text-cyan-400">
+                  {{ aiExplanation }}
+                </p>
               </div>
               <div class="p-4 bg-makoclaw-bg/50 border border-makoclaw-border/30 rounded-xl space-y-2">
                 <div class="flex items-center gap-2">
@@ -547,15 +1071,41 @@
                 </div>
               </div>
               <div class="flex gap-2">
-                <button @click="editAiResult" class="flex-1 btn-secondary flex items-center justify-center gap-2">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                <button
+                  class="flex-1 btn-secondary flex items-center justify-center gap-2"
+                  @click="editAiResult"
+                >
+                  <svg
+                    class="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                    />
                   </svg>
                   Edit
                 </button>
-                <button @click="saveAiResult" class="flex-1 btn-primary flex items-center justify-center gap-2">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                <button
+                  class="flex-1 btn-primary flex items-center justify-center gap-2"
+                  @click="saveAiResult"
+                >
+                  <svg
+                    class="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M5 13l4 4L19 7"
+                    />
                   </svg>
                   Create
                 </button>
@@ -563,8 +1113,16 @@
             </div>
           </div>
 
-          <div class="modal-footer" v-if="!aiResult">
-            <button @click="closeAiModal" class="btn-ghost">Close</button>
+          <div
+            v-if="!aiResult"
+            class="modal-footer"
+          >
+            <button
+              class="btn-ghost"
+              @click="closeAiModal"
+            >
+              Close
+            </button>
           </div>
         </div>
       </div>

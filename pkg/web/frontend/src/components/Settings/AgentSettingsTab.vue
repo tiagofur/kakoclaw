@@ -381,7 +381,7 @@
       :show="agentsStore.showSpecialistModal"
       :mode="agentsStore.specialistFormMode"
       :specialist="agentsStore.selectedSpecialist"
-      :providersList="providersList"
+      :providers-list="providersList"
       @close="agentsStore.closeSpecialistModal"
       @save="handleSpecialistSaved"
     />

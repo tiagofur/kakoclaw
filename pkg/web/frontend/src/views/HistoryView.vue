@@ -5,70 +5,193 @@
       <div class="flex justify-between items-center mb-3">
         <div class="flex items-center gap-2">
           <button 
-            @click="toggleSidebar"
             class="p-2 hover:bg-makoclaw-accent/10 rounded-xl text-makoclaw-text-secondary hover:text-makoclaw-accent transition-all duration-300 glass border border-transparent hover:border-makoclaw-accent/30 flex items-center justify-center group"
             title="Toggle Sidebar"
+            @click="toggleSidebar"
           >
-            <svg class="w-5 h-5 transition-transform duration-500" :class="{'rotate-180': isSidebarCollapsed}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+            <svg
+              class="w-5 h-5 transition-transform duration-500"
+              :class="{'rotate-180': isSidebarCollapsed}"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
+              />
             </svg>
           </button>
-          <h2 class="text-xl font-bold bg-gradient-to-r from-makoclaw-accent to-blue-500 bg-clip-text text-transparent ml-1">Chat History</h2>
+          <h2 class="text-xl font-bold bg-gradient-to-r from-makoclaw-accent to-blue-500 bg-clip-text text-transparent ml-1">
+            Chat History
+          </h2>
         </div>
         <div class="flex items-center gap-2">
-          <div class="relative" ref="exportDropdownRef">
-            <button @click="showExportMenu = !showExportMenu" class="p-2 hover:bg-makoclaw-bg rounded-lg text-makoclaw-text-secondary transition-colors" title="Export chat history">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+          <div
+            ref="exportDropdownRef"
+            class="relative"
+          >
+            <button
+              class="p-2 hover:bg-makoclaw-bg rounded-lg text-makoclaw-text-secondary transition-colors"
+              title="Export chat history"
+              @click="showExportMenu = !showExportMenu"
+            >
+              <svg
+                class="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              ><path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              /></svg>
             </button>
-            <div v-if="showExportMenu" class="absolute right-0 top-full mt-1 w-48 bg-makoclaw-surface border border-makoclaw-border rounded-lg shadow-lg p-1 z-50">
-              <button @click="handleExportAll" class="w-full text-left px-3 py-2 hover:bg-makoclaw-bg rounded text-sm transition-colors">Export All Chats</button>
-              <button v-if="activeSessionId" @click="handleExportSession" class="w-full text-left px-3 py-2 hover:bg-makoclaw-bg rounded text-sm transition-colors">Export Current Session</button>
+            <div
+              v-if="showExportMenu"
+              class="absolute right-0 top-full mt-1 w-48 bg-makoclaw-surface border border-makoclaw-border rounded-lg shadow-lg p-1 z-50"
+            >
+              <button
+                class="w-full text-left px-3 py-2 hover:bg-makoclaw-bg rounded text-sm transition-colors"
+                @click="handleExportAll"
+              >
+                Export All Chats
+              </button>
+              <button
+                v-if="activeSessionId"
+                class="w-full text-left px-3 py-2 hover:bg-makoclaw-bg rounded text-sm transition-colors"
+                @click="handleExportSession"
+              >
+                Export Current Session
+              </button>
             </div>
           </div>
-          <button @click="triggerImport" class="p-2 hover:bg-makoclaw-bg rounded-lg text-makoclaw-text-secondary transition-colors" title="Import conversations (ChatGPT, Claude, makoclaw)">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+          <button
+            class="p-2 hover:bg-makoclaw-bg rounded-lg text-makoclaw-text-secondary transition-colors"
+            title="Import conversations (ChatGPT, Claude, makoclaw)"
+            @click="triggerImport"
+          >
+            <svg
+              class="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+            /></svg>
           </button>
-          <input ref="importFileInput" type="file" accept=".json" class="hidden" @change="handleImportFile" />
-          <button @click="loadSessions" class="p-2 hover:bg-makoclaw-bg rounded-lg text-makoclaw-text-secondary transition-colors" title="Refresh">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+          <input
+            ref="importFileInput"
+            type="file"
+            accept=".json"
+            class="hidden"
+            @change="handleImportFile"
+          >
+          <button
+            class="p-2 hover:bg-makoclaw-bg rounded-lg text-makoclaw-text-secondary transition-colors"
+            title="Refresh"
+            @click="loadSessions"
+          >
+            <svg
+              class="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            /></svg>
           </button>
         </div>
       </div>
 
       <!-- Search bar -->
       <div class="relative mb-3">
-        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-makoclaw-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+        <svg
+          class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-makoclaw-text-secondary"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        ><path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+        /></svg>
         <input
           v-model="searchQuery"
-          @input="onSearchInput"
           type="text"
           placeholder="Search message content..."
           class="w-full pl-10 pr-8 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent transition-colors"
-        />
+          @input="onSearchInput"
+        >
         <button
           v-if="searchQuery"
-          @click="clearSearch"
           class="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-makoclaw-surface rounded text-makoclaw-text-secondary"
+          @click="clearSearch"
         >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+          <svg
+            class="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          ><path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M6 18L18 6M6 6l12 12"
+          /></svg>
         </button>
       </div>
 
       <!-- Filter row -->
       <div class="flex items-center gap-3">
-        <select v-model="filterType" class="bg-makoclaw-bg border border-makoclaw-border rounded-lg px-3 py-1.5 text-sm outline-none focus:border-makoclaw-accent">
-          <option value="all">All Sessions</option>
-          <option value="chat">Chats Only</option>
-          <option value="task">Tasks Only</option>
+        <select
+          v-model="filterType"
+          class="bg-makoclaw-bg border border-makoclaw-border rounded-lg px-3 py-1.5 text-sm outline-none focus:border-makoclaw-accent"
+        >
+          <option value="all">
+            All Sessions
+          </option>
+          <option value="chat">
+            Chats Only
+          </option>
+          <option value="task">
+            Tasks Only
+          </option>
         </select>
-        <select v-model="filterDate" class="bg-makoclaw-bg border border-makoclaw-border rounded-lg px-3 py-1.5 text-sm outline-none focus:border-makoclaw-accent">
-          <option value="all">All Time</option>
-          <option value="today">Today</option>
-          <option value="7d">Last 7 Days</option>
-          <option value="30d">Last 30 Days</option>
+        <select
+          v-model="filterDate"
+          class="bg-makoclaw-bg border border-makoclaw-border rounded-lg px-3 py-1.5 text-sm outline-none focus:border-makoclaw-accent"
+        >
+          <option value="all">
+            All Time
+          </option>
+          <option value="today">
+            Today
+          </option>
+          <option value="7d">
+            Last 7 Days
+          </option>
+          <option value="30d">
+            Last 30 Days
+          </option>
         </select>
         <label class="flex items-center gap-1.5 text-sm text-makoclaw-text-secondary cursor-pointer">
-          <input type="checkbox" v-model="showArchived" @change="loadSessions" class="rounded border-makoclaw-border text-makoclaw-accent focus:ring-makoclaw-accent" />
+          <input
+            v-model="showArchived"
+            type="checkbox"
+            class="rounded border-makoclaw-border text-makoclaw-accent focus:ring-makoclaw-accent"
+            @change="loadSessions"
+          >
           Archived
         </label>
         <span class="text-xs text-makoclaw-text-secondary ml-auto">
@@ -83,86 +206,191 @@
         class="border-r border-makoclaw-border overflow-y-auto p-2 space-y-1 bg-makoclaw-surface/50 backdrop-blur-sm transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]"
         :class="isSidebarCollapsed ? 'w-0 opacity-0 p-0 border-none overflow-hidden scale-95 origin-left' : 'w-1/3 opacity-100'"
       >
-        <div v-if="loading" class="text-center py-4 text-makoclaw-text-secondary animate-pulse">Loading sessions...</div>
-        <div v-else-if="searching" class="text-center py-4 text-makoclaw-text-secondary animate-pulse">Searching...</div>
+        <div
+          v-if="loading"
+          class="text-center py-4 text-makoclaw-text-secondary animate-pulse"
+        >
+          Loading sessions...
+        </div>
+        <div
+          v-else-if="searching"
+          class="text-center py-4 text-makoclaw-text-secondary animate-pulse"
+        >
+          Searching...
+        </div>
 
         <!-- Search results mode -->
         <template v-else-if="isSearchMode">
-          <div v-if="filteredSearchResults.length === 0" class="text-center py-4 text-makoclaw-text-secondary">
+          <div
+            v-if="filteredSearchResults.length === 0"
+            class="text-center py-4 text-makoclaw-text-secondary"
+          >
             No matching messages found for current filters.
           </div>
           <div
             v-for="(result, idx) in filteredSearchResults"
             :key="idx"
-            @click="selectSearchResult(result)"
             class="p-3 rounded-lg cursor-pointer transition-all border border-transparent hover:border-makoclaw-border hover:bg-makoclaw-bg/50"
             :class="selectedSearchResult === idx ? 'bg-makoclaw-bg border-makoclaw-accent/30 shadow-sm' : ''"
+            @click="selectSearchResult(result)"
           >
             <div class="flex items-center gap-2 mb-1">
-              <span class="text-[10px] font-medium px-1.5 py-0.5 rounded"
-                :class="result.role === 'user' ? 'bg-makoclaw-accent/20 text-makoclaw-accent' : 'bg-blue-500/20 text-blue-400'">
+              <span
+                class="text-[10px] font-medium px-1.5 py-0.5 rounded"
+                :class="result.role === 'user' ? 'bg-makoclaw-accent/20 text-makoclaw-accent' : 'bg-blue-500/20 text-blue-400'"
+              >
                 {{ result.role }}
               </span>
-              <span class="text-[10px] px-1.5 py-0.5 rounded"
-                :class="isTaskSession(result) ? 'bg-amber-500/20 text-amber-400' : 'bg-blue-500/20 text-blue-400'">
+              <span
+                class="text-[10px] px-1.5 py-0.5 rounded"
+                :class="isTaskSession(result) ? 'bg-amber-500/20 text-amber-400' : 'bg-blue-500/20 text-blue-400'"
+              >
                 {{ isTaskSession(result) ? 'Task' : 'Chat' }}
               </span>
             </div>
-            <div class="text-sm truncate text-makoclaw-text" v-html="highlightMatch(result.content, searchQuery)"></div>
-            <div class="text-[10px] text-makoclaw-text-secondary mt-1">{{ formatTime(result.created_at) }}</div>
+            <div
+              class="text-sm truncate text-makoclaw-text"
+              v-html="highlightMatch(result.content, searchQuery)"
+            />
+            <div class="text-[10px] text-makoclaw-text-secondary mt-1">
+              {{ formatTime(result.created_at) }}
+            </div>
           </div>
         </template>
 
         <!-- Normal sessions mode -->
         <template v-else>
-          <div v-if="filteredSessions.length === 0" class="text-center py-4 text-makoclaw-text-secondary">No matching history found.</div>
+          <div
+            v-if="filteredSessions.length === 0"
+            class="text-center py-4 text-makoclaw-text-secondary"
+          >
+            No matching history found.
+          </div>
 
           <div
             v-for="session in filteredSessions"
             :key="session.session_id"
-            @click="selectSession(session)"
             class="p-3 rounded-lg cursor-pointer transition-all border border-transparent hover:border-makoclaw-border group list-item-interactive"
             :class="selectedSession?.session_id === session.session_id ? 'bg-makoclaw-bg border-makoclaw-accent/30 shadow-sm' : ''"
+            @click="selectSession(session)"
           >
             <!-- Inline rename -->
-            <div v-if="renamingSession === session.session_id" class="flex items-center gap-1" @click.stop>
+            <div
+              v-if="renamingSession === session.session_id"
+              class="flex items-center gap-1"
+              @click.stop
+            >
               <input
                 v-model="renameInput"
-                @keyup.enter="submitRenameSession(session.session_id)"
-                @keyup.escape="cancelRenameSession"
-                @blur="submitRenameSession(session.session_id)"
                 class="flex-1 bg-makoclaw-bg border border-makoclaw-accent rounded px-2 py-1 text-xs text-makoclaw-text focus:outline-none"
                 autofocus
                 placeholder="Session title..."
-              />
+                @keyup.enter="submitRenameSession(session.session_id)"
+                @keyup.escape="cancelRenameSession"
+                @blur="submitRenameSession(session.session_id)"
+              >
             </div>
             <template v-else>
               <div class="flex items-center gap-2 mb-1">
                 <!-- Session type icon + badge -->
-                <svg v-if="isTaskSession(session)" class="w-4 h-4 text-amber-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
-                <svg v-else class="w-4 h-4 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
-                <div class="font-medium truncate text-sm flex-1">{{ getSessionTitle(session) }}</div>
+                <svg
+                  v-if="isTaskSession(session)"
+                  class="w-4 h-4 text-amber-400 flex-shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                ><path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+                /></svg>
+                <svg
+                  v-else
+                  class="w-4 h-4 text-blue-400 flex-shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                ><path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                /></svg>
+                <div class="font-medium truncate text-sm flex-1">
+                  {{ getSessionTitle(session) }}
+                </div>
                 <!-- Action buttons -->
-                <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" @click.stop>
-                  <button @click="startRenameSession(session)" class="p-1 hover:bg-makoclaw-border rounded text-makoclaw-text-secondary hover:text-makoclaw-accent transition-colors" title="Rename">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                <div
+                  class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                  @click.stop
+                >
+                  <button
+                    class="p-1 hover:bg-makoclaw-border rounded text-makoclaw-text-secondary hover:text-makoclaw-accent transition-colors"
+                    title="Rename"
+                    @click="startRenameSession(session)"
+                  >
+                    <svg
+                      class="w-3.5 h-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    ><path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                    /></svg>
                   </button>
-                  <button @click="archiveSessionById(session.session_id)" class="p-1 hover:bg-makoclaw-border rounded text-makoclaw-text-secondary hover:text-amber-400 transition-colors" :title="showArchived ? 'Unarchive' : 'Archive'">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                  <button
+                    class="p-1 hover:bg-makoclaw-border rounded text-makoclaw-text-secondary hover:text-amber-400 transition-colors"
+                    :title="showArchived ? 'Unarchive' : 'Archive'"
+                    @click="archiveSessionById(session.session_id)"
+                  >
+                    <svg
+                      class="w-3.5 h-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    ><path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+                    /></svg>
                   </button>
-                  <button @click="deleteSessionById(session.session_id)" class="p-1 hover:bg-makoclaw-border rounded text-makoclaw-text-secondary hover:text-makoclaw-error transition-colors" title="Delete">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  <button
+                    class="p-1 hover:bg-makoclaw-border rounded text-makoclaw-text-secondary hover:text-makoclaw-error transition-colors"
+                    title="Delete"
+                    @click="deleteSessionById(session.session_id)"
+                  >
+                    <svg
+                      class="w-3.5 h-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    ><path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    /></svg>
                   </button>
                 </div>
               </div>
               <div class="text-xs text-makoclaw-text-secondary flex justify-between items-center mt-1.5 pl-6">
                 <span>{{ formatTime(session.updated_at) }}</span>
                 <div class="flex items-center gap-2">
-                  <span v-if="session.message_count" class="text-[10px] text-makoclaw-text-secondary">
+                  <span
+                    v-if="session.message_count"
+                    class="text-[10px] text-makoclaw-text-secondary"
+                  >
                     {{ session.message_count }} msg{{ session.message_count !== 1 ? 's' : '' }}
                   </span>
-                  <span class="px-1.5 py-0.5 rounded text-[10px] font-medium"
-                    :class="isTaskSession(session) ? 'bg-amber-500/20 text-amber-400' : 'bg-blue-500/20 text-blue-400'">
+                  <span
+                    class="px-1.5 py-0.5 rounded text-[10px] font-medium"
+                    :class="isTaskSession(session) ? 'bg-amber-500/20 text-amber-400' : 'bg-blue-500/20 text-blue-400'"
+                  >
                     {{ isTaskSession(session) ? 'Task' : 'Chat' }}
                   </span>
                 </div>
@@ -172,11 +400,14 @@
         </template>
         
         <!-- Load More Button -->
-        <div v-if="!isSearchMode && hasMoreSessions && filteredSessions.length > 0" class="py-3 px-2">
+        <div
+          v-if="!isSearchMode && hasMoreSessions && filteredSessions.length > 0"
+          class="py-3 px-2"
+        >
           <button
-            @click="loadMore"
             :disabled="loading"
             class="w-full py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-xs font-semibold text-makoclaw-accent hover:bg-makoclaw-surface transition-colors disabled:opacity-50"
+            @click="loadMore"
           >
             {{ loading ? 'Loading...' : 'Load More Sessions' }}
           </button>
@@ -185,35 +416,90 @@
 
       <!-- Message View -->
       <div class="flex-1 overflow-y-auto p-4 bg-makoclaw-bg/30 relative">
-        <div v-if="!selectedSession && !selectedSearchResultSession" class="h-full flex flex-col items-center justify-center text-makoclaw-text-secondary">
-          <svg class="w-12 h-12 mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
-          <p class="text-sm">Select a session to view the conversation</p>
-          <p class="text-xs mt-1 opacity-60">Or search for specific messages above</p>
+        <div
+          v-if="!selectedSession && !selectedSearchResultSession"
+          class="h-full flex flex-col items-center justify-center text-makoclaw-text-secondary"
+        >
+          <svg
+            class="w-12 h-12 mb-2 opacity-50"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          ><path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.5"
+            d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+          /></svg>
+          <p class="text-sm">
+            Select a session to view the conversation
+          </p>
+          <p class="text-xs mt-1 opacity-60">
+            Or search for specific messages above
+          </p>
         </div>
 
-        <div v-else class="space-y-4 max-w-3xl mx-auto pb-20">
+        <div
+          v-else
+          class="space-y-4 max-w-3xl mx-auto pb-20"
+        >
           <div class="text-center mb-6 sticky top-0 z-10 bg-makoclaw-bg/95 backdrop-blur py-2 border-b border-makoclaw-border/50 flex justify-between items-center px-4 rounded-b-xl shadow-sm">
             <div class="flex items-center gap-2 text-xs text-makoclaw-text-secondary">
-              <svg v-if="activeSessionIsTask" class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
-              <svg v-else class="w-3.5 h-3.5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+              <svg
+                v-if="activeSessionIsTask"
+                class="w-3.5 h-3.5 text-amber-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              ><path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+              /></svg>
+              <svg
+                v-else
+                class="w-3.5 h-3.5 text-blue-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              ><path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+              /></svg>
               <span class="font-mono">{{ activeSessionId }}</span>
             </div>
             <button
-              @click="continueChat"
               class="flex items-center gap-2 px-3 py-1.5 bg-makoclaw-accent text-white text-xs rounded-lg hover:bg-makoclaw-accent-hover transition-colors shadow-sm"
+              @click="continueChat"
             >
               <span>Continue Chat</span>
-              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+              <svg
+                class="w-3 h-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              ><path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M14 5l7 7m0 0l-7 7m7-7H3"
+              /></svg>
             </button>
           </div>
 
-          <div v-if="loadingMessages" class="text-center py-8">
-            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-makoclaw-accent mx-auto"></div>
+          <div
+            v-if="loadingMessages"
+            class="text-center py-8"
+          >
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-makoclaw-accent mx-auto" />
           </div>
 
           <div
-            v-else
             v-for="(msg, index) in messages"
+            v-else
             :key="index"
             class="flex flex-col gap-1 group animate-fadeUp opacity-0"
             :class="msg.role === 'user' ? 'items-end' : 'items-start'"
@@ -223,18 +509,38 @@
               <span>{{ msg.role }}</span>
               <button
                 v-if="msg.role === 'assistant'"
-                @click="copyMessageContent(msg.content)"
                 class="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-makoclaw-surface rounded text-makoclaw-text-secondary hover:text-makoclaw-accent"
                 title="Copy response"
+                @click="copyMessageContent(msg.content)"
               >
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                <svg
+                  class="w-3.5 h-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                ><path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                /></svg>
               </button>
               <button
-                @click="forkAtMessage(msg)"
                 class="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-makoclaw-surface rounded text-makoclaw-text-secondary hover:text-makoclaw-accent"
                 title="Fork conversation from this point"
+                @click="forkAtMessage(msg)"
               >
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                <svg
+                  class="w-3.5 h-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                ><path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+                /></svg>
               </button>
             </div>
             <div
@@ -244,9 +550,14 @@
                 : 'bg-makoclaw-surface border border-makoclaw-border rounded-tl-none'"
             >
               <span v-if="msg.role === 'user'">{{ msg.content }}</span>
-              <MarkdownRenderer v-else :content="msg.content" />
+              <MarkdownRenderer
+                v-else
+                :content="msg.content"
+              />
             </div>
-            <div class="text-[10px] text-gray-400 px-1">{{ formatTime(msg.created_at || msg.timestamp) }}</div>
+            <div class="text-[10px] text-gray-400 px-1">
+              {{ formatTime(msg.created_at || msg.timestamp) }}
+            </div>
           </div>
         </div>
       </div>

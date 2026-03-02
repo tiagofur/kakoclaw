@@ -2,8 +2,8 @@
   <div class="h-full flex flex-col bg-makoclaw-bg relative overflow-hidden">
     <!-- Background Gradient Mesh -->
     <div class="absolute inset-0 pointer-events-none">
-      <div class="absolute inset-0 opacity-25 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-makoclaw-accent/30 via-transparent to-transparent"></div>
-      <div class="absolute inset-0 opacity-15 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-indigo-500/20 via-transparent to-transparent"></div>
+      <div class="absolute inset-0 opacity-25 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-makoclaw-accent/30 via-transparent to-transparent" />
+      <div class="absolute inset-0 opacity-15 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-indigo-500/20 via-transparent to-transparent" />
     </div>
 
     <!-- Header -->
@@ -12,8 +12,18 @@
         <div class="flex items-center gap-3">
           <!-- Icon Container -->
           <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-makoclaw-accent/20 to-indigo-500/20 flex items-center justify-center ring-1 ring-white/10 shadow-lg shadow-makoclaw-accent/10">
-            <svg class="w-5 h-5 sm:w-6 sm:h-6 text-makoclaw-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+            <svg
+              class="w-5 h-5 sm:w-6 sm:h-6 text-makoclaw-accent"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"
+              />
             </svg>
           </div>
 
@@ -23,7 +33,7 @@
               Dashboard
             </h1>
             <p class="text-xs sm:text-sm text-makoclaw-text-secondary mt-0.5 flex items-center gap-2">
-              <span class="w-1.5 h-1.5 rounded-full bg-makoclaw-success animate-pulse"></span>
+              <span class="w-1.5 h-1.5 rounded-full bg-makoclaw-success animate-pulse" />
               System operational • {{ authStore.user?.username || 'User' }}
             </p>
           </div>
@@ -33,8 +43,18 @@
             class="p-2.5 min-h-[40px] min-w-[40px] rounded-xl bg-makoclaw-surface/50 border border-makoclaw-border/50 hover:bg-makoclaw-surface-hover hover:border-makoclaw-accent/30 transition-all flex items-center justify-center active:scale-95"
             @click="reloadData"
           >
-            <svg class="w-4 h-4 text-makoclaw-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            <svg
+              class="w-4 h-4 text-makoclaw-text-secondary"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
             </svg>
           </button>
         </div>
@@ -44,14 +64,21 @@
     <!-- Content -->
     <div class="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 relative z-10">
       <!-- Loading Skeleton -->
-      <div v-if="loading" class="space-y-5 animate-pulse">
-        <div class="h-40 bg-makoclaw-surface/30 rounded-2xl border border-makoclaw-border/30"></div>
+      <div
+        v-if="loading"
+        class="space-y-5 animate-pulse"
+      >
+        <div class="h-40 bg-makoclaw-surface/30 rounded-2xl border border-makoclaw-border/30" />
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div v-for="i in 4" :key="i" class="h-28 bg-makoclaw-surface/30 rounded-2xl border border-makoclaw-border/30"></div>
+          <div
+            v-for="i in 4"
+            :key="i"
+            class="h-28 bg-makoclaw-surface/30 rounded-2xl border border-makoclaw-border/30"
+          />
         </div>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div class="h-72 bg-makoclaw-surface/30 rounded-2xl border border-makoclaw-border/30"></div>
-          <div class="h-72 bg-makoclaw-surface/30 rounded-2xl border border-makoclaw-border/30"></div>
+          <div class="h-72 bg-makoclaw-surface/30 rounded-2xl border border-makoclaw-border/30" />
+          <div class="h-72 bg-makoclaw-surface/30 rounded-2xl border border-makoclaw-border/30" />
         </div>
       </div>
 
@@ -61,29 +88,53 @@
           <div class="relative overflow-hidden bg-gradient-to-br from-makoclaw-accent via-blue-600 to-indigo-700 rounded-2xl p-5 sm:p-6 shadow-xl shadow-makoclaw-accent/20 group">
             <!-- Subtle mesh overlay -->
             <div class="absolute inset-0 opacity-20">
-              <div class="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1)_0%,transparent_50%)]"></div>
+              <div class="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1)_0%,transparent_50%)]" />
             </div>
 
             <div class="absolute top-0 right-0 p-6 opacity-10 hidden md:block">
-              <svg class="w-20 h-20" fill="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              <svg
+                class="w-20 h-20"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+              ><path d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
             </div>
 
             <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <span class="inline-block px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-[10px] font-bold text-white uppercase tracking-wider mb-3">Overview</span>
-                <h3 class="text-xl sm:text-2xl font-bold text-white">Welcome back, {{ authStore.user?.username || 'User' }}</h3>
-                <p class="text-white/80 mt-1 text-sm max-w-lg">Your workspace is ready. All systems operational across connected channels.</p>
+                <h3 class="text-xl sm:text-2xl font-bold text-white">
+                  Welcome back, {{ authStore.user?.username || 'User' }}
+                </h3>
+                <p class="text-white/80 mt-1 text-sm max-w-lg">
+                  Your workspace is ready. All systems operational across connected channels.
+                </p>
               </div>
 
               <div class="flex flex-wrap gap-3">
-                <router-link to="/chat" class="px-4 sm:px-5 py-2.5 min-h-[40px] bg-white text-makoclaw-accent rounded-xl font-bold shadow-lg hover:shadow-white/20 transition-all active:scale-95 text-sm flex items-center gap-2">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                <router-link
+                  to="/chat"
+                  class="px-4 sm:px-5 py-2.5 min-h-[40px] bg-white text-makoclaw-accent rounded-xl font-bold shadow-lg hover:shadow-white/20 transition-all active:scale-95 text-sm flex items-center gap-2"
+                >
+                  <svg
+                    class="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M12 4v16m8-8H4"
+                    />
                   </svg>
                   <span class="hidden sm:inline">New Session</span>
                   <span class="sm:hidden">New</span>
                 </router-link>
-                <router-link to="/tasks" class="px-4 sm:px-5 py-2.5 min-h-[40px] bg-white/10 backdrop-blur-md border border-white/20 text-white rounded-xl font-bold hover:bg-white/20 transition-all active:scale-95 text-sm">
+                <router-link
+                  to="/tasks"
+                  class="px-4 sm:px-5 py-2.5 min-h-[40px] bg-white/10 backdrop-blur-md border border-white/20 text-white rounded-xl font-bold hover:bg-white/20 transition-all active:scale-95 text-sm"
+                >
                   View Tasks
                 </router-link>
               </div>
@@ -98,17 +149,34 @@
               class="bg-makoclaw-surface/30 backdrop-blur-sm border border-makoclaw-border/30 rounded-2xl p-4 sm:p-5 transition-all duration-300 hover:bg-makoclaw-surface/50 hover:border-makoclaw-accent/20 hover:shadow-lg hover:shadow-makoclaw-accent/5 group ring-1 ring-white/5"
             >
               <div class="flex justify-between items-start">
-                <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-lg transition-transform duration-300 group-hover:scale-105" :class="stat.iconBg">
-                  <component :is="stat.icon" class="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                <div
+                  class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-lg transition-transform duration-300 group-hover:scale-105"
+                  :class="stat.iconBg"
+                >
+                  <component
+                    :is="stat.icon"
+                    class="w-4 h-4 sm:w-5 sm:h-5 text-white"
+                  />
                 </div>
-                <div v-if="stat.trend" class="px-2 py-0.5 rounded-full bg-makoclaw-success/10 text-[9px] font-bold text-makoclaw-success border border-makoclaw-success/20 flex items-center gap-1">
-                  <svg class="w-2 h-2" fill="currentColor" viewBox="0 0 24 24"><path d="M24 22h-24l12-20z"/></svg>
+                <div
+                  v-if="stat.trend"
+                  class="px-2 py-0.5 rounded-full bg-makoclaw-success/10 text-[9px] font-bold text-makoclaw-success border border-makoclaw-success/20 flex items-center gap-1"
+                >
+                  <svg
+                    class="w-2 h-2"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  ><path d="M24 22h-24l12-20z" /></svg>
                   {{ stat.trend }}%
                 </div>
               </div>
               <div class="mt-3 sm:mt-4">
-                <div class="text-[10px] font-bold uppercase tracking-wider text-makoclaw-text-secondary/60 mb-1">{{ stat.label }}</div>
-                <div class="text-xl sm:text-2xl font-bold text-makoclaw-text">{{ stat.value }}</div>
+                <div class="text-[10px] font-bold uppercase tracking-wider text-makoclaw-text-secondary/60 mb-1">
+                  {{ stat.label }}
+                </div>
+                <div class="text-xl sm:text-2xl font-bold text-makoclaw-text">
+                  {{ stat.value }}
+                </div>
               </div>
             </div>
           </div>
@@ -121,40 +189,68 @@
                 <!-- Model Usage Chart -->
                 <div class="bg-makoclaw-surface/30 backdrop-blur-sm border border-makoclaw-border/30 rounded-2xl p-5 ring-1 ring-white/5">
                   <div class="flex items-center justify-between mb-5">
-                    <h3 class="text-sm font-bold text-makoclaw-text">Model Usage</h3>
-                    <div class="w-2 h-2 rounded-full bg-blue-500 animate-pulse shadow-lg shadow-blue-500/50"></div>
+                    <h3 class="text-sm font-bold text-makoclaw-text">
+                      Model Usage
+                    </h3>
+                    <div class="w-2 h-2 rounded-full bg-blue-500 animate-pulse shadow-lg shadow-blue-500/50" />
                   </div>
                   <div class="relative min-h-[280px] flex items-center justify-center">
-                    <Doughnut v-if="modelChartData.labels.length > 0" :data="modelChartData" :options="chartOptions" />
-                    <div v-else class="text-sm text-makoclaw-text-secondary/50">No data available</div>
+                    <Doughnut
+                      v-if="modelChartData.labels.length > 0"
+                      :data="modelChartData"
+                      :options="chartOptions"
+                    />
+                    <div
+                      v-else
+                      class="text-sm text-makoclaw-text-secondary/50"
+                    >
+                      No data available
+                    </div>
                   </div>
                 </div>
 
                 <!-- Task Status Chart -->
                 <div class="bg-makoclaw-surface/30 backdrop-blur-sm border border-makoclaw-border/30 rounded-2xl p-5 ring-1 ring-white/5">
                   <div class="flex items-center justify-between mb-5">
-                    <h3 class="text-sm font-bold text-makoclaw-text">Task Status</h3>
-                    <div class="w-2 h-2 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/50"></div>
+                    <h3 class="text-sm font-bold text-makoclaw-text">
+                      Task Status
+                    </h3>
+                    <div class="w-2 h-2 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/50" />
                   </div>
                   <div class="relative min-h-[280px] flex items-center justify-center">
-                    <Bar v-if="taskChartData.labels.length > 0" :data="taskChartData" :options="barOptions" />
-                    <div v-else class="text-sm text-makoclaw-text-secondary/50">No tasks yet</div>
+                    <Bar
+                      v-if="taskChartData.labels.length > 0"
+                      :data="taskChartData"
+                      :options="barOptions"
+                    />
+                    <div
+                      v-else
+                      class="text-sm text-makoclaw-text-secondary/50"
+                    >
+                      No tasks yet
+                    </div>
                   </div>
                 </div>
               </div>
 
               <!-- Metrics Summary -->
               <div class="bg-makoclaw-surface/30 backdrop-blur-sm border border-makoclaw-border/30 rounded-2xl p-5 ring-1 ring-white/5">
-                <h3 class="text-sm font-bold text-makoclaw-text mb-5">System Metrics</h3>
+                <h3 class="text-sm font-bold text-makoclaw-text mb-5">
+                  System Metrics
+                </h3>
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
                   <div
                     v-for="metric in detailedMetrics"
                     :key="metric.label"
                     class="p-3 sm:p-4 rounded-xl hover:bg-makoclaw-accent/5 transition-all group border border-transparent hover:border-makoclaw-accent/10"
                   >
-                    <div class="text-[10px] font-bold text-makoclaw-text-secondary/60 uppercase tracking-wider mb-1 group-hover:text-makoclaw-accent transition-colors">{{ metric.label }}</div>
-                    <div class="text-xl sm:text-2xl font-bold text-makoclaw-text">{{ metric.value }}</div>
-                    <div class="h-1 w-8 bg-makoclaw-accent/20 rounded-full mt-2 group-hover:w-full transition-all duration-500"></div>
+                    <div class="text-[10px] font-bold text-makoclaw-text-secondary/60 uppercase tracking-wider mb-1 group-hover:text-makoclaw-accent transition-colors">
+                      {{ metric.label }}
+                    </div>
+                    <div class="text-xl sm:text-2xl font-bold text-makoclaw-text">
+                      {{ metric.value }}
+                    </div>
+                    <div class="h-1 w-8 bg-makoclaw-accent/20 rounded-full mt-2 group-hover:w-full transition-all duration-500" />
                   </div>
                 </div>
               </div>
@@ -164,7 +260,9 @@
             <div class="space-y-6">
               <!-- Quick Actions -->
               <div class="bg-makoclaw-surface/30 backdrop-blur-sm border border-makoclaw-border/30 rounded-2xl p-5 ring-1 ring-white/5">
-                <h3 class="text-sm font-bold text-makoclaw-text mb-4">Quick Actions</h3>
+                <h3 class="text-sm font-bold text-makoclaw-text mb-4">
+                  Quick Actions
+                </h3>
                 <div class="grid grid-cols-2 gap-3">
                   <router-link
                     v-for="action in quickActions"
@@ -172,8 +270,14 @@
                     :to="action.to"
                     class="flex flex-col items-center justify-center p-4 rounded-xl border border-makoclaw-border/30 hover:border-makoclaw-accent/30 bg-makoclaw-bg/30 hover:bg-makoclaw-accent/5 transition-all group active:scale-95"
                   >
-                    <div class="w-10 h-10 rounded-xl flex items-center justify-center mb-3 transition-transform group-hover:scale-105 shadow-lg" :class="action.color">
-                      <component :is="action.icon" class="w-5 h-5 text-white" />
+                    <div
+                      class="w-10 h-10 rounded-xl flex items-center justify-center mb-3 transition-transform group-hover:scale-105 shadow-lg"
+                      :class="action.color"
+                    >
+                      <component
+                        :is="action.icon"
+                        class="w-5 h-5 text-white"
+                      />
                     </div>
                     <span class="text-[10px] font-bold uppercase tracking-wide text-makoclaw-text-secondary group-hover:text-makoclaw-accent transition-colors">{{ action.label }}</span>
                   </router-link>
@@ -183,16 +287,38 @@
               <!-- Recent Activity -->
               <div class="bg-makoclaw-surface/30 backdrop-blur-sm border border-makoclaw-border/30 rounded-2xl p-5 ring-1 ring-white/5 flex flex-col h-[420px]">
                 <div class="flex items-center justify-between mb-4">
-                  <h3 class="text-sm font-bold text-makoclaw-text">Recent Activity</h3>
-                  <router-link to="/history" class="text-[10px] font-bold text-makoclaw-accent uppercase hover:underline tracking-wide">View All</router-link>
+                  <h3 class="text-sm font-bold text-makoclaw-text">
+                    Recent Activity
+                  </h3>
+                  <router-link
+                    to="/history"
+                    class="text-[10px] font-bold text-makoclaw-accent uppercase hover:underline tracking-wide"
+                  >
+                    View All
+                  </router-link>
                 </div>
 
                 <div class="flex-1 overflow-y-auto custom-scrollbar space-y-3">
-                  <div v-if="recentActivity.length === 0" class="flex flex-col items-center justify-center py-12 text-center">
+                  <div
+                    v-if="recentActivity.length === 0"
+                    class="flex flex-col items-center justify-center py-12 text-center"
+                  >
                     <div class="w-12 h-12 rounded-xl bg-makoclaw-bg/50 border border-makoclaw-border/50 flex items-center justify-center mb-4">
-                      <svg class="w-5 h-5 text-makoclaw-text-secondary/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      <svg
+                        class="w-5 h-5 text-makoclaw-text-secondary/50"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      ><path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                      /></svg>
                     </div>
-                    <p class="text-xs text-makoclaw-text-secondary/60">No recent activity</p>
+                    <p class="text-xs text-makoclaw-text-secondary/60">
+                      No recent activity
+                    </p>
                   </div>
 
                   <div
@@ -200,14 +326,22 @@
                     :key="item.id"
                     class="flex items-center gap-3 p-3 rounded-xl bg-makoclaw-bg/30 border border-transparent hover:border-makoclaw-accent/20 hover:bg-makoclaw-surface/30 transition-all group cursor-pointer"
                   >
-                    <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md" :class="item.iconBg">
-                      <component :is="item.icon" class="w-4 h-4 text-white" />
+                    <div
+                      class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md"
+                      :class="item.iconBg"
+                    >
+                      <component
+                        :is="item.icon"
+                        class="w-4 h-4 text-white"
+                      />
                     </div>
                     <div class="flex-1 min-w-0">
-                      <div class="text-xs font-bold text-makoclaw-text truncate group-hover:text-makoclaw-accent transition-colors">{{ item.title }}</div>
+                      <div class="text-xs font-bold text-makoclaw-text truncate group-hover:text-makoclaw-accent transition-colors">
+                        {{ item.title }}
+                      </div>
                       <div class="flex items-center gap-2 mt-1">
                         <span class="text-[10px] text-makoclaw-text-secondary/60">{{ item.time }}</span>
-                        <span class="w-1 h-1 rounded-full bg-makoclaw-border"></span>
+                        <span class="w-1 h-1 rounded-full bg-makoclaw-border" />
                         <span class="text-[10px] font-bold text-makoclaw-accent uppercase">{{ item.type }}</span>
                       </div>
                     </div>

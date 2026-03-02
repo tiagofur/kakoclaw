@@ -6,6 +6,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "lint": "eslint src",
     "test": "playwright test",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",
@@ -27,9 +28,12 @@
     "vue-router": "^4.3.0"
   },
   "devDependencies": {
+    "@eslint/js": "^8.57.1",
     "@playwright/test": "^1.58.2",
     "@vitejs/plugin-vue": "^5.0.0",
     "autoprefixer": "^10.4.17",
+    "eslint": "^8.57.1",
+    "eslint-plugin-vue": "^9.33.0",
     "postcss": "^8.4.32",
     "sharp": "^0.34.5",
     "terser": "^5.46.0",

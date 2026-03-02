@@ -19,7 +19,9 @@
               v-model="filters.user_id"
               class="w-full bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl px-4 py-2.5 text-sm font-medium text-makoclaw-text focus:border-makoclaw-accent outline-none transition-all cursor-pointer"
             >
-              <option value="">All Identities</option>
+              <option value="">
+                All Identities
+              </option>
               <option
                 v-for="user in users"
                 :key="user.id"
@@ -38,7 +40,9 @@
               v-model="filters.tool"
               class="w-full bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl px-4 py-2.5 text-sm font-medium text-makoclaw-text focus:border-makoclaw-accent outline-none transition-all cursor-pointer"
             >
-              <option value="">All Tools</option>
+              <option value="">
+                All Tools
+              </option>
               <option
                 v-for="tool in toolsList"
                 :key="tool"
@@ -57,9 +61,15 @@
               v-model="filters.success"
               class="w-full bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl px-4 py-2.5 text-sm font-medium text-makoclaw-text focus:border-makoclaw-accent outline-none transition-all cursor-pointer"
             >
-              <option value="">All Cycles</option>
-              <option value="true">Success Verified</option>
-              <option value="false">Failed / Restricted</option>
+              <option value="">
+                All Cycles
+              </option>
+              <option value="true">
+                Success Verified
+              </option>
+              <option value="false">
+                Failed / Restricted
+              </option>
             </select>
           </div>
 

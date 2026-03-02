@@ -79,7 +79,7 @@
     <!-- Email Communication / Mailbox Agent -->
     <div class="glass-panel p-6 rounded-3xl mt-8 border border-makoclaw-border/50 transition-all hover:border-cyan-500/30 relative overflow-hidden group">
       <!-- Decor -->
-      <div class="absolute top-0 right-0 w-64 h-64 bg-cyan-500/5 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2 group-hover:bg-cyan-500/10 transition-colors duration-700"/>
+      <div class="absolute top-0 right-0 w-64 h-64 bg-cyan-500/5 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2 group-hover:bg-cyan-500/10 transition-colors duration-700" />
 
       <div class="flex items-center justify-between mb-8 relative z-10 flex-wrap gap-4">
         <div class="flex items-center gap-4">
@@ -87,65 +87,121 @@
             <EnvelopeIcon class="w-6 h-6" />
           </div>
           <div>
-            <h3 class="text-lg font-black tracking-tight text-makoclaw-text uppercase italic">Transmission Mailbox</h3>
-            <p class="text-[10px] font-medium uppercase tracking-widest text-makoclaw-text-secondary/60">Automated Bot Dispatch & Reports</p>
+            <h3 class="text-lg font-black tracking-tight text-makoclaw-text uppercase italic">
+              Transmission Mailbox
+            </h3>
+            <p class="text-[10px] font-medium uppercase tracking-widest text-makoclaw-text-secondary/60">
+              Automated Bot Dispatch & Reports
+            </p>
           </div>
         </div>
         <button
-          @click="$emit('save', { tools: configData?.tools })"
           :disabled="saving"
           class="px-5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-cyan-500/20 flex items-center gap-2 group/save disabled:opacity-50"
+          @click="$emit('save', { tools: configData?.tools })"
         >
-          <ArrowPathIcon v-if="saving" class="w-4 h-4 animate-spin"/>
-          <PaperAirplaneIcon v-else class="w-4 h-4 group-hover/save:translate-x-1 group-hover/save:-translate-y-1 transition-transform"/>
+          <ArrowPathIcon
+            v-if="saving"
+            class="w-4 h-4 animate-spin"
+          />
+          <PaperAirplaneIcon
+            v-else
+            class="w-4 h-4 group-hover/save:translate-x-1 group-hover/save:-translate-y-1 transition-transform"
+          />
           {{ saving ? 'Syncing...' : 'Sync Mailbox' }}
         </button>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10" v-if="configData?.tools?.email">
+      <div
+        v-if="configData?.tools?.email"
+        class="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10"
+      >
         <div class="space-y-2">
           <label class="text-[10px] font-bold uppercase tracking-widest text-makoclaw-text-secondary/80 flex items-center gap-2">
-            <UserIcon class="w-3.5 h-3.5 text-cyan-400"/> Bot Dispatch Address (From)
+            <UserIcon class="w-3.5 h-3.5 text-cyan-400" /> Bot Dispatch Address (From)
           </label>
-          <input v-model="configData.tools.email.from" type="email" placeholder="bot@makoclaw.local" class="w-full bg-makoclaw-bg/60 border-2 border-makoclaw-border/50 rounded-2xl px-5 py-3.5 text-sm font-medium text-makoclaw-text focus:border-cyan-500 transition-colors outline-none hover:bg-makoclaw-bg/80">
+          <input
+            v-model="configData.tools.email.from"
+            type="email"
+            placeholder="bot@makoclaw.local"
+            class="w-full bg-makoclaw-bg/60 border-2 border-makoclaw-border/50 rounded-2xl px-5 py-3.5 text-sm font-medium text-makoclaw-text focus:border-cyan-500 transition-colors outline-none hover:bg-makoclaw-bg/80"
+          >
         </div>
         
         <div class="space-y-2">
           <label class="text-[10px] font-bold uppercase tracking-widest text-makoclaw-text-secondary/80 flex items-center gap-2">
-            <UsersIcon class="w-3.5 h-3.5 text-cyan-400"/> Default Recipient (To)
+            <UsersIcon class="w-3.5 h-3.5 text-cyan-400" /> Default Recipient (To)
           </label>
-          <input v-model="configData.tools.email.to" type="email" placeholder="admin@domain.com" class="w-full bg-makoclaw-bg/60 border-2 border-makoclaw-border/50 rounded-2xl px-5 py-3.5 text-sm font-medium text-makoclaw-text focus:border-cyan-500 transition-colors outline-none hover:bg-makoclaw-bg/80">
+          <input
+            v-model="configData.tools.email.to"
+            type="email"
+            placeholder="admin@domain.com"
+            class="w-full bg-makoclaw-bg/60 border-2 border-makoclaw-border/50 rounded-2xl px-5 py-3.5 text-sm font-medium text-makoclaw-text focus:border-cyan-500 transition-colors outline-none hover:bg-makoclaw-bg/80"
+          >
         </div>
 
         <div class="space-y-2">
           <label class="text-[10px] font-bold uppercase tracking-widest text-makoclaw-text-secondary/80">SMTP Server Host</label>
-          <input v-model="configData.tools.email.host" type="text" placeholder="smtp.gmail.com" class="w-full bg-makoclaw-bg/60 border-2 border-makoclaw-border/50 rounded-2xl px-5 py-3.5 text-sm font-medium text-makoclaw-text focus:border-cyan-500 transition-colors outline-none hover:bg-makoclaw-bg/80">
+          <input
+            v-model="configData.tools.email.host"
+            type="text"
+            placeholder="smtp.gmail.com"
+            class="w-full bg-makoclaw-bg/60 border-2 border-makoclaw-border/50 rounded-2xl px-5 py-3.5 text-sm font-medium text-makoclaw-text focus:border-cyan-500 transition-colors outline-none hover:bg-makoclaw-bg/80"
+          >
         </div>
 
         <div class="grid grid-cols-2 gap-4">
           <div class="space-y-2">
             <label class="text-[10px] font-bold uppercase tracking-widest text-makoclaw-text-secondary/80">Port</label>
-            <input v-model.number="configData.tools.email.port" type="number" placeholder="587" class="w-full bg-makoclaw-bg/60 border-2 border-makoclaw-border/50 rounded-2xl px-5 py-3.5 text-sm font-medium text-makoclaw-text focus:border-cyan-500 transition-colors outline-none hover:bg-makoclaw-bg/80">
+            <input
+              v-model.number="configData.tools.email.port"
+              type="number"
+              placeholder="587"
+              class="w-full bg-makoclaw-bg/60 border-2 border-makoclaw-border/50 rounded-2xl px-5 py-3.5 text-sm font-medium text-makoclaw-text focus:border-cyan-500 transition-colors outline-none hover:bg-makoclaw-bg/80"
+            >
           </div>
           <div class="space-y-2 flex flex-col justify-end pb-3">
-             <label class="flex items-center gap-3 cursor-pointer group/toggle">
-               <div class="relative w-12 h-6 rounded-full transition-colors duration-300" :class="configData.tools.email.enabled ? 'bg-cyan-500' : 'bg-makoclaw-border/80 border border-makoclaw-border'">
-                 <div class="absolute inset-y-1 w-4 h-4 rounded-full bg-white transition-transform duration-300 shadow-sm" :class="configData.tools.email.enabled ? 'left-1 translate-x-6' : 'left-1 translate-x-0'"/>
-               </div>
-               <span class="text-[10px] font-black uppercase tracking-widest transition-colors" :class="configData.tools.email.enabled ? 'text-cyan-400' : 'text-makoclaw-text-secondary/50'">Enable Link</span>
-               <input type="checkbox" v-model="configData.tools.email.enabled" class="hidden">
-             </label>
+            <label class="flex items-center gap-3 cursor-pointer group/toggle">
+              <div
+                class="relative w-12 h-6 rounded-full transition-colors duration-300"
+                :class="configData.tools.email.enabled ? 'bg-cyan-500' : 'bg-makoclaw-border/80 border border-makoclaw-border'"
+              >
+                <div
+                  class="absolute inset-y-1 w-4 h-4 rounded-full bg-white transition-transform duration-300 shadow-sm"
+                  :class="configData.tools.email.enabled ? 'left-1 translate-x-6' : 'left-1 translate-x-0'"
+                />
+              </div>
+              <span
+                class="text-[10px] font-black uppercase tracking-widest transition-colors"
+                :class="configData.tools.email.enabled ? 'text-cyan-400' : 'text-makoclaw-text-secondary/50'"
+              >Enable Link</span>
+              <input
+                v-model="configData.tools.email.enabled"
+                type="checkbox"
+                class="hidden"
+              >
+            </label>
           </div>
         </div>
 
         <div class="space-y-2">
           <label class="text-[10px] font-bold uppercase tracking-widest text-makoclaw-text-secondary/80">SMTP Username</label>
-          <input v-model="configData.tools.email.username" type="text" placeholder="Auth Username" class="w-full bg-makoclaw-bg/60 border-2 border-makoclaw-border/50 rounded-2xl px-5 py-3.5 text-sm font-medium text-makoclaw-text focus:border-cyan-500 transition-colors outline-none hover:bg-makoclaw-bg/80">
+          <input
+            v-model="configData.tools.email.username"
+            type="text"
+            placeholder="Auth Username"
+            class="w-full bg-makoclaw-bg/60 border-2 border-makoclaw-border/50 rounded-2xl px-5 py-3.5 text-sm font-medium text-makoclaw-text focus:border-cyan-500 transition-colors outline-none hover:bg-makoclaw-bg/80"
+          >
         </div>
 
         <div class="space-y-2">
           <label class="text-[10px] font-bold uppercase tracking-widest text-makoclaw-text-secondary/80">SMTP Password</label>
-          <input v-model="configData.tools.email.password" type="password" placeholder="••••••••••••" class="w-full bg-makoclaw-bg/60 border-2 border-makoclaw-border/50 rounded-2xl px-5 py-3.5 text-sm font-black tracking-widest text-makoclaw-text focus:border-cyan-500 transition-colors outline-none hover:bg-makoclaw-bg/80">
+          <input
+            v-model="configData.tools.email.password"
+            type="password"
+            placeholder="••••••••••••"
+            class="w-full bg-makoclaw-bg/60 border-2 border-makoclaw-border/50 rounded-2xl px-5 py-3.5 text-sm font-black tracking-widest text-makoclaw-text focus:border-cyan-500 transition-colors outline-none hover:bg-makoclaw-bg/80"
+          >
         </div>
       </div>
     </div>

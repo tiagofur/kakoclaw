@@ -4,7 +4,13 @@
     :class="`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${bgColor} ${textColor} border border-current/20`"
     :title="tooltip"
   >
-    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" v-html="icon"></svg>
+    <svg
+      class="w-3.5 h-3.5"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      v-html="icon"
+    />
     <span class="capitalize">{{ name }}</span>
   </span>
 </template>

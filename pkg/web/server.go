@@ -3311,7 +3311,9 @@ func (s *Server) handleAgents(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleAgentAction handles GET/POST for individual agents
-// handleGetSpecialists returns the list of active specialists for real-time UI display
+// handleGetSpecialists returns the list of active specialists for real-time UI display.
+// It reads from the user's persisted config first (so specialists show even when the
+// orchestrator is not enabled), then falls back to the in-memory registry.
 func (s *Server) handleGetSpecialists(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -3319,7 +3321,35 @@ func (s *Server) handleGetSpecialists(w http.ResponseWriter, r *http.Request) {
 	}
 
 	specialists := []map[string]interface{}{}
-	if s.agentManager != nil {
+
+	// Primary source: persisted user config (survives restarts, works without orchestrator)
+	if _, userUUID, ok := s.getUserStorage(r); ok && userUUID != "" {
+		if userCfg, _ := config.LoadConfigForUser(userUUID); userCfg != nil {
+			for name, spec := range userCfg.Agents.Specialists {
+				// Skip specialists that were explicitly removed
+				removed := false
+				for _, rn := range userCfg.Agents.RemovedSpecialists {
+					if rn == name {
+						removed = true
+						break
+					}
+				}
+				if removed {
+					continue
+				}
+
+				specialists = append(specialists, map[string]interface{}{
+					"name":        name,
+					"description": spec.Description,
+					"tools":       spec.Tools,
+					"keywords":    spec.Keywords,
+				})
+			}
+		}
+	}
+
+	// Fallback: in-memory registry (when user config is unavailable)
+	if len(specialists) == 0 && s.agentManager != nil {
 		specialists = s.agentManager.GetSpecialistsList()
 	}
 

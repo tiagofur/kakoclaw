@@ -7,10 +7,10 @@
           {{ title }}
         </h3>
         <span class="text-[10px] bg-makoclaw-bg/50 font-bold text-makoclaw-accent px-2.5 py-1 rounded-full border border-makoclaw-accent/10 shadow-sm">
-            {{ tasks.length }}
+          {{ tasks.length }}
         </span>
       </div>
-      <div class="h-[1px] bg-gradient-to-r from-transparent via-makoclaw-accent/10 to-transparent"></div>
+      <div class="h-[1px] bg-gradient-to-r from-transparent via-makoclaw-accent/10 to-transparent" />
     </div>
 
     <!-- Tasks List -->
@@ -23,20 +23,26 @@
         v-for="task in tasks"
         :key="task.id"
         draggable="true"
+        class="bg-makoclaw-surface/30 border border-makoclaw-border/20 rounded-xl p-3 sm:p-3.5 md:p-4 cursor-grab active:cursor-grabbing hover:border-makoclaw-accent/30 hover:shadow-xl hover:-translate-y-[2px] transition-all duration-200 group relative overflow-hidden backdrop-blur-md ring-1 ring-white/[0.03] hover:ring-white/[0.08]"
         @dragstart="dragStart($event, task)"
         @click="$emit('task-click', task)"
-        class="bg-makoclaw-surface/30 border border-makoclaw-border/20 rounded-xl p-3 sm:p-3.5 md:p-4 cursor-grab active:cursor-grabbing hover:border-makoclaw-accent/30 hover:shadow-xl hover:-translate-y-[2px] transition-all duration-200 group relative overflow-hidden backdrop-blur-md ring-1 ring-white/[0.03] hover:ring-white/[0.08]"
       >
-        <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-makoclaw-accent to-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+        <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-makoclaw-accent to-blue-500 opacity-0 group-hover:opacity-100 transition-opacity" />
 
         <div class="flex items-start justify-between gap-2 mb-1">
-           <h4 class="font-semibold text-sm leading-tight text-makoclaw-text group-hover:text-makoclaw-accent transition-colors">
-             {{ task.title }}
-           </h4>
-           <SpecialistBadge v-if="task.agent" :name="task.agent" />
+          <h4 class="font-semibold text-sm leading-tight text-makoclaw-text group-hover:text-makoclaw-accent transition-colors">
+            {{ task.title }}
+          </h4>
+          <SpecialistBadge
+            v-if="task.agent"
+            :name="task.agent"
+          />
         </div>
 
-        <p v-if="task.description" class="text-xs text-makoclaw-text-secondary line-clamp-2 mt-1 mb-2">
+        <p
+          v-if="task.description"
+          class="text-xs text-makoclaw-text-secondary line-clamp-2 mt-1 mb-2"
+        >
           {{ task.description }}
         </p>
 
@@ -51,9 +57,24 @@
       </div>
 
       <!-- Empty State -->
-      <div v-if="tasks.length === 0" class="flex flex-col items-center justify-center py-6 sm:py-8 text-makoclaw-text-secondary/50 border-2 border-dashed border-makoclaw-border/20 rounded-xl">
-        <svg class="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
-        <p class="text-xs">No tasks</p>
+      <div
+        v-if="tasks.length === 0"
+        class="flex flex-col items-center justify-center py-6 sm:py-8 text-makoclaw-text-secondary/50 border-2 border-dashed border-makoclaw-border/20 rounded-xl"
+      >
+        <svg
+          class="w-8 h-8 mb-2"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        ><path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+        /></svg>
+        <p class="text-xs">
+          No tasks
+        </p>
       </div>
     </div>
   </div>
