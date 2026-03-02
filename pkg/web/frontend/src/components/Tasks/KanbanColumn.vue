@@ -1,12 +1,16 @@
 <template>
-  <div class="glass-panel rounded-2xl p-2.5 sm:p-3 md:p-4 flex flex-col h-full min-w-[256px] sm:min-w-[288px] md:min-w-[320px] shadow-sm">
+  <div class="glass-panel rounded-2xl p-2.5 sm:p-3 md:p-4 flex flex-col h-full min-w-[256px] sm:min-w-[288px] md:min-w-[320px] shadow-sm transition-all duration-500 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
     <!-- Column Header -->
     <div class="mb-4 pb-0 flex flex-col">
       <div class="pb-3 flex items-center justify-between">
         <h3 class="font-bold text-xs uppercase tracking-[0.2em] text-makoclaw-text-secondary flex items-center gap-2 opacity-80">
+          <span
+            class="w-2 h-2 rounded-full"
+            :class="statusDotColor"
+          />
           {{ title }}
         </h3>
-        <span class="text-[10px] bg-makoclaw-bg/50 font-bold text-makoclaw-accent px-2.5 py-1 rounded-full border border-makoclaw-accent/10 shadow-sm">
+        <span class="text-[10px] bg-makoclaw-bg/50 font-bold text-makoclaw-accent px-2.5 py-1 rounded-full border border-makoclaw-accent/10 shadow-sm backdrop-blur-md">
           {{ tasks.length }}
         </span>
       </div>
@@ -23,11 +27,15 @@
         v-for="task in tasks"
         :key="task.id"
         draggable="true"
-        class="bg-makoclaw-surface/30 border border-makoclaw-border/20 rounded-xl p-3 sm:p-3.5 md:p-4 cursor-grab active:cursor-grabbing hover:border-makoclaw-accent/30 hover:shadow-xl hover:-translate-y-[2px] transition-all duration-200 group relative overflow-hidden backdrop-blur-md ring-1 ring-white/[0.03] hover:ring-white/[0.08]"
+        class="bg-makoclaw-surface/30 border border-makoclaw-border/20 rounded-xl p-3 sm:p-3.5 md:p-4 cursor-grab active:cursor-grabbing hover:border-makoclaw-accent/30 hover:shadow-xl hover:-translate-y-[2px] transition-all duration-300 group relative overflow-hidden backdrop-blur-md ring-1 ring-white/[0.03] hover:ring-white/[0.08]"
         @dragstart="dragStart($event, task)"
         @click="$emit('task-click', task)"
       >
         <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-makoclaw-accent to-blue-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+        <!-- Animated bottom-line on hover -->
+        <div class="absolute bottom-0 left-0 h-[2px] w-0 bg-gradient-to-r from-makoclaw-accent to-blue-500 group-hover:w-full transition-all duration-500 opacity-60" />
+        <!-- Soft gradient glow (top-right corner) -->
+        <div class="absolute -top-8 -right-8 w-20 h-20 bg-gradient-to-br from-makoclaw-accent to-blue-500 rounded-full opacity-0 blur-[20px] group-hover:opacity-15 transition-all duration-500" />
 
         <div class="flex items-start justify-between gap-2 mb-1">
           <h4 class="font-semibold text-sm leading-tight text-makoclaw-text group-hover:text-makoclaw-accent transition-colors">
@@ -81,11 +89,18 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import SpecialistBadge from '../Chat/SpecialistBadge.vue'
 
 const props = defineProps({
-  status: String,
-  title: String,
+  status: {
+    type: String,
+    default: ''
+  },
+  title: {
+    type: String,
+    default: ''
+  },
   tasks: {
     type: Array,
     default: () => []
@@ -131,10 +146,19 @@ const getStatusColor = (status) => {
   return colors[status] || colors['backlog']
 }
 
+const statusDotColor = computed(() => {
+  const colors = {
+    'backlog': 'bg-makoclaw-text-secondary/40',
+    'todo': 'bg-makoclaw-warning',
+    'in_progress': 'bg-makoclaw-accent animate-pulse',
+    'review': 'bg-amber-500 animate-pulse',
+    'done': 'bg-makoclaw-success'
+  }
+  return colors[props.status] || 'bg-makoclaw-text-secondary/40'
+})
+
 const formatDate = (date) => {
   const d = new Date(date)
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 </script>
-
-

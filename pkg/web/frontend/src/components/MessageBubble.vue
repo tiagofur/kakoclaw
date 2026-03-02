@@ -7,12 +7,18 @@
   >
     <div
       :class="[
-        'max-w-[92%] sm:max-w-[88%] md:max-w-[85%] lg:max-w-3xl xl:max-w-4xl 2xl:max-w-5xl px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 md:py-3 shadow-lg transition-all duration-300 transform hover:scale-[1.002] animate-slideUp',
+        'relative max-w-[92%] sm:max-w-[88%] md:max-w-[85%] lg:max-w-3xl xl:max-w-4xl 2xl:max-w-5xl px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 md:py-3 shadow-lg transition-all duration-300 transform hover:scale-[1.002] animate-slideUp overflow-hidden group/bubble',
         msg.role === 'user'
           ? 'bg-gradient-to-br from-makoclaw-accent to-makoclaw-accent-hover text-white rounded-2xl rounded-br-none shadow-makoclaw-accent/10'
           : 'glass-panel text-makoclaw-text rounded-2xl rounded-bl-none shadow-lg shadow-black/[0.03] dark:shadow-black/20'
       ]"
     >
+      <!-- Hover accent line for assistant messages -->
+      <div
+        v-if="msg.role === 'assistant'"
+        class="absolute bottom-0 left-0 h-[2px] w-0 bg-gradient-to-r from-makoclaw-accent to-blue-500 group-hover/bubble:w-full transition-all duration-500 opacity-50"
+      />
+
       <p
         v-if="msg.role === 'user'"
         class="text-sm md:text-base whitespace-pre-wrap break-words leading-relaxed"

@@ -4,6 +4,10 @@
     <div class="absolute inset-0 pointer-events-none">
       <div class="absolute inset-0 opacity-25 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-blue-500/30 via-transparent to-transparent" />
       <div class="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-emerald-500/20 via-transparent to-transparent" />
+      <div
+        class="absolute -bottom-24 -right-24 w-72 h-72 bg-indigo-500/8 blur-[80px] rounded-full pointer-events-none"
+        style="animation: float 18s infinite ease-in-out"
+      />
     </div>
 
     <!-- Page Header -->
@@ -22,7 +26,7 @@
                 stroke-linecap="round"
                 stroke-linejoin="round"
                 stroke-width="2"
-                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
               />
             </svg>
           </div>
@@ -36,7 +40,7 @@
           </div>
           <!-- Create task button -->
           <button
-            class="px-4 sm:px-5 py-2.5 min-h-[40px] bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl transition-all shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 text-sm font-bold flex items-center gap-2 active:scale-95 flex-shrink-0"
+            class="px-4 sm:px-5 py-2.5 min-h-[40px] bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl transition-all shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:-translate-y-0.5 text-sm font-bold flex items-center gap-2 active:scale-95 flex-shrink-0"
             @click="showNewTaskModal = true"
           >
             <svg
@@ -433,3 +437,10 @@ const handleTaskUnarchived = async (taskId) => {
 </script>
 
 
+
+<style scoped>
+@keyframes float {
+  0%, 100% { transform: translateY(0) translateX(0); }
+  50% { transform: translateY(-15px) translateX(8px); }
+}
+</style>

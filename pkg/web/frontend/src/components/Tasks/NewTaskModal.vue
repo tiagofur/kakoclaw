@@ -4,7 +4,10 @@
       v-show="true"
       class="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 z-modal"
     >
-      <div class="glass-panel rounded-2xl max-w-md w-full shadow-2xl">
+      <div class="glass-panel rounded-2xl max-w-md w-full shadow-2xl relative overflow-hidden group/modal">
+        <!-- Background decorative glow -->
+        <div class="absolute -top-24 -left-24 w-48 h-48 bg-makoclaw-accent/10 blur-[60px] rounded-full pointer-events-none group-hover/modal:bg-makoclaw-accent/15 transition-all duration-1000" />
+
         <!-- Header -->
         <div class="flex items-center justify-between p-3 sm:p-4 border-b border-makoclaw-border/30">
           <h3 class="text-lg font-semibold">
@@ -124,7 +127,7 @@
             </button>
             <button
               type="submit"
-              class="flex-1 px-3 py-2 min-h-[36px] bg-makoclaw-accent hover:bg-makoclaw-accent-hover text-white rounded-xl transition-all shadow-md shadow-makoclaw-accent/20 hover:shadow-makoclaw-accent/40 text-sm font-medium disabled:opacity-50"
+              class="flex-1 px-3 py-2 min-h-[36px] bg-gradient-to-r from-makoclaw-accent to-blue-600 hover:from-makoclaw-accent-hover hover:to-blue-700 text-white rounded-xl transition-all shadow-md shadow-makoclaw-accent/20 hover:shadow-makoclaw-accent/40 hover:-translate-y-0.5 text-sm font-medium disabled:opacity-50 active:scale-95"
               :disabled="isLoading"
             >
               {{ isLoading ? 'Creating...' : 'Create Task' }}
@@ -173,4 +176,3 @@ const handleCreateTask = async () => {
   }
 }
 </script>
-

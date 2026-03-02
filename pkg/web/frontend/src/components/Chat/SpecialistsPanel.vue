@@ -1,5 +1,8 @@
 <template>
-  <div class="glass-panel rounded-lg p-4 mb-4">
+  <div class="glass-panel rounded-2xl p-4 mb-4 relative overflow-hidden group/panel">
+    <!-- Subtle glow effect in the corner -->
+    <div class="absolute -top-12 -right-12 w-32 h-32 bg-makoclaw-accent/10 blur-[40px] rounded-full pointer-events-none group-hover/panel:bg-makoclaw-accent/20 transition-all duration-700" />
+
     <div class="flex items-center justify-between mb-3">
       <h3 class="text-sm font-semibold text-makoclaw-text flex items-center gap-2">
         <svg
@@ -47,8 +50,11 @@
         <div
           v-for="specialist in specialists"
           :key="specialist.name"
-          class="flex items-start gap-3 p-2 sm:p-2.5 rounded-xl bg-makoclaw-surface/20 hover:bg-makoclaw-surface/40 border border-makoclaw-border/10 hover:border-makoclaw-border/20 backdrop-blur-sm transition-all duration-200"
+          class="flex items-start gap-3 p-2 sm:p-2.5 rounded-xl bg-makoclaw-surface/20 hover:bg-makoclaw-surface/40 border border-makoclaw-border/10 hover:border-makoclaw-border/20 backdrop-blur-sm transition-all duration-300 relative overflow-hidden group/specialist hover:-translate-y-0.5"
         >
+          <!-- Animated bottom-line on hover -->
+          <div class="absolute bottom-0 left-0 h-[1.5px] w-0 bg-gradient-to-r from-makoclaw-accent to-blue-500 group-hover/specialist:w-full transition-all duration-500 opacity-60" />
+
           <SpecialistBadge
             :name="specialist.name"
             class="text-xs flex-shrink-0 mt-0.5"

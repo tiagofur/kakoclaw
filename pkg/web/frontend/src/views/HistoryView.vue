@@ -1,16 +1,25 @@
 <template>
-  <div class="h-full flex flex-col">
-    <!-- Header with filters -->
-    <div class="flex-none p-4 glass-sticky">
-      <div class="flex justify-between items-center mb-3">
-        <div class="flex items-center gap-2">
-          <button 
-            class="p-2 hover:bg-makoclaw-accent/10 rounded-xl text-makoclaw-text-secondary hover:text-makoclaw-accent transition-all duration-300 glass border border-transparent hover:border-makoclaw-accent/30 flex items-center justify-center group"
+  <div class="h-full flex flex-col bg-makoclaw-bg relative overflow-hidden">
+    <!-- Background Gradient Mesh -->
+    <div class="absolute inset-0 pointer-events-none">
+      <div class="absolute inset-0 opacity-25 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-orange-500/30 via-transparent to-transparent" />
+      <div class="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-amber-500/20 via-transparent to-transparent" />
+    </div>
+
+
+    <!-- Header -->
+    <div class="glass-sticky top-0 z-20 border-b border-makoclaw-border/20">
+      <div class="px-4 sm:px-6 pt-4 sm:pt-5 pb-3">
+        <!-- Title Row -->
+        <div class="flex items-center gap-3">
+          <!-- Sidebar toggle -->
+          <button
+            class="p-2 min-h-[40px] min-w-[40px] rounded-xl bg-makoclaw-surface/50 border border-makoclaw-border/50 hover:bg-makoclaw-surface-hover hover:border-orange-400/30 transition-all flex items-center justify-center active:scale-95"
             title="Toggle Sidebar"
             @click="toggleSidebar"
           >
             <svg
-              class="w-5 h-5 transition-transform duration-500"
+              class="w-4 h-4 text-makoclaw-text-secondary transition-transform duration-500"
               :class="{'rotate-180': isSidebarCollapsed}"
               fill="none"
               stroke="currentColor"
@@ -24,22 +33,82 @@
               />
             </svg>
           </button>
-          <h2 class="text-xl font-bold bg-gradient-to-r from-makoclaw-accent to-blue-500 bg-clip-text text-transparent ml-1">
-            Chat History
-          </h2>
-        </div>
-        <div class="flex items-center gap-2">
-          <div
-            ref="exportDropdownRef"
-            class="relative"
-          >
+
+          <!-- Icon Container -->
+          <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-orange-500/20 to-amber-500/20 flex items-center justify-center ring-1 ring-white/10 shadow-lg shadow-orange-500/10">
+            <svg
+              class="w-5 h-5 sm:w-6 sm:h-6 text-orange-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </div>
+
+          <div class="flex-1 min-w-0">
+            <h1 class="text-xl sm:text-2xl font-bold bg-gradient-to-r from-makoclaw-text via-makoclaw-text to-orange-400 bg-clip-text text-transparent">
+              Chat History
+            </h1>
+            <p class="text-xs sm:text-sm text-makoclaw-text-secondary mt-0.5 hidden sm:block">
+              Browse, search, and manage past conversations
+            </p>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <div
+              ref="exportDropdownRef"
+              class="relative"
+            >
+              <button
+                class="p-2.5 min-h-[40px] min-w-[40px] rounded-xl bg-makoclaw-surface/50 border border-makoclaw-border/50 hover:bg-makoclaw-surface-hover hover:border-orange-400/30 transition-all flex items-center justify-center active:scale-95"
+                title="Export chat history"
+                @click="showExportMenu = !showExportMenu"
+              >
+                <svg
+                  class="w-4 h-4 text-makoclaw-text-secondary"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                ><path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                /></svg>
+              </button>
+              <div
+                v-if="showExportMenu"
+                class="absolute right-0 top-full mt-2 w-52 bg-makoclaw-surface/95 backdrop-blur-xl border border-makoclaw-border/50 rounded-xl shadow-2xl p-1.5 z-50 ring-1 ring-white/10"
+              >
+                <button
+                  class="w-full text-left px-3 py-2.5 hover:bg-orange-500/10 hover:text-orange-400 rounded-lg text-sm transition-all"
+                  @click="handleExportAll"
+                >
+                  Export All Chats
+                </button>
+                <button
+                  v-if="activeSessionId"
+                  class="w-full text-left px-3 py-2.5 hover:bg-orange-500/10 hover:text-orange-400 rounded-lg text-sm transition-all"
+                  @click="handleExportSession"
+                >
+                  Export Current Session
+                </button>
+              </div>
+            </div>
             <button
-              class="p-2 hover:bg-makoclaw-bg rounded-lg text-makoclaw-text-secondary transition-colors"
-              title="Export chat history"
-              @click="showExportMenu = !showExportMenu"
+              class="p-2.5 min-h-[40px] min-w-[40px] rounded-xl bg-makoclaw-surface/50 border border-makoclaw-border/50 hover:bg-makoclaw-surface-hover hover:border-orange-400/30 transition-all flex items-center justify-center active:scale-95"
+              title="Import conversations (ChatGPT, Claude, makoclaw)"
+              @click="triggerImport"
             >
               <svg
-                class="w-5 h-5"
+                class="w-4 h-4 text-makoclaw-text-secondary"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -47,163 +116,131 @@
                 stroke-linecap="round"
                 stroke-linejoin="round"
                 stroke-width="2"
-                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
               /></svg>
             </button>
-            <div
-              v-if="showExportMenu"
-              class="absolute right-0 top-full mt-1 w-48 bg-makoclaw-surface border border-makoclaw-border rounded-lg shadow-lg p-1 z-50"
+            <input
+              ref="importFileInput"
+              type="file"
+              accept=".json"
+              class="hidden"
+              @change="handleImportFile"
             >
-              <button
-                class="w-full text-left px-3 py-2 hover:bg-makoclaw-bg rounded text-sm transition-colors"
-                @click="handleExportAll"
-              >
-                Export All Chats
-              </button>
-              <button
-                v-if="activeSessionId"
-                class="w-full text-left px-3 py-2 hover:bg-makoclaw-bg rounded text-sm transition-colors"
-                @click="handleExportSession"
-              >
-                Export Current Session
-              </button>
-            </div>
+            <button
+              class="p-2.5 min-h-[40px] min-w-[40px] rounded-xl bg-makoclaw-surface/50 border border-makoclaw-border/50 hover:bg-makoclaw-surface-hover hover:border-orange-400/30 transition-all flex items-center justify-center active:scale-95"
+              title="Refresh"
+              @click="loadSessions"
+            >
+              <svg
+                class="w-4 h-4 text-makoclaw-text-secondary"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              ><path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              /></svg>
+            </button>
           </div>
-          <button
-            class="p-2 hover:bg-makoclaw-bg rounded-lg text-makoclaw-text-secondary transition-colors"
-            title="Import conversations (ChatGPT, Claude, makoclaw)"
-            @click="triggerImport"
-          >
-            <svg
-              class="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            ><path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-            /></svg>
-          </button>
-          <input
-            ref="importFileInput"
-            type="file"
-            accept=".json"
-            class="hidden"
-            @change="handleImportFile"
-          >
-          <button
-            class="p-2 hover:bg-makoclaw-bg rounded-lg text-makoclaw-text-secondary transition-colors"
-            title="Refresh"
-            @click="loadSessions"
-          >
-            <svg
-              class="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            ><path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-            /></svg>
-          </button>
         </div>
-      </div>
 
-      <!-- Search bar -->
-      <div class="relative mb-3">
-        <svg
-          class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-makoclaw-text-secondary"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        ><path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-        /></svg>
-        <input
-          v-model="searchQuery"
-          type="text"
-          placeholder="Search message content..."
-          class="w-full pl-10 pr-8 py-2 bg-makoclaw-bg border border-makoclaw-border rounded-lg text-sm outline-none focus:border-makoclaw-accent transition-colors"
-          @input="onSearchInput"
-        >
-        <button
-          v-if="searchQuery"
-          class="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-makoclaw-surface rounded text-makoclaw-text-secondary"
-          @click="clearSearch"
-        >
-          <svg
-            class="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          ><path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M6 18L18 6M6 6l12 12"
-          /></svg>
-        </button>
-      </div>
+        <!-- Search + Filters Row -->
+        <div class="mt-3 flex flex-col sm:flex-row gap-3">
+          <!-- Search bar -->
+          <div class="relative flex-1">
+            <svg
+              class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-makoclaw-text-secondary"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            /></svg>
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="Search message content..."
+              class="w-full pl-10 pr-8 py-2 bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-xl text-sm outline-none focus:border-orange-400/50 focus:ring-2 focus:ring-orange-400/20 transition-all"
+              @input="onSearchInput"
+            >
+            <button
+              v-if="searchQuery"
+              class="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-makoclaw-surface rounded-lg text-makoclaw-text-secondary"
+              @click="clearSearch"
+            >
+              <svg
+                class="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              ><path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              /></svg>
+            </button>
+          </div>
 
-      <!-- Filter row -->
-      <div class="flex items-center gap-3">
-        <select
-          v-model="filterType"
-          class="bg-makoclaw-bg border border-makoclaw-border rounded-lg px-3 py-1.5 text-sm outline-none focus:border-makoclaw-accent"
-        >
-          <option value="all">
-            All Sessions
-          </option>
-          <option value="chat">
-            Chats Only
-          </option>
-          <option value="task">
-            Tasks Only
-          </option>
-        </select>
-        <select
-          v-model="filterDate"
-          class="bg-makoclaw-bg border border-makoclaw-border rounded-lg px-3 py-1.5 text-sm outline-none focus:border-makoclaw-accent"
-        >
-          <option value="all">
-            All Time
-          </option>
-          <option value="today">
-            Today
-          </option>
-          <option value="7d">
-            Last 7 Days
-          </option>
-          <option value="30d">
-            Last 30 Days
-          </option>
-        </select>
-        <label class="flex items-center gap-1.5 text-sm text-makoclaw-text-secondary cursor-pointer">
-          <input
-            v-model="showArchived"
-            type="checkbox"
-            class="rounded border-makoclaw-border text-makoclaw-accent focus:ring-makoclaw-accent"
-            @change="loadSessions"
-          >
-          Archived
-        </label>
-        <span class="text-xs text-makoclaw-text-secondary ml-auto">
-          {{ isSearchMode ? `${filteredSearchResults.length} results` : `${filteredSessions.length} sessions` }}
-        </span>
+          <!-- Filters -->
+          <div class="flex items-center gap-3">
+            <select
+              v-model="filterType"
+              class="bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-xl px-3 py-2 text-sm outline-none focus:border-orange-400/50 cursor-pointer"
+            >
+              <option value="all">
+                All Sessions
+              </option>
+              <option value="chat">
+                Chats Only
+              </option>
+              <option value="task">
+                Tasks Only
+              </option>
+            </select>
+            <select
+              v-model="filterDate"
+              class="bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-xl px-3 py-2 text-sm outline-none focus:border-orange-400/50 cursor-pointer"
+            >
+              <option value="all">
+                All Time
+              </option>
+              <option value="today">
+                Today
+              </option>
+              <option value="7d">
+                Last 7 Days
+              </option>
+              <option value="30d">
+                Last 30 Days
+              </option>
+            </select>
+            <label class="flex items-center gap-1.5 text-sm text-makoclaw-text-secondary cursor-pointer">
+              <input
+                v-model="showArchived"
+                type="checkbox"
+                class="rounded border-makoclaw-border text-orange-500 focus:ring-orange-400"
+                @change="loadSessions"
+              >
+              Archived
+            </label>
+            <span class="text-xs text-makoclaw-text-secondary ml-auto">
+              {{ isSearchMode ? `${filteredSearchResults.length} results` : `${filteredSessions.length} sessions` }}
+            </span>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="flex-1 flex overflow-hidden">
+    <div class="flex-1 flex overflow-hidden relative z-10">
       <!-- Session List / Search Results -->
       <div 
-        class="border-r border-makoclaw-border overflow-y-auto p-2 space-y-1 bg-makoclaw-surface/50 backdrop-blur-sm transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]"
+        class="border-r border-makoclaw-border/30 overflow-y-auto p-2 space-y-1 bg-makoclaw-surface/30 backdrop-blur-sm transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] custom-scrollbar ring-1 ring-white/5"
         :class="isSidebarCollapsed ? 'w-0 opacity-0 p-0 border-none overflow-hidden scale-95 origin-left' : 'w-1/3 opacity-100'"
       >
         <div
@@ -270,10 +307,17 @@
           <div
             v-for="session in filteredSessions"
             :key="session.session_id"
-            class="p-3 rounded-lg cursor-pointer transition-all border border-transparent hover:border-makoclaw-border group list-item-interactive"
+            class="p-3 rounded-lg cursor-pointer transition-all border border-transparent hover:border-makoclaw-border group/session list-item-interactive relative overflow-hidden"
             :class="selectedSession?.session_id === session.session_id ? 'bg-makoclaw-bg border-makoclaw-accent/30 shadow-sm' : ''"
             @click="selectSession(session)"
           >
+            <!-- Hover glow line (left edge) -->
+            <div class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-0 bg-gradient-to-b from-transparent via-makoclaw-accent/40 to-transparent group-hover/session:h-2/3 transition-all duration-300" />
+            <!-- Animated bottom-line on hover -->
+            <div class="absolute bottom-0 left-0 h-[2px] w-0 bg-gradient-to-r from-makoclaw-accent to-blue-500 group-hover/session:w-full transition-all duration-500 opacity-40" />
+            <!-- Soft gradient glow (top-right) -->
+            <div class="absolute -top-6 -right-6 w-16 h-16 bg-gradient-to-br from-makoclaw-accent to-blue-500 rounded-full opacity-0 blur-[15px] group-hover/session:opacity-10 transition-all duration-500" />
+
             <!-- Inline rename -->
             <div
               v-if="renamingSession === session.session_id"
@@ -322,7 +366,7 @@
                 </div>
                 <!-- Action buttons -->
                 <div
-                  class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                  class="flex items-center gap-0.5 opacity-0 group-hover/session:opacity-100 transition-opacity"
                   @click.stop
                 >
                   <button
@@ -415,23 +459,29 @@
       </div>
 
       <!-- Message View -->
-      <div class="flex-1 overflow-y-auto p-4 bg-makoclaw-bg/30 relative">
+      <div class="flex-1 overflow-y-auto p-4 bg-makoclaw-bg/30 relative custom-scrollbar">
         <div
           v-if="!selectedSession && !selectedSearchResultSession"
           class="h-full flex flex-col items-center justify-center text-makoclaw-text-secondary"
         >
-          <svg
-            class="w-12 h-12 mb-2 opacity-50"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          ><path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="1.5"
-            d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-          /></svg>
-          <p class="text-sm">
+          <div class="relative glass-panel p-6 sm:p-8 rounded-2xl mb-4 shadow-lg shadow-makoclaw-accent/5 group/empty">
+            <!-- Gradient glow behind icon -->
+            <div class="absolute -top-8 -right-8 w-24 h-24 bg-gradient-to-br from-makoclaw-accent to-blue-500 rounded-full opacity-15 blur-[25px] group-hover/empty:opacity-30 group-hover/empty:scale-110 transition-all duration-500" />
+            <svg
+              class="w-12 h-12 text-makoclaw-accent drop-shadow-sm relative z-10 transition-transform duration-500 group-hover/empty:scale-110 group-hover/empty:rotate-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.5"
+              d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+            /></svg>
+            <!-- Animated bottom-line -->
+            <div class="absolute bottom-0 left-0 h-[2px] w-0 bg-gradient-to-r from-makoclaw-accent to-blue-500 group-hover/empty:w-full transition-all duration-500 opacity-70 rounded-b-2xl" />
+          </div>
+          <p class="text-sm font-semibold text-makoclaw-text">
             Select a session to view the conversation
           </p>
           <p class="text-xs mt-1 opacity-60">
@@ -544,11 +594,17 @@
               </button>
             </div>
             <div
-              class="max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm leading-relaxed"
+              class="max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm leading-relaxed relative overflow-hidden group/msg"
               :class="msg.role === 'user'
-                ? 'bg-makoclaw-accent text-white rounded-tr-none whitespace-pre-wrap'
-                : 'bg-makoclaw-surface border border-makoclaw-border rounded-tl-none'"
+                ? 'bg-gradient-to-br from-makoclaw-accent to-makoclaw-accent-hover text-white rounded-tr-none whitespace-pre-wrap'
+                : 'glass-panel border-makoclaw-border rounded-tl-none text-makoclaw-text'"
             >
+              <!-- Hover accent line for assistant messages -->
+              <div
+                v-if="msg.role !== 'user'"
+                class="absolute bottom-0 left-0 h-[2px] w-0 bg-gradient-to-r from-makoclaw-accent to-blue-500 group-hover/msg:w-full transition-all duration-500 opacity-50"
+              />
+
               <span v-if="msg.role === 'user'">{{ msg.content }}</span>
               <MarkdownRenderer
                 v-else
@@ -952,4 +1008,19 @@ onBeforeUnmount(() => {
 })
 </script>
 
+<style scoped>
+@keyframes float {
+  0%, 100% { transform: translateY(0) translateX(0); }
+  50% { transform: translateY(-20px) translateX(10px); }
+}
 
+.list-item-interactive {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-sticky {
+  background: rgba(var(--makoclaw-surface-rgb), 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+</style>

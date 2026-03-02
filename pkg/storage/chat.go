@@ -386,13 +386,13 @@ func (s *Storage) ListSessionsForUser(userKey interface{}, archived *bool, limit
 	var sessions []SessionSummary
 	for rows.Next() {
 		var ss SessionSummary
-		var updatedAtStr string
-		if err := rows.Scan(&ss.SessionID, &ss.Title, &ss.Archived, &ss.LastMessage, &updatedAtStr, &ss.MessageCount); err != nil {
+		var updatedAt sql.NullString
+		if err := rows.Scan(&ss.SessionID, &ss.Title, &ss.Archived, &ss.LastMessage, &updatedAt, &ss.MessageCount); err != nil {
 			return nil, fmt.Errorf("scanning session: %w", err)
 		}
-		if updatedAtStr != "" {
+		if updatedAt.Valid && updatedAt.String != "" {
 			for _, layout := range []string{time.RFC3339, "2006-01-02 15:04:05", time.RFC3339Nano, time.DateTime} {
-				if t, err := time.Parse(layout, updatedAtStr); err == nil {
+				if t, err := time.Parse(layout, updatedAt.String); err == nil {
 					ss.UpdatedAt = t
 					break
 				}

@@ -85,7 +85,7 @@
       <template v-else>
         <div class="max-w-7xl mx-auto space-y-6">
           <!-- Welcome Banner -->
-          <div class="relative overflow-hidden bg-gradient-to-br from-makoclaw-accent via-blue-600 to-indigo-700 rounded-2xl p-5 sm:p-6 shadow-xl shadow-makoclaw-accent/20 group">
+          <div class="relative overflow-hidden bg-gradient-to-br from-makoclaw-accent/20 via-blue-600/15 to-indigo-700/20 backdrop-blur-xl rounded-2xl p-5 sm:p-6 shadow-xl shadow-makoclaw-accent/10 group border border-white/10 ring-1 ring-white/5">
             <!-- Subtle mesh overlay -->
             <div class="absolute inset-0 opacity-20">
               <div class="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1)_0%,transparent_50%)]" />
@@ -101,11 +101,11 @@
 
             <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
-                <span class="inline-block px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-[10px] font-bold text-white uppercase tracking-wider mb-3">Overview</span>
-                <h3 class="text-xl sm:text-2xl font-bold text-white">
+                <span class="inline-block px-3 py-1 bg-makoclaw-accent/20 backdrop-blur-md rounded-full text-[10px] font-bold text-makoclaw-accent uppercase tracking-wider mb-3 border border-makoclaw-accent/30">Overview</span>
+                <h3 class="text-xl sm:text-2xl font-bold bg-gradient-to-r from-makoclaw-text via-makoclaw-text to-makoclaw-accent bg-clip-text text-transparent">
                   Welcome back, {{ authStore.user?.username || 'User' }}
                 </h3>
-                <p class="text-white/80 mt-1 text-sm max-w-lg">
+                <p class="text-makoclaw-text-secondary mt-1 text-sm max-w-lg">
                   Your workspace is ready. All systems operational across connected channels.
                 </p>
               </div>
@@ -113,7 +113,7 @@
               <div class="flex flex-wrap gap-3">
                 <router-link
                   to="/chat"
-                  class="px-4 sm:px-5 py-2.5 min-h-[40px] bg-white text-makoclaw-accent rounded-xl font-bold shadow-lg hover:shadow-white/20 transition-all active:scale-95 text-sm flex items-center gap-2"
+                  class="px-4 sm:px-5 py-2.5 min-h-[40px] bg-makoclaw-accent/20 backdrop-blur-md border border-makoclaw-accent/30 text-makoclaw-accent rounded-xl font-bold shadow-lg shadow-makoclaw-accent/10 hover:bg-makoclaw-accent/30 hover:shadow-makoclaw-accent/20 transition-all active:scale-95 text-sm flex items-center gap-2 ring-1 ring-makoclaw-accent/20"
                 >
                   <svg
                     class="w-4 h-4"
@@ -133,7 +133,7 @@
                 </router-link>
                 <router-link
                   to="/tasks"
-                  class="px-4 sm:px-5 py-2.5 min-h-[40px] bg-white/10 backdrop-blur-md border border-white/20 text-white rounded-xl font-bold hover:bg-white/20 transition-all active:scale-95 text-sm"
+                  class="px-4 sm:px-5 py-2.5 min-h-[40px] bg-makoclaw-surface/50 backdrop-blur-md border border-makoclaw-border/40 text-makoclaw-text rounded-xl font-bold hover:bg-makoclaw-surface-hover hover:border-makoclaw-accent/30 transition-all active:scale-95 text-sm ring-1 ring-white/5"
                 >
                   View Tasks
                 </router-link>
@@ -146,11 +146,13 @@
             <div
               v-for="stat in statItems"
               :key="stat.label"
-              class="bg-makoclaw-surface/30 backdrop-blur-sm border border-makoclaw-border/30 rounded-2xl p-4 sm:p-5 transition-all duration-300 hover:bg-makoclaw-surface/50 hover:border-makoclaw-accent/20 hover:shadow-lg hover:shadow-makoclaw-accent/5 group ring-1 ring-white/5"
+              class="bg-makoclaw-surface/30 backdrop-blur-sm border border-makoclaw-border/30 rounded-2xl p-4 sm:p-5 transition-all duration-300 hover:bg-makoclaw-surface/50 hover:border-makoclaw-accent/20 hover:shadow-lg hover:shadow-makoclaw-accent/5 group ring-1 ring-white/5 relative overflow-hidden"
             >
+              <!-- Hover accent line -->
+              <div class="absolute bottom-0 left-0 h-[2px] w-0 bg-gradient-to-r from-makoclaw-accent to-indigo-500 group-hover:w-full transition-all duration-500 opacity-50" />
               <div class="flex justify-between items-start">
                 <div
-                  class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-lg transition-transform duration-300 group-hover:scale-105"
+                  class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-lg transition-transform duration-300 group-hover:scale-105 backdrop-blur-md ring-1 ring-white/20"
                   :class="stat.iconBg"
                 >
                   <component
@@ -271,7 +273,7 @@
                     class="flex flex-col items-center justify-center p-4 rounded-xl border border-makoclaw-border/30 hover:border-makoclaw-accent/30 bg-makoclaw-bg/30 hover:bg-makoclaw-accent/5 transition-all group active:scale-95"
                   >
                     <div
-                      class="w-10 h-10 rounded-xl flex items-center justify-center mb-3 transition-transform group-hover:scale-105 shadow-lg"
+                      class="w-10 h-10 rounded-xl flex items-center justify-center mb-3 transition-transform group-hover:scale-105 shadow-lg backdrop-blur-md ring-1 ring-white/20"
                       :class="action.color"
                     >
                       <component
@@ -404,10 +406,10 @@ const stats = computed(() => {
 })
 
 const statItems = computed(() => [
-  { label: 'Total Tasks', value: stats.value.totalTasks, icon: IconTasks, iconBg: 'from-blue-500 to-indigo-600', trend: 12 },
-  { label: 'In Progress', value: stats.value.inProgress, icon: IconProgress, iconBg: 'from-makoclaw-accent to-blue-400', trend: 5 },
-  { label: 'Chat Sessions', value: stats.value.chatSessions, icon: IconChat, iconBg: 'from-cyan-500 to-blue-500', trend: 8 },
-  { label: 'Messages', value: formatNumber(stats.value.totalMessages), icon: IconMessage, iconBg: 'from-indigo-500 to-purple-600', trend: 15 },
+  { label: 'Total Tasks', value: stats.value.totalTasks, icon: IconTasks, iconBg: 'from-blue-500/40 to-indigo-600/40', trend: 12 },
+  { label: 'In Progress', value: stats.value.inProgress, icon: IconProgress, iconBg: 'from-makoclaw-accent/40 to-blue-400/40', trend: 5 },
+  { label: 'Chat Sessions', value: stats.value.chatSessions, icon: IconChat, iconBg: 'from-cyan-500/40 to-blue-500/40', trend: 8 },
+  { label: 'Messages', value: formatNumber(stats.value.totalMessages), icon: IconMessage, iconBg: 'from-indigo-500/40 to-purple-600/40', trend: 15 },
 ])
 
 const detailedMetrics = computed(() => {
@@ -421,10 +423,10 @@ const detailedMetrics = computed(() => {
 })
 
 const quickActions = [
-  { label: 'New Chat', to: '/chat', icon: IconPlus, color: 'bg-makoclaw-accent shadow-lg shadow-makoclaw-accent/30' },
-  { label: 'Tasks', to: '/tasks', icon: IconTasks, color: 'bg-indigo-500 shadow-lg shadow-indigo-500/30' },
-  { label: 'History', to: '/history', icon: IconHistory, color: 'bg-cyan-500 shadow-lg shadow-cyan-500/30' },
-  { label: 'Memory', to: '/memory', icon: IconBrain, color: 'bg-blue-600 shadow-lg shadow-blue-600/30' },
+  { label: 'New Chat', to: '/chat', icon: IconPlus, color: 'bg-makoclaw-accent/30 shadow-lg shadow-makoclaw-accent/20' },
+  { label: 'Tasks', to: '/tasks', icon: IconTasks, color: 'bg-indigo-500/30 shadow-lg shadow-indigo-500/20' },
+  { label: 'History', to: '/history', icon: IconHistory, color: 'bg-cyan-500/30 shadow-lg shadow-cyan-500/20' },
+  { label: 'Memory', to: '/memory', icon: IconBrain, color: 'bg-blue-600/30 shadow-lg shadow-blue-600/20' },
 ]
 
 const recentActivity = computed(() => {
