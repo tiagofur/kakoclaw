@@ -1,5 +1,4 @@
 import { useAuthStore } from '../stores/authStore'
-import { useChatStore } from '../stores/chatStore'
 import client from './api'
 
 export default {

@@ -1,9 +1,13 @@
 <template>
-  <div class="markdown-body" ref="containerRef" v-html="rendered"></div>
+  <div
+    ref="containerRef"
+    class="markdown-body"
+    v-html="rendered"
+  />
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onUpdated, onBeforeUnmount } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js/lib/core'
 import { ensureLoaded, runPython, getStatus } from '../../services/pyodideRunner'
@@ -114,7 +118,6 @@ async function handleRunPython(btn) {
 
   // Disable button and show loading state
   btn.disabled = true
-  const originalText = btn.innerHTML
   btn.innerHTML = '&#9203; Loading...'
 
   // Find or create output container right after the <pre>

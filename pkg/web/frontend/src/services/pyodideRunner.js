@@ -90,7 +90,7 @@ sys.stderr = __stderr_capture
 
   try {
     // Wrap execution in a timeout
-    const result = await Promise.race([
+    await Promise.race([
       (async () => {
         try {
           pyodide.runPython(code)

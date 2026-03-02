@@ -1,9 +1,17 @@
 <template>
   <div class="qr-container">
-    <div ref="qrElement" class="qr-code"></div>
-    <p class="qr-subtitle">Scan with your phone to continue setup</p>
+    <div
+      ref="qrElement"
+      class="qr-code"
+    />
+    <p class="qr-subtitle">
+      Scan with your phone to continue setup
+    </p>
     <p class="qr-url-display">
-      Or visit: <a :href="url" target="_blank">{{ urlText }}</a>
+      Or visit: <a
+        :href="url"
+        target="_blank"
+      >{{ urlText }}</a>
     </p>
   </div>
 </template>

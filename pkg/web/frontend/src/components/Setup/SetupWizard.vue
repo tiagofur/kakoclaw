@@ -3,8 +3,12 @@
     <div class="max-w-2xl mx-auto">
       <!-- Header -->
       <div class="mb-8">
-        <h1 class="text-4xl font-bold text-white mb-2">Welcome to makoclaw</h1>
-        <p class="text-slate-300">Let's set up your AI agent in just a few steps</p>
+        <h1 class="text-4xl font-bold text-white mb-2">
+          Welcome to makoclaw
+        </h1>
+        <p class="text-slate-300">
+          Let's set up your AI agent in just a few steps
+        </p>
       </div>
 
       <!-- Progress indicator -->
@@ -21,8 +25,8 @@
                 currentStep > index
                   ? 'bg-blue-500 text-white'
                   : currentStep === index
-                  ? 'bg-blue-500 text-white ring-4 ring-blue-300'
-                  : 'bg-slate-700 text-slate-400'
+                    ? 'bg-blue-500 text-white ring-4 ring-blue-300'
+                    : 'bg-slate-700 text-slate-400'
               ]"
             >
               {{ currentStep > index ? '✓' : index + 1 }}
@@ -49,10 +53,17 @@
       <!-- Step content -->
       <div class="bg-slate-800 rounded-lg shadow-xl p-8 border border-slate-700">
         <!-- Welcome step -->
-        <div v-if="currentStep === 0" class="space-y-6 animate-fade-in">
+        <div
+          v-if="currentStep === 0"
+          class="space-y-6 animate-fade-in"
+        >
           <div class="text-center">
-            <div class="text-6xl mb-4">🤖</div>
-            <h2 class="text-2xl font-bold text-white mb-2">Ready to get started?</h2>
+            <div class="text-6xl mb-4">
+              🤖
+            </div>
+            <h2 class="text-2xl font-bold text-white mb-2">
+              Ready to get started?
+            </h2>
             <p class="text-slate-300">
               We'll help you configure your AI provider and communication channels in just a few steps.
             </p>
@@ -62,29 +73,45 @@
             <div class="flex items-start">
               <span class="text-blue-400 mr-3">✓</span>
               <div>
-                <p class="text-white font-medium">AI Provider</p>
-                <p class="text-sm text-slate-400">OpenAI, Anthropic, or other LLM</p>
+                <p class="text-white font-medium">
+                  AI Provider
+                </p>
+                <p class="text-sm text-slate-400">
+                  OpenAI, Anthropic, or other LLM
+                </p>
               </div>
             </div>
             <div class="flex items-start">
               <span class="text-blue-400 mr-3">✓</span>
               <div>
-                <p class="text-white font-medium">Workspace Setup</p>
-                <p class="text-sm text-slate-400">Skills and example files (optional)</p>
+                <p class="text-white font-medium">
+                  Workspace Setup
+                </p>
+                <p class="text-sm text-slate-400">
+                  Skills and example files (optional)
+                </p>
               </div>
             </div>
             <div class="flex items-start">
               <span class="text-blue-400 mr-3">✓</span>
               <div>
-                <p class="text-white font-medium">Communication Channel</p>
-                <p class="text-sm text-slate-400">Telegram, Discord, Slack, etc. (optional)</p>
+                <p class="text-white font-medium">
+                  Communication Channel
+                </p>
+                <p class="text-sm text-slate-400">
+                  Telegram, Discord, Slack, etc. (optional)
+                </p>
               </div>
             </div>
             <div class="flex items-start">
               <span class="text-blue-400 mr-3">✓</span>
               <div>
-                <p class="text-white font-medium">Review & Deploy</p>
-                <p class="text-sm text-slate-400">Preview your setup before saving</p>
+                <p class="text-white font-medium">
+                  Review & Deploy
+                </p>
+                <p class="text-sm text-slate-400">
+                  Preview your setup before saving
+                </p>
               </div>
             </div>
           </div>
@@ -121,15 +148,24 @@
         />
 
         <!-- Success step -->
-        <div v-if="currentStep === 5" class="text-center space-y-6 animate-fade-in">
-          <div class="text-6xl mb-4">🎉</div>
-          <h2 class="text-2xl font-bold text-white">All Set!</h2>
+        <div
+          v-if="currentStep === 5"
+          class="text-center space-y-6 animate-fade-in"
+        >
+          <div class="text-6xl mb-4">
+            🎉
+          </div>
+          <h2 class="text-2xl font-bold text-white">
+            All Set!
+          </h2>
           <p class="text-slate-300">
             Your makoclaw agent is configured and ready to use.
           </p>
 
           <div class="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4 text-blue-300 text-sm">
-            <p class="font-medium mb-2">What's next?</p>
+            <p class="font-medium mb-2">
+              What's next?
+            </p>
             <ul class="space-y-1 text-left">
               <li>• Open your configured channel and send a test message</li>
               <li>• Monitor agent responses in the Chat view</li>
@@ -143,8 +179,8 @@
       <div class="mt-8 flex justify-between">
         <button
           v-if="currentStep > 0"
-          @click="previousStep"
           class="px-6 py-2 rounded-lg border border-slate-600 text-white hover:bg-slate-700 transition-colors"
+          @click="previousStep"
         >
           ← Back
         </button>
@@ -154,8 +190,8 @@
           <!-- Skip button for optional steps (Workspace & Channel) -->
           <button
             v-if="canSkipCurrentStep"
-            @click="skipStep"
             class="px-6 py-2 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700 transition-colors"
+            @click="skipStep"
           >
             Skip
           </button>
@@ -163,8 +199,8 @@
           <!-- Close button on Welcome step (Step 0) -->
           <button
             v-if="currentStep === 0"
-            @click="closeWizard"
             class="px-6 py-2 rounded-lg border border-red-600/50 text-red-300 hover:bg-red-900/20 transition-colors"
+            @click="closeWizard"
           >
             Close
           </button>
@@ -172,16 +208,15 @@
           <!-- Configure Later button (available after provider setup until preview) -->
           <button
             v-if="currentStep > 0 && currentStep < steps.length - 1"
-            @click="configureLater"
             :disabled="isSaving"
             class="px-6 py-2 rounded-lg border border-slate-500 text-slate-300 hover:bg-slate-700 transition-colors disabled:opacity-50"
+            @click="configureLater"
           >
             {{ isSaving ? 'Saving...' : 'Configure Later' }}
           </button>
 
           <button
             v-if="currentStep < steps.length - 1"
-            @click="nextStep"
             :disabled="!isStepValid"
             :class="[
               'px-8 py-2 rounded-lg font-medium transition-colors',
@@ -189,14 +224,15 @@
                 ? 'bg-blue-600 text-white hover:bg-blue-700'
                 : 'bg-slate-700 text-slate-500 cursor-not-allowed'
             ]"
+            @click="nextStep"
           >
             Next →
           </button>
           <button
             v-else-if="currentStep === steps.length - 1"
-            @click="finishSetup"
             :disabled="isSaving"
             class="px-8 py-2 rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
+            @click="finishSetup"
           >
             {{ isSaving ? 'Saving...' : 'Finish Setup' }}
           </button>
@@ -683,10 +719,6 @@ const configureLater = async () => {
   } finally {
     isSaving.value = false
   }
-}
-
-const goToDashboard = () => {
-  router.push('/dashboard')
 }
 </script>
 

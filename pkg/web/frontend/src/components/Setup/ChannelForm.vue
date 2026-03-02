@@ -1,7 +1,9 @@
 <template>
   <div class="channel-form space-y-6">
     <div>
-      <h3 class="text-xl font-bold text-white mb-4">Connect a Communication Channel</h3>
+      <h3 class="text-xl font-bold text-white mb-4">
+        Connect a Communication Channel
+      </h3>
       <p class="text-slate-400 mb-6">
         Choose where your agent will listen for messages and respond
       </p>
@@ -10,18 +12,22 @@
         <button
           v-for="channel in channels"
           :key="channel.id"
-          @click="selectChannel(channel)"
           :class="[
             'p-4 rounded-lg border-2 transition-all text-left',
             selectedChannel?.id === channel.id
               ? 'border-blue-500 bg-blue-900/20'
               : 'border-slate-600 bg-slate-700/50 hover:border-slate-500'
           ]"
+          @click="selectChannel(channel)"
         >
           <div class="flex items-start justify-between">
             <div>
-              <p class="font-bold text-white">{{ channel.name }}</p>
-              <p class="text-sm text-slate-400">{{ channel.description }}</p>
+              <p class="font-bold text-white">
+                {{ channel.name }}
+              </p>
+              <p class="text-sm text-slate-400">
+                {{ channel.description }}
+              </p>
             </div>
             <div
               :class="[
@@ -31,7 +37,10 @@
                   : 'border-slate-500'
               ]"
             >
-              <span v-if="selectedChannel?.id === channel.id" class="text-white text-sm">✓</span>
+              <span
+                v-if="selectedChannel?.id === channel.id"
+                class="text-white text-sm"
+              >✓</span>
             </div>
           </div>
         </button>
@@ -39,7 +48,10 @@
     </div>
 
     <!-- Quick Setup via Channel -->
-    <div v-if="selectedChannel" class="bg-slate-700/30 border border-slate-600/50 rounded-lg p-6">
+    <div
+      v-if="selectedChannel"
+      class="bg-slate-700/30 border border-slate-600/50 rounded-lg p-6"
+    >
       <h4 class="text-white font-bold mb-3 flex items-center gap-2">
         <span class="text-lg">⚡</span> Quick Setup
       </h4>
@@ -47,43 +59,60 @@
         Use this to start setup directly from {{ selectedChannel.name }}
       </p>
       
-      <div v-if="!setupToken" class="space-y-3">
+      <div
+        v-if="!setupToken"
+        class="space-y-3"
+      >
         <button
-          @click="generateSetupToken"
           :disabled="generatingToken"
           class="w-full px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium transition-colors"
+          @click="generateSetupToken"
         >
           {{ generatingToken ? '🔄 Generating...' : `📱 Generate Setup Link for ${selectedChannel.name}` }}
         </button>
-        <p v-if="tokenError" class="text-red-400 text-xs">{{ tokenError }}</p>
+        <p
+          v-if="tokenError"
+          class="text-red-400 text-xs"
+        >
+          {{ tokenError }}
+        </p>
       </div>
 
-      <div v-else class="space-y-4">
+      <div
+        v-else
+        class="space-y-4"
+      >
         <QRCode :url="setupUrl" />
         
         <div class="flex gap-2">
           <button
-            @click="copySetupUrl"
             class="flex-1 px-4 py-2 rounded-lg border border-blue-500 text-blue-400 hover:bg-blue-900/20 transition-colors font-medium text-sm"
+            @click="copySetupUrl"
           >
             📋 Copy Link
           </button>
           <button
-            @click="resetSetupToken"
             class="flex-1 px-4 py-2 rounded-lg border border-slate-500 text-slate-300 hover:bg-slate-600/20 transition-colors font-medium text-sm"
+            @click="resetSetupToken"
           >
             ↺ Generate New
           </button>
         </div>
 
-        <div v-if="copySuccess" class="text-blue-400 text-xs text-center">
+        <div
+          v-if="copySuccess"
+          class="text-blue-400 text-xs text-center"
+        >
           ✓ Link copied to clipboard!
         </div>
       </div>
     </div>
 
     <!-- Setup guide for selected channel -->
-    <ChannelSetupGuide v-if="selectedChannel" :channel="selectedChannel.id" />
+    <ChannelSetupGuide
+      v-if="selectedChannel"
+      :channel="selectedChannel.id"
+    />
 
     <!-- Bot Token input -->
     <div v-if="selectedChannel">
@@ -96,7 +125,7 @@
         type="password"
         placeholder="Paste your bot token here"
         class="w-full px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
-      />
+      >
       <p class="text-xs text-slate-400 mt-2">
         Your token is encrypted and stored securely
       </p>
@@ -113,7 +142,7 @@
         type="text"
         placeholder="Enter the channel or chat ID"
         class="w-full px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
-      />
+      >
       <p class="text-xs text-slate-400 mt-2">
         {{ selectedChannel?.channelIdHelp || 'This ID identifies where the agent will listen' }}
       </p>
@@ -130,22 +159,28 @@
         type="url"
         placeholder="https://your-domain.com/webhook"
         class="w-full px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
-      />
+      >
       <p class="text-xs text-slate-400 mt-2">
         The public URL where {{ selectedChannel?.name }} will send events
       </p>
     </div>
 
     <!-- Test connection button -->
-    <div v-if="selectedChannel && botToken" class="pt-4">
+    <div
+      v-if="selectedChannel && botToken"
+      class="pt-4"
+    >
       <button
-        @click="testConnection"
         :disabled="isTesting"
         class="w-full px-4 py-2 rounded-lg border border-blue-500 text-blue-400 hover:bg-blue-900/20 disabled:opacity-50 transition-colors"
+        @click="testConnection"
       >
         {{ isTesting ? '🔄 Testing...' : '✓ Test Connection' }}
       </button>
-      <p v-if="testResult" :class="['text-xs mt-2', testResult.success ? 'text-blue-400' : 'text-red-400']">
+      <p
+        v-if="testResult"
+        :class="['text-xs mt-2', testResult.success ? 'text-blue-400' : 'text-red-400']"
+      >
         {{ testResult.message }}
       </p>
     </div>

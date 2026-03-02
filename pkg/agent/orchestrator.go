@@ -134,6 +134,20 @@ func NewOrchestratorAgent(
 	// Register the delegation tool
 	orchestrator.registerDelegationTool()
 
+	// Register built-in "general" specialist for fallback (if not already configured)
+	if _, err := registry.GetSpecialist("general"); err != nil {
+		generalCfg := &config.SpecialistConfig{
+			Name:        "general",
+			Description: "General-purpose agent with full capabilities. Handles tasks when no specialist matches.",
+			Tools:       []string{}, // Empty = all tools available
+		}
+		generalSpec, gErr := NewSpecialistAgent("general", generalCfg, cfg, msgBus, baseProvider, store)
+		if gErr == nil {
+			registry.RegisterSpecialist(generalSpec)
+			logger.InfoC("agent", "Registered built-in 'general' specialist for fallback")
+		}
+	}
+
 	// Inject orchestrator context into the system prompt so the LLM sees
 	// the specialist catalog and delegation rules via the standard BuildSystemPrompt() path.
 	orchestrator.contextBuilder.SetAgentSystemPrompt(orchestrator.BuildOrchestratorContext())
@@ -207,14 +221,32 @@ func (dt *DelegationTool) Execute(ctx context.Context, args map[string]interface
 
 	contextStr, _ := args["context"].(string)
 
-	// Get specialist
+	// Get specialist (with fallback to general if enabled)
 	_, err := dt.orchestrator.registry.GetSpecialist(specialistName)
 	if err != nil {
-		logger.WarnCF("agent", "Specialist not found", map[string]interface{}{
-			"specialist": specialistName,
-			"error":      err.Error(),
-		})
-		return "", fmt.Errorf("specialist '%s' not found: %w", specialistName, err)
+		if dt.orchestrator.fallbackToDefault {
+			// Fallback to "general" agent
+			originalName := specialistName
+			specialistName = "general"
+
+			emitAgentStatus(ctx, AgentStatusEvent{
+				Agent:          "orchestrator",
+				Status:         "fallback",
+				SpecialistName: "general",
+				Reason:         fmt.Sprintf("No specialist '%s' found, using general agent", originalName),
+				Timestamp:      time.Now(),
+			})
+
+			logger.InfoCF("agent", "Falling back to general agent", map[string]interface{}{
+				"requested": originalName,
+			})
+		} else {
+			logger.WarnCF("agent", "Specialist not found", map[string]interface{}{
+				"specialist": specialistName,
+				"error":      err.Error(),
+			})
+			return "", fmt.Errorf("specialist '%s' not found: %w", specialistName, err)
+		}
 	}
 
 	// Build the task message with context
@@ -385,7 +417,9 @@ func (oa *OrchestratorAgent) BuildOrchestratorContext() string {
 	context.WriteString("1. Always use the delegate_to_specialist tool to assign work\n")
 	context.WriteString("2. Include relevant context when delegating\n")
 	context.WriteString("3. If a specialist fails, try an alternative if available\n")
-	context.WriteString("4. Always explain to the user which specialist handled their request\n\n")
+	context.WriteString("4. Always explain to the user which specialist handled their request\n")
+	context.WriteString("5. If no specialist matches the task, delegate to 'general'\n")
+	context.WriteString("6. The 'general' agent has full capabilities and handles any task\n\n")
 
 	context.WriteString(oa.GetSpecialistsSummary())
 
@@ -401,6 +435,7 @@ func generateDelegationReason(specialistName, task string) string {
 		"devops":          "requires infrastructure work",
 		"analyst":         "requires data analysis",
 		"researcher":      "requires investigation",
+		"general":         "general-purpose task with full capabilities",
 	}
 
 	if reason, ok := reasonMap[specialistName]; ok {

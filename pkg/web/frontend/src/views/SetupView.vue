@@ -24,26 +24,48 @@
         <p>Choose and configure your AI model provider to get started</p>
       </div>
 
-      <div v-if="!showSuccess" class="setup-wizard">
+      <div
+        v-if="!showSuccess"
+        class="setup-wizard"
+      >
         <!-- Step 1: Choose Provider -->
-        <div class="wizard-step" :class="{ active: step === 1 }">
+        <div
+          class="wizard-step"
+          :class="{ active: step === 1 }"
+        >
           <h2>Step 1: Choose Provider</h2>
           
           <!-- Loading State -->
-          <div v-if="loading" class="loading-state">
-            <div class="spinner"></div>
+          <div
+            v-if="loading"
+            class="loading-state"
+          >
+            <div class="spinner" />
             <p>Loading provider options...</p>
           </div>
 
           <!-- Error State -->
-          <div v-else-if="error" class="error-state">
-            <div class="error-icon">⚠️</div>
+          <div
+            v-else-if="error"
+            class="error-state"
+          >
+            <div class="error-icon">
+              ⚠️
+            </div>
             <p>{{ error }}</p>
-            <button @click="window.location.reload()" class="btn-secondary">Reload Page</button>
+            <button
+              class="btn-secondary"
+              @click="window.location.reload()"
+            >
+              Reload Page
+            </button>
           </div>
 
           <!-- Provider Grid -->
-          <div v-else class="provider-grid">
+          <div
+            v-else
+            class="provider-grid"
+          >
             <div
               v-for="provider in providers"
               :key="provider.id"
@@ -57,32 +79,58 @@
               </div>
               <p>{{ provider.description }}</p>
               <div class="provider-badges">
-                <span v-if="provider.apiKeyRequired" class="badge">API Key Required</span>
-                <span v-else class="badge local">Local/Free</span>
-                <span v-if="provider.freeTier" class="badge free">FREE</span>
+                <span
+                  v-if="provider.apiKeyRequired"
+                  class="badge"
+                >API Key Required</span>
+                <span
+                  v-else
+                  class="badge local"
+                >Local/Free</span>
+                <span
+                  v-if="provider.freeTier"
+                  class="badge free"
+                >FREE</span>
               </div>
             </div>
           </div>
           
           <button
-            @click="step = 2"
             :disabled="!selectedProvider"
             class="btn-primary"
+            @click="step = 2"
           >
             Next →
           </button>
         </div>
 
         <!-- Step 2: Configure Provider -->
-        <div class="wizard-step" :class="{ active: step === 2 }">
-          <button @click="step = 1" class="btn-back">← Back</button>
+        <div
+          class="wizard-step"
+          :class="{ active: step === 2 }"
+        >
+          <button
+            class="btn-back"
+            @click="step = 1"
+          >
+            ← Back
+          </button>
           <h2>Step 2: Configure {{ getProviderName() }}</h2>
 
-          <form @submit.prevent="saveConfiguration" class="config-form">
+          <form
+            class="config-form"
+            @submit.prevent="saveConfiguration"
+          >
             <div class="form-group">
               <label>Model</label>
-              <select v-model="config.model" @change="handleModelChange" required>
-                <option value="">Select a model...</option>
+              <select
+                v-model="config.model"
+                required
+                @change="handleModelChange"
+              >
+                <option value="">
+                  Select a model...
+                </option>
                 <option
                   v-for="model in getProviderModels()"
                   :key="model.id"
@@ -90,48 +138,59 @@
                 >
                   {{ model.name }}
                 </option>
-                <option value="__custom__">✏️ Enter custom model...</option>
+                <option value="__custom__">
+                  ✏️ Enter custom model...
+                </option>
               </select>
             </div>
 
             <!-- Custom model input -->
-            <div v-if="config.model === '__custom__'" class="form-group">
+            <div
+              v-if="config.model === '__custom__'"
+              class="form-group"
+            >
               <label>Custom Model ID</label>
               <input
                 v-model="customModel"
                 type="text"
                 placeholder="e.g., openrouter/free, deepseek-chat, qwen/qwen-2-7b-instruct:free"
                 required
-              />
+              >
               <small>Enter the exact model identifier from your provider's documentation</small>
             </div>
 
-            <div v-if="requiresApiKey()" class="form-group">
+            <div
+              v-if="requiresApiKey()"
+              class="form-group"
+            >
               <label>API Key</label>
               <input
                 v-model="config.apiKey"
                 type="password"
                 placeholder="Enter your API key"
                 required
-              />
+              >
               <small>Get your API key from {{ getProviderSettings().apiKeyUrl }}</small>
             </div>
 
-            <div v-if="requiresApiBase()" class="form-group">
+            <div
+              v-if="requiresApiBase()"
+              class="form-group"
+            >
               <label>API Base URL (Optional)</label>
               <input
                 v-model="config.apiBase"
                 type="url"
                 :placeholder="getProviderSettings().defaultApiBase"
-              />
+              >
             </div>
 
             <div class="form-actions">
               <button
                 type="button"
-                @click="validateConfiguration"
                 :disabled="validating || !canValidate()"
                 class="btn-secondary"
+                @click="validateConfiguration"
               >
                 {{ validating ? 'Validating...' : 'Test Connection' }}
               </button>
@@ -144,11 +203,18 @@
               </button>
             </div>
 
-            <div v-if="validationMessage" class="validation-message" :class="validationClass">
+            <div
+              v-if="validationMessage"
+              class="validation-message"
+              :class="validationClass"
+            >
               {{ validationMessage }}
             </div>
 
-            <div v-if="error" class="error-message">
+            <div
+              v-if="error"
+              class="error-message"
+            >
               {{ error }}
             </div>
           </form>
@@ -156,14 +222,22 @@
       </div>
 
       <!-- Success State -->
-      <div v-else class="success-state">
-        <div class="success-icon">✅</div>
+      <div
+        v-else
+        class="success-state"
+      >
+        <div class="success-icon">
+          ✅
+        </div>
         <h2>Configuration Saved!</h2>
         <p>Your LLM provider has been configured successfully.</p>
         <p class="restart-notice">
           ⚠️ Please restart the application to apply the changes.
         </p>
-        <button @click="goToDashboard" class="btn-primary">
+        <button
+          class="btn-primary"
+          @click="goToDashboard"
+        >
           Go to Dashboard
         </button>
       </div>
@@ -172,7 +246,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useConfigStore } from '../stores/configStore'
 import axios from 'axios'
@@ -240,22 +314,22 @@ function handleModelChange() {
 }
 
 function getProviderName() {
-  const provider = providers.find(p => p.id === selectedProvider.value)
+  const provider = providers.value.find(p => p.id === selectedProvider.value)
   return provider ? provider.name : ''
 }
 
 function getProviderModels() {
-  const provider = providers.find(p => p.id === selectedProvider.value)
+  const provider = providers.value.find(p => p.id === selectedProvider.value)
   return provider ? provider.models : []
 }
 
 function getProviderSettings() {
-  const provider = providers.find(p => p.id === selectedProvider.value)
+  const provider = providers.value.find(p => p.id === selectedProvider.value)
   return provider || {}
 }
 
 function requiresApiKey() {
-  const provider = providers.find(p => p.id === selectedProvider.value)
+  const provider = providers.value.find(p => p.id === selectedProvider.value)
   return provider ? provider.apiKeyRequired : false
 }
 

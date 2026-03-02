@@ -1,12 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { useToast } from '../composables/useToast'
-import { useAuthStore } from './authStore'
 import api from '../services/api'
 
 export const useAgentsStore = defineStore('agents', () => {
   const toast = useToast()
-  const authStore = useAuthStore()
 
   const loading = ref(false)
   const specialists = ref([])

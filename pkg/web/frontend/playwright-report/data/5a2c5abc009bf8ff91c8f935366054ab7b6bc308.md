@@ -1,0 +1,44 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e4]:
+  - link "Back to home" [ref=e5] [cursor=pointer]:
+    - /url: /
+    - img [ref=e6]
+    - text: Back to home
+  - generic [ref=e8]:
+    - link "🦈 MakoClaw" [ref=e9] [cursor=pointer]:
+      - /url: /
+      - generic [ref=e10]: 🦈
+      - heading "MakoClaw" [level=1] [ref=e11]
+    - paragraph [ref=e12]: Welcome back
+  - generic [ref=e13]:
+    - heading "Sign In" [level=2] [ref=e14]
+    - generic [ref=e15]:
+      - generic [ref=e16]:
+        - generic [ref=e17]: Email or Username
+        - generic [ref=e18]:
+          - img [ref=e20]
+          - textbox "Email or Username" [ref=e22]:
+            - /placeholder: Enter your email or username
+            - text: admin
+      - generic [ref=e23]:
+        - generic [ref=e24]: Password
+        - generic [ref=e25]:
+          - img [ref=e27]
+          - textbox "Password" [ref=e29]:
+            - /placeholder: Enter your password
+            - text: kako9812claw
+          - button "Show password" [ref=e30] [cursor=pointer]:
+            - img [ref=e31]
+      - generic [ref=e35]:
+        - img [ref=e36]
+        - generic [ref=e38]:
+          - paragraph [ref=e39]: Login failed. Please try again.
+          - button "Dismiss" [ref=e40] [cursor=pointer]
+      - button "Sign In" [ref=e41] [cursor=pointer]
+    - generic [ref=e46]: New here?
+    - link "Create an Account" [ref=e47] [cursor=pointer]:
+      - /url: /signup
+  - paragraph [ref=e48]: Secured with JWT authentication
+```

@@ -1,6 +1,9 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@700;800;900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
 
 /* Theme CSS Variables (RGB triplets for Tailwind opacity support) */
 :root {
@@ -55,8 +58,12 @@ html {
 body {
   background-color: rgb(var(--pc-bg));
   color: rgb(var(--pc-text));
-  font-family: inherit;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Outfit', 'Inter', sans-serif;
 }
 
 input, textarea, select, button {
@@ -113,15 +120,15 @@ button:focus-visible {
 
   /* --- Glass Effects --- */
   .glass {
-    @apply bg-makoclaw-surface/40 backdrop-blur-md border border-makoclaw-border/50;
+    @apply bg-makoclaw-surface/40 backdrop-blur-md border border-white/10;
   }
 
   .glass-panel {
-    @apply bg-makoclaw-surface/40 backdrop-blur-xl border border-makoclaw-border/30 shadow-xl;
+    @apply bg-makoclaw-surface/30 backdrop-blur-2xl border border-white/5 shadow-2xl ring-1 ring-white/10;
   }
 
   .glass-sticky {
-    @apply sticky top-0 bg-makoclaw-bg/60 backdrop-blur-xl border-b border-makoclaw-border/30 z-sticky;
+    @apply sticky top-0 bg-makoclaw-bg/40 backdrop-blur-xl border-b border-white/5 z-sticky;
   }
 
   /* --- Scrollbar --- */
