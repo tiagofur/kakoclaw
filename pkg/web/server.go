@@ -3903,6 +3903,16 @@ func (s *Server) handleSpecialistGenerate(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// Multi-user mode: create per-user agent loop
+	if s.userMgr == nil || s.fullConfig == nil || s.msgBus == nil || s.centralStore == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		writeJSONResponse(w, map[string]string{
+			"error": "AI generation not available - server not fully configured",
+		})
+		return
+	}
+
 	userID, ok := s.getUserIDFromClaims(r)
 	if !ok {
 		w.Header().Set("Content-Type", "application/json")
@@ -3910,6 +3920,32 @@ func (s *Server) handleSpecialistGenerate(w http.ResponseWriter, r *http.Request
 		writeJSONResponse(w, map[string]string{"error": "unauthorized"})
 		return
 	}
+
+	userStore, userUUID, userOK := s.getUserStorage(r)
+	if !userOK || userUUID == "" || userStore == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		writeJSONResponse(w, map[string]string{
+			"error": "user storage unavailable",
+		})
+		return
+	}
+
+	// Create per-user agent loop with user's configured provider
+	userAgentLoop, err := agent.NewAgentLoopForUser(userUUID, s.fullConfig, s.msgBus, s.centralStore, userStore)
+	if err != nil {
+		logger.ErrorCF("web", "Failed to create agent loop for specialist generation", map[string]interface{}{
+			"user_uuid": userUUID,
+			"error":     err.Error(),
+		})
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		writeJSONResponse(w, map[string]string{
+			"error": "AI generation not available - " + err.Error(),
+		})
+		return
+	}
+	defer userAgentLoop.Stop()
 
 	aiPrompt := fmt.Sprintf(`You are an AI assistant that configures specialist agents for MakoClaw.
 
@@ -3934,7 +3970,7 @@ Return the configuration purely in JSON format without markdown wrapping, or wit
 	ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
 	defer cancel()
 
-	responseRaw, err := s.agentLoop.ProcessDirectWithUserAndModel(
+	responseRaw, err := userAgentLoop.ProcessDirectWithUserAndModel(
 		ctx, userID, aiPrompt, "web:ai:generate-specialist", "",
 	)
 	if err != nil {

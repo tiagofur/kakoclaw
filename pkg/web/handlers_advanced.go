@@ -18,6 +18,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/sipeed/makoclaw/pkg/agent"
 	"github.com/sipeed/makoclaw/pkg/config"
 	"github.com/sipeed/makoclaw/pkg/cron"
 	"github.com/sipeed/makoclaw/pkg/logger"
@@ -3675,11 +3676,34 @@ func (s *Server) handleAIFixJson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Multi-user mode: create per-user agent loop
+	if s.userMgr == nil || s.fullConfig == nil || s.msgBus == nil || s.centralStore == nil {
+		http.Error(w, "AI not available - server not fully configured", http.StatusServiceUnavailable)
+		return
+	}
+
 	userID, ok := s.getUserIDFromClaims(r)
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
+
+	userStore, userUUID, userOK := s.getUserStorage(r)
+	if !userOK || userUUID == "" || userStore == nil {
+		http.Error(w, "user storage unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	userAgentLoop, err := agent.NewAgentLoopForUser(userUUID, s.fullConfig, s.msgBus, s.centralStore, userStore)
+	if err != nil {
+		logger.ErrorCF("web", "Failed to create agent loop for AI fix JSON", map[string]interface{}{
+			"user_uuid": userUUID,
+			"error":     err.Error(),
+		})
+		http.Error(w, "AI not available - "+err.Error(), http.StatusServiceUnavailable)
+		return
+	}
+	defer userAgentLoop.Stop()
 
 	prompt := fmt.Sprintf(`You are a JSON validator and fixer.
 
@@ -3700,12 +3724,12 @@ JSON to fix:
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 
-	response, err := s.agentLoop.ProcessDirectWithUserAndModel(
+	response, aiErr := userAgentLoop.ProcessDirectWithUserAndModel(
 		ctx, userID, prompt,
 		fmt.Sprintf("web:ai:fixjson:%s", body.Type), "",
 	)
-	if err != nil {
-		http.Error(w, "AI processing failed: "+err.Error(), http.StatusInternalServerError)
+	if aiErr != nil {
+		http.Error(w, "AI processing failed: "+aiErr.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -3776,11 +3800,34 @@ func (s *Server) handleAICreateCron(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Multi-user mode: create per-user agent loop
+	if s.userMgr == nil || s.fullConfig == nil || s.msgBus == nil || s.centralStore == nil {
+		http.Error(w, "AI not available - server not fully configured", http.StatusServiceUnavailable)
+		return
+	}
+
 	userID, ok := s.getUserIDFromClaims(r)
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
+
+	userStore, userUUID, userOK := s.getUserStorage(r)
+	if !userOK || userUUID == "" || userStore == nil {
+		http.Error(w, "user storage unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	userAgentLoop, err := agent.NewAgentLoopForUser(userUUID, s.fullConfig, s.msgBus, s.centralStore, userStore)
+	if err != nil {
+		logger.ErrorCF("web", "Failed to create agent loop for AI cron create", map[string]interface{}{
+			"user_uuid": userUUID,
+			"error":     err.Error(),
+		})
+		http.Error(w, "AI not available - "+err.Error(), http.StatusServiceUnavailable)
+		return
+	}
+	defer userAgentLoop.Stop()
 
 	aiPrompt := fmt.Sprintf(`You are a cron job creation assistant for MakoClaw.
 
@@ -3820,17 +3867,17 @@ Return only explanation and JSON.`, body.Prompt)
 	ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
 	defer cancel()
 
-	response, err := s.agentLoop.ProcessDirectWithUserAndModel(
+	response, aiErr := userAgentLoop.ProcessDirectWithUserAndModel(
 		ctx, userID, aiPrompt, "web:ai:create-cron", "",
 	)
-	if err != nil {
-		http.Error(w, "AI processing failed: "+err.Error(), http.StatusInternalServerError)
+	if aiErr != nil {
+		http.Error(w, "AI processing failed: "+aiErr.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	jsonStr := extractJsonFromResponse(response)
 	var jobDraft map[string]interface{}
-	if err := json.Unmarshal([]byte(jsonStr), &jobDraft); err != nil {
+	if jsonErr := json.Unmarshal([]byte(jsonStr), &jobDraft); jsonErr != nil {
 		http.Error(w, "AI produced invalid cron job format", http.StatusInternalServerError)
 		return
 	}
@@ -3894,11 +3941,34 @@ func (s *Server) handleSkillGenerateConfig(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Multi-user mode: create per-user agent loop
+	if s.userMgr == nil || s.fullConfig == nil || s.msgBus == nil || s.centralStore == nil {
+		writeJSONError(w, "AI not available - server not fully configured", http.StatusServiceUnavailable)
+		return
+	}
+
 	userID, ok := s.getUserIDFromClaims(r)
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
+
+	userStore, userUUID, userOK := s.getUserStorage(r)
+	if !userOK || userUUID == "" || userStore == nil {
+		writeJSONError(w, "user storage unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	userAgentLoop, err := agent.NewAgentLoopForUser(userUUID, s.fullConfig, s.msgBus, s.centralStore, userStore)
+	if err != nil {
+		logger.ErrorCF("web", "Failed to create agent loop for skill config generation", map[string]interface{}{
+			"user_uuid": userUUID,
+			"error":     err.Error(),
+		})
+		writeJSONError(w, "AI not available - "+err.Error(), http.StatusServiceUnavailable)
+		return
+	}
+	defer userAgentLoop.Stop()
 
 	systemPrompt := `You are a skill configuration generator for MakoClaw.
 Your task is to propose a skill name, description, and additional context based on the user's request.
@@ -3922,18 +3992,18 @@ YOU MUST RESPOND ONLY WITH A JSON OBJECT:
 	defer cancel()
 
 	// Use ProcessDirectWithUserAndModel to leverage user-configured provider
-	response, err := s.agentLoop.ProcessDirectWithUserAndModel(
+	response, aiErr := userAgentLoop.ProcessDirectWithUserAndModel(
 		ctx, userID, userPrompt, "web:skills:generate-config", systemPrompt,
 	)
-	if err != nil {
-		writeJSONError(w, "AI generation failed: "+err.Error(), http.StatusInternalServerError)
+	if aiErr != nil {
+		writeJSONError(w, "AI generation failed: "+aiErr.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	// Try to extract JSON from the response
 	content := extractJsonFromResponse(response)
 	var result map[string]interface{}
-	if err := json.Unmarshal([]byte(content), &result); err != nil {
+	if jsonErr := json.Unmarshal([]byte(content), &result); jsonErr != nil {
 		writeJSONError(w, "Failed to parse AI response as JSON", http.StatusInternalServerError)
 		return
 	}

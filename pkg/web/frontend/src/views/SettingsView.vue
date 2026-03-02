@@ -240,9 +240,15 @@
                   <input
                     v-model="channelForm.token"
                     type="password"
-                    placeholder="Enter bot token..."
+                    :placeholder="channelForm._hasExistingToken ? '•••••••• (saved — leave empty to keep)' : 'Enter bot token...'"
                     class="w-full px-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent/50 transition-all min-h-[40px] backdrop-blur-sm"
                   >
+                  <p
+                    v-if="channelForm._hasExistingToken"
+                    class="text-xs text-makoclaw-success/70 mt-1.5 flex items-center gap-1"
+                  >
+                    ✓ Token configured — leave empty to keep current token
+                  </p>
                 </div>
                 <div>
                   <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">
@@ -633,6 +639,12 @@ const unblockUser = async () => {
 
 const saveChannelConfig = async () => {
   const formData = { ...channelForm.value, enabled: true }
+  // Don't send empty token if one already exists (would overwrite it with blank)
+  if (formData.token === '' && formData._hasExistingToken) {
+    delete formData.token
+  }
+  // Remove internal tracking field before sending to backend
+  delete formData._hasExistingToken
   // Convert comma-separated allow_from string to array for backend
   if (typeof formData.allow_from === 'string') {
     formData.allow_from = formData.allow_from.split(',').map(s => s.trim()).filter(Boolean)
@@ -644,7 +656,12 @@ const saveChannelConfig = async () => {
 
 const openChannelConfig = (c) => {
   selectedChannel.value = c
-  channelForm.value = { token: '', allow_from: '' }
+  const existing = configData.value?.channels?.[c.id] || {}
+  channelForm.value = {
+    token: '',  // Always empty — backend never returns real token (redacted)
+    allow_from: existing.allow_from || '',
+    _hasExistingToken: existing.configured || false
+  }
   showChannelModal.value = true
 }
 
