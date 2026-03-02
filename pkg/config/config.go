@@ -48,7 +48,25 @@ func GetDataDir() string {
 type FlexibleStringSlice []string
 
 func (f *FlexibleStringSlice) UnmarshalJSON(data []byte) error {
-	// Try []string first
+	// Try plain string first (e.g. "123,456" from form inputs)
+	var s string
+	if err := json.Unmarshal(data, &s); err == nil {
+		if s == "" {
+			*f = FlexibleStringSlice{}
+		} else {
+			parts := strings.Split(s, ",")
+			result := make([]string, 0, len(parts))
+			for _, p := range parts {
+				if trimmed := strings.TrimSpace(p); trimmed != "" {
+					result = append(result, trimmed)
+				}
+			}
+			*f = result
+		}
+		return nil
+	}
+
+	// Try []string
 	var ss []string
 	if err := json.Unmarshal(data, &ss); err == nil {
 		*f = ss
