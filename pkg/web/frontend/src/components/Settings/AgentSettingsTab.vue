@@ -414,7 +414,7 @@ const props = defineProps({
   saving: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['save'])
+const emit = defineEmits(['save', 'refresh-config'])
 
 const orchestratorConfig = ref({
   enabled: false,
@@ -498,12 +498,14 @@ const openEditSpecialist = (s) => agentsStore.openSpecialistModal('edit', s)
 const handleSpecialistSaved = async () => {
   await agentsStore.fetchAgents()
   specialists.value = [...agentsStore.specialists]
+  emit('refresh-config')
 }
 
 const deleteSpecialist = async (n) => {
   if (confirm(`Sever connection to "${n}" node?`)) {
     await agentsStore.deleteSpecialist(n)
     specialists.value = [...agentsStore.specialists]
+    emit('refresh-config')
     toast.success('Specialist severed')
   }
 }

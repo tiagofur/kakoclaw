@@ -4,7 +4,11 @@ Guidance for Claude Code (claude.ai/code) when working in this repository.
 
 ---
 
-## Operating Mode
+### Multi-user Context
+
+Agents created via the Web UI are stored in the user's personal `config.json` file. The repository's `AGENTS.md` (this file) describes the global system architecture, but instance-specific specialization happens at the user profile level.
+
+### Creating Agents
 
 You are the **SDD Orchestrator** for this project. Your role is to coordinate Spec-Driven Development by launching specialized sub-agents via the Task tool. **Stay lightweight** — delegate all heavy work.
 
@@ -15,21 +19,21 @@ You are the **SDD Orchestrator** for this project. Your role is to coordinate Sp
 3. ONLY: track state, present summaries, ask for approval, launch sub-agents.
 4. Between sub-agent calls, always show what was done and ask to proceed.
 5. Pass file paths to sub-agents, not file contents.
-6. For substantial tasks (new feature, refactor, multi-file change), suggest SDD: *"This sounds like a good candidate for SDD. Want me to start with `/sdd:new {name}`?"*
+6. For substantial tasks (new feature, refactor, multi-file change), suggest SDD: _"This sounds like a good candidate for SDD. Want me to start with `/sdd:new {name}`?"_
 7. Do NOT force SDD on small tasks (single file edits, quick fixes, questions).
 
 ### SDD Commands & Skills
 
-| Command                       | Action                                    | Skill(s) Invoked                                  |
-| ----------------------------- | ----------------------------------------- | ------------------------------------------------- |
-| `/sdd:init`                   | Bootstrap `openspec/` in current project  | `sdd-init`                                        |
-| `/sdd:explore <topic>`        | Think through an idea (no files created)  | `sdd-explore`                                     |
-| `/sdd:new <change-name>`      | Start a new change (creates proposal)     | `sdd-explore` → `sdd-propose`                     |
-| `/sdd:continue [change-name]` | Create next artifact in dependency chain  | Next needed: `sdd-spec`, `sdd-design`, `sdd-tasks`|
-| `/sdd:ff [change-name]`       | Fast-forward: all planning artifacts      | `sdd-propose` → `sdd-spec` → `sdd-design` → `sdd-tasks` |
-| `/sdd:apply [change-name]`    | Implement tasks                           | `sdd-apply`                                       |
-| `/sdd:verify [change-name]`   | Validate implementation                   | `sdd-verify`                                      |
-| `/sdd:archive [change-name]`  | Sync specs + archive                      | `sdd-archive`                                     |
+| Command                       | Action                                   | Skill(s) Invoked                                        |
+| ----------------------------- | ---------------------------------------- | ------------------------------------------------------- |
+| `/sdd:init`                   | Bootstrap `openspec/` in current project | `sdd-init`                                              |
+| `/sdd:explore <topic>`        | Think through an idea (no files created) | `sdd-explore`                                           |
+| `/sdd:new <change-name>`      | Start a new change (creates proposal)    | `sdd-explore` → `sdd-propose`                           |
+| `/sdd:continue [change-name]` | Create next artifact in dependency chain | Next needed: `sdd-spec`, `sdd-design`, `sdd-tasks`      |
+| `/sdd:ff [change-name]`       | Fast-forward: all planning artifacts     | `sdd-propose` → `sdd-spec` → `sdd-design` → `sdd-tasks` |
+| `/sdd:apply [change-name]`    | Implement tasks                          | `sdd-apply`                                             |
+| `/sdd:verify [change-name]`   | Validate implementation                  | `sdd-verify`                                            |
+| `/sdd:archive [change-name]`  | Sync specs + archive                     | `sdd-archive`                                           |
 
 All skill files live at `~/.claude/skills/sdd-{name}/SKILL.md`.
 
@@ -112,6 +116,7 @@ make clean    # Remove build artifacts
 ```
 
 **Frontend dev:**
+
 ```bash
 cd pkg/web/frontend
 npm install && npm run dev      # Dev server with HMR
@@ -157,14 +162,14 @@ Channel → MessageBus → Agent Manager → Agent Loop → LLM Provider → Too
 
 #### Agent System ([pkg/agent/](pkg/agent/))
 
-| File               | Description                                                                                  |
-| ------------------ | -------------------------------------------------------------------------------------------- |
-| `loop.go`          | Core LLM loop. `NewAgentLoop` wires all tools. `NewAgentLoopForUser` adds per-user filtering. Supports `StreamCallback` and `ToolCallback`. |
-| `orchestrator.go`  | Multi-agent delegation via `DelegationRequest`/`DelegationResult`                           |
-| `specialist.go`    | Domain-specific agents with independent LLM configs and tool subsets                        |
-| `manager.go`       | Coordinates agent instances with channels, dispatches inbound messages                       |
-| `context.go`       | `ContextBuilder` composes LLM context: identity, runtime info, bootstrap docs, skills, memory, history, tools |
-| `permissions.go`   | Role-based tool permission filtering with per-user overrides and shell command whitelists    |
+| File              | Description                                                                                                                                 |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `loop.go`         | Core LLM loop. `NewAgentLoop` wires all tools. `NewAgentLoopForUser` adds per-user filtering. Supports `StreamCallback` and `ToolCallback`. |
+| `orchestrator.go` | Multi-agent delegation via `DelegationRequest`/`DelegationResult`                                                                           |
+| `specialist.go`   | Domain-specific agents with independent LLM configs and tool subsets                                                                        |
+| `manager.go`      | Coordinates agent instances with channels, dispatches inbound messages                                                                      |
+| `context.go`      | `ContextBuilder` composes LLM context: identity, runtime info, bootstrap docs, skills, memory, history, tools                               |
+| `permissions.go`  | Role-based tool permission filtering with per-user overrides and shell command whitelists                                                   |
 
 #### Tools ([pkg/tools/](pkg/tools/))
 
@@ -180,6 +185,7 @@ type Tool interface {
 ```
 
 Optional extension interfaces:
+
 - `ContextualTool` — `SetContext(channel, chatID string)`
 - `WorkspaceTool` — `SetWorkspace(workspace string)`
 - `UserAwareTool` — `SetUserID(userID int64)`
@@ -247,13 +253,13 @@ type LLMProvider interface {
 
 Optional `StreamingLLMProvider` adds `ChatStream` for token-by-token streaming.
 
-| Provider       | File               | Supports                                                         |
-| -------------- | ------------------ | ---------------------------------------------------------------- |
+| Provider       | File               | Supports                                                        |
+| -------------- | ------------------ | --------------------------------------------------------------- |
 | HTTPProvider   | http_provider.go   | OpenRouter, OpenAI, Groq, Zhipu, Gemini, Nvidia, Moonshot, VLLM |
 | ClaudeProvider | claude_provider.go | Anthropic Claude (official SDK, OAuth token refresh)            |
-| CodexProvider  | codex_provider.go  | OpenAI Codex (Responses API)                                     |
-| OllamaProvider | ollama_provider.go | Ollama (local, direct HTTP)                                      |
-| MockProvider   | mock_provider.go   | Testing (canned responses)                                       |
+| CodexProvider  | codex_provider.go  | OpenAI Codex (Responses API)                                    |
+| OllamaProvider | ollama_provider.go | Ollama (local, direct HTTP)                                     |
+| MockProvider   | mock_provider.go   | Testing (canned responses)                                      |
 
 `CreateProvider(cfg)` auto-selects. Supports `provider/model` syntax (e.g., `openai/gpt-4`).
 
@@ -293,38 +299,38 @@ Built-in skills: `development` (code-review, go-best-practices, test-strategy), 
 
 #### Other Packages
 
-| Package                | Description                                                        |
-| ---------------------- | ------------------------------------------------------------------ |
-| pkg/bus/               | Message bus pub/sub for `InboundMessage`/`OutboundMessage`         |
-| pkg/auth/              | OAuth 2.0 + PKCE authentication, token store, JWT                  |
-| pkg/cron/              | Cron scheduler (gronx library)                                     |
-| pkg/mcp/               | MCP client for external tool servers (JSON-RPC 2.0)                |
-| pkg/web/               | REST API + JWT auth + WebSocket streaming + static serving         |
-| pkg/voice/             | Voice transcription (Groq speech-to-text)                          |
-| pkg/workflow/          | Visual workflow engine for pipeline execution                      |
-| pkg/heartbeat/         | Periodic health check service                                      |
-| pkg/doctor/            | System diagnostics (config, provider connectivity, DB checks)      |
-| pkg/migrate/           | DB and workspace migrations (legacy → multiuser layout)            |
-| pkg/observability/     | Metrics collection and tracking                                    |
-| pkg/ratelimit/         | Token-bucket rate limiting (login attempts)                        |
-| pkg/logger/            | Structured component-based logging                                 |
-| pkg/utils/             | String and media utility helpers                                   |
+| Package            | Description                                                   |
+| ------------------ | ------------------------------------------------------------- |
+| pkg/bus/           | Message bus pub/sub for `InboundMessage`/`OutboundMessage`    |
+| pkg/auth/          | OAuth 2.0 + PKCE authentication, token store, JWT             |
+| pkg/cron/          | Cron scheduler (gronx library)                                |
+| pkg/mcp/           | MCP client for external tool servers (JSON-RPC 2.0)           |
+| pkg/web/           | REST API + JWT auth + WebSocket streaming + static serving    |
+| pkg/voice/         | Voice transcription (Groq speech-to-text)                     |
+| pkg/workflow/      | Visual workflow engine for pipeline execution                 |
+| pkg/heartbeat/     | Periodic health check service                                 |
+| pkg/doctor/        | System diagnostics (config, provider connectivity, DB checks) |
+| pkg/migrate/       | DB and workspace migrations (legacy → multiuser layout)       |
+| pkg/observability/ | Metrics collection and tracking                               |
+| pkg/ratelimit/     | Token-bucket rate limiting (login attempts)                   |
+| pkg/logger/        | Structured component-based logging                            |
+| pkg/utils/         | String and media utility helpers                              |
 
 ### Web Server ([pkg/web/](pkg/web/))
 
-| File                    | Description                                     |
-| ----------------------- | ----------------------------------------------- |
-| server.go               | Main setup, routes, middleware                  |
-| auth.go                 | Login/signup, JWT token handling                |
-| handlers_features.go    | Chat, tasks, knowledge, memory, skills, cron    |
-| handlers_advanced.go    | Metrics, workflows                              |
-| handlers_tools.go       | Tool listing/execution                          |
-| handlers_users.go       | User management (admin)                         |
-| handlers_user_config.go | Per-user configuration                          |
-| handlers_backup.go      | Backup/restore                                  |
-| handlers_setup.go       | Initial setup wizard                            |
-| providers_handler.go    | Provider configuration                          |
-| openapi.go              | OpenAPI spec generation                         |
+| File                    | Description                                  |
+| ----------------------- | -------------------------------------------- |
+| server.go               | Main setup, routes, middleware               |
+| auth.go                 | Login/signup, JWT token handling             |
+| handlers_features.go    | Chat, tasks, knowledge, memory, skills, cron |
+| handlers_advanced.go    | Metrics, workflows                           |
+| handlers_tools.go       | Tool listing/execution                       |
+| handlers_users.go       | User management (admin)                      |
+| handlers_user_config.go | Per-user configuration                       |
+| handlers_backup.go      | Backup/restore                               |
+| handlers_setup.go       | Initial setup wizard                         |
+| providers_handler.go    | Provider configuration                       |
+| openapi.go              | OpenAPI spec generation                      |
 
 ### Frontend ([pkg/web/frontend/](pkg/web/frontend/))
 
@@ -366,7 +372,14 @@ Components: `channel`, `channels`, `agent`, `llm`, `tool`, `web`, `workflow`, `m
 3. Register in `NewAgentLoop` in [pkg/agent/loop.go](pkg/agent/loop.go)
 4. Schema auto-generated via `ToolToSchema()` for LLM function calling
 
-### Workspace Bootstrap Files
+## Multi-user Architecture
+
+- **Global Config**: `~/.makoclaw/config.json` stores system-level defaults.
+- **User Config**: `~/.makoclaw/users/<uuid>/config.json` stores user-specific overrides (agents, tokens, settings).
+- **Isolation**: Use `getUserStorage(r)` in the backend to access isolated per-user databases and configurations.
+- **Persistence**: Per-user DBs are stored in `~/.makoclaw/users/<uuid>/makoclaw.db`.
+
+## SDD Guidelines
 
 Loaded into the system prompt via `ContextBuilder` ([pkg/agent/context.go](pkg/agent/context.go)):
 
@@ -380,6 +393,7 @@ Loaded into the system prompt via `ContextBuilder` ([pkg/agent/context.go](pkg/a
 ## Common Tasks
 
 ### Adding a New Tool
+
 1. Create struct in [pkg/tools/](pkg/tools/) implementing `Tool` interface
 2. Register in `NewAgentLoop` ([pkg/agent/loop.go](pkg/agent/loop.go))
 3. Implement `ContextualTool` if needs channel context
@@ -387,11 +401,13 @@ Loaded into the system prompt via `ContextBuilder` ([pkg/agent/context.go](pkg/a
 5. Implement `UserAwareTool` if needs user filtering
 
 ### Adding a New Channel
+
 1. Create file in [pkg/channels/](pkg/channels/), embed `BaseChannel`, implement `Channel` interface
 2. Add config struct to [pkg/config/config.go](pkg/config/config.go) under `ChannelsConfig`
 3. Register in `initChannels()` in [pkg/channels/manager.go](pkg/channels/manager.go)
 
 ### Adding a New LLM Provider
+
 1. Implement `LLMProvider` interface in [pkg/providers/](pkg/providers/)
 2. Optionally implement `StreamingLLMProvider` for streaming
 3. Add config fields to `ProvidersConfig` in [pkg/config/config.go](pkg/config/config.go)
@@ -400,6 +416,7 @@ Loaded into the system prompt via `ContextBuilder` ([pkg/agent/context.go](pkg/a
 ### Modifying Context Construction
 
 `ContextBuilder.BuildContext()` in [pkg/agent/context.go](pkg/agent/context.go):
+
 1. System identity (`getSystemIdentity()`)
 2. Runtime/workspace info (OS, arch, Go version, time)
 3. Bootstrap docs (AGENTS.md, SOUL.md, USER.md, IDENTITY.md)
@@ -436,6 +453,7 @@ Frontend E2E: `cd pkg/web/frontend && npm test` (Playwright)
 ## CI/CD
 
 GitHub Actions ([.github/workflows/build.yml](.github/workflows/build.yml)):
+
 - Triggers on push to `main` and all PRs
 - Sets up Go from go.mod version
 - Runs `make build-all` (frontend + all platform binaries)
