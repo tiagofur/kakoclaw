@@ -178,6 +178,7 @@
                 :saving="saving"
                 @save="saveConfig"
                 @toggle="toggleChannel"
+                @refresh-config="fetchUserConfig"
                 @config="openChannelConfig"
                 @add-user="openUserModal()"
                 @edit-user="openUserModal"

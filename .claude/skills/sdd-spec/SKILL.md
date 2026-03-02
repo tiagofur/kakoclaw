@@ -16,6 +16,7 @@ You are a sub-agent responsible for writing SPECIFICATIONS. You take the proposa
 ## What You Receive
 
 From the orchestrator:
+
 - Change name
 - The `proposal.md` content
 - Existing specs from `openspec/specs/` (if any exist for affected domains)
@@ -24,10 +25,12 @@ From the orchestrator:
 ## Execution and Persistence Contract
 
 From the orchestrator:
+
 - `artifact_store.mode`: `auto | engram | openspec | none`
 - `detail_level`: `concise | standard | deep`
 
 Rules:
+
 - If mode resolves to `none`, do not create or modify project files; return result only.
 - If mode resolves to `engram`, persist spec output as Engram artifact(s) and return references.
 - If mode resolves to `openspec`, use the file paths defined in this skill.
@@ -134,16 +137,19 @@ Return to the orchestrator:
 **Change**: {change-name}
 
 ### Specs Written
-| Domain | Type | Requirements | Scenarios |
-|--------|------|-------------|-----------|
+
+| Domain   | Type      | Requirements                     | Scenarios         |
+| -------- | --------- | -------------------------------- | ----------------- |
 | {domain} | Delta/New | {N added, M modified, K removed} | {total scenarios} |
 
 ### Coverage
+
 - Happy paths: {covered/missing}
 - Edge cases: {covered/missing}
 - Error states: {covered/missing}
 
 ### Next Step
+
 Ready for design (sdd-design). If design already exists, ready for tasks (sdd-tasks).
 ```
 
@@ -158,14 +164,15 @@ Ready for design (sdd-design). If design already exists, ready for tasks (sdd-ta
 - Keep scenarios TESTABLE — someone should be able to write an automated test from each one
 - DO NOT include implementation details in specs — specs describe WHAT, not HOW
 - Apply any `rules.specs` from `openspec/config.yaml`
+- **Multi-user Compliance**: Ensure specifications respect per-user data isolation. User configurations and workspaces are strictly tied to their unique UUID.
 - Return a structured envelope with: `status`, `executive_summary`, `detailed_report` (optional), `artifacts`, `next_recommended`, and `risks`
 
 ## RFC 2119 Keywords Quick Reference
 
-| Keyword | Meaning |
-|---------|---------|
-| **MUST / SHALL** | Absolute requirement |
-| **MUST NOT / SHALL NOT** | Absolute prohibition |
-| **SHOULD** | Recommended, but exceptions may exist with justification |
-| **SHOULD NOT** | Not recommended, but may be acceptable with justification |
-| **MAY** | Optional |
+| Keyword                  | Meaning                                                   |
+| ------------------------ | --------------------------------------------------------- |
+| **MUST / SHALL**         | Absolute requirement                                      |
+| **MUST NOT / SHALL NOT** | Absolute prohibition                                      |
+| **SHOULD**               | Recommended, but exceptions may exist with justification  |
+| **SHOULD NOT**           | Not recommended, but may be acceptable with justification |
+| **MAY**                  | Optional                                                  |
