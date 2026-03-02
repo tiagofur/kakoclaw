@@ -487,14 +487,25 @@ func applyConfigUpdates(cfg *config.Config, updates map[string]interface{}) erro
 					return err
 				}
 			case "telegram":
+				if t, ok := channelPatch["token"].(string); ok && t == "" {
+					delete(channelPatch, "token")
+				}
 				if err := mergeStructFromMap(&cfg.Channels.Telegram, channelPatch); err != nil {
 					return err
 				}
 			case "feishu":
+				for _, secretKey := range []string{"app_secret", "encrypt_key", "verification_token"} {
+					if s, ok := channelPatch[secretKey].(string); ok && s == "" {
+						delete(channelPatch, secretKey)
+					}
+				}
 				if err := mergeStructFromMap(&cfg.Channels.Feishu, channelPatch); err != nil {
 					return err
 				}
 			case "discord":
+				if t, ok := channelPatch["token"].(string); ok && t == "" {
+					delete(channelPatch, "token")
+				}
 				if err := mergeStructFromMap(&cfg.Channels.Discord, channelPatch); err != nil {
 					return err
 				}
@@ -503,14 +514,26 @@ func applyConfigUpdates(cfg *config.Config, updates map[string]interface{}) erro
 					return err
 				}
 			case "qq":
+				if s, ok := channelPatch["app_secret"].(string); ok && s == "" {
+					delete(channelPatch, "app_secret")
+				}
 				if err := mergeStructFromMap(&cfg.Channels.QQ, channelPatch); err != nil {
 					return err
 				}
 			case "dingtalk":
+				if s, ok := channelPatch["client_secret"].(string); ok && s == "" {
+					delete(channelPatch, "client_secret")
+				}
 				if err := mergeStructFromMap(&cfg.Channels.DingTalk, channelPatch); err != nil {
 					return err
 				}
 			case "slack":
+				if t, ok := channelPatch["bot_token"].(string); ok && t == "" {
+					delete(channelPatch, "bot_token")
+				}
+				if t, ok := channelPatch["app_token"].(string); ok && t == "" {
+					delete(channelPatch, "app_token")
+				}
 				if err := mergeStructFromMap(&cfg.Channels.Slack, channelPatch); err != nil {
 					return err
 				}
