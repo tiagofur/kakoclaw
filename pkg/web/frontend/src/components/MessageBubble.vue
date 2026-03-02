@@ -14,10 +14,15 @@
       ]"
     >
       <!-- Hover accent line for assistant messages -->
-      <div
-        v-if="msg.role === 'assistant'"
-        class="absolute bottom-0 left-0 h-[2px] w-0 bg-gradient-to-r from-makoclaw-accent to-blue-500 group-hover/bubble:w-full transition-all duration-500 opacity-50"
-      />
+      <!-- Interactive Hover Effects (Assistant only) -->
+      <template v-if="msg.role === 'assistant'">
+        <!-- Left edge glow line -->
+        <div class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-0 bg-gradient-to-b from-transparent via-makoclaw-accent/40 to-transparent group-hover/bubble:h-2/3 transition-all duration-300" />
+        <!-- Bottom sweeper line -->
+        <div class="absolute bottom-0 left-0 h-[2px] w-0 bg-gradient-to-r from-makoclaw-accent to-blue-500 group-hover/bubble:w-full transition-all duration-500 opacity-40" />
+        <!-- Soft corner glow -->
+        <div class="absolute -top-6 -right-6 w-16 h-16 bg-gradient-to-br from-makoclaw-accent to-blue-500 rounded-full opacity-0 blur-[15px] group-hover/bubble:opacity-10 transition-all duration-500" />
+      </template>
 
       <p
         v-if="msg.role === 'user'"

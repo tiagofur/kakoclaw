@@ -129,15 +129,15 @@
       <div
         :class="[
           'flex-shrink-0 border-r border-makoclaw-border/20 bg-makoclaw-surface/30 backdrop-blur-sm transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] flex flex-col ring-1 ring-white/5 custom-scrollbar',
-          showSidebar ? 'w-56 md:w-64 opacity-100' : 'w-0 opacity-0 border-none overflow-hidden scale-95 origin-left'
+          showSidebar ? 'w-72 opacity-100' : 'w-0 opacity-0 border-none overflow-hidden scale-95 origin-left'
         ]"
       >
         <div class="p-3 sm:p-4 border-b border-makoclaw-border/30 bg-makoclaw-surface/30">
-          <div class="flex justify-between items-center gap-2">
+          <div class="flex justify-between items-center gap-2 mb-3">
             <div class="flex items-center gap-2">
-              <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-500/20 to-teal-500/20 flex items-center justify-center ring-1 ring-white/10">
+              <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500/20 to-teal-500/20 flex items-center justify-center ring-1 ring-white/10">
                 <svg
-                  class="w-3.5 h-3.5 text-emerald-400"
+                  class="w-4 h-4 text-emerald-400"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -150,12 +150,10 @@
                   />
                 </svg>
               </div>
-              <h2 class="font-semibold text-sm text-makoclaw-text">
-                History
-              </h2>
+              <h2 class="text-sm font-bold text-makoclaw-text uppercase tracking-wider">Chat History</h2>
             </div>
             <button
-              class="p-1.5 hover:bg-emerald-500/10 rounded-lg text-makoclaw-text-secondary hover:text-emerald-400 transition-all"
+              class="p-2 hover:bg-emerald-500/10 rounded-lg text-makoclaw-text-secondary hover:text-emerald-400 transition-all flex items-center justify-center ring-1 ring-white/5 active:scale-95"
               title="New Chat"
               @click="startNewChat"
             >
@@ -169,6 +167,44 @@
                 stroke-linejoin="round"
                 stroke-width="2"
                 d="M12 4v16m8-8H4"
+              /></svg>
+            </button>
+          </div>
+
+          <!-- Search bar in Sidebar -->
+          <div class="relative group/search">
+            <svg
+              class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-makoclaw-text-secondary group-focus-within/search:text-emerald-400 transition-colors"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            /></svg>
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="Search history..."
+              class="w-full pl-10 pr-8 py-1.5 bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-xl text-xs outline-none focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/20 transition-all font-medium"
+            >
+            <button
+              v-if="searchQuery"
+              class="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-makoclaw-surface rounded-lg text-makoclaw-text-secondary"
+              @click="searchQuery = ''"
+            >
+              <svg
+                class="w-3.5 h-3.5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              ><path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
               /></svg>
             </button>
           </div>
@@ -201,8 +237,16 @@
           <div
             v-for="session in sessions"
             :key="session.session_id"
-            class="relative group"
+            class="relative group/session list-item-interactive overflow-hidden cursor-pointer"
+            :class="currentSessionId === session.session_id ? 'bg-makoclaw-bg border-makoclaw-accent/30 shadow-sm' : ''"
           >
+            <!-- Hover glow line (left edge) -->
+            <div class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-0 bg-gradient-to-b from-transparent via-makoclaw-accent/40 to-transparent group-hover/session:h-2/3 transition-all duration-300" />
+            <!-- Animated bottom-line on hover -->
+            <div class="absolute bottom-0 left-0 h-[2px] w-0 bg-gradient-to-r from-makoclaw-accent to-blue-500 group-hover/session:w-full transition-all duration-500 opacity-40" />
+            <!-- Soft gradient glow (top-right) -->
+            <div class="absolute -top-6 -right-6 w-16 h-16 bg-gradient-to-br from-makoclaw-accent to-blue-500 rounded-full opacity-0 blur-[15px] group-hover/session:opacity-10 transition-all duration-500" />
+
             <!-- Inline rename -->
             <div
               v-if="renamingSession === session.session_id"
@@ -221,12 +265,8 @@
             <!-- Normal session button -->
             <button
               v-else
-              :class="[
-                'w-full text-left px-2.5 py-2 rounded-lg text-sm transition-all duration-200',
-                currentSessionId === session.session_id
-                  ? 'bg-gradient-to-r from-makoclaw-accent/15 to-transparent text-makoclaw-text border-l-2 border-makoclaw-accent'
-                  : 'hover:bg-makoclaw-surface/50 text-makoclaw-text-secondary hover:text-makoclaw-text border-l-2 border-transparent'
-              ]"
+              class="w-full text-left px-2.5 py-2 rounded-lg text-sm transition-all duration-200"
+              :class="currentSessionId === session.session_id ? 'text-makoclaw-text' : 'text-makoclaw-text-secondary hover:text-makoclaw-text'"
               @click="loadSession(session.session_id)"
             >
               <div class="flex items-center gap-2.5">
@@ -264,7 +304,7 @@
                 <span class="truncate flex-1 text-xs font-medium">{{ session.title || session.last_message || 'Empty session' }}</span>
                 <!-- Context menu trigger -->
                 <button
-                  class="opacity-0 group-hover:opacity-100 p-1 hover:bg-makoclaw-surface rounded-md transition-all flex-shrink-0"
+                  class="opacity-0 group-hover/session:opacity-100 p-1 hover:bg-makoclaw-surface rounded-md transition-all flex-shrink-0"
                   title="Session actions"
                   @click.stop="openContextMenu($event, session.session_id)"
                 >
@@ -385,13 +425,13 @@
           >
             <div class="relative">
               <!-- Glow effect -->
-              <div class="absolute inset-0 bg-gradient-to-br from-makoclaw-accent/30 to-purple-500/30 rounded-3xl blur-2xl opacity-50" />
-              <div class="relative glass-panel p-8 sm:p-10 rounded-2xl shadow-2xl shadow-makoclaw-accent/10 ring-1 ring-white/10 group">
+              <div class="absolute inset-0 bg-gradient-to-br from-emerald-500/30 to-teal-500/30 rounded-3xl blur-2xl opacity-50" />
+              <div class="relative glass-panel p-8 sm:p-10 rounded-2xl shadow-2xl shadow-emerald-500/10 ring-1 ring-white/10 group">
                 <!-- Gradient glow behind icon -->
-                <div class="absolute -top-8 -right-8 w-24 h-24 bg-gradient-to-br from-makoclaw-accent to-blue-500 rounded-full opacity-15 blur-[25px] group-hover:opacity-30 group-hover:scale-110 transition-all duration-500" />
-                <div class="w-16 h-16 sm:w-20 sm:h-20 mx-auto rounded-2xl bg-gradient-to-br from-makoclaw-accent/20 to-purple-500/20 flex items-center justify-center ring-1 ring-white/20 relative z-10 transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3">
+                <div class="absolute -top-8 -right-8 w-24 h-24 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full opacity-15 blur-[25px] group-hover:opacity-30 group-hover:scale-110 transition-all duration-500" />
+                <div class="w-16 h-16 sm:w-20 sm:h-20 mx-auto rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 flex items-center justify-center ring-1 ring-white/20 relative z-10 transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3">
                   <svg
-                    class="w-8 h-8 sm:w-10 sm:h-10 text-makoclaw-accent drop-shadow-sm"
+                    class="w-8 h-8 sm:w-10 sm:h-10 text-emerald-400 drop-shadow-sm"
                     style="animation: pulse 3s ease-in-out infinite;"
                     fill="none"
                     stroke="currentColor"
@@ -406,7 +446,7 @@
                   </svg>
                 </div>
                 <!-- Animated bottom-line -->
-                <div class="absolute bottom-0 left-0 h-[2px] w-0 bg-gradient-to-r from-makoclaw-accent to-blue-500 group-hover:w-full transition-all duration-500 opacity-70 rounded-b-2xl" />
+                <div class="absolute bottom-0 left-0 h-[2px] w-0 bg-gradient-to-r from-emerald-500 to-teal-500 group-hover:w-full transition-all duration-500 opacity-70 rounded-b-2xl" />
               </div>
             </div>
             <h3 class="text-lg sm:text-xl font-bold text-makoclaw-text mt-6 bg-gradient-to-r from-makoclaw-text to-makoclaw-text-secondary bg-clip-text">
