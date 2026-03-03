@@ -51,7 +51,8 @@ export const useChatStore = defineStore('chat', () => {
       timestamp: new Date().toISOString(),
       streaming: true,
       agents: [], // Initialize empty agents array
-      segments: [] // Initialize empty segments array
+      segments: [], // Initialize empty segments array
+      agentActivities: [] // Specialist agent activity blocks (like toolCalls)
     })
     streamingMessageId.value = id
     isStreaming.value = true
@@ -81,7 +82,16 @@ export const useChatStore = defineStore('chat', () => {
         if (agents && agents.length > 0) {
           msg.agents = agents
         }
-        // Snapshot agent activity onto the message for persistence
+        // Mark any in-progress agent activities as complete
+        if (msg.agentActivities) {
+          for (const act of msg.agentActivities) {
+            if (act.status === 'working' || act.status === 'delegating') {
+              act.status = 'complete'
+              act.expanded = false
+            }
+          }
+        }
+        // Snapshot agent activity onto the message for persistence (legacy)
         if (agentHistory.value.length > 0 || specialistReports.value.length > 0) {
           msg.agentActivity = {
             hadMultiAgent: agentHistory.value.length > 1,
@@ -97,31 +107,43 @@ export const useChatStore = defineStore('chat', () => {
     isStreaming.value = false
   }
 
-  // Add an agent event as an inline indicator in the chat stream
+  // Add an agent event as an inline indicator AND as an activity block on the streaming message
   function addAgentEvent(event) {
     const persistableStatuses = ['delegating', 'working', 'complete', 'fallback', 'requesting_help']
     if (!persistableStatuses.includes(event.status)) return
 
-    const eventMsg = {
-      id: Date.now() + Math.random(),
-      type: 'agent_event',
-      role: 'system',
-      agent: event.agent,
-      status: event.status,
-      specialistName: event.specialistName,
-      reason: event.reason,
-      timestamp: event.timestamp || new Date().toISOString()
-    }
-
-    // Insert before the current streaming message for chronological order
+    // Attach as an activity block on the current streaming message (persists on the message)
     if (streamingMessageId.value) {
-      const streamIdx = messages.value.findIndex(m => m.id === streamingMessageId.value)
-      if (streamIdx !== -1) {
-        messages.value.splice(streamIdx, 0, eventMsg)
-        return
+      const msg = messages.value.find(m => m.id === streamingMessageId.value)
+      if (msg) {
+        if (!msg.agentActivities) msg.agentActivities = []
+        const agentName = event.specialistName || event.agent
+        // Find existing entry for this agent to update it (avoid duplicates)
+        const existing = msg.agentActivities.find(a => a.agent === agentName)
+        if (existing) {
+          existing.status = event.status
+          if (event.reason) existing.reason = event.reason
+          if (event.delegationChain) existing.delegationChain = event.delegationChain
+          existing.timestamp = event.timestamp || new Date().toISOString()
+          // Collapse when complete, expand when working
+          existing.expanded = event.status === 'working' || event.status === 'delegating'
+        } else {
+          msg.agentActivities.push({
+            id: Date.now() + Math.random(),
+            agent: agentName,
+            status: event.status,
+            reason: event.reason || '',
+            delegationChain: event.delegationChain || [],
+            parentAgent: event.parentAgent || '',
+            timestamp: event.timestamp || new Date().toISOString(),
+            expanded: event.status === 'working' || event.status === 'delegating',
+            // Fields to be filled by specialist reports
+            confidence: null,
+            toolsUsed: []
+          })
+        }
       }
     }
-    messages.value.push(eventMsg)
   }
 
   // Set agents for a specific message (for loading from history or post-streaming)
@@ -175,6 +197,23 @@ export const useChatStore = defineStore('chat', () => {
       receivedAt: new Date().toISOString()
     })
     lastSpecialistReport.value = report
+
+    // Update the matching agentActivity entry on the streaming message
+    if (streamingMessageId.value) {
+      const msg = messages.value.find(m => m.id === streamingMessageId.value)
+      if (msg && msg.agentActivities) {
+        const agentName = report.specialist_name || report.specialistName
+        const existing = msg.agentActivities.find(a => a.agent === agentName)
+        if (existing) {
+          if (report.confidence) existing.confidence = report.confidence
+          if (report.tools_used && report.tools_used.length > 0) existing.toolsUsed = report.tools_used
+          if (report.status === 'complete') {
+            existing.status = 'complete'
+            existing.expanded = false
+          }
+        }
+      }
+    }
 
     // Update orchestrator status based on report
     if (report.status === 'needs_help' && report.request_help) {

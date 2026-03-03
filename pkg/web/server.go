@@ -1271,6 +1271,19 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 
 			// Use streaming if supported
 			if activeAgentLoop.SupportsStreaming() {
+				// Reset delegation count for new message
+				if orch := agentMgr.GetOrchestrator(); orch != nil {
+					orch.ResetDelegationCount()
+					logger.DebugCF("web", "Processing message with orchestrator", map[string]interface{}{
+						"orchestrated": agentMgr.IsOrchestrated(),
+						"specialists":  len(agentMgr.GetSpecialistRegistry().ListSpecialists()),
+					})
+				} else {
+					logger.DebugCF("web", "Processing message without orchestrator", map[string]interface{}{
+						"orchestrated": agentMgr.IsOrchestrated(),
+					})
+				}
+
 				// Send stream_start
 				wsMu.Lock()
 				_ = conn.WriteJSON(map[string]interface{}{"type": "stream_start"})
@@ -1278,6 +1291,11 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 
 				// Add agent status callback to context
 				ctx = agent.ContextWithAgentStatusCallback(ctx, func(ev agent.AgentStatusEvent) error {
+					logger.DebugCF("web", "Emitting agent_status via WebSocket", map[string]interface{}{
+						"agent":  ev.Agent,
+						"status": ev.Status,
+						"chain":  ev.DelegationChain,
+					})
 					wsMu.Lock()
 					defer wsMu.Unlock()
 					msg := map[string]interface{}{

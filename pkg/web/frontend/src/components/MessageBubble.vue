@@ -31,6 +31,18 @@
         {{ msg.content }}
       </p>
       <template v-else>
+        <!-- Agent Activity Blocks (specialist agents working) -->
+        <div
+          v-if="msg.agentActivities && msg.agentActivities.length > 0"
+          class="mb-4 space-y-2"
+        >
+          <AgentActivityItem
+            v-for="act in msg.agentActivities"
+            :key="act.id"
+            :activity="act"
+          />
+        </div>
+
         <!-- Tool Calls Rendering -->
         <div
           v-if="msg.toolCalls && msg.toolCalls.length > 0"
@@ -114,102 +126,8 @@
           <p class="text-sm text-makoclaw-text-secondary italic">No content</p>
         </div>
 
-        <!-- Collapsible agent workflow details -->
-        <div v-if="msg.agentActivity?.hadMultiAgent">
-          <button
-            class="flex items-center gap-1.5 mt-3 text-xs text-makoclaw-text-secondary hover:text-makoclaw-text transition-colors"
-            @click="showActivity = !showActivity"
-          >
-            <svg
-              class="w-3 h-3 transition-transform duration-200"
-              :class="{ 'rotate-90': showActivity }"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M9 5l7 7-7 7"
-              />
-            </svg>
-            Agent workflow details
-          </button>
-          <div
-            v-if="showActivity"
-            class="mt-2 pl-3 border-l-2 border-makoclaw-border/30 space-y-1.5"
-          >
-            <!-- Delegation chain tree (if present) -->
-            <div
-              v-if="msg.agentActivity.delegationChain?.length > 1"
-              class="mb-2 pb-2 border-b border-makoclaw-border/20"
-            >
-              <span class="text-[10px] uppercase tracking-wider text-makoclaw-text-secondary font-medium">
-                Delegation Chain
-              </span>
-              <div class="flex items-center gap-1 flex-wrap mt-1">
-                <template
-                  v-for="(agent, idx) in msg.agentActivity.delegationChain"
-                  :key="idx"
-                >
-                  <span
-                    class="text-[10px] px-1.5 py-0.5 rounded capitalize font-medium bg-makoclaw-surface/50 text-makoclaw-text-secondary"
-                  >
-                    {{ agent }}
-                  </span>
-                  <span
-                    v-if="idx < msg.agentActivity.delegationChain.length - 1"
-                    class="text-makoclaw-text-secondary/30 text-xs"
-                  >
-                    →
-                  </span>
-                </template>
-              </div>
-            </div>
-
-            <!-- Timeline of agent events -->
-            <div
-              v-for="(entry, i) in msg.agentActivity.history"
-              :key="i"
-              class="flex items-center gap-2 text-xs text-makoclaw-text-secondary"
-            >
-              <span
-                class="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                :class="activityDotColor(entry.status)"
-              />
-              <span class="capitalize">{{ entry.agent }}</span>
-              <span class="opacity-60">{{ entry.status }}</span>
-              <span
-                v-if="entry.specialistName"
-                class="opacity-60"
-              >
-                {{ entry.specialistName }}
-              </span>
-            </div>
-            <!-- Specialist confidence and tools -->
-            <div
-              v-for="report in msg.agentActivity.reports"
-              :key="report.specialist_name || report.specialistName"
-              class="flex items-center gap-2 text-xs text-makoclaw-text-secondary mt-1"
-            >
-              <span class="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
-              <span class="capitalize">{{ report.specialist_name || report.specialistName }}</span>
-              <span
-                v-if="report.confidence"
-                class="opacity-60"
-              >
-                confidence: {{ Math.round((report.confidence || 0) * 100) }}%
-              </span>
-              <span
-                v-if="report.tools_used?.length"
-                class="opacity-40 text-[10px]"
-              >
-                ({{ report.tools_used.join(', ') }})
-              </span>
-            </div>
-          </div>
-        </div>
+        <!-- Legacy: Collapsible agent workflow details (from agentActivity snapshot) -->
+        <!-- Now handled by AgentActivityItem blocks above -->
       </template>
       
       <!-- Agent Badges -->
@@ -306,21 +224,11 @@ import { ref } from 'vue'
 import MarkdownRenderer from './Chat/MarkdownRenderer.vue'
 import ToolCallItem from './ToolCallItem.vue'
 import SpecialistBadge from './Chat/SpecialistBadge.vue'
+import AgentActivityItem from './Chat/AgentActivityItem.vue'
 
 const showSegments = ref(false)
-const showActivity = ref(false)
 
-const activityDotColor = (status) => {
-  const colors = {
-    delegating: 'bg-purple-400',
-    working: 'bg-emerald-400',
-    complete: 'bg-emerald-400',
-    fallback: 'bg-amber-400',
-    requesting_help: 'bg-amber-400',
-    analyzing: 'bg-indigo-400'
-  }
-  return colors[status] || 'bg-makoclaw-text-secondary'
-}
+// activityDotColor removed — now handled by AgentActivityItem component
 
 defineProps({
   msg: {
