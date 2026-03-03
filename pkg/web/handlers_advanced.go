@@ -302,16 +302,19 @@ Respond ONLY with a valid JSON object matching this exact structure, with no mar
 			Overwrite bool   `json:"overwrite"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			logger.ErrorCF("web", "create skill invalid body", map[string]interface{}{"error": err.Error()})
 			http.Error(w, "invalid request body", http.StatusBadRequest)
 			return
 		}
 		skillName, ok := sanitizeSkillName(body.Name)
 		if !ok {
+			logger.ErrorCF("web", "create skill invalid name", map[string]interface{}{"name": body.Name})
 			http.Error(w, "invalid skill name", http.StatusBadRequest)
 			return
 		}
 		content := normalizeSkillDraft(skillName, body.Content)
 		if err := validateSkillContent(content); err != nil {
+			logger.ErrorCF("web", "create skill invalid content", map[string]interface{}{"name": skillName, "error": err.Error(), "preview": content[:min(len(content), 200)]})
 			http.Error(w, "invalid skill content: "+err.Error(), http.StatusBadRequest)
 			return
 		}

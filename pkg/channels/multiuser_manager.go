@@ -118,7 +118,7 @@ func (m *MultiUserChannelManager) getOrCreateManagerForUserLocked(userUUID strin
 
 	// Wrap in an AgentManager to get Orchestrator support if enabled
 	agentMgr := agent.NewAgentManager(baseAgentLoop)
-	if err := agentMgr.InitializeOrchestrator(m.globalCfg, m.bus, userStore); err != nil {
+	if err := agentMgr.InitializeOrchestrator(baseAgentLoop.Config(), m.bus, userStore); err != nil {
 		logger.ErrorCF("multiuser", "Failed to initialize orchestrator for user channel", map[string]interface{}{
 			"user_uuid": userUUID,
 			"error":     err.Error(),

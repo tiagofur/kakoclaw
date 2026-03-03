@@ -721,7 +721,7 @@ func (tdt *TaskDecompositionTool) Execute(ctx context.Context, args map[string]i
 
 	// Build aggregated result
 	var resultBuilder strings.Builder
-	resultBuilder.WriteString(fmt.Sprintf("## Task Decomposition Complete\n\n"))
+	resultBuilder.WriteString("## Task Decomposition Complete\n\n")
 	resultBuilder.WriteString(fmt.Sprintf("Original task: %s\n\n", truncate(task, 100)))
 	resultBuilder.WriteString(fmt.Sprintf("### Subtask Results (%d total)\n\n", len(subtasks)))
 
