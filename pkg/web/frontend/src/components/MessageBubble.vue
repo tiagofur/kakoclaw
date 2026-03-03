@@ -130,24 +130,18 @@
         <!-- Now handled by AgentActivityItem blocks above -->
       </template>
       
-      <!-- Agent Badges -->
-      <div
-        v-if="msg.agents && msg.agents.length > 0"
-        class="agents-badge-row"
-      >
-        <SpecialistBadge 
-          v-for="agent in msg.agents" 
-          :key="agent"
-          :name="agent"
-          class="agent-badge"
-        />
-      </div>
-      
       <div class="flex items-center justify-between mt-1 sm:mt-1.5">
         <p class="text-[10px] opacity-40 font-medium group-hover:opacity-70 transition-opacity">
           {{ formatTime(msg.timestamp || msg.created_at) }}
         </p>
-        <div class="flex items-center gap-0.5 sm:gap-1">
+        <div class="flex items-center gap-1 sm:gap-1.5">
+          <!-- Agent badges (right-aligned, before action buttons) -->
+          <SpecialistBadge
+            v-for="agent in (msg.agents || [])"
+            :key="agent"
+            :name="agent"
+            class="text-[10px]"
+          />
           <!-- Fork button -->
           <button
             v-if="currentSessionId && msg.id"
@@ -259,17 +253,6 @@ const formatTime = (isoString) => {
 </script>
 
 <style scoped>
-.agents-badge-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid rgb(var(--pc-border) / 0.2);
-}
-
-.agent-badge {
-  font-size: 0.75rem;
-}
+/* Agent badges are now inline in the footer row */
 </style>
 
