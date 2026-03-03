@@ -304,27 +304,15 @@
                 <span class="truncate flex-1 text-xs font-medium">{{ session.title || session.last_message || 'Empty session' }}</span>
                 <!-- Context menu trigger -->
                 <button
-                  class="opacity-0 group-hover/session:opacity-100 p-1 hover:bg-makoclaw-surface rounded-md transition-all flex-shrink-0"
+                  class="p-1 rounded-lg text-makoclaw-text-secondary hover:text-makoclaw-text hover:bg-makoclaw-surface/50 transition-all flex-shrink-0 opacity-0 group-hover/session:opacity-100"
                   title="Session actions"
                   @click.stop="openContextMenu($event, session.session_id)"
                 >
                   <svg
-                    class="w-3 h-3"
+                    class="w-4 h-4"
                     fill="currentColor"
                     viewBox="0 0 20 20"
-                  ><circle
-                    cx="10"
-                    cy="4"
-                    r="1.5"
-                  /><circle
-                    cx="10"
-                    cy="10"
-                    r="1.5"
-                  /><circle
-                    cx="10"
-                    cy="16"
-                    r="1.5"
-                  /></svg>
+                  ><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg>
                 </button>
               </div>
               <div class="text-[10px] opacity-60 mt-1 pl-8 flex justify-between">
