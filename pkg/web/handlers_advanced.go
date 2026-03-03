@@ -3726,7 +3726,7 @@ JSON to fix:
 
 	response, aiErr := userAgentLoop.ProcessDirectWithUserAndModel(
 		ctx, userID, prompt,
-		fmt.Sprintf("web:ai:fixjson:%s", body.Type), "",
+		fmt.Sprintf("web:ai:fixjson:%s", body.Type), "", "*",
 	)
 	if aiErr != nil {
 		http.Error(w, "AI processing failed: "+aiErr.Error(), http.StatusInternalServerError)
@@ -3868,7 +3868,7 @@ Return only explanation and JSON.`, body.Prompt)
 	defer cancel()
 
 	response, aiErr := userAgentLoop.ProcessDirectWithUserAndModel(
-		ctx, userID, aiPrompt, "web:ai:create-cron", "",
+		ctx, userID, aiPrompt, "web:ai:create-cron", "", "*",
 	)
 	if aiErr != nil {
 		http.Error(w, "AI processing failed: "+aiErr.Error(), http.StatusInternalServerError)
@@ -3991,9 +3991,9 @@ Generate a skill configuration for: %s`, req.Prompt)
 	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 	defer cancel()
 
-	// Use ProcessDirectWithUserAndModel to leverage user-configured provider
+	// Use ProcessDirectWithUserAndModel without tools — we only need a JSON text response
 	response, aiErr := userAgentLoop.ProcessDirectWithUserAndModel(
-		ctx, userID, aiPrompt, "web:skills:generate-config", "",
+		ctx, userID, aiPrompt, "web:skills:generate-config", "", "*",
 	)
 	if aiErr != nil {
 		writeJSONError(w, "AI generation failed: "+aiErr.Error(), http.StatusInternalServerError)

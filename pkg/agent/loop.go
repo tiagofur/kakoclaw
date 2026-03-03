@@ -998,42 +998,52 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 				"max":       al.maxIterations,
 			})
 
-		// Build tool definitions
-		toolDefs := al.tools.GetDefinitions()
-		providerToolDefs := make([]providers.ToolDefinition, 0, len(toolDefs))
-		for _, td := range toolDefs {
-			fnMap, ok := td["function"].(map[string]interface{})
-			if !ok {
-				continue
+		// Build tool definitions (exclude all when "*" is in ExcludeTools)
+		var providerToolDefs []providers.ToolDefinition
+		excludeAll := false
+		for _, ex := range opts.ExcludeTools {
+			if ex == "*" {
+				excludeAll = true
+				break
 			}
-			toolName, _ := fnMap["name"].(string)
-			if toolName == "" {
-				continue
-			}
-			// Skip excluded tools (e.g., web_search when user toggles it off)
-			if len(opts.ExcludeTools) > 0 {
-				excluded := false
-				for _, ex := range opts.ExcludeTools {
-					if ex == toolName {
-						excluded = true
-						break
-					}
-				}
-				if excluded {
+		}
+		if !excludeAll {
+			toolDefs := al.tools.GetDefinitions()
+			providerToolDefs = make([]providers.ToolDefinition, 0, len(toolDefs))
+			for _, td := range toolDefs {
+				fnMap, ok := td["function"].(map[string]interface{})
+				if !ok {
 					continue
 				}
+				toolName, _ := fnMap["name"].(string)
+				if toolName == "" {
+					continue
+				}
+				// Skip excluded tools (e.g., web_search when user toggles it off)
+				if len(opts.ExcludeTools) > 0 {
+					excluded := false
+					for _, ex := range opts.ExcludeTools {
+						if ex == toolName {
+							excluded = true
+							break
+						}
+					}
+					if excluded {
+						continue
+					}
+				}
+				tdType, _ := td["type"].(string)
+				desc, _ := fnMap["description"].(string)
+				params, _ := fnMap["parameters"].(map[string]interface{})
+				providerToolDefs = append(providerToolDefs, providers.ToolDefinition{
+					Type: tdType,
+					Function: providers.ToolFunctionDefinition{
+						Name:        toolName,
+						Description: desc,
+						Parameters:  params,
+					},
+				})
 			}
-			tdType, _ := td["type"].(string)
-			desc, _ := fnMap["description"].(string)
-			params, _ := fnMap["parameters"].(map[string]interface{})
-			providerToolDefs = append(providerToolDefs, providers.ToolDefinition{
-				Type: tdType,
-				Function: providers.ToolFunctionDefinition{
-					Name:        toolName,
-					Description: desc,
-					Parameters:  params,
-				},
-			})
 		}
 
 		// Log LLM request details
@@ -1237,42 +1247,52 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 				"can_stream": canStream,
 			})
 
-		// Build tool definitions
-		toolDefs := al.tools.GetDefinitions()
-		providerToolDefs := make([]providers.ToolDefinition, 0, len(toolDefs))
-		for _, td := range toolDefs {
-			fnMap, ok := td["function"].(map[string]interface{})
-			if !ok {
-				continue
+		// Build tool definitions (exclude all when "*" is in ExcludeTools)
+		var providerToolDefs []providers.ToolDefinition
+		excludeAll := false
+		for _, ex := range opts.ExcludeTools {
+			if ex == "*" {
+				excludeAll = true
+				break
 			}
-			toolName, _ := fnMap["name"].(string)
-			if toolName == "" {
-				continue
-			}
-			// Skip excluded tools (e.g., web_search when user toggles it off)
-			if len(opts.ExcludeTools) > 0 {
-				excluded := false
-				for _, ex := range opts.ExcludeTools {
-					if ex == toolName {
-						excluded = true
-						break
-					}
-				}
-				if excluded {
+		}
+		if !excludeAll {
+			toolDefs := al.tools.GetDefinitions()
+			providerToolDefs = make([]providers.ToolDefinition, 0, len(toolDefs))
+			for _, td := range toolDefs {
+				fnMap, ok := td["function"].(map[string]interface{})
+				if !ok {
 					continue
 				}
+				toolName, _ := fnMap["name"].(string)
+				if toolName == "" {
+					continue
+				}
+				// Skip excluded tools (e.g., web_search when user toggles it off)
+				if len(opts.ExcludeTools) > 0 {
+					excluded := false
+					for _, ex := range opts.ExcludeTools {
+						if ex == toolName {
+							excluded = true
+							break
+						}
+					}
+					if excluded {
+						continue
+					}
+				}
+				tdType, _ := td["type"].(string)
+				desc, _ := fnMap["description"].(string)
+				params, _ := fnMap["parameters"].(map[string]interface{})
+				providerToolDefs = append(providerToolDefs, providers.ToolDefinition{
+					Type: tdType,
+					Function: providers.ToolFunctionDefinition{
+						Name:        toolName,
+						Description: desc,
+						Parameters:  params,
+					},
+				})
 			}
-			tdType, _ := td["type"].(string)
-			desc, _ := fnMap["description"].(string)
-			params, _ := fnMap["parameters"].(map[string]interface{})
-			providerToolDefs = append(providerToolDefs, providers.ToolDefinition{
-				Type: tdType,
-				Function: providers.ToolFunctionDefinition{
-					Name:        toolName,
-					Description: desc,
-					Parameters:  params,
-				},
-			})
 		}
 
 		llmOpts := map[string]interface{}{

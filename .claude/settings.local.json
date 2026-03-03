@@ -61,7 +61,10 @@
       "Bash(MSYS_NO_PATHCONV=1 docker exec makoclaw sh -c 'curl -s -X POST http://localhost:18880/api/v1/auth/login -H \"\"Content-Type: application/json\"\" -d '\"''\"'{\"\"username\"\":\"\"admin\"\",\"\"password\"\":\"\"Passw0rd!2026\"\"}'\"''\")",
       "Bash(MSYS_NO_PATHCONV=1 docker exec makoclaw sh -c 'python3 -c \"\":*)",
       "Bash(MSYS_NO_PATHCONV=1 docker exec makoclaw sh -c 'printf \"\"{\\\\\"\"username\\\\\"\":\\\\\"\"admin\\\\\"\",\\\\\"\"password\\\\\"\":\\\\\"\"Passw0rd!2026\\\\\"\"}\"\" > /tmp/login.json && curl -s -X POST http://localhost:18880/api/v1/auth/login -H \"\"Content-Type: application/json\"\" -d @/tmp/login.json && rm /tmp/login.json')",
-      "Bash(MSYS_NO_PATHCONV=1 docker exec makoclaw sh -c 'echo \"\"test with exclaim: Passw0rd!2026\"\" && printf \"\"%s\"\" \"\"Passw0rd!2026\"\" | xxd | head -2')"
+      "Bash(MSYS_NO_PATHCONV=1 docker exec makoclaw sh -c 'echo \"\"test with exclaim: Passw0rd!2026\"\" && printf \"\"%s\"\" \"\"Passw0rd!2026\"\" | xxd | head -2')",
+      "Bash(powershell.exe:*)",
+      "Bash(cmd.exe:*)",
+      "Bash(docker.exe ps:*)"
     ]
   },
   "enabledPlugins": {
