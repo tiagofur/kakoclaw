@@ -1165,9 +1165,9 @@ func (c *Config) validateProviderConfigLocked(providerName string) error {
 		return nil
 	}
 
-	// All other providers require API key
-	if provider.APIKey == "" {
-		return fmt.Errorf("provider %s requires api_key", providerName)
+	// All other providers require API key or auth method (e.g., OAuth)
+	if provider.APIKey == "" && provider.AuthMethod == "" {
+		return fmt.Errorf("provider %s requires api_key or auth_method", providerName)
 	}
 
 	return nil

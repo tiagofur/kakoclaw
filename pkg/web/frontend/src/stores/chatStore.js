@@ -27,6 +27,8 @@ export const useChatStore = defineStore('chat', () => {
   const agentHistory = ref([])           // Historial de eventos de agentes
   const currentSpecialist = ref(null)    // Currently active specialist name (legacy)
   const isMultiAgent = ref(false)         // Whether multi-agent mode is active
+  const specialistReports = ref([])      // Structured reports from specialists
+  const lastSpecialistReport = ref(null) // Most recent specialist report for quick access
 
   function addMessage(message) {
     messages.value.push({
@@ -119,6 +121,26 @@ export const useChatStore = defineStore('chat', () => {
     activeSpecialist.value = null
     delegationReason.value = ''
     agentHistory.value = []
+    specialistReports.value = []
+    lastSpecialistReport.value = null
+  }
+
+  // Add a specialist report (from structured feedback)
+  function addSpecialistReport(report) {
+    specialistReports.value.push({
+      ...report,
+      receivedAt: new Date().toISOString()
+    })
+    lastSpecialistReport.value = report
+
+    // Update orchestrator status based on report
+    if (report.status === 'needs_help' && report.request_help) {
+      orchestratorStatus.value = 'delegating'
+      activeSpecialist.value = report.request_help
+      delegationReason.value = report.help_context || `${report.specialist_name} requested help`
+    } else if (report.status === 'complete') {
+      // Keep current status, specialist finished
+    }
   }
 
   // Add a content segment to the current streaming message
@@ -372,7 +394,10 @@ export const useChatStore = defineStore('chat', () => {
     setOrchestratorStatus,
     setCurrentSpecialist,
     setIsMultiAgent,
-    getSpecialistDisplay
+    getSpecialistDisplay,
+    specialistReports,
+    lastSpecialistReport,
+    addSpecialistReport
   }
 })
   const normalizeModelsData = (data) => {

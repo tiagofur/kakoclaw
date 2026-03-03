@@ -6,7 +6,7 @@ Guidance for Claude Code (claude.ai/code) when working in this repository.
 
 ### Multi-user Context
 
-Agents created via the Web UI are stored in the user's personal `config.json` file. The repository's `AGENTS.md` (this file) describes the global system architecture, but instance-specific specialization happens at the user profile level.
+Agents created via the Web UI are stored in the user's personal `config.json` file at `~/.MakoClaw/users/{uuid}/config.json`. The repository's `AGENTS.md` (this file) describes the global system architecture, but instance-specific specialization happens at the user profile level. See [Multi-user Architecture](#multi-user-architecture) section for details.
 
 ### Creating Agents
 
@@ -374,10 +374,79 @@ Components: `channel`, `channels`, `agent`, `llm`, `tool`, `web`, `workflow`, `m
 
 ## Multi-user Architecture
 
-- **Global Config**: `~/.makoclaw/config.json` stores system-level defaults.
-- **User Config**: `~/.makoclaw/users/<uuid>/config.json` stores user-specific overrides (agents, tokens, settings).
-- **Isolation**: Use `getUserStorage(r)` in the backend to access isolated per-user databases and configurations.
-- **Persistence**: Per-user DBs are stored in `~/.makoclaw/users/<uuid>/makoclaw.db`.
+### Directory Structure
+
+```
+~/.MakoClaw/
+├── config.json                    # Global defaults (admin-managed)
+├── central.db                     # User accounts, auth tokens
+└── users/
+    └── {uuid}/
+        ├── config.json            # User-specific overrides
+        ├── workspace/
+        │   ├── database.db        # User's tasks, knowledge, history
+        │   └── sessions/          # Chat session files
+        └── skills/                # User's custom skills
+```
+
+### What Goes Where
+
+| Data Type | Location | Scope |
+|-----------|----------|-------|
+| Login credentials | `central.db` | App-wide |
+| User profile | `central.db` | App-wide |
+| API keys (providers) | `users/{uuid}/config.json` | Personal |
+| **Specialist agents** | `users/{uuid}/config.json` | Personal |
+| Channel tokens | `users/{uuid}/config.json` | Personal |
+| Orchestrator config | `users/{uuid}/config.json` | Personal |
+| Agent defaults | `users/{uuid}/config.json` | Personal |
+| Chat history | `users/{uuid}/workspace/sessions/` | Personal |
+| Tasks (Kanban) | `users/{uuid}/workspace/database.db` | Personal |
+| Knowledge base | `users/{uuid}/workspace/database.db` | Personal |
+
+### Config Merge Behavior
+
+```go
+// LoadConfigForUser loads user config, merges with global for defaults
+userCfg := config.LoadConfigForUser(userUUID)
+// User values override global values
+// Global specialists appear unless in user's RemovedSpecialists list
+```
+
+### Backend Access Pattern
+
+```go
+// Always use getUserStorage() for per-user isolation
+store, userUUID, ok := s.getUserStorage(r)
+if !ok { return unauthorized }
+
+// Load user's config
+userCfg, _ := config.LoadConfigForUser(userUUID)
+
+// Save changes to user's config
+config.SaveConfigForUser(userUUID, userCfg)
+```
+
+## Specialist Agents
+
+### Manual Invocation via @name
+
+Users can invoke specialists directly in chat, bypassing the orchestrator:
+
+```
+@security_analyst check this code for vulnerabilities
+@researcher find papers on quantum computing
+```
+
+- Works even when orchestrator is disabled
+- Syntax: `@specialist_name message`
+- If specialist not found, falls back to default agent with warning
+
+### Visibility
+
+Specialists are **always visible** in Settings > Agents, regardless of orchestrator status:
+- When orchestrator **enabled**: automatic delegation based on keywords
+- When orchestrator **disabled**: manual invocation only via `@name`
 
 ## SDD Guidelines
 

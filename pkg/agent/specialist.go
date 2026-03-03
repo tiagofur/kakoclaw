@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/sipeed/makoclaw/pkg/bus"
 	"github.com/sipeed/makoclaw/pkg/config"
@@ -273,6 +274,167 @@ func (sa *SpecialistAgent) ProcessWithSpeciality(ctx context.Context, userMessag
 	return sa.ProcessDirect(agentCtx, fullMessage, fmt.Sprintf("specialist_%s", sa.name))
 }
 
+// RequestColleagueTool allows specialists to request help from other specialists
+type RequestColleagueTool struct {
+	registry        *SpecialistRegistry
+	currentAgent    *SpecialistAgent
+	maxNestingDepth int
+	currentDepth    int
+}
+
+// NewRequestColleagueTool creates a new colleague request tool for a specialist
+func NewRequestColleagueTool(registry *SpecialistRegistry, current *SpecialistAgent) *RequestColleagueTool {
+	return &RequestColleagueTool{
+		registry:        registry,
+		currentAgent:    current,
+		maxNestingDepth: 2, // Prevent infinite recursion
+		currentDepth:    0,
+	}
+}
+
+func (t *RequestColleagueTool) Name() string {
+	return "request_colleague"
+}
+
+func (t *RequestColleagueTool) Description() string {
+	return "Request help from a colleague specialist when you need expertise outside your domain"
+}
+
+func (t *RequestColleagueTool) Parameters() map[string]interface{} {
+	return map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"colleague": map[string]interface{}{
+				"type":        "string",
+				"description": "Name of the colleague specialist to consult (e.g., 'security', 'developer')",
+			},
+			"question": map[string]interface{}{
+				"type":        "string",
+				"description": "The specific question or task to ask the colleague",
+			},
+			"context": map[string]interface{}{
+				"type":        "string",
+				"description": "Additional context about why you need this help",
+			},
+		},
+		"required": []string{"colleague", "question"},
+	}
+}
+
+func (t *RequestColleagueTool) Execute(ctx context.Context, args map[string]interface{}) (string, error) {
+	colleagueName, ok := args["colleague"].(string)
+	if !ok {
+		return "", fmt.Errorf("colleague must be a string")
+	}
+
+	question, ok := args["question"].(string)
+	if !ok {
+		return "", fmt.Errorf("question must be a string")
+	}
+
+	helpContext, _ := args["context"].(string)
+
+	// Prevent infinite recursion
+	if t.currentDepth >= t.maxNestingDepth {
+		return fmt.Sprintf("⚠️ Cannot request help from %s: maximum collaboration depth reached. "+
+			"Please report back to the orchestrator with partial results.", colleagueName), nil
+	}
+
+	// Can't ask yourself
+	if colleagueName == t.currentAgent.name {
+		return "⚠️ Cannot request help from yourself. Try a different colleague.", nil
+	}
+
+	// Get the colleague specialist
+	colleague, err := t.registry.GetSpecialist(colleagueName)
+	if err != nil {
+		// Return available colleagues
+		available := t.registry.ListSpecialists()
+		names := make([]string, 0, len(available))
+		for name := range available {
+			if name != t.currentAgent.name {
+				names = append(names, name)
+			}
+		}
+		return fmt.Sprintf("⚠️ Colleague '%s' not found. Available colleagues: %v", colleagueName, names), nil
+	}
+
+	// Emit status event for UI
+	emitAgentStatus(ctx, AgentStatusEvent{
+		Agent:          t.currentAgent.name,
+		Status:         "requesting_help",
+		SpecialistName: colleagueName,
+		Reason:         fmt.Sprintf("Consulting %s: %s", colleagueName, truncateString(question, 100)),
+		Timestamp:      time.Now(),
+	})
+
+	// Record in team context if available
+	if teamCtx := TeamContextFromCtx(ctx); teamCtx != nil {
+		teamCtx.Communications = append(teamCtx.Communications, TeamComm{
+			From:      t.currentAgent.name,
+			To:        colleagueName,
+			Message:   question,
+			Type:      "request",
+			Timestamp: time.Now(),
+		})
+	}
+
+	// Build the help request with context
+	var fullQuestion string
+	if helpContext != "" {
+		fullQuestion = fmt.Sprintf("A colleague (%s) needs your help:\n\nContext: %s\n\nQuestion: %s",
+			t.currentAgent.name, helpContext, question)
+	} else {
+		fullQuestion = fmt.Sprintf("A colleague (%s) needs your help:\n\nQuestion: %s",
+			t.currentAgent.name, question)
+	}
+
+	// Execute with incremented depth to track nesting
+	t.currentDepth++
+	defer func() { t.currentDepth-- }()
+
+	logger.InfoCF("agent", "Specialist requesting colleague help", map[string]interface{}{
+		"from":      t.currentAgent.name,
+		"to":        colleagueName,
+		"question":  truncateString(question, 100),
+		"depth":     t.currentDepth,
+	})
+
+	// Get response from colleague
+	response, err := colleague.ProcessWithSpeciality(ctx, fullQuestion)
+	if err != nil {
+		return fmt.Sprintf("⚠️ Colleague %s encountered an error: %s", colleagueName, err.Error()), nil
+	}
+
+	// Emit completion status
+	emitAgentStatus(ctx, AgentStatusEvent{
+		Agent:     colleagueName,
+		Status:    "colleague_complete",
+		Timestamp: time.Now(),
+	})
+
+	// Record response in team context
+	if teamCtx := TeamContextFromCtx(ctx); teamCtx != nil {
+		teamCtx.Communications = append(teamCtx.Communications, TeamComm{
+			From:      colleagueName,
+			To:        t.currentAgent.name,
+			Message:   truncateString(response, 200),
+			Type:      "response",
+			Timestamp: time.Now(),
+		})
+	}
+
+	return fmt.Sprintf("## Response from %s:\n\n%s", colleagueName, response), nil
+}
+
+// truncateString truncates a string to maxLen characters
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
+}
+
 // LoadSpecialistsFromConfig initializes all configured specialists
 func LoadSpecialistsFromConfig(
 	cfg *config.Config,
@@ -315,7 +477,33 @@ func LoadSpecialistsFromConfig(
 		"count": len(registry.specialists),
 	})
 
+	// Wire up RequestColleagueTool to all specialists for inter-agent collaboration
+	registry.WireColleagueTools()
+
 	return registry, nil
+}
+
+// WireColleagueTools adds the request_colleague tool to all specialists
+// This must be called after all specialists are registered
+func (sr *SpecialistRegistry) WireColleagueTools() {
+	sr.mu.Lock()
+	defer sr.mu.Unlock()
+
+	for name, specialist := range sr.specialists {
+		colleagueTool := NewRequestColleagueTool(sr, specialist)
+
+		// Add to specialist's allowed tools
+		specialist.allowedTools["request_colleague"] = true
+
+		// Register the tool in the specialist's tool registry
+		if specialist.tools != nil {
+			specialist.tools.Register(colleagueTool)
+		}
+
+		logger.DebugCF("agent", "Wired colleague tool to specialist", map[string]interface{}{
+			"specialist": name,
+		})
+	}
 }
 
 // SpecialistSelector helps select appropriate specialist agents for tasks

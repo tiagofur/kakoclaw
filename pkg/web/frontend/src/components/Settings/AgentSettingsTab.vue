@@ -158,22 +158,23 @@
         </button>
       </div>
 
-      <!-- Empty States -->
+      <!-- Manual Mode Notice -->
       <div
-        v-if="!orchestratorConfig.enabled"
-        class="py-16 bg-makoclaw-bg/20 rounded-2xl text-center border border-dashed border-makoclaw-border/30 animate-pulse"
+        v-if="!orchestratorConfig.enabled && specialists.length > 0"
+        class="mb-4 px-4 py-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center gap-3"
       >
-        <NoSymbolIcon class="w-16 h-16 mx-auto text-makoclaw-text-secondary/10 mb-6" />
-        <p class="text-xs font-medium tracking-wide text-makoclaw-text-secondary/30">
-          Matrix Disconnected
-        </p>
-        <p class="text-[10px] font-medium text-makoclaw-text-secondary/20 mt-2">
-          Activate Orchestrator to interface with specialists
-        </p>
+        <ExclamationTriangleIcon class="w-5 h-5 text-amber-400 flex-shrink-0" />
+        <div>
+          <p class="text-xs font-medium text-amber-300">Manual Mode Active</p>
+          <p class="text-[10px] text-amber-300/70 mt-0.5">
+            Orchestrator disabled. Use <code class="px-1.5 py-0.5 bg-amber-500/20 rounded text-amber-200">@specialist_name</code> in chat to invoke directly.
+          </p>
+        </div>
       </div>
 
+      <!-- Empty State -->
       <div
-        v-else-if="specialists.length === 0"
+        v-if="specialists.length === 0"
         class="py-16 bg-makoclaw-bg/20 rounded-2xl text-center border border-dashed border-makoclaw-border/30"
       >
         <div class="w-20 h-20 rounded-full bg-makoclaw-surface border border-makoclaw-border flex items-center justify-center mx-auto mb-6">
@@ -188,7 +189,7 @@
       </div>
 
       <div
-        v-else
+        v-if="specialists.length > 0"
         class="grid grid-cols-1 md:grid-cols-2 gap-6"
       >
         <div
@@ -394,15 +395,15 @@ import { useAgentsStore } from '../../stores/agentsStore'
 import { useToast } from '../../composables/useToast'
 import SpecialistFormModal from './SpecialistFormModal.vue'
 
-import { 
-  CpuChipIcon, 
-  UserGroupIcon, 
-  Cog6ToothIcon, 
-  PlusIcon, 
-  PencilSquareIcon, 
-  TrashIcon, 
-  NoSymbolIcon, 
-  ArrowPathIcon 
+import {
+  CpuChipIcon,
+  UserGroupIcon,
+  Cog6ToothIcon,
+  PlusIcon,
+  PencilSquareIcon,
+  TrashIcon,
+  ExclamationTriangleIcon,
+  ArrowPathIcon
 } from '@heroicons/vue/24/outline'
 
 const toast = useToast()
