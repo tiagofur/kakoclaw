@@ -127,7 +127,12 @@
               stroke="currentColor"
               viewBox="0 0 24 24"
             >
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 5l7 7-7 7"
+              />
             </svg>
             Agent workflow details
           </button>
@@ -135,6 +140,34 @@
             v-if="showActivity"
             class="mt-2 pl-3 border-l-2 border-makoclaw-border/30 space-y-1.5"
           >
+            <!-- Delegation chain tree (if present) -->
+            <div
+              v-if="msg.agentActivity.delegationChain?.length > 1"
+              class="mb-2 pb-2 border-b border-makoclaw-border/20"
+            >
+              <span class="text-[10px] uppercase tracking-wider text-makoclaw-text-secondary font-medium">
+                Delegation Chain
+              </span>
+              <div class="flex items-center gap-1 flex-wrap mt-1">
+                <template
+                  v-for="(agent, idx) in msg.agentActivity.delegationChain"
+                  :key="idx"
+                >
+                  <span
+                    class="text-[10px] px-1.5 py-0.5 rounded capitalize font-medium bg-makoclaw-surface/50 text-makoclaw-text-secondary"
+                  >
+                    {{ agent }}
+                  </span>
+                  <span
+                    v-if="idx < msg.agentActivity.delegationChain.length - 1"
+                    class="text-makoclaw-text-secondary/30 text-xs"
+                  >
+                    →
+                  </span>
+                </template>
+              </div>
+            </div>
+
             <!-- Timeline of agent events -->
             <div
               v-for="(entry, i) in msg.agentActivity.history"
@@ -147,9 +180,14 @@
               />
               <span class="capitalize">{{ entry.agent }}</span>
               <span class="opacity-60">{{ entry.status }}</span>
-              <span v-if="entry.specialistName" class="opacity-60">{{ entry.specialistName }}</span>
+              <span
+                v-if="entry.specialistName"
+                class="opacity-60"
+              >
+                {{ entry.specialistName }}
+              </span>
             </div>
-            <!-- Specialist confidence -->
+            <!-- Specialist confidence and tools -->
             <div
               v-for="report in msg.agentActivity.reports"
               :key="report.specialist_name || report.specialistName"
@@ -157,8 +195,17 @@
             >
               <span class="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
               <span class="capitalize">{{ report.specialist_name || report.specialistName }}</span>
-              <span v-if="report.confidence" class="opacity-60">
+              <span
+                v-if="report.confidence"
+                class="opacity-60"
+              >
                 confidence: {{ Math.round((report.confidence || 0) * 100) }}%
+              </span>
+              <span
+                v-if="report.tools_used?.length"
+                class="opacity-40 text-[10px]"
+              >
+                ({{ report.tools_used.join(', ') }})
               </span>
             </div>
           </div>

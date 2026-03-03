@@ -97,6 +97,42 @@ func emitSpecialistReport(ctx context.Context, report *SpecialistReport) {
 	}
 }
 
+// DelegationUpdate context helpers
+type delegationUpdateCallbackKey struct{}
+
+func ContextWithDelegationUpdateCallback(ctx context.Context, callback DelegationUpdateCallback) context.Context {
+	return context.WithValue(ctx, delegationUpdateCallbackKey{}, callback)
+}
+
+func delegationUpdateCallbackFromCtx(ctx context.Context) DelegationUpdateCallback {
+	if v, ok := ctx.Value(delegationUpdateCallbackKey{}).(DelegationUpdateCallback); ok {
+		return v
+	}
+	return nil
+}
+
+func emitDelegationUpdate(ctx context.Context, update DelegationUpdate) {
+	if callback := delegationUpdateCallbackFromCtx(ctx); callback != nil {
+		_ = callback(update)
+	}
+}
+
+// Delegation chain context helpers
+type delegationChainKey struct{}
+
+func contextWithDelegationChain(ctx context.Context, chain []string) context.Context {
+	return context.WithValue(ctx, delegationChainKey{}, chain)
+}
+
+func delegationChainFromCtx(ctx context.Context) []string {
+	if v, ok := ctx.Value(delegationChainKey{}).([]string); ok {
+		result := make([]string, len(v))
+		copy(result, v)
+		return result
+	}
+	return []string{"orchestrator"}
+}
+
 // OrchestratorAgent is a special agent that analyzes tasks and delegates to specialists
 type OrchestratorAgent struct {
 	*SpecialistAgent
@@ -107,6 +143,11 @@ type OrchestratorAgent struct {
 	// Specialist report tracking for feedback loop
 	lastReport   *SpecialistReport
 	lastReportMu sync.RWMutex
+
+	// Delegation limit tracking (per message)
+	delegationCount   int
+	delegationCountMu sync.Mutex
+	maxDelegations    int // default: 3
 }
 
 // DelegationRequest represents a request to delegate to a specialist
@@ -139,6 +180,10 @@ type SpecialistReport struct {
 	TimeSpent      string    `json:"time_spent"`      // Execution time
 	Iteration      int       `json:"iteration"`       // Which iteration this is from
 	Timestamp      time.Time `json:"timestamp"`       // When the report was generated
+	DelegationChain []string `json:"delegation_chain,omitempty"` // delegation path
+	DelegationDepth int      `json:"delegation_depth,omitempty"` // depth in chain
+	ToolsUsed       []string `json:"tools_used,omitempty"`       // tools the specialist called
+	IterationsUsed  int      `json:"iterations_used,omitempty"`  // LLM iterations consumed
 }
 
 // TeamContext holds shared state for multi-specialist collaboration
@@ -241,6 +286,7 @@ func NewOrchestratorAgent(
 		registry:          registry,
 		delegationRetries: cfg.Agents.Orchestrator.MaxDelegationRetries,
 		fallbackToDefault: cfg.Agents.Orchestrator.FallbackToDefault,
+		maxDelegations:    3, // default per-message delegation limit
 	}
 
 	// Register the delegation tool
@@ -291,6 +337,13 @@ func (oa *OrchestratorAgent) registerDelegationTool() {
 	oa.tools.Register(decomposeTool)
 }
 
+// ResetDelegationCount resets the per-message delegation counter. Call before processing each new user message.
+func (oa *OrchestratorAgent) ResetDelegationCount() {
+	oa.delegationCountMu.Lock()
+	oa.delegationCount = 0
+	oa.delegationCountMu.Unlock()
+}
+
 // DelegationTool is the tool used by the orchestrator to delegate tasks
 type DelegationTool struct {
 	orchestrator *OrchestratorAgent
@@ -339,6 +392,27 @@ func (dt *DelegationTool) Execute(ctx context.Context, args map[string]interface
 
 	contextStr, _ := args["context"].(string)
 
+	// Check delegation limit
+	dt.orchestrator.delegationCountMu.Lock()
+	dt.orchestrator.delegationCount++
+	count := dt.orchestrator.delegationCount
+	dt.orchestrator.delegationCountMu.Unlock()
+
+	maxDel := dt.orchestrator.maxDelegations
+	if maxDel <= 0 {
+		maxDel = 3
+	}
+
+	if count > maxDel {
+		emitAgentStatus(ctx, AgentStatusEvent{
+			Agent:     "orchestrator",
+			Status:    "max_delegations_reached",
+			Reason:    fmt.Sprintf("Reached maximum %d delegations for this message. Synthesizing response with available results.", maxDel),
+			Timestamp: time.Now(),
+		})
+		return fmt.Sprintf("[Maximum delegation limit (%d) reached. Please synthesize a response using the information gathered so far.]", maxDel), nil
+	}
+
 	// Get specialist (with fallback to general if enabled)
 	_, err := dt.orchestrator.registry.GetSpecialist(specialistName)
 	if err != nil {
@@ -348,11 +422,13 @@ func (dt *DelegationTool) Execute(ctx context.Context, args map[string]interface
 			specialistName = "general"
 
 			emitAgentStatus(ctx, AgentStatusEvent{
-				Agent:          "orchestrator",
-				Status:         "fallback",
-				SpecialistName: "general",
-				Reason:         fmt.Sprintf("No specialist '%s' found, using general agent", originalName),
-				Timestamp:      time.Now(),
+				Agent:           "orchestrator",
+				Status:          "fallback",
+				SpecialistName:  "general",
+				Reason:          fmt.Sprintf("No specialist '%s' found, using general agent", originalName),
+				DelegationChain: delegationChainFromCtx(ctx),
+				DelegationDepth: 0,
+				Timestamp:       time.Now(),
 			})
 
 			logger.InfoCF("agent", "Falling back to general agent", map[string]interface{}{
@@ -375,31 +451,28 @@ func (dt *DelegationTool) Execute(ctx context.Context, args map[string]interface
 
 	// Emit status: orchestrator analyzing
 	emitAgentStatus(ctx, AgentStatusEvent{
-		Agent:     "orchestrator",
-		Status:    "analyzing",
-		Timestamp: time.Now(),
+		Agent:           "orchestrator",
+		Status:          "analyzing",
+		DelegationChain: delegationChainFromCtx(ctx),
+		DelegationDepth: 0,
+		Timestamp:       time.Now(),
 	})
 
 	// Emit status: delegating with reason
 	emitAgentStatus(ctx, AgentStatusEvent{
-		Agent:          "orchestrator",
-		Status:         "delegating",
-		SpecialistName: specialistName,
-		Reason:         generateDelegationReason(specialistName, task),
-		Timestamp:      time.Now(),
+		Agent:           "orchestrator",
+		Status:          "delegating",
+		SpecialistName:  specialistName,
+		Reason:          generateDelegationReason(specialistName, task),
+		DelegationChain: delegationChainFromCtx(ctx),
+		DelegationDepth: 0,
+		Timestamp:       time.Now(),
 	})
 
 	// Execute task through specialist
 	logger.DebugCF("agent", "Delegating to specialist", map[string]interface{}{
 		"specialist": specialistName,
 		"task":       truncate(task, 100),
-	})
-
-	// Emit status: specialist working
-	emitAgentStatus(ctx, AgentStatusEvent{
-		Agent:     specialistName,
-		Status:    "working",
-		Timestamp: time.Now(),
 	})
 
 	result, err := dt.orchestrator.processSpecialistTask(ctx, specialistName, fullTask)
@@ -411,11 +484,14 @@ func (dt *DelegationTool) Execute(ctx context.Context, args map[string]interface
 		return "", fmt.Errorf("specialist execution failed: %w", err)
 	}
 
-	// Emit status: specialist complete
+	// Emit status: specialist complete with chain info
 	emitAgentStatus(ctx, AgentStatusEvent{
-		Agent:     specialistName,
-		Status:    "complete",
-		Timestamp: time.Now(),
+		Agent:           specialistName,
+		Status:          "complete",
+		DelegationChain: append(delegationChainFromCtx(ctx), specialistName),
+		DelegationDepth: 1,
+		ParentAgent:     "orchestrator",
+		Timestamp:       time.Now(),
 	})
 
 	logger.DebugCF("agent", "Specialist task completed", map[string]interface{}{
@@ -670,6 +746,22 @@ func (oa *OrchestratorAgent) processSpecialistTask(ctx context.Context, speciali
 		return "", err
 	}
 
+	// Build delegation chain from parent context
+	parentChain := delegationChainFromCtx(ctx)
+	currentChain := append(parentChain, specialistName)
+	currentDepth := len(parentChain) // orchestrator=0, first specialist=1, colleague=2
+	parentAgent := "orchestrator"
+	if len(parentChain) > 0 {
+		parentAgent = parentChain[len(parentChain)-1]
+	}
+
+	// Generate a unique delegation ID
+	delegationID := fmt.Sprintf("del_%s_%d", specialistName, time.Now().UnixNano())
+	startTime := time.Now()
+
+	// Store chain in context for nested delegations
+	specialistCtx := contextWithDelegationChain(ctx, currentChain)
+
 	// Inject response format instruction for structured feedback
 	taskWithFormat := task + `
 
@@ -687,8 +779,29 @@ Then provide your full response below the JSON line.
 
 	// Timeout configurable (default: 5 minutes)
 	timeout := 5 * time.Minute
-	ctxWithTimeout, cancel := context.WithTimeout(ctx, timeout)
+	ctxWithTimeout, cancel := context.WithTimeout(specialistCtx, timeout)
 	defer cancel()
+
+	// Emit delegation start with chain info
+	emitAgentStatus(ctx, AgentStatusEvent{
+		Agent:           specialistName,
+		Status:          "working",
+		DelegationChain: currentChain,
+		DelegationDepth: currentDepth,
+		ParentAgent:     parentAgent,
+		Timestamp:       time.Now(),
+	})
+
+	emitDelegationUpdate(ctx, DelegationUpdate{
+		DelegationID:  delegationID,
+		From:          parentAgent,
+		To:            specialistName,
+		Status:        "started",
+		Iteration:     0,
+		MaxIterations: oa.delegationRetries,
+		ElapsedMs:     0,
+		Timestamp:     time.Now(),
+	})
 
 	// Execute in goroutine to detect timeout
 	resultChan := make(chan string, 1)
@@ -707,8 +820,13 @@ Then provide your full response below the JSON line.
 	var result string
 	select {
 	case result = <-resultChan:
+		elapsed := time.Since(startTime).Milliseconds()
+
 		// Parse structured report from specialist response
 		report := oa.parseSpecialistReport(specialistName, result)
+		// Enrich report with chain metadata
+		report.DelegationChain = currentChain
+		report.DelegationDepth = currentDepth
 		oa.storeLastReport(report)
 
 		// Emit specialist report event for frontend visibility
@@ -720,6 +838,8 @@ Then provide your full response below the JSON line.
 			"status":     report.Status,
 			"confidence": report.Confidence,
 			"help":       report.RequestHelp,
+			"chain":      currentChain,
+			"depth":      currentDepth,
 		})
 
 		// Clean result (remove JSON header) for content segment
@@ -733,18 +853,59 @@ Then provide your full response below the JSON line.
 			Timestamp: time.Now(),
 		})
 
+		// Emit delegation complete
+		emitDelegationUpdate(ctx, DelegationUpdate{
+			DelegationID:  delegationID,
+			From:          parentAgent,
+			To:            specialistName,
+			Status:        "complete",
+			Iteration:     report.Iteration,
+			MaxIterations: oa.delegationRetries,
+			ElapsedMs:     elapsed,
+			Timestamp:     time.Now(),
+		})
+
+		// Handle empty/insufficient response
+		if len(strings.TrimSpace(cleanResult)) < 10 {
+			logger.WarnCF("agent", "Specialist returned insufficient response", map[string]interface{}{
+				"specialist": specialistName,
+				"length":     len(cleanResult),
+			})
+			cleanResult = fmt.Sprintf("[Specialist %s returned an insufficient response. Confidence: %.0f%%. Consider delegating to another specialist or providing more context.]",
+				specialistName, report.Confidence*100)
+		}
+
 		// Update result to clean version for return
 		result = cleanResult
 
 	case err := <-errChan:
+		emitDelegationUpdate(ctx, DelegationUpdate{
+			DelegationID: delegationID,
+			From:         parentAgent,
+			To:           specialistName,
+			Status:       "error",
+			ElapsedMs:    time.Since(startTime).Milliseconds(),
+			Timestamp:    time.Now(),
+		})
 		return "", fmt.Errorf("specialist processing error: %w", err)
 
 	case <-ctxWithTimeout.Done():
-		// Emit timeout status
+		// Emit timeout status with chain info
 		emitAgentStatus(ctx, AgentStatusEvent{
-			Agent:     specialistName,
-			Status:    "timeout",
-			Timestamp: time.Now(),
+			Agent:           specialistName,
+			Status:          "timeout",
+			DelegationChain: currentChain,
+			DelegationDepth: currentDepth,
+			ParentAgent:     parentAgent,
+			Timestamp:       time.Now(),
+		})
+		emitDelegationUpdate(ctx, DelegationUpdate{
+			DelegationID: delegationID,
+			From:         parentAgent,
+			To:           specialistName,
+			Status:       "error",
+			ElapsedMs:    time.Since(startTime).Milliseconds(),
+			Timestamp:    time.Now(),
 		})
 		return "", fmt.Errorf("specialist %s timed out after %v", specialistName, timeout)
 	}
@@ -759,6 +920,7 @@ Then provide your full response below the JSON line.
 		tracker.AddInvolvedAgent("orchestrator")
 	}
 	tracker.AddInvolvedAgent(specialistName)
+
 
 	return result, nil
 }

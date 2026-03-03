@@ -34,27 +34,40 @@ const dotColor = computed(() => {
     working: 'bg-emerald-400 animate-pulse',
     complete: 'bg-emerald-400',
     fallback: 'bg-amber-400',
-    requesting_help: 'bg-amber-400 animate-pulse'
+    requesting_help: 'bg-amber-400 animate-pulse',
+    colleague_complete: 'bg-teal-400',
+    max_delegations_reached: 'bg-amber-500',
+    timeout: 'bg-red-400',
+    synthesizing: 'bg-blue-400 animate-pulse'
   }
   return colorMap[props.event.status] || 'bg-makoclaw-text-secondary'
 })
 
 const label = computed(() => {
-  const { agent, status, specialistName } = props.event
+  const { agent, status, specialistName, parentAgent } = props.event
   const agentLabel = agent || 'agent'
   const targetLabel = specialistName || ''
+  const viaLabel = parentAgent ? ` (via ${parentAgent})` : ''
 
   switch (status) {
     case 'delegating':
       return `${agentLabel} delegated to ${targetLabel}`
     case 'working':
-      return `${agentLabel} is working...`
+      return `${agentLabel} is working...${viaLabel}`
     case 'complete':
-      return `${agentLabel} finished`
+      return `${agentLabel} finished${viaLabel}`
     case 'fallback':
       return `Falling back to ${targetLabel}`
     case 'requesting_help':
       return `${agentLabel} requested help from ${targetLabel}`
+    case 'colleague_complete':
+      return `${agentLabel} completed assistance${viaLabel}`
+    case 'max_delegations_reached':
+      return 'Maximum delegations reached — synthesizing results'
+    case 'timeout':
+      return `${agentLabel} timed out`
+    case 'synthesizing':
+      return 'Synthesizing final response...'
     default:
       return `${agentLabel}: ${status}`
   }
@@ -66,3 +79,4 @@ const formattedTime = computed(() => {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 })
 </script>
+

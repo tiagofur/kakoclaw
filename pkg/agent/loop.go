@@ -121,11 +121,14 @@ type ToolCallback func(ev ToolEvent) error
 
 // AgentStatusEvent represents agent status changes during execution
 type AgentStatusEvent struct {
-	Agent          string    `json:"agent"`
-	Status         string    `json:"status"` // "analyzing", "delegating", "working", "complete"
-	SpecialistName string    `json:"specialist_name,omitempty"`
-	Reason         string    `json:"reason,omitempty"`
-	Timestamp      time.Time `json:"timestamp"`
+	Agent           string    `json:"agent"`
+	Status          string    `json:"status"` // "analyzing", "delegating", "working", "complete", "synthesizing", "timeout"
+	SpecialistName  string    `json:"specialist_name,omitempty"`
+	Reason          string    `json:"reason,omitempty"`
+	Timestamp       time.Time `json:"timestamp"`
+	DelegationChain []string  `json:"delegation_chain,omitempty"` // e.g. ["orchestrator", "developer", "security"]
+	DelegationDepth int       `json:"delegation_depth,omitempty"` // 0=orchestrator, 1=specialist, 2=colleague
+	ParentAgent     string    `json:"parent_agent,omitempty"`     // who delegated to this agent
 }
 
 // AgentStatusCallback is called when agent status changes
@@ -141,6 +144,21 @@ type ContentSegment struct {
 
 // ContentSegmentCallback is called when content is produced by an agent
 type ContentSegmentCallback func(segment ContentSegment) error
+
+// DelegationUpdate represents real-time progress of an active delegation
+type DelegationUpdate struct {
+	DelegationID  string    `json:"delegation_id"`
+	From          string    `json:"from"`
+	To            string    `json:"to"`
+	Status        string    `json:"status"` // "started", "in_progress", "complete", "error"
+	Iteration     int       `json:"iteration"`
+	MaxIterations int       `json:"max_iterations"`
+	ElapsedMs     int64     `json:"elapsed_ms"`
+	Timestamp     time.Time `json:"timestamp"`
+}
+
+// DelegationUpdateCallback is called for delegation progress updates
+type DelegationUpdateCallback func(update DelegationUpdate) error
 
 // NewAgentLoopForUser creates an agent loop for a specific user with their merged configuration.
 // It loads the user's config and merges it with the global config, then initializes the agent loop.

@@ -30,10 +30,44 @@
       </div>
 
       <!-- Texto de estado -->
-      <div class="flex-1">
+      <div class="flex-1 min-w-0">
+        <!-- Delegation chain breadcrumb -->
+        <div
+          v-if="displayChain.length > 0"
+          class="flex items-center gap-1 flex-wrap mb-1"
+        >
+          <template
+            v-for="(agent, idx) in displayChain"
+            :key="idx"
+          >
+            <span
+              class="text-[10px] px-1.5 py-0.5 rounded capitalize font-medium"
+              :class="idx === displayChain.length - 1
+                ? 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/30'
+                : 'bg-makoclaw-surface/50 text-makoclaw-text-secondary'"
+            >
+              {{ agent }}
+            </span>
+            <svg
+              v-if="idx < displayChain.length - 1"
+              class="w-3 h-3 text-makoclaw-text-secondary/40 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 5l7 7-7 7"
+              />
+            </svg>
+          </template>
+        </div>
+
         <div class="flex items-center gap-2">
           <SpecialistBadge
-            v-if="currentAgent"
+            v-if="currentAgent && displayChain.length === 0"
             :name="currentAgent"
             class="text-xs"
           />
@@ -48,7 +82,7 @@
         <!-- Razón de delegación -->
         <p
           v-if="delegationReason"
-          class="text-xs text-makoclaw-text-secondary mt-1 italic"
+          class="text-xs text-makoclaw-text-secondary mt-1 italic truncate"
         >
           {{ delegationReason }}
         </p>
@@ -84,6 +118,10 @@ const currentAgent = computed(() => {
   return chatStore.currentAgent || chatStore.activeSpecialist
 })
 
+const displayChain = computed(() => {
+  return chatStore.delegationChain || []
+})
+
 const delegationReason = computed(() => chatStore.delegationReason)
 
 const statusText = computed(() => {
@@ -93,10 +131,13 @@ const statusText = computed(() => {
   // If we have explicit orchestrator status, use it
   if (hasOrchestratorStatus.value) {
     const statusMap = {
-      analyzing: `Analyzing your request...`,
+      analyzing: 'Analyzing your request...',
       delegating: `Delegating to ${agent || 'specialist'}...`,
       working: `${agent || 'Agent'} is working on your request...`,
-      fallback: `No specialist matched, using ${agent || 'general agent'}...`
+      fallback: `No specialist matched, using ${agent || 'general agent'}...`,
+      max_delegations_reached: 'Synthesizing response...',
+      timeout: `${agent || 'Agent'} timed out`,
+      synthesizing: 'Synthesizing final response...'
     }
     return statusMap[status] || 'Processing...'
   }
@@ -112,7 +153,10 @@ const iconColorClass = computed(() => {
       analyzing: 'text-blue-400',
       delegating: 'text-purple-400',
       working: 'text-green-400',
-      fallback: 'text-amber-400'
+      fallback: 'text-amber-400',
+      max_delegations_reached: 'text-amber-400',
+      timeout: 'text-red-400',
+      synthesizing: 'text-blue-400'
     }[status] || 'text-makoclaw-text-secondary'
   }
   // Default color for generic processing
@@ -128,7 +172,10 @@ const borderColorClass = computed(() => {
       analyzing: 'border-blue-400',
       delegating: 'border-purple-400',
       working: 'border-green-400',
-      fallback: 'border-amber-400'
+      fallback: 'border-amber-400',
+      max_delegations_reached: 'border-amber-400',
+      timeout: 'border-red-400',
+      synthesizing: 'border-blue-400'
     }[status] || 'border-makoclaw-text-secondary'
   }
   // Default border for generic processing
@@ -155,3 +202,4 @@ const borderColorClass = computed(() => {
   opacity: 0;
 }
 </style>
+

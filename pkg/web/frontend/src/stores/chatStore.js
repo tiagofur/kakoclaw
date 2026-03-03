@@ -29,6 +29,9 @@ export const useChatStore = defineStore('chat', () => {
   const isMultiAgent = ref(false)         // Whether multi-agent mode is active
   const specialistReports = ref([])      // Structured reports from specialists
   const lastSpecialistReport = ref(null) // Most recent specialist report for quick access
+  const delegationChain = ref([])        // Current delegation chain (e.g. ['orchestrator', 'developer'])
+  const activeDelegation = ref(null)     // Currently active delegation update
+  const delegationHistory = ref([])      // History of completed delegations
 
   function addMessage(message) {
     messages.value.push({
@@ -83,7 +86,9 @@ export const useChatStore = defineStore('chat', () => {
           msg.agentActivity = {
             hadMultiAgent: agentHistory.value.length > 1,
             history: [...agentHistory.value],
-            reports: [...specialistReports.value]
+            reports: [...specialistReports.value],
+            delegationChain: [...delegationChain.value],
+            delegationHistory: [...delegationHistory.value]
           }
         }
       }
@@ -158,6 +163,9 @@ export const useChatStore = defineStore('chat', () => {
     agentHistory.value = []
     specialistReports.value = []
     lastSpecialistReport.value = null
+    delegationChain.value = []
+    activeDelegation.value = null
+    delegationHistory.value = []
   }
 
   // Add a specialist report (from structured feedback)
@@ -176,6 +184,39 @@ export const useChatStore = defineStore('chat', () => {
     } else if (report.status === 'complete') {
       // Keep current status, specialist finished
     }
+  }
+
+  // Update delegation chain from agent_status events
+  function updateDelegationChain(data) {
+    if (data.delegation_chain && data.delegation_chain.length > 0) {
+      delegationChain.value = [...data.delegation_chain]
+    }
+  }
+
+  // Update delegation progress from delegation_update events
+  function updateDelegationProgress(update) {
+    activeDelegation.value = {
+      id: update.delegation_id,
+      from: update.from,
+      to: update.to,
+      status: update.status,
+      iteration: update.iteration,
+      maxIterations: update.max_iterations,
+      elapsedMs: update.elapsed_ms,
+      timestamp: update.timestamp
+    }
+
+    if (update.status === 'complete' || update.status === 'error') {
+      delegationHistory.value.push({ ...activeDelegation.value })
+      activeDelegation.value = null
+    }
+  }
+
+  // Set delegation summary from stream_end
+  function setDelegationSummary(summary) {
+    // Summary is stored on the message via endStreamingMessage
+    // This is kept for explicit external calls
+    if (!summary) return
   }
 
   // Add a content segment to the current streaming message
@@ -433,7 +474,13 @@ export const useChatStore = defineStore('chat', () => {
     getSpecialistDisplay,
     specialistReports,
     lastSpecialistReport,
-    addSpecialistReport
+    addSpecialistReport,
+    delegationChain,
+    activeDelegation,
+    delegationHistory,
+    updateDelegationChain,
+    updateDelegationProgress,
+    setDelegationSummary
   }
 })
   const normalizeModelsData = (data) => {

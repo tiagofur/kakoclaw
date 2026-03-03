@@ -459,6 +459,8 @@
             :team-communications="teamCommunications"
             :involved-agents-list="involvedAgentsList"
             :specialist-report="chatStore.lastSpecialistReport"
+            :delegation-chain="chatStore.delegationChain"
+            :active-delegation="chatStore.activeDelegation"
           />
         </div>
 
@@ -1232,6 +1234,10 @@ const handleMessage = (message) => {
     } else {
       chatStore.endStreamingMessage(message.content || '', message.agents || [])
     }
+    // Capture delegation summary if present
+    if (message.delegation_summary) {
+      chatStore.setDelegationSummary(message.delegation_summary)
+    }
     chatStore.clearAgentStatus() // Limpiar cuando termina
     fetchSessions()
   }
@@ -1242,12 +1248,19 @@ const handleMessage = (message) => {
       message.specialist_name,
       message.reason
     )
+    // Update delegation chain if present
+    if (message.delegation_chain) {
+      chatStore.updateDelegationChain(message)
+    }
     // Insert inline agent event bubble into chat stream
     chatStore.addAgentEvent({
       agent: message.agent,
       status: message.status,
       specialistName: message.specialist_name,
       reason: message.reason,
+      delegationChain: message.delegation_chain,
+      delegationDepth: message.delegation_depth,
+      parentAgent: message.parent_agent,
       timestamp: new Date().toISOString()
     })
     // Update team activity panel
@@ -1255,7 +1268,10 @@ const handleMessage = (message) => {
       agent: message.agent,
       status: message.status,
       specialistName: message.specialist_name,
-      reason: message.reason
+      reason: message.reason,
+      delegationChain: message.delegation_chain,
+      delegationDepth: message.delegation_depth,
+      parentAgent: message.parent_agent
     }
     // Track involved agents
     if (message.agent && !involvedAgentsList.value.includes(message.agent)) {
@@ -1312,6 +1328,9 @@ const handleMessage = (message) => {
         type: 'help_request'
       })
     }
+  }
+  if (message.type === 'delegation_update') {
+    chatStore.updateDelegationProgress(message)
   }
   if (message.type === 'ready') {
     isLoading.value = false
