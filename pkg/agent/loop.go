@@ -209,6 +209,11 @@ func NewAgentLoopForUser(userUUID string, globalCfg *config.Config, msgBus *bus.
 	return al, nil
 }
 
+// Config returns the agent loop's configuration (which may be merged with user specific config)
+func (al *AgentLoop) Config() *config.Config {
+	return al.cfg
+}
+
 func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers.LLMProvider) *AgentLoop {
 	workspace := cfg.WorkspacePath()
 	// Only create the global workspace directory in single-user/CLI mode.

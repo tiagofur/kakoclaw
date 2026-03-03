@@ -1118,7 +1118,7 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 
 	// Step 2: Wrap it in an AgentManager to get Orchestrator support if enabled
 	agentMgr := agent.NewAgentManager(baseAgentLoop)
-	if err := agentMgr.InitializeOrchestrator(s.fullConfig, s.msgBus, userStore); err != nil {
+	if err := agentMgr.InitializeOrchestrator(baseAgentLoop.Config(), s.msgBus, userStore); err != nil {
 		logger.ErrorCF("web", "Failed to initialize orchestrator for user session", map[string]interface{}{
 			"user_uuid": userUUID,
 			"error":     err.Error(),
@@ -4241,9 +4241,9 @@ func (s *Server) handleOrchestratorConfig(w http.ResponseWriter, r *http.Request
 	// 4. Update runtime state (re-initialize orchestrator)
 	// We need message bus, which is on the server if available
 	if s.agentManager != nil {
-		// Attempt to initialize orchestrator with new config
-		// Note: This might require specialists to be present if enabled=true
-		if err := s.agentManager.InitializeOrchestrator(userCfg, s.msgBus, store); err != nil {
+		// Attempt to initialize orchestrator with new merged config
+		mergedCfg := config.MergeConfigs(s.fullConfig, userCfg)
+		if err := s.agentManager.InitializeOrchestrator(mergedCfg, s.msgBus, store); err != nil {
 			logger.WarnCF("web", "Failed to runtime-initialize orchestrator", map[string]interface{}{
 				"error": err.Error(),
 			})
