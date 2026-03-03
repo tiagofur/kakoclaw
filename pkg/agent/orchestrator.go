@@ -812,6 +812,12 @@ func (oa *OrchestratorAgent) BuildOrchestratorContext() string {
 	context.WriteString("5. If no specialist matches the task, delegate to 'general'\n")
 	context.WriteString("6. The 'general' agent has full capabilities and handles any task\n\n")
 
+	context.WriteString("## Response Format\n")
+	context.WriteString("- Start with a brief summary of what was done and by whom\n")
+	context.WriteString("- Present the specialist's work directly - do not rewrite it significantly\n")
+	context.WriteString("- If multiple specialists contributed, label each section with **[specialist_name]:**\n")
+	context.WriteString("- Keep your own commentary brief - the specialist's work is the main content\n\n")
+
 	context.WriteString(oa.GetSpecialistsSummary())
 
 	return context.String()

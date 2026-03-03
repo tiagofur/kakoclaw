@@ -43,35 +43,8 @@
           />
         </div>
 
-        <!-- Contenido Segmentado (cuando hay múltiples agentes) -->
-        <div
-          v-if="msg.segments && msg.segments.length > 0"
-          class="segmented-content"
-        >
-          <div
-            v-for="segment in msg.segments"
-            :key="segment.segmentId"
-            class="content-segment mb-3 pb-3 border-b border-makoclaw-border/30 last:border-b-0"
-          >
-            <!-- Header de atribución -->
-            <div class="flex items-center gap-2 mb-2">
-              <SpecialistBadge
-                :name="segment.agent"
-                class="text-xs"
-              />
-              <span class="text-xs text-makoclaw-text-secondary">contributed:</span>
-            </div>
-
-            <!-- Contenido del segmento -->
-            <MarkdownRenderer
-              :content="segment.content"
-              class="text-sm md:text-base pl-6"
-            />
-          </div>
-        </div>
-
-        <!-- Fallback: contenido unificado (cuando no hay segmentos) -->
-        <div v-else>
+        <!-- Main content always shown first -->
+        <div v-if="msg.content">
           <!-- Streaming Content -->
           <p
             v-if="msg.streaming"
@@ -85,6 +58,110 @@
             :content="msg.content"
             class="text-sm md:text-base"
           />
+        </div>
+
+        <!-- Collapsible specialist segments (when both content and segments exist) -->
+        <div v-if="msg.segments && msg.segments.length > 0 && msg.content">
+          <button
+            class="flex items-center gap-1.5 mt-3 text-xs text-makoclaw-text-secondary hover:text-makoclaw-text transition-colors"
+            @click="showSegments = !showSegments"
+          >
+            <svg
+              class="w-3 h-3 transition-transform duration-200"
+              :class="{ 'rotate-90': showSegments }"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+            {{ msg.segments.length }} specialist{{ msg.segments.length > 1 ? 's' : '' }} contributed
+          </button>
+          <div
+            v-if="showSegments"
+            class="mt-2 pl-3 border-l-2 border-makoclaw-border/30 space-y-3"
+          >
+            <div
+              v-for="segment in msg.segments"
+              :key="segment.segmentId"
+              class="pb-3 border-b border-makoclaw-border/20 last:border-b-0"
+            >
+              <div class="flex items-center gap-2 mb-1.5">
+                <SpecialistBadge :name="segment.agent" class="text-xs" />
+              </div>
+              <MarkdownRenderer :content="segment.content" class="text-sm md:text-base pl-5" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Segments as primary content when no main content -->
+        <div v-else-if="msg.segments && msg.segments.length > 0">
+          <div
+            v-for="segment in msg.segments"
+            :key="segment.segmentId"
+            class="content-segment mb-3 pb-3 border-b border-makoclaw-border/30 last:border-b-0"
+          >
+            <div class="flex items-center gap-2 mb-2">
+              <SpecialistBadge :name="segment.agent" class="text-xs" />
+              <span class="text-xs text-makoclaw-text-secondary">contributed:</span>
+            </div>
+            <MarkdownRenderer :content="segment.content" class="text-sm md:text-base pl-6" />
+          </div>
+        </div>
+
+        <!-- Fallback: no content and no segments (shouldn't happen but safety) -->
+        <div v-else-if="!msg.content">
+          <p class="text-sm text-makoclaw-text-secondary italic">No content</p>
+        </div>
+
+        <!-- Collapsible agent workflow details -->
+        <div v-if="msg.agentActivity?.hadMultiAgent">
+          <button
+            class="flex items-center gap-1.5 mt-3 text-xs text-makoclaw-text-secondary hover:text-makoclaw-text transition-colors"
+            @click="showActivity = !showActivity"
+          >
+            <svg
+              class="w-3 h-3 transition-transform duration-200"
+              :class="{ 'rotate-90': showActivity }"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+            Agent workflow details
+          </button>
+          <div
+            v-if="showActivity"
+            class="mt-2 pl-3 border-l-2 border-makoclaw-border/30 space-y-1.5"
+          >
+            <!-- Timeline of agent events -->
+            <div
+              v-for="(entry, i) in msg.agentActivity.history"
+              :key="i"
+              class="flex items-center gap-2 text-xs text-makoclaw-text-secondary"
+            >
+              <span
+                class="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                :class="activityDotColor(entry.status)"
+              />
+              <span class="capitalize">{{ entry.agent }}</span>
+              <span class="opacity-60">{{ entry.status }}</span>
+              <span v-if="entry.specialistName" class="opacity-60">{{ entry.specialistName }}</span>
+            </div>
+            <!-- Specialist confidence -->
+            <div
+              v-for="report in msg.agentActivity.reports"
+              :key="report.specialist_name || report.specialistName"
+              class="flex items-center gap-2 text-xs text-makoclaw-text-secondary mt-1"
+            >
+              <span class="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
+              <span class="capitalize">{{ report.specialist_name || report.specialistName }}</span>
+              <span v-if="report.confidence" class="opacity-60">
+                confidence: {{ Math.round((report.confidence || 0) * 100) }}%
+              </span>
+            </div>
+          </div>
         </div>
       </template>
       
@@ -178,9 +255,25 @@
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import MarkdownRenderer from './Chat/MarkdownRenderer.vue'
 import ToolCallItem from './ToolCallItem.vue'
 import SpecialistBadge from './Chat/SpecialistBadge.vue'
+
+const showSegments = ref(false)
+const showActivity = ref(false)
+
+const activityDotColor = (status) => {
+  const colors = {
+    delegating: 'bg-purple-400',
+    working: 'bg-emerald-400',
+    complete: 'bg-emerald-400',
+    fallback: 'bg-amber-400',
+    requesting_help: 'bg-amber-400',
+    analyzing: 'bg-indigo-400'
+  }
+  return colors[status] || 'bg-makoclaw-text-secondary'
+}
 
 defineProps({
   msg: {

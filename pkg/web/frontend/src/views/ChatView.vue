@@ -304,7 +304,7 @@
                 <span class="truncate flex-1 text-xs font-medium">{{ session.title || session.last_message || 'Empty session' }}</span>
                 <!-- Context menu trigger -->
                 <button
-                  class="p-1 rounded-lg text-makoclaw-text-secondary hover:text-makoclaw-text hover:bg-makoclaw-surface/50 transition-all flex-shrink-0 opacity-0 group-hover/session:opacity-100"
+                  class="p-1 rounded-lg text-makoclaw-text-secondary hover:text-makoclaw-text hover:bg-makoclaw-surface/50 transition-all flex-shrink-0 opacity-0 group-hover/session:opacity-100 touch-visible"
                   title="Session actions"
                   @click.stop="openContextMenu($event, session.session_id)"
                 >
@@ -456,7 +456,14 @@
             :key="msg.id || msg.timestamp"
             class="animate-fadeIn group w-full"
           >
+            <!-- Agent event inline indicator -->
+            <AgentEventBubble
+              v-if="msg.type === 'agent_event'"
+              :event="msg"
+            />
+            <!-- Regular message bubble -->
             <MessageBubble
+              v-else
               :msg="msg"
               :current-session-id="currentSessionId"
               :is-loading="isLoading"
@@ -933,6 +940,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { storeToRefs } from 'pinia'
 import MessageBubble from '../components/MessageBubble.vue'
 import AgentStatusIndicator from '../components/Chat/AgentStatusIndicator.vue'
+import AgentEventBubble from '../components/Chat/AgentEventBubble.vue'
 import SpecialistsPanel from '../components/Chat/SpecialistsPanel.vue'
 import TeamActivityPanel from '../components/Chat/TeamActivityPanel.vue'
 import PromptLibrary from '../components/PromptModal.vue'
@@ -964,6 +972,7 @@ const renamingSession = ref(null)
 const renameInput = ref('')
 const showToolsPopover = ref(false)
 const showPromptLibrary = ref(false)
+const searchQuery = ref('')
 
 // Team activity state
 const teamActivityRef = ref(null)
@@ -1287,6 +1296,14 @@ const handleMessage = (message) => {
       message.specialist_name,
       message.reason
     )
+    // Insert inline agent event bubble into chat stream
+    chatStore.addAgentEvent({
+      agent: message.agent,
+      status: message.status,
+      specialistName: message.specialist_name,
+      reason: message.reason,
+      timestamp: new Date().toISOString()
+    })
     // Update team activity panel
     teamAgentStatus.value = {
       agent: message.agent,
@@ -1746,5 +1763,12 @@ const formatTime = (timestamp) => {
 @keyframes float {
   0%, 100% { transform: translateY(0) translateX(0); }
   50% { transform: translateY(-20px) translateX(10px); }
+}
+
+/* Touch-friendly action buttons - visible on touch devices */
+@media (hover: none) {
+  .touch-visible {
+    opacity: 0.6 !important;
+  }
 }
 </style>

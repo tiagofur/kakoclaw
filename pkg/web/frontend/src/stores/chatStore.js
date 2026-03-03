@@ -78,10 +78,45 @@ export const useChatStore = defineStore('chat', () => {
         if (agents && agents.length > 0) {
           msg.agents = agents
         }
+        // Snapshot agent activity onto the message for persistence
+        if (agentHistory.value.length > 0 || specialistReports.value.length > 0) {
+          msg.agentActivity = {
+            hadMultiAgent: agentHistory.value.length > 1,
+            history: [...agentHistory.value],
+            reports: [...specialistReports.value]
+          }
+        }
       }
     }
     streamingMessageId.value = null
     isStreaming.value = false
+  }
+
+  // Add an agent event as an inline indicator in the chat stream
+  function addAgentEvent(event) {
+    const persistableStatuses = ['delegating', 'working', 'complete', 'fallback', 'requesting_help']
+    if (!persistableStatuses.includes(event.status)) return
+
+    const eventMsg = {
+      id: Date.now() + Math.random(),
+      type: 'agent_event',
+      role: 'system',
+      agent: event.agent,
+      status: event.status,
+      specialistName: event.specialistName,
+      reason: event.reason,
+      timestamp: event.timestamp || new Date().toISOString()
+    }
+
+    // Insert before the current streaming message for chronological order
+    if (streamingMessageId.value) {
+      const streamIdx = messages.value.findIndex(m => m.id === streamingMessageId.value)
+      if (streamIdx !== -1) {
+        messages.value.splice(streamIdx, 0, eventMsg)
+        return
+      }
+    }
+    messages.value.push(eventMsg)
   }
 
   // Set agents for a specific message (for loading from history or post-streaming)
@@ -371,6 +406,7 @@ export const useChatStore = defineStore('chat', () => {
     setAgentsForMessage,
     setAgentStatus,
     clearAgentStatus,
+    addAgentEvent,
     addContentSegment,
     addToolCall,
     setMessages,

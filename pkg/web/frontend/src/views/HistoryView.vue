@@ -240,6 +240,17 @@
               <option value="7d">Last 7d</option>
               <option value="30d">Last 30d</option>
             </select>
+            <button
+              :class="[
+                'px-2 py-1 rounded-lg text-[10px] font-bold transition-colors flex-shrink-0',
+                showArchived
+                  ? 'bg-amber-500/20 text-amber-400 border border-amber-500/50'
+                  : 'bg-makoclaw-bg/50 border border-makoclaw-border/50 text-makoclaw-text-secondary hover:text-makoclaw-text'
+              ]"
+              @click="toggleShowArchived"
+            >
+              {{ showArchived ? 'Archived' : 'Active' }}
+            </button>
           </div>
         </div>
 
@@ -365,8 +376,8 @@
                 <div class="font-medium truncate text-sm flex-1">
                   {{ getSessionTitle(session) }}
                 </div>
-                <!-- Action buttons - hover visibility -->
-                <div class="flex items-center gap-0.5 opacity-0 group-hover/session:opacity-100 transition-opacity">
+                <!-- Action buttons - hover visibility, touch-friendly -->
+                <div class="flex items-center gap-0.5 opacity-0 group-hover/session:opacity-100 transition-opacity touch-visible">
                   <button
                     class="p-1 hover:bg-makoclaw-border rounded text-makoclaw-text-secondary hover:text-makoclaw-accent transition-colors"
                     title="Rename"
@@ -834,15 +845,17 @@ const deleteSessionById = async (sessionId) => {
 }
 
 const archiveSessionById = async (sessionId) => {
-  const isArchived = showArchived.value
+  const session = sessions.value.find(s => s.session_id === sessionId)
+  if (!session) return
+  const newArchivedState = !session.archived
   try {
-    await taskService.updateSession(sessionId, { archived: !isArchived })
+    await taskService.updateSession(sessionId, { archived: newArchivedState })
     sessions.value = sessions.value.filter(s => s.session_id !== sessionId)
     if (selectedSession.value?.session_id === sessionId) {
       selectedSession.value = null
       messages.value = []
     }
-    toast.success(isArchived ? 'Session unarchived' : 'Session archived')
+    toast.success(newArchivedState ? 'Session archived' : 'Session unarchived')
   } catch (error) {
     console.error('Failed to update session:', error)
     toast.error('Failed to update session')
@@ -872,6 +885,11 @@ const submitRenameSession = async (sessionId) => {
 const cancelRenameSession = () => {
   renamingSession.value = null
   renameInput.value = ''
+}
+
+const toggleShowArchived = () => {
+  showArchived.value = !showArchived.value
+  loadSessions()
 }
 
 const selectSession = async (session) => {
@@ -998,5 +1016,12 @@ onBeforeUnmount(() => {
   background: rgba(var(--makoclaw-surface-rgb), 0.7);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+}
+
+/* Touch-friendly action buttons - visible on touch devices */
+@media (hover: none) {
+  .touch-visible {
+    opacity: 0.6 !important;
+  }
 }
 </style>

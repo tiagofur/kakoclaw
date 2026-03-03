@@ -46,8 +46,8 @@
               v-if="task.agent"
               :name="task.agent"
             />
-            <!-- Action buttons - hover visibility -->
-            <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" @click.stop>
+            <!-- Action buttons - hover visibility, touch-friendly -->
+            <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity touch-visible" @click.stop>
               <button
                 v-if="!task.archived"
                 class="p-1 hover:bg-yellow-500/20 rounded text-makoclaw-text-secondary hover:text-yellow-500 transition-colors"
@@ -194,4 +194,13 @@ const formatDate = (date) => {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 </script>
+
+<style scoped>
+/* Touch-friendly action buttons - visible on touch devices */
+@media (hover: none) {
+  .touch-visible {
+    opacity: 0.6 !important;
+  }
+}
+</style>
 
