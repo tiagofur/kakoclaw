@@ -186,6 +186,8 @@
             :tasks="taskStore.tasksByStatus.backlog"
             @task-click="openTaskDetails"
             @task-drop="moveTask"
+            @task-archive="handleQuickArchive"
+            @task-delete="handleQuickDelete"
           />
         </div>
 
@@ -200,6 +202,8 @@
             :tasks="taskStore.tasksByStatus.todo"
             @task-click="openTaskDetails"
             @task-drop="moveTask"
+            @task-archive="handleQuickArchive"
+            @task-delete="handleQuickDelete"
           />
         </div>
 
@@ -214,6 +218,8 @@
             :tasks="taskStore.tasksByStatus.in_progress"
             @task-click="openTaskDetails"
             @task-drop="moveTask"
+            @task-archive="handleQuickArchive"
+            @task-delete="handleQuickDelete"
           />
         </div>
 
@@ -228,6 +234,8 @@
             :tasks="taskStore.tasksByStatus.review"
             @task-click="openTaskDetails"
             @task-drop="moveTask"
+            @task-archive="handleQuickArchive"
+            @task-delete="handleQuickDelete"
           />
         </div>
 
@@ -242,6 +250,8 @@
             :tasks="taskStore.tasksByStatus.done"
             @task-click="openTaskDetails"
             @task-drop="moveTask"
+            @task-archive="handleQuickArchive"
+            @task-delete="handleQuickDelete"
           />
         </div>
       </div>
@@ -432,6 +442,35 @@ const handleTaskUnarchived = async (taskId) => {
   } catch (error) {
     console.error('Failed to unarchive task:', error)
     toast.error('Failed to unarchive task')
+  }
+}
+
+// Quick actions from card menu
+const handleQuickArchive = async (task) => {
+  if (!confirm('Are you sure you want to archive this task?')) return
+  try {
+    await taskService.archiveTask(task.id)
+    if (!showArchived.value) {
+      taskStore.removeTask(task.id)
+    } else {
+      taskStore.updateTask(task.id, { archived: true })
+    }
+    toast.success('Task archived')
+  } catch (error) {
+    console.error('Failed to archive task:', error)
+    toast.error('Failed to archive task')
+  }
+}
+
+const handleQuickDelete = async (task) => {
+  if (!confirm('Are you sure you want to delete this task?')) return
+  try {
+    await taskService.deleteTask(task.id)
+    taskStore.removeTask(task.id)
+    toast.success('Task deleted')
+  } catch (error) {
+    console.error('Failed to delete task:', error)
+    toast.error('Failed to delete task')
   }
 }
 </script>

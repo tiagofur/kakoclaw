@@ -38,13 +38,37 @@
         <div class="absolute -top-8 -right-8 w-20 h-20 bg-gradient-to-br from-makoclaw-accent to-blue-500 rounded-full opacity-0 blur-[20px] group-hover:opacity-15 transition-all duration-500" />
 
         <div class="flex items-start justify-between gap-2 mb-1">
-          <h4 class="font-semibold text-sm leading-tight text-makoclaw-text group-hover:text-makoclaw-accent transition-colors">
+          <h4 class="font-semibold text-sm leading-tight text-makoclaw-text group-hover:text-makoclaw-accent transition-colors flex-1 min-w-0">
             {{ task.title }}
           </h4>
-          <SpecialistBadge
-            v-if="task.agent"
-            :name="task.agent"
-          />
+          <div class="flex items-center gap-1 flex-shrink-0">
+            <SpecialistBadge
+              v-if="task.agent"
+              :name="task.agent"
+            />
+            <!-- Action buttons - hover visibility -->
+            <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" @click.stop>
+              <button
+                v-if="!task.archived"
+                class="p-1 hover:bg-yellow-500/20 rounded text-makoclaw-text-secondary hover:text-yellow-500 transition-colors"
+                title="Archive"
+                @click="handleArchive(task)"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                </svg>
+              </button>
+              <button
+                class="p-1 hover:bg-makoclaw-error/20 rounded text-makoclaw-text-secondary hover:text-makoclaw-error transition-colors"
+                title="Delete"
+                @click="handleDelete(task)"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
 
         <p
@@ -107,7 +131,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['task-click', 'task-drop'])
+const emit = defineEmits(['task-click', 'task-drop', 'task-archive', 'task-delete'])
 
 const dragStart = (event, task) => {
   event.dataTransfer.effectAllowed = 'move'
@@ -122,6 +146,14 @@ const handleDrop = (event) => {
     return
   }
   emit('task-drop', taskId, props.status, sourceStatus)
+}
+
+const handleArchive = (task) => {
+  emit('task-archive', task)
+}
+
+const handleDelete = (task) => {
+  emit('task-delete', task)
 }
 
 const getStatusLabel = (status) => {
@@ -162,3 +194,4 @@ const formatDate = (date) => {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 </script>
+

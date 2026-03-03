@@ -365,61 +365,34 @@
                 <div class="font-medium truncate text-sm flex-1">
                   {{ getSessionTitle(session) }}
                 </div>
-                <!-- Action buttons -->
-                <div
-                  class="flex items-center gap-0.5 opacity-0 group-hover/session:opacity-100 transition-opacity"
-                  @click.stop
-                >
+                <!-- Action buttons - hover visibility -->
+                <div class="flex items-center gap-0.5 opacity-0 group-hover/session:opacity-100 transition-opacity">
                   <button
                     class="p-1 hover:bg-makoclaw-border rounded text-makoclaw-text-secondary hover:text-makoclaw-accent transition-colors"
                     title="Rename"
-                    @click="startRenameSession(session)"
+                    @click.stop="startRenameSession(session)"
                   >
-                    <svg
-                      class="w-3.5 h-3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    ><path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                    /></svg>
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
                   </button>
                   <button
                     class="p-1 hover:bg-makoclaw-border rounded text-makoclaw-text-secondary hover:text-amber-400 transition-colors"
                     :title="showArchived ? 'Unarchive' : 'Archive'"
-                    @click="archiveSessionById(session.session_id)"
+                    @click.stop="archiveSessionById(session.session_id)"
                   >
-                    <svg
-                      class="w-3.5 h-3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    ><path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
-                    /></svg>
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                    </svg>
                   </button>
                   <button
                     class="p-1 hover:bg-makoclaw-border rounded text-makoclaw-text-secondary hover:text-makoclaw-error transition-colors"
                     title="Delete"
-                    @click="deleteSessionById(session.session_id)"
+                    @click.stop="deleteSessionById(session.session_id)"
                   >
-                    <svg
-                      class="w-3.5 h-3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    ><path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                    /></svg>
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
                   </button>
                 </div>
               </div>
@@ -673,6 +646,7 @@ const exportDropdownRef = ref(null)
 // Import state
 const importFileInput = ref(null)
 const importing = ref(false)
+
 
 const handleExportAll = () => {
   advancedService.exportChat()

@@ -652,17 +652,23 @@ func (al *AgentLoop) processMessageWithModel(ctx context.Context, msg bus.Inboun
 		return al.processSystemMessage(ctx, msg)
 	}
 
+	// Extract callbacks from context (set by server.go)
+	onAgentStatus := agentStatusCallbackFromCtx(ctx)
+	onContentSegment := contentSegmentCallbackFromCtx(ctx)
+
 	// Process as user message
 	return al.runAgentLoop(ctx, processOptions{
-		SessionKey:      msg.SessionKey,
-		Channel:         msg.Channel,
-		ChatID:          msg.ChatID,
-		UserMessage:     msg.Content,
-		DefaultResponse: "I've completed processing but have no response to give.",
-		EnableSummary:   true,
-		SendResponse:    false,
-		ModelOverride:   modelOverride,
-		ExcludeTools:    excludeTools,
+		SessionKey:       msg.SessionKey,
+		Channel:          msg.Channel,
+		ChatID:           msg.ChatID,
+		UserMessage:      msg.Content,
+		DefaultResponse:  "I've completed processing but have no response to give.",
+		EnableSummary:    true,
+		SendResponse:     false,
+		ModelOverride:    modelOverride,
+		ExcludeTools:     excludeTools,
+		OnAgentStatus:    onAgentStatus,
+		OnContentSegment: onContentSegment,
 	})
 }
 
@@ -690,18 +696,24 @@ func (al *AgentLoop) processMessageWithModelStream(ctx context.Context, msg bus.
 		return al.processSystemMessage(ctx, msg)
 	}
 
+	// Extract callbacks from context (set by server.go)
+	onAgentStatus := agentStatusCallbackFromCtx(ctx)
+	onContentSegment := contentSegmentCallbackFromCtx(ctx)
+
 	return al.runAgentLoopStream(ctx, processOptions{
-		SessionKey:      msg.SessionKey,
-		Channel:         msg.Channel,
-		ChatID:          msg.ChatID,
-		UserMessage:     msg.Content,
-		DefaultResponse: "I've completed processing but have no response to give.",
-		EnableSummary:   true,
-		SendResponse:    false,
-		ModelOverride:   modelOverride,
-		ExcludeTools:    excludeTools,
-		OnToken:         onToken,
-		OnTool:          onTool,
+		SessionKey:       msg.SessionKey,
+		Channel:          msg.Channel,
+		ChatID:           msg.ChatID,
+		UserMessage:      msg.Content,
+		DefaultResponse:  "I've completed processing but have no response to give.",
+		EnableSummary:    true,
+		SendResponse:     false,
+		ModelOverride:    modelOverride,
+		ExcludeTools:     excludeTools,
+		OnToken:          onToken,
+		OnTool:           onTool,
+		OnAgentStatus:    onAgentStatus,
+		OnContentSegment: onContentSegment,
 	}, onToken)
 }
 
@@ -865,6 +877,15 @@ func (al *AgentLoop) runAgentLoopStream(ctx context.Context, opts processOptions
 		agentName = "main"
 	}
 	al.AddInvolvedAgent(agentName)
+
+	// Emit simple status if orchestrator not available (fallback)
+	if opts.OnAgentStatus != nil && (al.cfg == nil || !al.cfg.Agents.Orchestrator.Enabled) {
+		_ = opts.OnAgentStatus(AgentStatusEvent{
+			Agent:     "agent",
+			Status:    "working",
+			Timestamp: time.Now(),
+		})
+	}
 
 	agentStart := time.Now()
 
