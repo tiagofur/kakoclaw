@@ -304,7 +304,7 @@
                 <span class="truncate flex-1 text-xs font-medium">{{ session.title || session.last_message || 'Empty session' }}</span>
                 <!-- Context menu trigger -->
                 <button
-                  class="p-1 rounded-lg text-makoclaw-text-secondary hover:text-makoclaw-text hover:bg-makoclaw-surface/50 transition-all flex-shrink-0 opacity-0 group-hover/session:opacity-100"
+                  class="p-1 rounded-lg text-makoclaw-text-secondary hover:text-makoclaw-text hover:bg-makoclaw-surface/50 transition-all flex-shrink-0 opacity-0 group-hover/session:opacity-100 touch-visible"
                   title="Session actions"
                   @click.stop="openContextMenu($event, session.session_id)"
                 >
@@ -964,6 +964,7 @@ const renamingSession = ref(null)
 const renameInput = ref('')
 const showToolsPopover = ref(false)
 const showPromptLibrary = ref(false)
+const searchQuery = ref('')
 
 // Team activity state
 const teamActivityRef = ref(null)
@@ -1746,5 +1747,12 @@ const formatTime = (timestamp) => {
 @keyframes float {
   0%, 100% { transform: translateY(0) translateX(0); }
   50% { transform: translateY(-20px) translateX(10px); }
+}
+
+/* Touch-friendly action buttons - visible on touch devices */
+@media (hover: none) {
+  .touch-visible {
+    opacity: 0.6 !important;
+  }
 }
 </style>
