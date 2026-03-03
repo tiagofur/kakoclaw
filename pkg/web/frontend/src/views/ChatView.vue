@@ -241,16 +241,16 @@
             :class="currentSessionId === session.session_id ? 'bg-makoclaw-bg border-makoclaw-accent/30 shadow-sm' : ''"
           >
             <!-- Hover glow line (left edge) -->
-            <div class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-0 bg-gradient-to-b from-transparent via-makoclaw-accent/40 to-transparent group-hover/session:h-2/3 transition-all duration-300" />
+            <div class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-0 bg-gradient-to-b from-transparent via-makoclaw-accent/40 to-transparent group-hover/session:h-2/3 transition-all duration-300 pointer-events-none" />
             <!-- Animated bottom-line on hover -->
-            <div class="absolute bottom-0 left-0 h-[2px] w-0 bg-gradient-to-r from-makoclaw-accent to-blue-500 group-hover/session:w-full transition-all duration-500 opacity-40" />
+            <div class="absolute bottom-0 left-0 h-[2px] w-0 bg-gradient-to-r from-makoclaw-accent to-blue-500 group-hover/session:w-full transition-all duration-500 opacity-40 pointer-events-none" />
             <!-- Soft gradient glow (top-right) -->
-            <div class="absolute -top-6 -right-6 w-16 h-16 bg-gradient-to-br from-makoclaw-accent to-blue-500 rounded-full opacity-0 blur-[15px] group-hover/session:opacity-10 transition-all duration-500" />
+            <div class="absolute -top-6 -right-6 w-16 h-16 bg-gradient-to-br from-makoclaw-accent to-blue-500 rounded-full opacity-0 blur-[15px] group-hover/session:opacity-10 transition-all duration-500 pointer-events-none" />
 
             <!-- Inline rename -->
             <div
               v-if="renamingSession === session.session_id"
-              class="flex items-center gap-1 px-2 py-1.5"
+              class="relative z-10 flex items-center gap-1 px-2 py-1.5"
             >
               <input
                 v-model="renameInput"
