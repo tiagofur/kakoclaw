@@ -150,6 +150,55 @@
           </div>
         </div>
 
+        <!-- Delegation Chain Tree -->
+        <div
+          v-if="props.delegationChain && props.delegationChain.length > 1"
+          class="p-2.5 rounded-xl bg-makoclaw-surface/30 border border-makoclaw-border/20"
+        >
+          <h4 class="text-[10px] font-medium text-makoclaw-text-secondary uppercase tracking-wider mb-2">
+            Delegation Chain
+          </h4>
+          <div class="space-y-1">
+            <div
+              v-for="(agent, idx) in props.delegationChain"
+              :key="idx"
+              class="flex items-center gap-2"
+              :style="{ paddingLeft: `${idx * 12}px` }"
+            >
+              <span
+                v-if="idx > 0"
+                class="text-makoclaw-text-secondary/30"
+              >
+                └
+              </span>
+              <span
+                class="text-[10px] px-1.5 py-0.5 rounded capitalize font-medium"
+                :class="idx === props.delegationChain.length - 1
+                  ? 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/30'
+                  : 'bg-makoclaw-surface/50 text-makoclaw-text-secondary'"
+              >
+                {{ agent }}
+              </span>
+              <span
+                v-if="idx === props.delegationChain.length - 1 && props.activeDelegation"
+                class="text-[9px] text-green-400 animate-pulse"
+              >
+                ● active
+              </span>
+            </div>
+          </div>
+          <!-- Active delegation progress -->
+          <div
+            v-if="props.activeDelegation"
+            class="mt-2 flex items-center gap-2 text-[10px] text-makoclaw-text-secondary"
+          >
+            <span>{{ props.activeDelegation.from }} → {{ props.activeDelegation.to }}</span>
+            <span v-if="props.activeDelegation.elapsedMs" class="opacity-60">
+              {{ Math.round(props.activeDelegation.elapsedMs / 1000) }}s
+            </span>
+          </div>
+        </div>
+
         <!-- Communications Log -->
         <div v-if="communications.length > 0" class="space-y-2">
           <h4 class="text-[10px] font-medium text-makoclaw-text-secondary uppercase tracking-wider">
@@ -221,6 +270,14 @@ const props = defineProps({
     default: () => []
   },
   specialistReport: {
+    type: Object,
+    default: null
+  },
+  delegationChain: {
+    type: Array,
+    default: () => []
+  },
+  activeDelegation: {
     type: Object,
     default: null
   }
@@ -370,6 +427,9 @@ function getStatusClass(status) {
     colleague_complete: 'bg-emerald-500/20 text-emerald-400',
     fallback: 'bg-orange-500/20 text-orange-400',
     failed: 'bg-red-500/20 text-red-400',
+    max_delegations_reached: 'bg-amber-500/20 text-amber-400',
+    timeout: 'bg-red-500/20 text-red-400',
+    synthesizing: 'bg-blue-500/20 text-blue-400',
   }
   return classes[status] || 'bg-makoclaw-surface/40 text-makoclaw-text-secondary'
 }

@@ -1280,14 +1280,22 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 				ctx = agent.ContextWithAgentStatusCallback(ctx, func(ev agent.AgentStatusEvent) error {
 					wsMu.Lock()
 					defer wsMu.Unlock()
-					return conn.WriteJSON(map[string]interface{}{
+					msg := map[string]interface{}{
 						"type":            "agent_status",
 						"agent":           ev.Agent,
 						"status":          ev.Status,
 						"specialist_name": ev.SpecialistName,
 						"reason":          ev.Reason,
 						"timestamp":       ev.Timestamp.Format(time.RFC3339),
-					})
+					}
+					if len(ev.DelegationChain) > 0 {
+						msg["delegation_chain"] = ev.DelegationChain
+						msg["delegation_depth"] = ev.DelegationDepth
+					}
+					if ev.ParentAgent != "" {
+						msg["parent_agent"] = ev.ParentAgent
+					}
+					return conn.WriteJSON(msg)
 				})
 
 				// Add content segment callback to context
@@ -1307,7 +1315,7 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 				ctx = agent.ContextWithSpecialistReportCallback(ctx, func(report *agent.SpecialistReport) error {
 					wsMu.Lock()
 					defer wsMu.Unlock()
-					return conn.WriteJSON(map[string]interface{}{
+					msg := map[string]interface{}{
 						"type":            "specialist_report",
 						"specialist_name": report.SpecialistName,
 						"status":          report.Status,
@@ -1317,6 +1325,34 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 						"suggestions":     report.Suggestions,
 						"needs_review":    report.NeedsReview,
 						"timestamp":       report.Timestamp.Format(time.RFC3339),
+					}
+					if len(report.DelegationChain) > 0 {
+						msg["delegation_chain"] = report.DelegationChain
+						msg["delegation_depth"] = report.DelegationDepth
+					}
+					if len(report.ToolsUsed) > 0 {
+						msg["tools_used"] = report.ToolsUsed
+					}
+					if report.IterationsUsed > 0 {
+						msg["iterations_used"] = report.IterationsUsed
+					}
+					return conn.WriteJSON(msg)
+				})
+
+				// Add delegation update callback for real-time delegation progress
+				ctx = agent.ContextWithDelegationUpdateCallback(ctx, func(update agent.DelegationUpdate) error {
+					wsMu.Lock()
+					defer wsMu.Unlock()
+					return conn.WriteJSON(map[string]interface{}{
+						"type":           "delegation_update",
+						"delegation_id":  update.DelegationID,
+						"from":           update.From,
+						"to":             update.To,
+						"status":         update.Status,
+						"iteration":      update.Iteration,
+						"max_iterations": update.MaxIterations,
+						"elapsed_ms":     update.ElapsedMs,
+						"timestamp":      update.Timestamp.Format(time.RFC3339),
 					})
 				})
 
@@ -1369,6 +1405,13 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 				}
 				if len(agents) > 0 {
 					streamEndMsg["agents"] = agents
+					// Include delegation summary when multi-agent was involved
+					if len(agents) > 1 {
+						streamEndMsg["delegation_summary"] = map[string]interface{}{
+							"agents_involved":   agents,
+							"total_delegations": len(agents) - 1,
+						}
+					}
 				}
 				_ = conn.WriteJSON(streamEndMsg)
 				_ = conn.WriteJSON(map[string]interface{}{"type": "ready"})

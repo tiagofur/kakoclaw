@@ -360,12 +360,16 @@ func (t *RequestColleagueTool) Execute(ctx context.Context, args map[string]inte
 	}
 
 	// Emit status event for UI
+	parentChain := delegationChainFromCtx(ctx)
 	emitAgentStatus(ctx, AgentStatusEvent{
-		Agent:          t.currentAgent.name,
-		Status:         "requesting_help",
-		SpecialistName: colleagueName,
-		Reason:         fmt.Sprintf("Consulting %s: %s", colleagueName, truncateString(question, 100)),
-		Timestamp:      time.Now(),
+		Agent:           t.currentAgent.name,
+		Status:          "requesting_help",
+		SpecialistName:  colleagueName,
+		Reason:          fmt.Sprintf("Consulting %s: %s", colleagueName, truncateString(question, 100)),
+		DelegationChain: append(parentChain, t.currentAgent.name),
+		DelegationDepth: len(parentChain),
+		ParentAgent:     t.currentAgent.name,
+		Timestamp:       time.Now(),
 	})
 
 	// Record in team context if available
@@ -408,9 +412,12 @@ func (t *RequestColleagueTool) Execute(ctx context.Context, args map[string]inte
 
 	// Emit completion status
 	emitAgentStatus(ctx, AgentStatusEvent{
-		Agent:     colleagueName,
-		Status:    "colleague_complete",
-		Timestamp: time.Now(),
+		Agent:           colleagueName,
+		Status:          "colleague_complete",
+		DelegationChain: append(parentChain, t.currentAgent.name, colleagueName),
+		DelegationDepth: len(parentChain) + 1,
+		ParentAgent:     t.currentAgent.name,
+		Timestamp:       time.Now(),
 	})
 
 	// Record response in team context
