@@ -376,36 +376,18 @@
                 <div class="font-medium truncate text-sm flex-1">
                   {{ getSessionTitle(session) }}
                 </div>
-                <!-- Action buttons - hover visibility, touch-friendly -->
-                <div class="flex items-center gap-0.5 opacity-0 group-hover/session:opacity-100 transition-opacity touch-visible">
-                  <button
-                    class="p-1 hover:bg-makoclaw-border rounded text-makoclaw-text-secondary hover:text-makoclaw-accent transition-colors"
-                    title="Rename"
-                    @click.stop="startRenameSession(session)"
-                  >
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                  </button>
-                  <button
-                    class="p-1 hover:bg-makoclaw-border rounded text-makoclaw-text-secondary hover:text-amber-400 transition-colors"
-                    :title="showArchived ? 'Unarchive' : 'Archive'"
-                    @click.stop="archiveSessionById(session.session_id)"
-                  >
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                    </svg>
-                  </button>
-                  <button
-                    class="p-1 hover:bg-makoclaw-border rounded text-makoclaw-text-secondary hover:text-makoclaw-error transition-colors"
-                    title="Delete"
-                    @click.stop="deleteSessionById(session.session_id)"
-                  >
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </div>
+                <!-- Context menu trigger -->
+                <button
+                  class="p-1 rounded-lg text-makoclaw-text-secondary hover:text-makoclaw-text hover:bg-makoclaw-surface/50 transition-all flex-shrink-0 opacity-0 group-hover/session:opacity-100 touch-visible"
+                  title="Session actions"
+                  @click.stop="openContextMenu($event, session.session_id)"
+                >
+                  <svg
+                    class="w-4 h-4"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  ><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg>
+                </button>
               </div>
               <div class="text-xs text-makoclaw-text-secondary flex justify-between items-center mt-1.5 pl-6">
                 <span>{{ formatTime(session.updated_at) }}</span>
@@ -427,7 +409,20 @@
             </template>
           </div>
         </template>
-        
+
+        <!-- Session Context Menu -->
+        <SessionContextMenu
+          :show="contextMenu.show"
+          :session-id="contextMenu.sessionId"
+          :x="contextMenu.x"
+          :y="contextMenu.y"
+          :show-archived="showArchived"
+          @close="closeContextMenu"
+          @rename="handleRename"
+          @archive="handleArchive"
+          @delete="handleDelete"
+        />
+
         <!-- Load More Button -->
         <div
           v-if="!isSearchMode && hasMoreSessions && filteredSessions.length > 0"
@@ -613,6 +608,7 @@ import api from '../services/api'
 import taskService from '../services/taskService'
 import advancedService from '../services/advancedService'
 import MarkdownRenderer from '../components/Chat/MarkdownRenderer.vue'
+import SessionContextMenu from '../components/Chat/SessionContextMenu.vue'
 import { useRouter } from 'vue-router'
 import { useToast } from '../composables/useToast'
 
@@ -641,6 +637,9 @@ const hasMoreSessions = ref(true)
 // Session management
 const renamingSession = ref(null)
 const renameInput = ref('')
+
+// Context menu state
+const contextMenu = ref({ show: false, sessionId: null, x: 0, y: 0 })
 
 // Search state
 const searchQuery = ref('')
@@ -890,6 +889,33 @@ const cancelRenameSession = () => {
 const toggleShowArchived = () => {
   showArchived.value = !showArchived.value
   loadSessions()
+}
+
+// Context menu handlers
+const openContextMenu = (e, sessionId) => {
+  e.preventDefault()
+  e.stopPropagation()
+  contextMenu.value = { show: true, sessionId, x: e.clientX, y: e.clientY }
+}
+
+const closeContextMenu = () => {
+  contextMenu.value = { show: false, sessionId: null, x: 0, y: 0 }
+}
+
+const handleRename = (sessionId) => {
+  closeContextMenu()
+  const session = sessions.value.find(s => s.session_id === sessionId)
+  if (session) startRenameSession(session)
+}
+
+const handleArchive = (sessionId) => {
+  closeContextMenu()
+  archiveSessionById(sessionId)
+}
+
+const handleDelete = (sessionId) => {
+  closeContextMenu()
+  deleteSessionById(sessionId)
 }
 
 const selectSession = async (session) => {

@@ -326,73 +326,18 @@
           </div>
         </div>
 
-        <!-- Context Menu Overlay -->
-        <Teleport to="body">
-          <div
-            v-if="contextMenu.show"
-            class="fixed inset-0 z-dropdown"
-            @click="closeContextMenu"
-          >
-            <div
-              class="absolute bg-makoclaw-surface/95 backdrop-blur-xl border border-makoclaw-border/50 rounded-xl shadow-2xl py-1.5 min-w-[160px] animate-scaleIn ring-1 ring-white/10"
-              :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
-              @click.stop
-            >
-              <button
-                class="w-full text-left px-3 py-2 text-sm hover:bg-makoclaw-accent/10 hover:text-makoclaw-accent transition-all flex items-center gap-2.5"
-                @click="startRename(contextMenu.sessionId)"
-              >
-                <svg
-                  class="w-4 h-4 opacity-70"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                ><path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                /></svg>
-                Rename
-              </button>
-              <button
-                class="w-full text-left px-3 py-2 text-sm hover:bg-makoclaw-accent/10 hover:text-makoclaw-accent transition-all flex items-center gap-2.5"
-                @click="archiveSession(contextMenu.sessionId)"
-              >
-                <svg
-                  class="w-4 h-4 opacity-70"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                ><path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
-                /></svg>
-                Archive
-              </button>
-              <div class="border-t border-makoclaw-border/50 my-1.5 mx-2" />
-              <button
-                class="w-full text-left px-3 py-2 text-sm hover:bg-makoclaw-error/10 text-makoclaw-error transition-all flex items-center gap-2.5"
-                @click="deleteSession(contextMenu.sessionId)"
-              >
-                <svg
-                  class="w-4 h-4 opacity-70"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                ><path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                /></svg>
-                Delete
-              </button>
-            </div>
-          </div>
-        </Teleport>
+        <!-- Session Context Menu -->
+        <SessionContextMenu
+          :show="contextMenu.show"
+          :session-id="contextMenu.sessionId"
+          :x="contextMenu.x"
+          :y="contextMenu.y"
+          :show-archived="false"
+          @close="closeContextMenu"
+          @rename="startRename"
+          @archive="archiveSession"
+          @delete="deleteSession"
+        />
       </div>
 
       <!-- Main Chat Area -->
@@ -735,7 +680,7 @@
                         ? 'text-makoclaw-text-secondary cursor-wait opacity-50'
                         : 'text-makoclaw-text-secondary hover:text-makoclaw-accent hover:bg-makoclaw-accent/10'
                   ]"
-                  :title="isRecording ? 'Suelta para transcribir' : isTranscribing ? 'Transcribiendo...' : 'Mantén presionado para grabar'"
+                  :title="isRecording ? 'Release to transcribe' : isTranscribing ? 'Transcribing...' : 'Hold to record'"
                   @mousedown="startRecording"
                   @mouseup="stopRecording"
                   @mouseleave="stopRecording"
@@ -783,7 +728,7 @@
                   type="submit"
                   :disabled="!isConnected || !messageInput.trim()"
                   class="p-2 min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg bg-makoclaw-accent hover:bg-makoclaw-accent-hover disabled:bg-makoclaw-surface disabled:text-makoclaw-text-secondary text-white transition-all shadow-md shadow-makoclaw-accent/20 hover:shadow-makoclaw-accent/40"
-                  title="Enviar mensaje"
+                  title="Send message"
                 >
                   <svg
                     class="w-4 h-4 transform rotate-90"
@@ -804,7 +749,7 @@
                   v-else
                   type="button"
                   class="p-2 min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg bg-makoclaw-error/10 hover:bg-makoclaw-error/20 text-makoclaw-error transition-all"
-                  title="Detener agente"
+                  title="Stop agent"
                   @click="cancelExecution"
                 >
                   <svg
@@ -942,6 +887,7 @@ import MessageBubble from '../components/MessageBubble.vue'
 import AgentStatusIndicator from '../components/Chat/AgentStatusIndicator.vue'
 import AgentEventBubble from '../components/Chat/AgentEventBubble.vue'
 import SpecialistsPanel from '../components/Chat/SpecialistsPanel.vue'
+import SessionContextMenu from '../components/Chat/SessionContextMenu.vue'
 import TeamActivityPanel from '../components/Chat/TeamActivityPanel.vue'
 import PromptLibrary from '../components/PromptModal.vue'
 import { useChatStore } from '../stores/chatStore'
@@ -1200,10 +1146,10 @@ const submitRename = async (sessionId) => {
     await taskService.updateSession(sessionId, { title: renameInput.value.trim() })
     const session = sessions.value.find(s => s.session_id === sessionId)
     if (session) session.title = renameInput.value.trim()
-    toast.success('Sesión renombrada')
+    toast.success('Session renamed')
   } catch (error) {
     console.error('Failed to rename session:', error)
-    toast.error('Error al renombrar la sesión')
+    toast.error('Failed to rename session')
   }
   renamingSession.value = null
   renameInput.value = ''
@@ -1222,26 +1168,26 @@ const archiveSession = async (sessionId) => {
     if (currentSessionId.value === sessionId) {
       startNewChat()
     }
-    toast.success('Sesión archivada')
+    toast.success('Session archived')
   } catch (error) {
     console.error('Failed to archive session:', error)
-    toast.error('Error al archivar la sesión')
+    toast.error('Failed to archive session')
   }
 }
 
 const deleteSession = async (sessionId) => {
   closeContextMenu()
-  if (!confirm('¿Eliminar esta sesión y todos sus mensajes? Esta acción no se puede deshacer.')) return
+  if (!confirm('Delete this session and all its messages? This cannot be undone.')) return
   try {
     await taskService.deleteSession(sessionId)
     sessions.value = sessions.value.filter(s => s.session_id !== sessionId)
     if (currentSessionId.value === sessionId) {
       startNewChat()
     }
-    toast.success('Sesión eliminada')
+    toast.success('Session deleted')
   } catch (error) {
     console.error('Failed to delete session:', error)
-    toast.error('Error al eliminar la sesión')
+    toast.error('Failed to delete session')
   }
 }
 
@@ -1252,9 +1198,9 @@ const generateSessionId = () => {
 const copyMessageContent = async (content) => {
   try {
     await navigator.clipboard.writeText(content)
-    toast.success('Copiado al portapapeles')
+    toast.success('Copied to clipboard')
   } catch {
-    toast.error('Error al copiar')
+    toast.error('Failed to copy')
   }
 }
 
@@ -1628,17 +1574,17 @@ const regenerateResponse = async () => {
 const forkAtMessage = async (msg) => {
   if (!currentSessionId.value || !msg.id) return
 
-  if (!confirm('¿Ramificar conversación desde este mensaje? Se creará una nueva sesión con todos los mensajes hasta este punto.')) return
+  if (!confirm('Fork conversation from this message? A new session will be created with all messages up to this point.')) return
 
   try {
     const result = await advancedService.forkChat(currentSessionId.value, msg.id)
-    toast.success(`¡Conversación ramificada! Nueva sesión creada con ${result.messages_copied} mensaje(s)`)
+    toast.success(`Forked! New session created with ${result.messages_copied} message(s)`)
     // Navigate to the forked session
     router.push({ query: { id: result.new_session_id } })
     await fetchSessions() // Refresh sessions to show the new one
   } catch (error) {
     console.error('Fork failed:', error)
-    toast.error('Error al ramificar la conversación')
+    toast.error('Failed to fork conversation')
   }
 }
 
