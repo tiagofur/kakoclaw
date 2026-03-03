@@ -401,14 +401,8 @@
             :key="msg.id || msg.timestamp"
             class="animate-fadeIn group w-full"
           >
-            <!-- Agent event inline indicator -->
-            <AgentEventBubble
-              v-if="msg.type === 'agent_event'"
-              :event="msg"
-            />
-            <!-- Regular message bubble -->
+            <!-- Message bubble (agent activity now shown inside as collapsible blocks) -->
             <MessageBubble
-              v-else
               :msg="msg"
               :current-session-id="currentSessionId"
               :is-loading="isLoading"
@@ -887,7 +881,6 @@ import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { storeToRefs } from 'pinia'
 import MessageBubble from '../components/MessageBubble.vue'
 import AgentStatusIndicator from '../components/Chat/AgentStatusIndicator.vue'
-import AgentEventBubble from '../components/Chat/AgentEventBubble.vue'
 import SpecialistsPanel from '../components/Chat/SpecialistsPanel.vue'
 import SessionContextMenu from '../components/Chat/SessionContextMenu.vue'
 import TeamActivityPanel from '../components/Chat/TeamActivityPanel.vue'
