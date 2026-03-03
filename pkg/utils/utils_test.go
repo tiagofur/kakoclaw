@@ -2,7 +2,11 @@ package utils
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
+	"os"
 	"testing"
+	"time"
 )
 
 // ---------------------------------------------------------------------------
@@ -153,5 +157,99 @@ func TestAgentNameContext_Empty(t *testing.T) {
 	ctx := context.Background()
 	if got := AgentNameFrom(ctx); got != "" {
 		t.Errorf("AgentNameFrom on empty context = %q; want \"\"", got)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// DownloadFile / DownloadFileSimple
+// ---------------------------------------------------------------------------
+
+func TestDownloadFile(t *testing.T) {
+	const fileContent = "hello, this is test file content"
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(fileContent))
+	}))
+	defer srv.Close()
+
+	path := DownloadFile(srv.URL+"/testfile.txt", "testfile.txt", DownloadOptions{
+		Timeout: 5 * time.Second,
+	})
+
+	if path == "" {
+		t.Fatal("DownloadFile returned empty string; expected a valid file path")
+	}
+	t.Cleanup(func() { os.Remove(path) })
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to read downloaded file: %v", err)
+	}
+	if string(data) != fileContent {
+		t.Errorf("file contents = %q; want %q", string(data), fileContent)
+	}
+}
+
+func TestDownloadFileSimple(t *testing.T) {
+	const fileContent = "simple download content"
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(fileContent))
+	}))
+	defer srv.Close()
+
+	path := DownloadFileSimple(srv.URL+"/data.bin", "data.bin")
+
+	if path == "" {
+		t.Fatal("DownloadFileSimple returned empty string; expected a valid file path")
+	}
+	t.Cleanup(func() { os.Remove(path) })
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to read downloaded file: %v", err)
+	}
+	if string(data) != fileContent {
+		t.Errorf("file contents = %q; want %q", string(data), fileContent)
+	}
+}
+
+func TestDownloadFile_NotFound(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("not found"))
+	}))
+	defer srv.Close()
+
+	path := DownloadFile(srv.URL+"/missing.txt", "missing.txt", DownloadOptions{
+		Timeout: 5 * time.Second,
+	})
+
+	if path != "" {
+		os.Remove(path)
+		t.Errorf("DownloadFile with 404 returned path %q; want empty string", path)
+	}
+}
+
+func TestDownloadFile_Timeout(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Delay longer than the client timeout
+		time.Sleep(2 * time.Second)
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("too late"))
+	}))
+	defer srv.Close()
+
+	path := DownloadFile(srv.URL+"/slow.txt", "slow.txt", DownloadOptions{
+		Timeout: 100 * time.Millisecond,
+	})
+
+	if path != "" {
+		os.Remove(path)
+		t.Errorf("DownloadFile with timeout returned path %q; want empty string", path)
 	}
 }

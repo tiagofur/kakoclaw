@@ -3726,7 +3726,7 @@ JSON to fix:
 
 	response, aiErr := userAgentLoop.ProcessDirectWithUserAndModel(
 		ctx, userID, prompt,
-		fmt.Sprintf("web:ai:fixjson:%s", body.Type), "",
+		fmt.Sprintf("web:ai:fixjson:%s", body.Type), "", "*",
 	)
 	if aiErr != nil {
 		http.Error(w, "AI processing failed: "+aiErr.Error(), http.StatusInternalServerError)
@@ -3868,7 +3868,7 @@ Return only explanation and JSON.`, body.Prompt)
 	defer cancel()
 
 	response, aiErr := userAgentLoop.ProcessDirectWithUserAndModel(
-		ctx, userID, aiPrompt, "web:ai:create-cron", "",
+		ctx, userID, aiPrompt, "web:ai:create-cron", "", "*",
 	)
 	if aiErr != nil {
 		http.Error(w, "AI processing failed: "+aiErr.Error(), http.StatusInternalServerError)
@@ -3970,7 +3970,7 @@ func (s *Server) handleSkillGenerateConfig(w http.ResponseWriter, r *http.Reques
 	}
 	defer userAgentLoop.Stop()
 
-	systemPrompt := `You are a skill configuration generator for MakoClaw.
+	aiPrompt := fmt.Sprintf(`You are a skill configuration generator for MakoClaw.
 Your task is to propose a skill name, description, and additional context based on the user's request.
 A skill is a set of instructions (SKILL.md) that teaches the agent how to perform specific tasks.
 
@@ -3984,16 +3984,16 @@ YOU MUST RESPOND ONLY WITH A JSON OBJECT:
   "name": "proposed-skill-name",
   "description": "Short description",
   "prompt": "Proactive details for the SKILL.md template generation"
-}`
+}
 
-	userPrompt := fmt.Sprintf("Generate a skill configuration for: %s", req.Prompt)
+Generate a skill configuration for: %s`, req.Prompt)
 
 	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 	defer cancel()
 
-	// Use ProcessDirectWithUserAndModel to leverage user-configured provider
+	// Use ProcessDirectWithUserAndModel without tools — we only need a JSON text response
 	response, aiErr := userAgentLoop.ProcessDirectWithUserAndModel(
-		ctx, userID, userPrompt, "web:skills:generate-config", systemPrompt,
+		ctx, userID, aiPrompt, "web:skills:generate-config", "", "*",
 	)
 	if aiErr != nil {
 		writeJSONError(w, "AI generation failed: "+aiErr.Error(), http.StatusInternalServerError)

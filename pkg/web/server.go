@@ -4059,8 +4059,9 @@ Return the configuration purely in JSON format without markdown wrapping, or wit
 	ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
 	defer cancel()
 
+	// Exclude all tools — we only need a JSON text response, no tool execution
 	responseRaw, err := userAgentLoop.ProcessDirectWithUserAndModel(
-		ctx, userID, aiPrompt, "web:ai:generate-specialist", "",
+		ctx, userID, aiPrompt, "web:ai:generate-specialist", "", "*",
 	)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
