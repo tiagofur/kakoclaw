@@ -301,3 +301,126 @@ func TestSetStorage(t *testing.T) {
 		t.Errorf("After SetStorage, history should be empty; got %d messages", len(history))
 	}
 }
+
+// ---------------------------------------------------------------------------
+// User isolation: different users have separate sessions
+// ---------------------------------------------------------------------------
+
+func TestUserIsolation(t *testing.T) {
+	sm := NewSessionManager("")
+
+	sm.AddMessageForUser(1, "chat", "user", "user1 message")
+	sm.AddMessageForUser(2, "chat", "user", "user2 message")
+
+	h1 := sm.GetHistoryForUser(1, "chat")
+	h2 := sm.GetHistoryForUser(2, "chat")
+
+	if len(h1) != 1 {
+		t.Fatalf("user 1 history length = %d; want 1", len(h1))
+	}
+	if len(h2) != 1 {
+		t.Fatalf("user 2 history length = %d; want 1", len(h2))
+	}
+	if h1[0].Content != "user1 message" {
+		t.Errorf("user 1 content = %q; want %q", h1[0].Content, "user1 message")
+	}
+	if h2[0].Content != "user2 message" {
+		t.Errorf("user 2 content = %q; want %q", h2[0].Content, "user2 message")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Message cap at 500
+// ---------------------------------------------------------------------------
+
+func TestMessageCap(t *testing.T) {
+	sm := NewSessionManager("")
+
+	for i := 0; i < 510; i++ {
+		sm.AddMessageForUser(1, "chat", "user", "msg")
+	}
+
+	history := sm.GetHistoryForUser(1, "chat")
+	if len(history) != 500 {
+		t.Errorf("history length = %d; want 500 (capped)", len(history))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// GetHistory returns a copy, not the original slice
+// ---------------------------------------------------------------------------
+
+func TestGetHistory_ReturnsCopy(t *testing.T) {
+	sm := NewSessionManager("")
+
+	sm.AddMessageForUser(1, "chat", "user", "original")
+	history := sm.GetHistoryForUser(1, "chat")
+
+	// Mutate the returned slice
+	history[0].Content = "mutated"
+
+	// Original should be unchanged
+	original := sm.GetHistoryForUser(1, "chat")
+	if original[0].Content != "original" {
+		t.Errorf("GetHistory did not return a copy; original was mutated to %q", original[0].Content)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TruncateHistory on nonexistent session
+// ---------------------------------------------------------------------------
+
+func TestTruncateHistory_NonExistent(t *testing.T) {
+	sm := NewSessionManager("")
+
+	// Should not panic
+	sm.TruncateHistoryForUser(99, "nonexistent", 5)
+}
+
+// ---------------------------------------------------------------------------
+// SetSummary on nonexistent session is a no-op
+// ---------------------------------------------------------------------------
+
+func TestSetSummary_NonExistent(t *testing.T) {
+	sm := NewSessionManager("")
+
+	// Should not panic or set anything
+	sm.SetSummaryForUser(99, "nonexistent", "some summary")
+
+	// Should still return empty
+	got := sm.GetSummaryForUser(99, "nonexistent")
+	if got != "" {
+		t.Errorf("Summary for non-existent session = %q; want empty", got)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// sanitizeSessionKey with various edge cases
+// ---------------------------------------------------------------------------
+
+func TestSanitizeSessionKey_DoubleDotsInPath(t *testing.T) {
+	got := sanitizeSessionKey("foo..bar")
+	for i := 0; i < len(got)-1; i++ {
+		if got[i] == '.' && got[i+1] == '.' {
+			t.Errorf("result %q still contains '..'", got)
+			break
+		}
+	}
+}
+
+func TestSanitizeSessionKey_WhitespaceOnly(t *testing.T) {
+	got := sanitizeSessionKey("   ")
+	if got != "" {
+		t.Errorf("sanitizeSessionKey(whitespace) = %q; want empty", got)
+	}
+}
+
+func TestSanitizeSessionKey_MixedSeparators(t *testing.T) {
+	got := sanitizeSessionKey("a/b\\c/../d")
+	for _, c := range got {
+		if c == '/' || c == '\\' {
+			t.Errorf("result %q still contains path separator", got)
+			break
+		}
+	}
+}
