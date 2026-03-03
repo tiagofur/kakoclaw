@@ -456,7 +456,14 @@
             :key="msg.id || msg.timestamp"
             class="animate-fadeIn group w-full"
           >
+            <!-- Agent event inline indicator -->
+            <AgentEventBubble
+              v-if="msg.type === 'agent_event'"
+              :event="msg"
+            />
+            <!-- Regular message bubble -->
             <MessageBubble
+              v-else
               :msg="msg"
               :current-session-id="currentSessionId"
               :is-loading="isLoading"
@@ -933,6 +940,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { storeToRefs } from 'pinia'
 import MessageBubble from '../components/MessageBubble.vue'
 import AgentStatusIndicator from '../components/Chat/AgentStatusIndicator.vue'
+import AgentEventBubble from '../components/Chat/AgentEventBubble.vue'
 import SpecialistsPanel from '../components/Chat/SpecialistsPanel.vue'
 import TeamActivityPanel from '../components/Chat/TeamActivityPanel.vue'
 import PromptLibrary from '../components/PromptModal.vue'
@@ -1288,6 +1296,14 @@ const handleMessage = (message) => {
       message.specialist_name,
       message.reason
     )
+    // Insert inline agent event bubble into chat stream
+    chatStore.addAgentEvent({
+      agent: message.agent,
+      status: message.status,
+      specialistName: message.specialist_name,
+      reason: message.reason,
+      timestamp: new Date().toISOString()
+    })
     // Update team activity panel
     teamAgentStatus.value = {
       agent: message.agent,
