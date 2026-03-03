@@ -107,15 +107,34 @@ func (s *Server) handleSkillAction(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "goal is required", http.StatusBadRequest)
 			return
 		}
-		if s.agentLoop == nil {
-			http.Error(w, "agent loop unavailable", http.StatusServiceUnavailable)
+
+		// Multi-user mode: create per-user agent loop
+		if s.userMgr == nil || s.fullConfig == nil || s.msgBus == nil || s.centralStore == nil {
+			writeJSONError(w, "AI not available - server not fully configured", http.StatusServiceUnavailable)
 			return
 		}
+		userID, uidOK := s.getUserIDFromClaims(r)
+		if !uidOK {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		userStore, userUUID, userOK := s.getUserStorage(r)
+		if !userOK || userUUID == "" || userStore == nil {
+			writeJSONError(w, "user storage unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		userAgentLoop, loopErr := agent.NewAgentLoopForUser(userUUID, s.fullConfig, s.msgBus, s.centralStore, userStore)
+		if loopErr != nil {
+			logger.ErrorCF("web", "Failed to create agent loop for skill generation", map[string]interface{}{"user_uuid": userUUID, "error": loopErr.Error()})
+			writeJSONError(w, "AI not available - "+loopErr.Error(), http.StatusServiceUnavailable)
+			return
+		}
+		defer userAgentLoop.Stop()
 
 		prompt := buildSkillGenerationPrompt(skillName, body.Goal, body.Capabilities, body.Constraints, body.Tools, body.Examples)
 		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 		defer cancel()
-		rawDraft, err := s.agentLoop.ProcessDirect(ctx, prompt, "web:skills:create:"+skillName)
+		rawDraft, err := userAgentLoop.ProcessDirectWithUserAndModel(ctx, userID, prompt, "web:skills:create:"+skillName, "", "*")
 		if err != nil {
 			http.Error(w, "failed to generate skill draft", http.StatusInternalServerError)
 			return
@@ -143,10 +162,29 @@ func (s *Server) handleSkillAction(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "prompt is required", http.StatusBadRequest)
 			return
 		}
-		if s.agentLoop == nil {
-			http.Error(w, "agent loop unavailable", http.StatusServiceUnavailable)
+
+		// Multi-user mode: create per-user agent loop
+		if s.userMgr == nil || s.fullConfig == nil || s.msgBus == nil || s.centralStore == nil {
+			writeJSONError(w, "AI not available - server not fully configured", http.StatusServiceUnavailable)
 			return
 		}
+		userID, uidOK := s.getUserIDFromClaims(r)
+		if !uidOK {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		userStore, userUUID, userOK := s.getUserStorage(r)
+		if !userOK || userUUID == "" || userStore == nil {
+			writeJSONError(w, "user storage unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		userAgentLoop, loopErr := agent.NewAgentLoopForUser(userUUID, s.fullConfig, s.msgBus, s.centralStore, userStore)
+		if loopErr != nil {
+			logger.ErrorCF("web", "Failed to create agent loop for skill config generation", map[string]interface{}{"user_uuid": userUUID, "error": loopErr.Error()})
+			writeJSONError(w, "AI not available - "+loopErr.Error(), http.StatusServiceUnavailable)
+			return
+		}
+		defer userAgentLoop.Stop()
 
 		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 		defer cancel()
@@ -163,8 +201,8 @@ Respond ONLY with a valid JSON object matching this exact structure, with no mar
   "prompt": "Any additional context, detailed instructions, or tool requirements mentioned by the user."
 }`, body.Description)
 
-		rawJSON, err := s.agentLoop.ProcessDirect(ctx, prompt, "web:skills:generate-config")
-		if err != nil {
+		rawJSON, genErr := userAgentLoop.ProcessDirectWithUserAndModel(ctx, userID, prompt, "web:skills:generate-config", "", "*")
+		if genErr != nil {
 			http.Error(w, "failed to generate config", http.StatusInternalServerError)
 			return
 		}
@@ -203,15 +241,34 @@ Respond ONLY with a valid JSON object matching this exact structure, with no mar
 			http.Error(w, "feedback is required", http.StatusBadRequest)
 			return
 		}
-		if s.agentLoop == nil {
-			http.Error(w, "agent loop unavailable", http.StatusServiceUnavailable)
+
+		// Multi-user mode: create per-user agent loop
+		if s.userMgr == nil || s.fullConfig == nil || s.msgBus == nil || s.centralStore == nil {
+			writeJSONError(w, "AI not available - server not fully configured", http.StatusServiceUnavailable)
 			return
 		}
+		userID, uidOK := s.getUserIDFromClaims(r)
+		if !uidOK {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		userStore, userUUID, userOK := s.getUserStorage(r)
+		if !userOK || userUUID == "" || userStore == nil {
+			writeJSONError(w, "user storage unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		userAgentLoop, loopErr := agent.NewAgentLoopForUser(userUUID, s.fullConfig, s.msgBus, s.centralStore, userStore)
+		if loopErr != nil {
+			logger.ErrorCF("web", "Failed to create agent loop for skill refinement", map[string]interface{}{"user_uuid": userUUID, "error": loopErr.Error()})
+			writeJSONError(w, "AI not available - "+loopErr.Error(), http.StatusServiceUnavailable)
+			return
+		}
+		defer userAgentLoop.Stop()
 
 		prompt := buildSkillRefinementPrompt(body.Draft, body.Feedback)
 		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 		defer cancel()
-		rawDraft, err := s.agentLoop.ProcessDirect(ctx, prompt, "web:skills:refine")
+		rawDraft, err := userAgentLoop.ProcessDirectWithUserAndModel(ctx, userID, prompt, "web:skills:refine", "", "*")
 		if err != nil {
 			http.Error(w, "failed to refine skill draft", http.StatusInternalServerError)
 			return
@@ -338,9 +395,17 @@ Respond ONLY with a valid JSON object matching this exact structure, with no mar
 			return
 		}
 
-		// Create security scanner with AI reviewer if agent loop is available
+		// Create security scanner with AI reviewer using per-user agent loop
 		var aiReviewer skills.AISecurityReviewer
-		if s.agentLoop != nil {
+		if s.userMgr != nil && s.fullConfig != nil && s.msgBus != nil && s.centralStore != nil {
+			userStore, userUUID, userOK := s.getUserStorage(r)
+			if userOK && userUUID != "" && userStore != nil {
+				if userAgentLoop, loopErr := agent.NewAgentLoopForUser(userUUID, s.fullConfig, s.msgBus, s.centralStore, userStore); loopErr == nil {
+					defer userAgentLoop.Stop()
+					aiReviewer = skills.NewLLMSecurityReviewer(userAgentLoop)
+				}
+			}
+		} else if s.agentLoop != nil {
 			aiReviewer = skills.NewLLMSecurityReviewer(s.agentLoop)
 		}
 		scanner := skills.NewSkillSecurityScanner(aiReviewer)
