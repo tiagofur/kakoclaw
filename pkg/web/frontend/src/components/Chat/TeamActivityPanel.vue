@@ -92,6 +92,64 @@
           </div>
         </div>
 
+        <!-- Specialist Report with Confidence -->
+        <div
+          v-if="lastReport"
+          class="p-2.5 rounded-xl border"
+          :class="lastReport.request_help ? 'bg-red-500/10 border-red-500/30' : 'bg-makoclaw-surface/30 border-makoclaw-border/20'"
+        >
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-semibold text-makoclaw-text capitalize">
+                {{ lastReport.specialist_name }}
+              </span>
+              <span
+                class="text-[10px] px-1.5 py-0.5 rounded border"
+                :class="reportStatusClass"
+              >
+                {{ lastReport.status }}
+              </span>
+            </div>
+            <!-- Confidence Indicator -->
+            <div v-if="lastReport.confidence" class="flex items-center gap-1.5">
+              <span class="text-[10px] text-makoclaw-text-secondary">Confidence</span>
+              <div class="flex items-center gap-1">
+                <div class="w-16 h-1.5 bg-makoclaw-bg/50 rounded-full overflow-hidden">
+                  <div
+                    class="h-full rounded-full transition-all duration-500"
+                    :class="confidenceClass"
+                    :style="{ width: `${lastReport.confidence * 100}%` }"
+                  />
+                </div>
+                <span
+                  class="text-[10px] font-medium"
+                  :class="confidenceTextClass"
+                >
+                  {{ Math.round(lastReport.confidence * 100) }}%
+                </span>
+              </div>
+            </div>
+          </div>
+          <!-- Help Request Alert -->
+          <div
+            v-if="lastReport.request_help"
+            class="flex items-center gap-2 p-2 rounded-lg bg-red-500/10 border border-red-500/20 mt-2"
+          >
+            <svg class="w-4 h-4 text-red-400 animate-pulse shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <div class="flex-1 min-w-0">
+              <span class="text-[11px] text-red-400 font-medium">
+                Requesting help from {{ lastReport.request_help }}
+              </span>
+              <p v-if="lastReport.suggestions?.[0]" class="text-[10px] text-red-300/70 truncate">
+                {{ lastReport.suggestions[0] }}
+              </p>
+            </div>
+          </div>
+        </div>
+
         <!-- Communications Log -->
         <div v-if="communications.length > 0" class="space-y-2">
           <h4 class="text-[10px] font-medium text-makoclaw-text-secondary uppercase tracking-wider">
@@ -161,6 +219,10 @@ const props = defineProps({
   involvedAgentsList: {
     type: Array,
     default: () => []
+  },
+  specialistReport: {
+    type: Object,
+    default: null
   }
 })
 
@@ -168,6 +230,7 @@ const collapsed = ref(false)
 const currentAgent = ref(null)
 const communications = ref([])
 const involvedAgents = ref([])
+const lastReport = ref(null)
 
 // Watch for agent status updates
 watch(() => props.agentStatus, (newStatus) => {
@@ -194,8 +257,64 @@ watch(() => props.involvedAgentsList, (newList) => {
   }
 }, { deep: true })
 
+// Watch for specialist report
+watch(() => props.specialistReport, (newReport) => {
+  if (newReport) {
+    lastReport.value = newReport
+    // Add specialist to involved agents
+    if (newReport.specialist_name && !involvedAgents.value.includes(newReport.specialist_name)) {
+      involvedAgents.value.push(newReport.specialist_name)
+    }
+    // If requesting help, add to communications
+    if (newReport.request_help) {
+      communications.value.push({
+        from: newReport.specialist_name,
+        to: newReport.request_help,
+        message: `Requesting help: ${newReport.suggestions?.[0] || 'assistance needed'}`
+      })
+    }
+  }
+}, { deep: true })
+
 const hasActivity = computed(() => {
-  return currentAgent.value || communications.value.length > 0 || involvedAgents.value.length > 0
+  return currentAgent.value || communications.value.length > 0 || involvedAgents.value.length > 0 || lastReport.value
+})
+
+// Confidence level indicator (green >0.8, yellow 0.5-0.8, red <0.5)
+const confidenceColor = computed(() => {
+  if (!lastReport.value?.confidence) return null
+  const conf = lastReport.value.confidence
+  if (conf >= 0.8) return 'green'
+  if (conf >= 0.5) return 'yellow'
+  return 'red'
+})
+
+const confidenceClass = computed(() => {
+  const colors = {
+    green: 'bg-green-500',
+    yellow: 'bg-yellow-500',
+    red: 'bg-red-500'
+  }
+  return colors[confidenceColor.value] || 'bg-gray-500'
+})
+
+const confidenceTextClass = computed(() => {
+  const colors = {
+    green: 'text-green-400',
+    yellow: 'text-yellow-400',
+    red: 'text-red-400'
+  }
+  return colors[confidenceColor.value] || 'text-gray-400'
+})
+
+const reportStatusClass = computed(() => {
+  if (!lastReport.value?.status) return ''
+  const classes = {
+    complete: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+    partial: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+    needs_help: 'bg-red-500/20 text-red-400 border-red-500/30 animate-pulse'
+  }
+  return classes[lastReport.value.status] || 'bg-gray-500/20 text-gray-400'
 })
 
 const isWorking = computed(() => {
@@ -260,6 +379,7 @@ function reset() {
   currentAgent.value = null
   communications.value = []
   involvedAgents.value = []
+  lastReport.value = null
 }
 
 // Expose reset method

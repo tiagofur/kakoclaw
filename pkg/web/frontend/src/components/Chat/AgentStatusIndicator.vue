@@ -64,8 +64,20 @@ import SpecialistBadge from './SpecialistBadge.vue'
 
 const chatStore = useChatStore()
 
-const isActive = computed(() => {
+// Show indicator when:
+// 1. Orchestrator has explicit status (analyzing, delegating, working, fallback)
+// 2. OR when loading/streaming (as a fallback to ensure visibility)
+const hasOrchestratorStatus = computed(() => {
   return chatStore.orchestratorStatus !== 'idle' && chatStore.orchestratorStatus !== 'complete'
+})
+
+const isProcessing = computed(() => {
+  return chatStore.globalIsLoading || chatStore.isStreaming
+})
+
+const isActive = computed(() => {
+  // Show if orchestrator has status OR if we're processing (ensures always visible when working)
+  return hasOrchestratorStatus.value || (isProcessing.value && !chatStore.isStreaming)
 })
 
 const currentAgent = computed(() => {
@@ -78,36 +90,49 @@ const statusText = computed(() => {
   const status = chatStore.orchestratorStatus
   const agent = currentAgent.value
 
-  const statusMap = {
-    analyzing: `Analyzing your request...`,
-    delegating: `Delegating to ${agent || 'specialist'}...`,
-    working: `${agent || 'Agent'} is working on your request...`,
-    fallback: `No specialist matched, using ${agent || 'general agent'}...`
+  // If we have explicit orchestrator status, use it
+  if (hasOrchestratorStatus.value) {
+    const statusMap = {
+      analyzing: `Analyzing your request...`,
+      delegating: `Delegating to ${agent || 'specialist'}...`,
+      working: `${agent || 'Agent'} is working on your request...`,
+      fallback: `No specialist matched, using ${agent || 'general agent'}...`
+    }
+    return statusMap[status] || 'Processing...'
   }
 
-  return statusMap[status] || 'Processing...'
+  // Fallback: show generic processing message
+  return 'Agent is processing your request...'
 })
 
 const iconColorClass = computed(() => {
   const status = chatStore.orchestratorStatus
-  return {
-    analyzing: 'text-blue-400',
-    delegating: 'text-purple-400',
-    working: 'text-green-400',
-    fallback: 'text-amber-400'
-  }[status] || 'text-makoclaw-text-secondary'
+  if (hasOrchestratorStatus.value) {
+    return {
+      analyzing: 'text-blue-400',
+      delegating: 'text-purple-400',
+      working: 'text-green-400',
+      fallback: 'text-amber-400'
+    }[status] || 'text-makoclaw-text-secondary'
+  }
+  // Default color for generic processing
+  return 'text-blue-400'
 })
 
 const textColorClass = computed(() => iconColorClass.value)
 
 const borderColorClass = computed(() => {
   const status = chatStore.orchestratorStatus
-  return {
-    analyzing: 'border-blue-400',
-    delegating: 'border-purple-400',
-    working: 'border-green-400',
-    fallback: 'border-amber-400'
-  }[status] || 'border-makoclaw-text-secondary'
+  if (hasOrchestratorStatus.value) {
+    return {
+      analyzing: 'border-blue-400',
+      delegating: 'border-purple-400',
+      working: 'border-green-400',
+      fallback: 'border-amber-400'
+    }[status] || 'border-makoclaw-text-secondary'
+  }
+  // Default border for generic processing
+  return 'border-blue-400'
 })
 </script>
 

@@ -518,6 +518,7 @@
             :agent-status="teamAgentStatus"
             :team-communications="teamCommunications"
             :involved-agents-list="involvedAgentsList"
+            :specialist-report="chatStore.lastSpecialistReport"
           />
         </div>
 
@@ -1332,6 +1333,34 @@ const handleMessage = (message) => {
   }
   if (message.type === 'tool_call') {
     chatStore.addToolCall(message)
+  }
+  if (message.type === 'specialist_report') {
+    // Handle structured specialist report
+    chatStore.addSpecialistReport(message)
+
+    // Update team activity panel with report info
+    teamAgentStatus.value = {
+      agent: message.specialist_name,
+      status: message.status,
+      confidence: message.confidence,
+      requestHelp: message.request_help
+    }
+
+    // Track involved agents
+    if (message.specialist_name && !involvedAgentsList.value.includes(message.specialist_name)) {
+      involvedAgentsList.value.push(message.specialist_name)
+    }
+
+    // If specialist needs help, add to communications
+    if (message.status === 'needs_help' && message.request_help) {
+      teamCommunications.value.push({
+        from: message.specialist_name,
+        to: message.request_help,
+        message: message.suggestions?.[0] || message.help_context || 'Requesting assistance',
+        timestamp: new Date().toISOString(),
+        type: 'help_request'
+      })
+    }
   }
   if (message.type === 'ready') {
     isLoading.value = false

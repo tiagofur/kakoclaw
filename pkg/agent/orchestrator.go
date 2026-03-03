@@ -2,8 +2,10 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sipeed/makoclaw/pkg/bus"
@@ -71,12 +73,40 @@ func emitContentSegment(ctx context.Context, segment ContentSegment) {
 	}
 }
 
+// SpecialistReportCallback is called when a specialist completes work and reports status
+type SpecialistReportCallback func(report *SpecialistReport) error
+
+type specialistReportCallbackKey struct{}
+
+// ContextWithSpecialistReportCallback embeds a SpecialistReportCallback into the context
+func ContextWithSpecialistReportCallback(ctx context.Context, callback SpecialistReportCallback) context.Context {
+	return context.WithValue(ctx, specialistReportCallbackKey{}, callback)
+}
+
+func specialistReportCallbackFromCtx(ctx context.Context) SpecialistReportCallback {
+	if v, ok := ctx.Value(specialistReportCallbackKey{}).(SpecialistReportCallback); ok {
+		return v
+	}
+	return nil
+}
+
+// emitSpecialistReport emits a specialist report if callback is available
+func emitSpecialistReport(ctx context.Context, report *SpecialistReport) {
+	if callback := specialistReportCallbackFromCtx(ctx); callback != nil {
+		_ = callback(report)
+	}
+}
+
 // OrchestratorAgent is a special agent that analyzes tasks and delegates to specialists
 type OrchestratorAgent struct {
 	*SpecialistAgent
 	registry          *SpecialistRegistry
 	delegationRetries int
 	fallbackToDefault bool
+
+	// Specialist report tracking for feedback loop
+	lastReport   *SpecialistReport
+	lastReportMu sync.RWMutex
 }
 
 // DelegationRequest represents a request to delegate to a specialist
@@ -97,17 +127,18 @@ type DelegationResult struct {
 // SpecialistReport represents structured feedback from a specialist
 // This enables the orchestrator to make intelligent re-delegation decisions
 type SpecialistReport struct {
-	SpecialistName string   `json:"specialist_name"` // Who generated this report
-	Status         string   `json:"status"`          // "complete", "needs_help", "partial", "failed"
-	Result         string   `json:"result"`          // The actual output
-	Confidence     float64  `json:"confidence"`      // 0.0-1.0 confidence in result
-	Suggestions    []string `json:"suggestions"`     // Recommendations for improvement
-	NeedsReview    bool     `json:"needs_review"`    // Request orchestrator review
-	RequestHelp    string   `json:"request_help"`    // Request another specialist (e.g., "security")
-	HelpContext    string   `json:"help_context"`    // Context for the help request
-	Artifacts      []string `json:"artifacts"`       // Files created/modified
-	TimeSpent      string   `json:"time_spent"`      // Execution time
-	Iteration      int      `json:"iteration"`       // Which iteration this is from
+	SpecialistName string    `json:"specialist_name"` // Who generated this report
+	Status         string    `json:"status"`          // "complete", "needs_help", "partial", "failed"
+	Result         string    `json:"result"`          // The actual output
+	Confidence     float64   `json:"confidence"`      // 0.0-1.0 confidence in result
+	Suggestions    []string  `json:"suggestions"`     // Recommendations for improvement
+	NeedsReview    bool      `json:"needs_review"`    // Request orchestrator review
+	RequestHelp    string    `json:"request_help"`    // Request another specialist (e.g., "security")
+	HelpContext    string    `json:"help_context"`    // Context for the help request
+	Artifacts      []string  `json:"artifacts"`       // Files created/modified
+	TimeSpent      string    `json:"time_spent"`      // Execution time
+	Iteration      int       `json:"iteration"`       // Which iteration this is from
+	Timestamp      time.Time `json:"timestamp"`       // When the report was generated
 }
 
 // TeamContext holds shared state for multi-specialist collaboration
@@ -639,6 +670,21 @@ func (oa *OrchestratorAgent) processSpecialistTask(ctx context.Context, speciali
 		return "", err
 	}
 
+	// Inject response format instruction for structured feedback
+	taskWithFormat := task + `
+
+--- RESPONSE FORMAT ---
+Start your response with a JSON header on a single line:
+{"status":"complete","confidence":0.9,"request_help":"","suggestion":""}
+
+Status values: "complete" (task done well), "partial" (task partly done), "needs_help" (need another specialist)
+Confidence: 0.0-1.0 (how confident are you in the result)
+request_help: specialist name if you need help (e.g., "security", "documentation")
+suggestion: brief note about what you did or need
+
+Then provide your full response below the JSON line.
+---`
+
 	// Timeout configurable (default: 5 minutes)
 	timeout := 5 * time.Minute
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, timeout)
@@ -649,7 +695,7 @@ func (oa *OrchestratorAgent) processSpecialistTask(ctx context.Context, speciali
 	errChan := make(chan error, 1)
 
 	go func() {
-		result, err := specialist.ProcessWithSpeciality(ctxWithTimeout, task)
+		result, err := specialist.ProcessWithSpeciality(ctxWithTimeout, taskWithFormat)
 		if err != nil {
 			errChan <- err
 			return
@@ -661,13 +707,34 @@ func (oa *OrchestratorAgent) processSpecialistTask(ctx context.Context, speciali
 	var result string
 	select {
 	case result = <-resultChan:
-		// Success - emit content segment
+		// Parse structured report from specialist response
+		report := oa.parseSpecialistReport(specialistName, result)
+		oa.storeLastReport(report)
+
+		// Emit specialist report event for frontend visibility
+		emitSpecialistReport(ctx, report)
+
+		// Log report details
+		logger.InfoCF("agent", "Specialist report received", map[string]interface{}{
+			"specialist": specialistName,
+			"status":     report.Status,
+			"confidence": report.Confidence,
+			"help":       report.RequestHelp,
+		})
+
+		// Clean result (remove JSON header) for content segment
+		cleanResult := oa.cleanSpecialistResult(result)
+
+		// Emit content segment with clean result
 		emitContentSegment(ctx, ContentSegment{
 			Agent:     specialistName,
-			Content:   result,
+			Content:   cleanResult,
 			SegmentID: fmt.Sprintf("seg_%s_%d", specialistName, time.Now().UnixNano()),
 			Timestamp: time.Now(),
 		})
+
+		// Update result to clean version for return
+		result = cleanResult
 
 	case err := <-errChan:
 		return "", fmt.Errorf("specialist processing error: %w", err)
@@ -918,9 +985,86 @@ func (oa *OrchestratorAgent) ProcessWithFeedbackLoop(ctx context.Context, userMe
 // getLastSpecialistReport retrieves the last specialist report if available
 // This is set by the delegation tool after a specialist completes
 func (oa *OrchestratorAgent) getLastSpecialistReport() *SpecialistReport {
-	// This would be populated by the delegation tool during execution
-	// For now, return nil - will be implemented when delegation tool is updated
-	return nil
+	oa.lastReportMu.RLock()
+	defer oa.lastReportMu.RUnlock()
+	return oa.lastReport
+}
+
+// storeLastReport saves the last specialist report for feedback loop access
+func (oa *OrchestratorAgent) storeLastReport(report *SpecialistReport) {
+	oa.lastReportMu.Lock()
+	defer oa.lastReportMu.Unlock()
+	oa.lastReport = report
+}
+
+// parseSpecialistReport extracts structured report data from specialist response
+// Expects JSON header on first line: {"status":"complete","confidence":0.9,"request_help":"","suggestion":""}
+func (oa *OrchestratorAgent) parseSpecialistReport(specialistName, result string) *SpecialistReport {
+	report := &SpecialistReport{
+		SpecialistName: specialistName,
+		Status:         "complete",
+		Confidence:     0.9, // Default high confidence
+		Result:         result,
+		Timestamp:      time.Now(),
+	}
+
+	// Try to extract JSON header from first line
+	lines := strings.SplitN(result, "\n", 2)
+	if len(lines) > 0 {
+		firstLine := strings.TrimSpace(lines[0])
+
+		// Check if first line looks like JSON
+		if strings.HasPrefix(firstLine, "{") && strings.Contains(firstLine, "}") {
+			// Extract just the JSON part (in case there's trailing text)
+			jsonEnd := strings.Index(firstLine, "}") + 1
+			jsonStr := firstLine[:jsonEnd]
+
+			var parsed struct {
+				Status      string  `json:"status"`
+				Confidence  float64 `json:"confidence"`
+				RequestHelp string  `json:"request_help"`
+				Suggestion  string  `json:"suggestion"`
+			}
+
+			if err := json.Unmarshal([]byte(jsonStr), &parsed); err == nil {
+				if parsed.Status != "" {
+					report.Status = parsed.Status
+				}
+				if parsed.Confidence > 0 {
+					report.Confidence = parsed.Confidence
+				}
+				if parsed.RequestHelp != "" {
+					report.RequestHelp = parsed.RequestHelp
+					report.NeedsReview = true
+				}
+				if parsed.Suggestion != "" {
+					report.Suggestions = []string{parsed.Suggestion}
+				}
+
+				logger.DebugCF("agent", "Parsed specialist report", map[string]interface{}{
+					"specialist": specialistName,
+					"status":     report.Status,
+					"confidence": report.Confidence,
+					"help":       report.RequestHelp,
+				})
+			}
+		}
+	}
+
+	return report
+}
+
+// cleanSpecialistResult removes the JSON header from specialist response for user display
+func (oa *OrchestratorAgent) cleanSpecialistResult(result string) string {
+	lines := strings.SplitN(result, "\n", 2)
+	if len(lines) > 1 {
+		firstLine := strings.TrimSpace(lines[0])
+		// If first line is JSON, return only the rest
+		if strings.HasPrefix(firstLine, "{") && strings.Contains(firstLine, "}") {
+			return strings.TrimSpace(lines[1])
+		}
+	}
+	return result
 }
 
 // aggregateReports combines results from multiple specialist reports

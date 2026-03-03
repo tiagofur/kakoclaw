@@ -1303,6 +1303,23 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 					})
 				})
 
+				// Add specialist report callback for structured feedback
+				ctx = agent.ContextWithSpecialistReportCallback(ctx, func(report *agent.SpecialistReport) error {
+					wsMu.Lock()
+					defer wsMu.Unlock()
+					return conn.WriteJSON(map[string]interface{}{
+						"type":            "specialist_report",
+						"specialist_name": report.SpecialistName,
+						"status":          report.Status,
+						"confidence":      report.Confidence,
+						"request_help":    report.RequestHelp,
+						"help_context":    report.HelpContext,
+						"suggestions":     report.Suggestions,
+						"needs_review":    report.NeedsReview,
+						"timestamp":       report.Timestamp.Format(time.RFC3339),
+					})
+				})
+
 				response, err := activeAgentLoop.ProcessDirectWithUserAndModelStream(
 					ctx, userID, input, sessionID, req.Model,
 					func(token string) error {
