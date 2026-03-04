@@ -765,16 +765,16 @@ func (oa *OrchestratorAgent) processSpecialistTask(ctx context.Context, speciali
 	// Inject response format instruction for structured feedback
 	taskWithFormat := task + `
 
---- RESPONSE FORMAT ---
-Start your response with a JSON header on a single line:
-{"status":"complete","confidence":0.9,"request_help":"","suggestion":""}
+--- SPECIAL RESPONSE FORMAT REQUIRED ---
+You MUST provide your response in TWO distinct parts:
 
-Status values: "complete" (task done well), "partial" (task partly done), "needs_help" (need another specialist)
-Confidence: 0.0-1.0 (how confident are you in the result)
-request_help: specialist name if you need help (e.g., "security", "documentation")
-suggestion: brief note about what you did or need
+1. A JSON report block. It MUST be enclosed in markdown JSON tags:
+` + "```json\n" + `{"status":"complete","confidence":0.9,"request_help":"","suggestion":""}
+` + "```" + `
+(Status values: "complete", "partial", or "needs_help". Confidence: 0.0-1.0)
 
-Then provide your full response below the JSON line.
+2. YOUR FULL DETAILED RESPONSE below the JSON block:
+Provide a comprehensive answer to the user's task here. DO NOT just return the JSON. The user will only see the text below the JSON block, so you MUST include all research, analysis, and final results in this section.
 ---`
 
 	// Timeout configurable (default: 5 minutes)
@@ -1166,7 +1166,6 @@ func (oa *OrchestratorAgent) storeLastReport(report *SpecialistReport) {
 }
 
 // parseSpecialistReport extracts structured report data from specialist response
-// Expects JSON header on first line: {"status":"complete","confidence":0.9,"request_help":"","suggestion":""}
 func (oa *OrchestratorAgent) parseSpecialistReport(specialistName, result string) *SpecialistReport {
 	report := &SpecialistReport{
 		SpecialistName: specialistName,
@@ -1176,46 +1175,50 @@ func (oa *OrchestratorAgent) parseSpecialistReport(specialistName, result string
 		Timestamp:      time.Now(),
 	}
 
-	// Try to extract JSON header from first line
-	lines := strings.SplitN(result, "\n", 2)
-	if len(lines) > 0 {
-		firstLine := strings.TrimSpace(lines[0])
+	// Try to extract JSON from markdown block
+	jsonStr := ""
+	if start := strings.Index(result, "```json"); start != -1 {
+		end := strings.Index(result[start+7:], "```")
+		if end != -1 {
+			jsonStr = strings.TrimSpace(result[start+7 : start+7+end])
+		}
+	} else if start := strings.Index(result, "{"); start != -1 {
+		// Fallback for raw JSON
+		end := strings.Index(result[start:], "}")
+		if end != -1 {
+			jsonStr = result[start : start+end+1]
+		}
+	}
 
-		// Check if first line looks like JSON
-		if strings.HasPrefix(firstLine, "{") && strings.Contains(firstLine, "}") {
-			// Extract just the JSON part (in case there's trailing text)
-			jsonEnd := strings.Index(firstLine, "}") + 1
-			jsonStr := firstLine[:jsonEnd]
+	if jsonStr != "" {
+		var parsed struct {
+			Status      string  `json:"status"`
+			Confidence  float64 `json:"confidence"`
+			RequestHelp string  `json:"request_help"`
+			Suggestion  string  `json:"suggestion"`
+		}
 
-			var parsed struct {
-				Status      string  `json:"status"`
-				Confidence  float64 `json:"confidence"`
-				RequestHelp string  `json:"request_help"`
-				Suggestion  string  `json:"suggestion"`
+		if err := json.Unmarshal([]byte(jsonStr), &parsed); err == nil {
+			if parsed.Status != "" {
+				report.Status = parsed.Status
+			}
+			if parsed.Confidence > 0 {
+				report.Confidence = parsed.Confidence
+			}
+			if parsed.RequestHelp != "" {
+				report.RequestHelp = parsed.RequestHelp
+				report.NeedsReview = true
+			}
+			if parsed.Suggestion != "" {
+				report.Suggestions = []string{parsed.Suggestion}
 			}
 
-			if err := json.Unmarshal([]byte(jsonStr), &parsed); err == nil {
-				if parsed.Status != "" {
-					report.Status = parsed.Status
-				}
-				if parsed.Confidence > 0 {
-					report.Confidence = parsed.Confidence
-				}
-				if parsed.RequestHelp != "" {
-					report.RequestHelp = parsed.RequestHelp
-					report.NeedsReview = true
-				}
-				if parsed.Suggestion != "" {
-					report.Suggestions = []string{parsed.Suggestion}
-				}
-
-				logger.DebugCF("agent", "Parsed specialist report", map[string]interface{}{
-					"specialist": specialistName,
-					"status":     report.Status,
-					"confidence": report.Confidence,
-					"help":       report.RequestHelp,
-				})
-			}
+			logger.DebugCF("agent", "Parsed specialist report", map[string]interface{}{
+				"specialist": specialistName,
+				"status":     report.Status,
+				"confidence": report.Confidence,
+				"help":       report.RequestHelp,
+			})
 		}
 	}
 
@@ -1224,15 +1227,36 @@ func (oa *OrchestratorAgent) parseSpecialistReport(specialistName, result string
 
 // cleanSpecialistResult removes the JSON header from specialist response for user display
 func (oa *OrchestratorAgent) cleanSpecialistResult(result string) string {
+	// 1. Try to find and remove markdown json block
+	if start := strings.Index(result, "```json"); start != -1 {
+		end := strings.Index(result[start+7:], "```")
+		if end != -1 {
+			// Find the actual end index in the string
+			blockEnd := start + 7 + end + 3
+			cleaned := result[:start] + result[blockEnd:]
+			return strings.TrimSpace(cleaned)
+		}
+	}
+
+	// 2. Fallback to old behavior for unformatted JSON
 	lines := strings.SplitN(result, "\n", 2)
 	if len(lines) > 1 {
 		firstLine := strings.TrimSpace(lines[0])
-		// If first line is JSON, return only the rest
+		
+		// If first line is a JSON object, return the rest
 		if strings.HasPrefix(firstLine, "{") && strings.Contains(firstLine, "}") {
-			return strings.TrimSpace(lines[1])
+			// Also checking if it parses as the report properly
+			var parsed struct {
+				Status string `json:"status"`
+			}
+			jsonEnd := strings.Index(firstLine, "}") + 1
+			if err := json.Unmarshal([]byte(firstLine[:jsonEnd]), &parsed); err == nil && parsed.Status != "" {
+				return strings.TrimSpace(lines[1])
+			}
 		}
 	}
-	return result
+	
+	return strings.TrimSpace(result)
 }
 
 // aggregateReports combines results from multiple specialist reports
