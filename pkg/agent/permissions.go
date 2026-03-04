@@ -82,15 +82,17 @@ func filterToolsByPermissions(
 							commands = tools.SafeShellCommands
 						}
 						if err := execTool.SetSafeCommandsForUser(commands); err != nil {
-							logger.ErrorCF("agent", "Failed to set shell allowlist", map[string]interface{}{
-								"error": err.Error(),
+							// FAIL-CLOSED: Do not register exec tool if allowlist setup fails
+							logger.ErrorCF("agent", "Failed to set shell allowlist - exec tool NOT registered (fail-closed)", map[string]interface{}{
+								"error":   err.Error(),
+								"user_id": userID,
 							})
-						} else {
-							logger.InfoCF("agent", "Configured restricted shell access", map[string]interface{}{
-								"user_id":          userID,
-								"allowed_commands": len(commands),
-							})
+							continue // Skip registering this tool
 						}
+						logger.InfoCF("agent", "Configured restricted shell access", map[string]interface{}{
+							"user_id":          userID,
+							"allowed_commands": len(commands),
+						})
 					}
 				}
 				filtered.Register(tool)

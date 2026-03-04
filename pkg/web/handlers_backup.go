@@ -511,7 +511,7 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 				// First extract all DB files to temp dir
 				dbFileName := filepath.Base(f.Name)
 				tempDBPath := filepath.Join(tempDir, dbFileName)
-				if err := extractZipFile(f, tempDBPath); err != nil {
+				if err := extractZipFile(f, tempDBPath, tempDir); err != nil {
 					importErrors = append(importErrors, "legacy DB extract: "+err.Error())
 				}
 				// Only process once we see the main .db file
@@ -538,7 +538,7 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			targetPath := filepath.Join(userWorkspace, relPath)
-			if err := extractZipFile(f, targetPath); err != nil {
+			if err := extractZipFile(f, targetPath, userWorkspace); err != nil {
 				importErrors = append(importErrors, fmt.Sprintf("workspace/%s: %s", relPath, err.Error()))
 			} else {
 				importedFiles++
@@ -555,8 +555,9 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 			if relPath == "" {
 				continue
 			}
-			targetPath := filepath.Join(userWorkspace, "skills", relPath)
-			if err := extractZipFile(f, targetPath); err != nil {
+			skillsDir := filepath.Join(userWorkspace, "skills")
+			targetPath := filepath.Join(skillsDir, relPath)
+			if err := extractZipFile(f, targetPath, skillsDir); err != nil {
 				importErrors = append(importErrors, fmt.Sprintf("skills/%s: %s", relPath, err.Error()))
 			} else {
 				importedFiles++
@@ -573,8 +574,9 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 			if relPath == "" {
 				continue
 			}
-			targetPath := filepath.Join(userWorkspace, "cron", relPath)
-			if err := extractZipFile(f, targetPath); err != nil {
+			cronDir := filepath.Join(userWorkspace, "cron")
+			targetPath := filepath.Join(cronDir, relPath)
+			if err := extractZipFile(f, targetPath, cronDir); err != nil {
 				importErrors = append(importErrors, fmt.Sprintf("cron/%s: %s", relPath, err.Error()))
 			} else {
 				importedFiles++
@@ -588,7 +590,7 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			targetPath := filepath.Join(userRoot, "config.json")
-			if err := extractZipFile(f, targetPath); err != nil {
+			if err := extractZipFile(f, targetPath, userRoot); err != nil {
 				importErrors = append(importErrors, "config.json: "+err.Error())
 			} else {
 				importedFiles++
@@ -602,7 +604,7 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			targetPath := filepath.Join(userRoot, ".env")
-			if err := extractZipFile(f, targetPath); err != nil {
+			if err := extractZipFile(f, targetPath, userRoot); err != nil {
 				importErrors = append(importErrors, ".env: "+err.Error())
 			} else {
 				importedFiles++
@@ -790,18 +792,39 @@ func (s *Server) handleBackupValidate(w http.ResponseWriter, r *http.Request) {
 
 // extractZipFile extracts a single zip entry to the given target path,
 // creating parent directories as needed. Directory entries are skipped.
-func extractZipFile(f *zip.File, targetPath string) error {
+// basePath is the root directory that targetPath must be contained within (for security).
+// If basePath is empty, only basic traversal checks are performed.
+func extractZipFile(f *zip.File, targetPath string, basePath ...string) error {
 	// Skip directory entries
 	if f.FileInfo().IsDir() {
 		return nil
 	}
 
-	// Security: prevent path traversal — resolve the target path and verify
-	// it does not escape via ".." sequences. filepath.Clean resolves ".."
-	// components, so we check the raw relPath for traversal attempts.
+	// Security: prevent path traversal attacks
+	// 1. Check raw filename for obvious traversal attempts
+	if strings.Contains(f.Name, "..") {
+		return fmt.Errorf("invalid path (traversal detected in filename): %s", f.Name)
+	}
+
+	// 2. Clean and resolve the target path
 	cleanTarget := filepath.Clean(targetPath)
-	if strings.Contains(f.Name, "..") || strings.Contains(cleanTarget, "..") {
-		return fmt.Errorf("invalid path (traversal): %s", f.Name)
+
+	// 3. Get the absolute path of the target
+	absTarget, err := filepath.Abs(cleanTarget)
+	if err != nil {
+		return fmt.Errorf("invalid path (cannot resolve): %s", f.Name)
+	}
+
+	// 4. If basePath is provided, verify target is contained within it
+	if len(basePath) > 0 && basePath[0] != "" {
+		absBase, err := filepath.Abs(filepath.Clean(basePath[0]))
+		if err != nil {
+			return fmt.Errorf("invalid base path: %s", basePath[0])
+		}
+		// Ensure absTarget starts with absBase (with proper separator handling)
+		if !strings.HasPrefix(absTarget, absBase+string(filepath.Separator)) && absTarget != absBase {
+			return fmt.Errorf("invalid path (escapes base directory): %s", f.Name)
+		}
 	}
 
 	if err := os.MkdirAll(filepath.Dir(cleanTarget), 0755); err != nil {

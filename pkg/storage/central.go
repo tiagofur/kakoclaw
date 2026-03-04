@@ -113,6 +113,8 @@ func (cs *CentralStorage) migrate() error {
 		`ALTER TABLE users ADD COLUMN allowed_tools TEXT;`,
 		// Add onboarding tracking column
 		`ALTER TABLE users ADD COLUMN onboarding_completed BOOLEAN NOT NULL DEFAULT 0;`,
+		// Add token version for per-user JWT invalidation (incremented on password change)
+		`ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0;`,
 
 		// Settings table (global settings: jwt_secret, etc.)
 		`CREATE TABLE IF NOT EXISTS settings (
@@ -356,6 +358,7 @@ func (cs *CentralStorage) scanUser(scanner interface {
 	var lang sql.NullString
 	var avatar sql.NullString
 	var allowedTools sql.NullString
+	var tokenVersion sql.NullInt64
 	var onboardingCompleted sql.NullBool
 	var blocked sql.NullBool
 	var blockedReason sql.NullString
@@ -363,7 +366,7 @@ func (cs *CentralStorage) scanUser(scanner interface {
 	var blockedAt sql.NullTime
 	err := scanner.Scan(&u.ID, &u.UUID, &u.Username, &email, &u.PasswordHash, &u.Role,
 		&fullName, &dob, &tz, &lang, &avatar,
-		&allowedTools, &onboardingCompleted,
+		&allowedTools, &tokenVersion, &onboardingCompleted,
 		&blocked, &blockedReason, &blockedBy, &blockedAt,
 		&u.CreatedAt, &u.UpdatedAt)
 	if err == sql.ErrNoRows {
@@ -393,6 +396,9 @@ func (cs *CentralStorage) scanUser(scanner interface {
 	if allowedTools.Valid && allowedTools.String != "" {
 		u.AllowedTools = &allowedTools.String
 	}
+	if tokenVersion.Valid {
+		u.TokenVersion = tokenVersion.Int64
+	}
 	if onboardingCompleted.Valid {
 		u.OnboardingCompleted = onboardingCompleted.Bool
 	}
@@ -414,7 +420,7 @@ func (cs *CentralStorage) scanUser(scanner interface {
 
 const userSelectCols = `id, COALESCE(uuid, ''), username, COALESCE(email, ''), password_hash, role,
 	COALESCE(full_name, ''), date_of_birth, COALESCE(timezone, ''), COALESCE(preferred_language, ''), COALESCE(avatar_url, ''),
-	COALESCE(allowed_tools, ''), COALESCE(onboarding_completed, 0),
+	COALESCE(allowed_tools, ''), COALESCE(token_version, 0), COALESCE(onboarding_completed, 0),
 	COALESCE(blocked, 0), COALESCE(blocked_reason, ''), blocked_by, blocked_at,
 	created_at, updated_at`
 
@@ -462,6 +468,13 @@ func (cs *CentralStorage) UpdateUserPassword(id int64, newPassword string) error
 		return err
 	}
 	_, err = cs.db.Exec(`UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, string(hash), id)
+	return err
+}
+
+// IncrementTokenVersion increments the user's token version to invalidate all existing JWTs.
+// This should be called when the user changes their password.
+func (cs *CentralStorage) IncrementTokenVersion(id int64) error {
+	_, err := cs.db.Exec(`UPDATE users SET token_version = token_version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, id)
 	return err
 }
 

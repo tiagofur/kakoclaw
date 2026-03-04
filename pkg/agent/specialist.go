@@ -255,14 +255,13 @@ func (sa *SpecialistAgent) ProcessWithSpeciality(ctx context.Context, userMessag
 	// no need to prepend it to the user message.
 	fullMessage := userMessage
 
-	// Serialize access to tool-swap to prevent concurrent modifications
+	// Serialize access to tool-swap to prevent concurrent modifications.
+	// Lock is held for entire ProcessDirect duration to prevent race conditions
+	// where another goroutine could see inconsistent tool state.
 	sa.processMu.Lock()
 	originalTools := sa.tools
 	sa.tools = sa.ToolFilter()
-	sa.processMu.Unlock()
-
 	defer func() {
-		sa.processMu.Lock()
 		sa.tools = originalTools
 		sa.processMu.Unlock()
 	}()

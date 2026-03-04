@@ -4,11 +4,25 @@ Bienvenido a la documentación oficial de **MakoClaw** — La plataforma de agen
 
 <div align="center">
   <img src="../assets/mascot.png" alt="MakoClaw Mascot" width="150">
-  
+
   **🦈 MakoClaw — The Apex AI Agent**
-  
+
   <em>Ultrafast · 10MB RAM · &lt;$10 Hardware · Self-Bootstrapped</em>
 </div>
+
+---
+
+## 📌 Documentos Clave (Root Level)
+
+| Documento | Descripción |
+|-----------|-------------|
+| [README.md](../README.md) | Introducción principal y quick start |
+| [CHANGELOG.md](../CHANGELOG.md) | Historial de versiones y cambios |
+| [CONTRIBUTING.md](../CONTRIBUTING.md) | Guía para contribuidores |
+| [SECURITY.md](../SECURITY.md) | Política de seguridad y reporte de vulnerabilidades |
+| [PRD-NEW-FEATURES.md](../PRD-NEW-FEATURES.md) | Roadmap de nuevas funcionalidades (13 features) |
+| [BUGS-KNOWN-ISSUES.md](../BUGS-KNOWN-ISSUES.md) | Issues conocidas y bugs documentados |
+| [PRD.md](../PRD.md) | PRD de arquitectura multi-user |
 
 ---
 
@@ -126,6 +140,16 @@ Historial de implementaciones y resúmenes de sesiones pasadas.
 - [Resumen de Feature de Cancelación](./archive/IMPLEMENTATION_SUMMARY_CANCEL_FEATURE.md)
 - [Referencia Rápida de Feature de Cancelación](./archive/QUICK_REFERENCE_CANCEL_FEATURE.md)
 - [Resumen de Sesión](./archive/SESSION_SUMMARY.md)
+
+### 📐 [Planes de Features](./plans/)
+
+Planes detallados de implementación con diseño técnico.
+
+- [Multi-Agent Orchestration](./plans/2026-03-03-multi-agent-orchestration.md) + [Design](./plans/2026-03-03-multi-agent-orchestration-design.md)
+- [Dashboard UX Polish](./plans/2026-02-27-dashboard-ux-polish.md) + [Design](./plans/2026-02-27-dashboard-ux-polish-design.md)
+- [Chat Page UX Polish](./plans/2026-02-27-chat-page-ux-polish.md) + [Design](./plans/2026-02-27-chat-page-ux-polish-design.md)
+- [Tasks Page UX Polish](./plans/2026-02-27-tasks-page-ux-polish.md) + [Design](./plans/2026-02-27-tasks-page-ux-polish-design.md)
+- [Dashboard Settings UI](./plans/2026-02-26-dashboard-settings-ui-polish.md) + [Design](./plans/2026-02-26-dashboard-settings-ui-polish-design.md)
 
 ---
 
@@ -306,8 +330,8 @@ MakoClaw está licenciado bajo la Licencia MIT. Ver [LICENSE](../LICENSE) para m
 
 <div align="center">
 
-**Versión de la documentación**: 2.0  
-**Última actualización**: Febrero 2026  
+**Versión de la documentación**: 2.1
+**Última actualización**: Marzo 2026
 **MakoClaw — The Apex AI Agent**
 
 </div>

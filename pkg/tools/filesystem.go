@@ -123,7 +123,6 @@ func NewWriteFileTool(workspace string, restrict bool) *WriteFileTool {
 }
 
 func (t *WriteFileTool) SetWorkspace(workspace string) {
-	fmt.Printf("[DEBUG write_file.SetWorkspace] OLD workspace=%s, NEW workspace=%s\n", t.workspace, workspace)
 	t.workspace = workspace
 }
 
@@ -167,9 +166,6 @@ func (t *WriteFileTool) Execute(ctx context.Context, args map[string]interface{}
 	if err != nil {
 		return "", err
 	}
-
-	// DIAGNOSTIC LOGGING: Track workspace being used
-	fmt.Printf("[DEBUG write_file] workspace=%s, path=%s, resolvedPath=%s\n", t.workspace, path, resolvedPath)
 
 	dir := filepath.Dir(resolvedPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {

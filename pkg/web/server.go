@@ -1868,7 +1868,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Auto-login: generate token
-	token, err := s.authManager.signToken(user.Username, user.UUID, user.Role)
+	token, err := s.authManager.signToken(user.Username, user.UUID, user.Role, user.TokenVersion)
 	if err != nil {
 		http.Error(w, "user created but login failed", http.StatusInternalServerError)
 		return
@@ -2030,7 +2030,7 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 				updatedUser, err = s.store.GetUserByID(user.ID)
 			}
 			if err == nil {
-				newToken, _ = s.authManager.signToken(updatedUser.Username, updatedUser.UUID, updatedUser.Role)
+				newToken, _ = s.authManager.signToken(updatedUser.Username, updatedUser.UUID, updatedUser.Role, updatedUser.TokenVersion)
 			}
 		}
 

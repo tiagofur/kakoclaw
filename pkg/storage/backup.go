@@ -296,7 +296,6 @@ func (s *Storage) ImportUserData(userID int64, data *BackupUserData) (sessions, 
 
 	stmtSess, err := tx.Prepare(querySess)
 	if err != nil {
-		fmt.Printf("DEBUG: ImportUserData prepare sess FAILED: %v\n", err)
 		return 0, 0, 0, fmt.Errorf("prepare sessions: %w", err)
 	}
 	defer stmtSess.Close()
@@ -357,7 +356,6 @@ func (s *Storage) ImportUserData(userID int64, data *BackupUserData) (sessions, 
 
 	stmtMsg, err := tx.Prepare(queryMsg)
 	if err != nil {
-		fmt.Printf("DEBUG: ImportUserData prepare msg FAILED: %v\n", err)
 		return sessions, 0, 0, fmt.Errorf("prepare messages: %w", err)
 	}
 	defer stmtMsg.Close()
@@ -407,7 +405,6 @@ func (s *Storage) ImportUserData(userID int64, data *BackupUserData) (sessions, 
 
 	stmtTask, err := tx.Prepare(queryTask)
 	if err != nil {
-		fmt.Printf("DEBUG: ImportUserData prepare task FAILED: %v\n", err)
 		return sessions, messages, 0, fmt.Errorf("prepare tasks: %w", err)
 	}
 	defer stmtTask.Close()

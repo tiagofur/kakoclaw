@@ -24,6 +24,7 @@ type User struct {
 	PreferredLanguage   string     `json:"preferred_language,omitempty"`
 	AvatarURL           string     `json:"avatar_url,omitempty"`
 	AllowedTools        *string    `json:"allowed_tools,omitempty"` // JSON array of tool names, null = use role defaults
+	TokenVersion        int64      `json:"-"`                       // Incremented on password change to invalidate tokens
 	OnboardingCompleted bool       `json:"onboarding_completed"`
 	Blocked             bool       `json:"blocked"`
 	BlockedReason       string     `json:"blocked_reason,omitempty"`

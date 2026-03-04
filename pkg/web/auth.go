@@ -20,6 +20,7 @@ type jwtClaims struct {
 	Sub  string `json:"sub"`            // username
 	UUID string `json:"uuid,omitempty"` // user UUID for per-user DB lookup
 	Role string `json:"role"`
+	Ver  int64  `json:"ver,omitempty"` // token version for per-user invalidation
 	Exp  int64  `json:"exp"`
 }
 
@@ -134,24 +135,20 @@ func (m *authManager) login(username, password string) (string, error) {
 		return "", fmt.Errorf("usuario bloqueado. Motivo: %s. Contacte soporte", user.BlockedReason)
 	}
 
-	fmt.Printf("[DEBUG] Verifying password for %s (hash len: %d)\n", user.Username, len(user.PasswordHash))
-
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
-		fmt.Printf("[DEBUG] Bcrypt comparison failed for %s: %v\n", user.Username, err)
 		return "", errors.New("invalid credentials")
 	}
 
-	fmt.Printf("[DEBUG] Password verified successfully for %s\n", user.Username)
-
-	return m.signToken(user.Username, user.UUID, user.Role)
+	return m.signToken(user.Username, user.UUID, user.Role, user.TokenVersion)
 }
 
-func (m *authManager) signToken(username, userUUID, role string) (string, error) {
+func (m *authManager) signToken(username, userUUID, role string, tokenVersion int64) (string, error) {
 	headerRaw := `{"alg":"HS256","typ":"JWT"}`
 	claims := jwtClaims{
 		Sub:  username,
 		UUID: userUUID,
 		Role: role,
+		Ver:  tokenVersion,
 		Exp:  time.Now().UTC().Add(m.jwtExpiry).Unix(),
 	}
 	payloadRaw, err := json.Marshal(claims)
@@ -214,6 +211,18 @@ func (m *authManager) verifyToken(token string) (*jwtClaims, error) {
 	if claims.Role == "" {
 		claims.Role = "user"
 	}
+
+	// Verify token version matches user's current version (per-user invalidation)
+	if claims.UUID != "" {
+		user, err := m.store.GetUserByUUID(claims.UUID)
+		if err != nil {
+			return nil, errors.New("user not found")
+		}
+		if claims.Ver != user.TokenVersion {
+			return nil, errors.New("token revoked")
+		}
+	}
+
 	return &claims, nil
 }
 
@@ -234,10 +243,6 @@ func (m *authManager) changePassword(username, oldPassword, newPassword string) 
 		return err
 	}
 
-	// Rotate JWT secret to invalidate all existing tokens
-	newSecret := make([]byte, 32)
-	if _, err := rand.Read(newSecret); err != nil {
-		return err
-	}
-	return m.store.SetSetting("jwt_secret_b64", base64.RawURLEncoding.EncodeToString(newSecret))
+	// Increment user's token version to invalidate only THIS user's tokens (not all users)
+	return m.store.IncrementTokenVersion(user.ID)
 }
