@@ -115,7 +115,19 @@ type AgentsConfig struct {
 	Defaults           AgentDefaults               `json:"defaults"`
 	Orchestrator       OrchestratorConfig          `json:"orchestrator"`
 	Specialists        map[string]SpecialistConfig `json:"specialists"`
+	Swarms             map[string]SwarmConfig       `json:"swarms,omitempty"`
 	RemovedSpecialists []string                    `json:"removed_specialists,omitempty"` // Agents explicitly removed by user
+}
+
+// SwarmConfig defines a reusable team of specialists that collaborate on tasks
+type SwarmConfig struct {
+	Name         string   `json:"name"`
+	Description  string   `json:"description"`
+	Members      []string `json:"members"`                 // specialist names
+	Mode         string   `json:"mode"`                    // "sequential" (default), "parallel", "consensus"
+	MaxBudget    float64  `json:"max_budget,omitempty"`    // USD limit, 0=unlimited
+	Timeout      int      `json:"timeout,omitempty"`       // seconds, 0=default 300
+	SharedMemory bool     `json:"shared_memory"`           // default true
 }
 
 type AgentDefaults struct {

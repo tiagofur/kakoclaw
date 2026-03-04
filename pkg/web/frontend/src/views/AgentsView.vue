@@ -411,6 +411,141 @@
           </div>
         </div>
 
+        <!-- Agent Swarms -->
+        <div class="space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="font-bold text-makoclaw-text flex items-center gap-2">
+              <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              Agent Swarms
+              <span class="text-xs bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded-full">{{ agentsStore.swarmsCount }}</span>
+            </h3>
+            <button
+              class="px-3 py-1.5 bg-cyan-500/20 text-cyan-400 rounded-lg text-sm hover:bg-cyan-500/30 transition-all"
+              @click="showCreateSwarmModal = true"
+            >
+              + Create Swarm
+            </button>
+          </div>
+
+          <!-- Swarm Cards -->
+          <div
+            v-if="agentsStore.swarms.length > 0"
+            class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+          >
+            <div
+              v-for="swarm in agentsStore.swarms"
+              :key="swarm.name"
+              class="specialist-card rounded-xl p-5 group"
+            >
+              <div class="flex items-start justify-between mb-3">
+                <div>
+                  <h4 class="font-semibold text-makoclaw-text">{{ swarm.name }}</h4>
+                  <p class="text-xs text-makoclaw-text-secondary mt-1">{{ swarm.description }}</p>
+                </div>
+                <span :class="[agentsStore.getSwarmModeBgColor(swarm.mode), agentsStore.getSwarmModeColor(swarm.mode), 'px-2 py-0.5 rounded-full text-xs font-medium']">
+                  {{ swarm.mode }}
+                </span>
+              </div>
+              <div class="text-xs text-makoclaw-text-secondary mb-3">
+                <span class="font-medium">Members:</span> {{ (swarm.members || []).join(', ') }}
+              </div>
+              <div class="flex items-center justify-between text-xs">
+                <div class="flex gap-3 text-makoclaw-text-secondary">
+                  <span v-if="swarm.max_budget > 0">Budget: ${{ swarm.max_budget }}</span>
+                  <span v-if="swarm.timeout > 0">{{ swarm.timeout }}s</span>
+                  <span v-if="swarm.shared_memory" class="text-cyan-400">Shared Memory</span>
+                </div>
+                <div class="flex gap-2">
+                  <button
+                    class="text-red-400 hover:text-red-300"
+                    @click="confirmDeleteSwarm(swarm.name)"
+                  >Delete</button>
+                  <button
+                    class="text-cyan-400 hover:text-cyan-300 font-medium"
+                    @click="openRunSwarm(swarm.name)"
+                  >Run →</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Empty state -->
+          <div
+            v-else
+            class="glass-panel rounded-xl p-8 text-center ring-1 ring-white/5"
+          >
+            <p class="text-makoclaw-text-secondary text-sm">No swarms configured. Create one to coordinate multiple specialists on complex tasks.</p>
+          </div>
+        </div>
+
+        <!-- Create Swarm Modal -->
+        <div
+          v-if="showCreateSwarmModal"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          @click.self="showCreateSwarmModal = false"
+        >
+          <div class="glass-panel rounded-2xl p-6 w-full max-w-md ring-1 ring-white/10 space-y-4">
+            <h3 class="text-lg font-bold text-makoclaw-text">Create Swarm</h3>
+            <input
+              v-model="newSwarm.name"
+              class="w-full px-3 py-2 bg-makoclaw-bg/60 border border-makoclaw-border/50 rounded-lg text-sm text-makoclaw-text"
+              placeholder="Swarm name"
+            />
+            <textarea
+              v-model="newSwarm.description"
+              class="w-full px-3 py-2 bg-makoclaw-bg/60 border border-makoclaw-border/50 rounded-lg text-sm text-makoclaw-text"
+              placeholder="Description"
+              rows="2"
+            />
+            <input
+              v-model="newSwarm.membersInput"
+              class="w-full px-3 py-2 bg-makoclaw-bg/60 border border-makoclaw-border/50 rounded-lg text-sm text-makoclaw-text"
+              placeholder="Members (comma-separated specialist names)"
+            />
+            <select
+              v-model="newSwarm.mode"
+              class="w-full px-3 py-2 bg-makoclaw-bg/60 border border-makoclaw-border/50 rounded-lg text-sm text-makoclaw-text"
+            >
+              <option value="sequential">Sequential</option>
+              <option value="parallel">Parallel</option>
+              <option value="consensus">Consensus</option>
+            </select>
+            <div class="flex gap-3 justify-end">
+              <button class="px-4 py-2 text-sm text-makoclaw-text-secondary hover:text-makoclaw-text" @click="showCreateSwarmModal = false">Cancel</button>
+              <button class="px-4 py-2 bg-cyan-500/20 text-cyan-400 rounded-lg text-sm hover:bg-cyan-500/30" @click="submitCreateSwarm">Create</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Run Swarm Modal -->
+        <div
+          v-if="showRunSwarmModal"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          @click.self="showRunSwarmModal = false"
+        >
+          <div class="glass-panel rounded-2xl p-6 w-full max-w-md ring-1 ring-white/10 space-y-4">
+            <h3 class="text-lg font-bold text-makoclaw-text">Run Swarm: {{ runSwarmName }}</h3>
+            <textarea
+              v-model="runSwarmTask"
+              class="w-full px-3 py-2 bg-makoclaw-bg/60 border border-makoclaw-border/50 rounded-lg text-sm text-makoclaw-text"
+              placeholder="Describe the task for the swarm..."
+              rows="4"
+            />
+            <div class="flex gap-3 justify-end">
+              <button class="px-4 py-2 text-sm text-makoclaw-text-secondary hover:text-makoclaw-text" @click="showRunSwarmModal = false">Cancel</button>
+              <button
+                class="px-4 py-2 bg-cyan-500/20 text-cyan-400 rounded-lg text-sm hover:bg-cyan-500/30"
+                :disabled="agentsStore.swarmRunning"
+                @click="submitRunSwarm"
+              >
+                {{ agentsStore.swarmRunning ? 'Running...' : 'Run' }}
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- Cost Overview -->
         <div
           v-if="metrics"
@@ -609,8 +744,21 @@ const selectedSpecialist = ref(null)
 const orchestrator = computed(() => agentsStore.orchestrator || { enabled: false })
 const metrics = computed(() => agentsStore.metrics)
 
+// Swarm state
+const showCreateSwarmModal = ref(false)
+const showRunSwarmModal = ref(false)
+const runSwarmName = ref('')
+const runSwarmTask = ref('')
+const newSwarm = ref({
+  name: '',
+  description: '',
+  membersInput: '',
+  mode: 'sequential'
+})
+
 onMounted(async () => {
   await agentsStore.fetchAgents()
+  await agentsStore.fetchSwarms()
   await agentsStore.fetchMetrics(metricsPeriod.value)
 })
 
@@ -636,6 +784,43 @@ function openSpecialistDetails(specialist) {
 function closeSpecialistDetails() {
   showSpecialistDetails.value = false
   selectedSpecialist.value = null
+}
+
+// Swarm methods
+async function submitCreateSwarm() {
+  const members = newSwarm.value.membersInput.split(',').map(m => m.trim()).filter(Boolean)
+  if (!newSwarm.value.name || members.length === 0) return
+
+  const success = await agentsStore.createSwarm({
+    name: newSwarm.value.name,
+    description: newSwarm.value.description,
+    members,
+    mode: newSwarm.value.mode,
+    shared_memory: true
+  })
+
+  if (success) {
+    showCreateSwarmModal.value = false
+    newSwarm.value = { name: '', description: '', membersInput: '', mode: 'sequential' }
+  }
+}
+
+function openRunSwarm(name) {
+  runSwarmName.value = name
+  runSwarmTask.value = ''
+  showRunSwarmModal.value = true
+}
+
+async function submitRunSwarm() {
+  if (!runSwarmTask.value.trim()) return
+  await agentsStore.runSwarm(runSwarmName.value, runSwarmTask.value)
+  showRunSwarmModal.value = false
+}
+
+async function confirmDeleteSwarm(name) {
+  if (confirm(`Delete swarm "${name}"?`)) {
+    await agentsStore.deleteSwarm(name)
+  }
 }
 </script>
 

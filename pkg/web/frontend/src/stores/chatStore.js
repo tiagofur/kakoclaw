@@ -32,6 +32,9 @@ export const useChatStore = defineStore('chat', () => {
   const delegationChain = ref([])        // Current delegation chain (e.g. ['orchestrator', 'developer'])
   const activeDelegation = ref(null)     // Currently active delegation update
   const delegationHistory = ref([])      // History of completed delegations
+  const activeSwarm = ref(null)          // Currently running swarm name
+  const swarmProgress = ref({})          // Member status during swarm run
+  const swarmResults = ref(null)         // Last swarm execution results
 
   function addMessage(message) {
     messages.value.push({
@@ -248,6 +251,30 @@ export const useChatStore = defineStore('chat', () => {
     if (update.status === 'complete' || update.status === 'error') {
       delegationHistory.value.push({ ...activeDelegation.value })
       activeDelegation.value = null
+    }
+  }
+
+  // Handle swarm WebSocket messages
+  function handleSwarmStart(data) {
+    activeSwarm.value = data.swarm
+    swarmProgress.value = {}
+    swarmResults.value = null
+    addMessage({ role: 'system', content: `Swarm '${data.swarm}' started for task: ${data.task}` })
+  }
+
+  function handleSwarmComplete(data) {
+    activeSwarm.value = null
+    swarmResults.value = data
+    if (data.status === 'completed') {
+      addMessage({ role: 'assistant', content: data.result || 'Swarm completed.' })
+    } else {
+      addMessage({ role: 'system', content: `Swarm failed: ${data.error || 'Unknown error'}` })
+    }
+  }
+
+  function handleSwarmAgentStatus(data) {
+    if (activeSwarm.value && data.agent) {
+      swarmProgress.value = { ...swarmProgress.value, [data.agent]: data.status }
     }
   }
 
@@ -519,7 +546,13 @@ export const useChatStore = defineStore('chat', () => {
     delegationHistory,
     updateDelegationChain,
     updateDelegationProgress,
-    setDelegationSummary
+    setDelegationSummary,
+    activeSwarm,
+    swarmProgress,
+    swarmResults,
+    handleSwarmStart,
+    handleSwarmComplete,
+    handleSwarmAgentStatus
   }
 })
   const normalizeModelsData = (data) => {

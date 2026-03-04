@@ -124,6 +124,7 @@ func (m *MultiUserChannelManager) getOrCreateManagerForUserLocked(userUUID strin
 			"error":     err.Error(),
 		})
 	}
+	agentMgr.InitializeSwarms(baseAgentLoop.Config())
 	activeAgentLoop := agentMgr.GetActiveAgent()
 
 	cronStorePath := filepath.Join(workspace, "cron", "jobs.json")

@@ -841,6 +841,7 @@ func gatewayCmd() {
 				"error": err.Error(),
 			})
 		}
+		agentManager.InitializeSwarms(cfg)
 	}
 
 	heartbeatService := heartbeat.NewHeartbeatService(
@@ -1081,6 +1082,7 @@ func webCmd() {
 				fmt.Printf("Warning: Failed to initialize agent orchestrator: %v\n", initErr)
 			}
 		}
+		webAgentManager.InitializeSwarms(cfg)
 	}
 	webServer.SetAgentManager(webAgentManager)
 

@@ -335,6 +335,10 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/agents/orchestrator", s.handleOrchestratorConfig) // Update orchestrator config
 	mux.HandleFunc("/api/v1/agents/metrics", s.handleAgentMetrics)            // Agent cost metrics
 	mux.HandleFunc("/api/v1/agents/specialists", s.handleGetSpecialists)      // Get active specialists list
+	mux.HandleFunc("/api/v1/swarms", s.handleSwarms)                          // Swarms: list + create
+	mux.HandleFunc("/api/v1/swarms/templates", s.handleSwarmTemplates)        // Swarm templates
+	mux.HandleFunc("/api/v1/swarms/run", s.handleSwarmRun)                    // Execute swarm
+	mux.HandleFunc("/api/v1/swarms/", s.handleSwarmAction)                    // Swarm CRUD by name
 	mux.HandleFunc("/api/v1/reports/email", s.handleSendReportEmail)         // Send report email directly
 	mux.HandleFunc("/api/v1/ai/fix-json", s.handleAIFixJson)                 // AI JSON fixer and validator
 	mux.HandleFunc("/api/v1/ai/create-cron", s.handleAICreateCron)           // AI cron job generator
@@ -1125,7 +1129,8 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 		})
 		// We can still continue with the base agent if orchestrator fails
 	}
-	
+	agentMgr.InitializeSwarms(baseAgentLoop.Config())
+
 	activeAgentLoop := agentMgr.GetActiveAgent()
 
 	upgrader := websocket.Upgrader{CheckOrigin: s.checkOrigin}
@@ -1171,6 +1176,14 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 		sessionID := strings.TrimSpace(req.SessionID)
 		if sessionID == "" {
 			sessionID = "web:chat"
+		}
+
+		// Handle swarm_run message type
+		if req.Type == "swarm_run" {
+			go func() {
+				s.handleSwarmRunWS(r.Context(), conn, &wsMu, agentMgr, req.Content, req.SessionID, userID)
+			}()
+			continue
 		}
 
 		if handled, response := s.handleTaskChatCommand(userID, userStore, input); handled {
@@ -4249,6 +4262,7 @@ func (s *Server) handleOrchestratorConfig(w http.ResponseWriter, r *http.Request
 			})
 			// We don't fail the request because persistence was successful
 		}
+		s.agentManager.InitializeSwarms(mergedCfg)
 	}
 
 	response := map[string]interface{}{
@@ -4807,4 +4821,373 @@ func (s *Server) apiRateLimitMiddleware(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// --- Swarm Handlers ---
+
+func (s *Server) handleSwarms(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		s.handleSwarmsList(w, r)
+	case http.MethodPost:
+		s.handleSwarmCreate(w, r)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *Server) handleSwarmsList(w http.ResponseWriter, r *http.Request) {
+	_, userUUID, ok := s.getUserStorage(r)
+	if !ok {
+		writeJSONError(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	swarms := []map[string]interface{}{}
+
+	if userUUID != "" {
+		if userCfg, _ := config.LoadConfigForUser(userUUID); userCfg != nil && userCfg.Agents.Swarms != nil {
+			for name, swarm := range userCfg.Agents.Swarms {
+				swarms = append(swarms, map[string]interface{}{
+					"name":          name,
+					"description":   swarm.Description,
+					"members":       swarm.Members,
+					"mode":          swarm.Mode,
+					"max_budget":    swarm.MaxBudget,
+					"timeout":       swarm.Timeout,
+					"shared_memory": swarm.SharedMemory,
+				})
+			}
+		}
+	}
+
+	// Fallback to in-memory
+	if len(swarms) == 0 && s.agentManager != nil {
+		swarms = s.agentManager.GetSwarmsList()
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"swarms": swarms})
+}
+
+func (s *Server) handleSwarmCreate(w http.ResponseWriter, r *http.Request) {
+	_, userUUID, ok := s.getUserStorage(r)
+	if !ok {
+		writeJSONError(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req config.SwarmConfig
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONError(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if req.Name == "" {
+		writeJSONError(w, "Swarm name is required", http.StatusBadRequest)
+		return
+	}
+	if len(req.Members) == 0 {
+		writeJSONError(w, "At least one member is required", http.StatusBadRequest)
+		return
+	}
+	if req.Mode == "" {
+		req.Mode = "sequential"
+	}
+
+	// Persist to user config
+	userCfg, err := config.LoadConfigForUser(userUUID)
+	if err != nil {
+		writeJSONError(w, "Failed to load config: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if userCfg.Agents.Swarms == nil {
+		userCfg.Agents.Swarms = make(map[string]config.SwarmConfig)
+	}
+
+	key := strings.ReplaceAll(strings.ToLower(req.Name), " ", "_")
+	userCfg.Agents.Swarms[key] = req
+
+	if err := config.SaveConfigForUser(userUUID, userCfg); err != nil {
+		writeJSONError(w, "Failed to save config: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Update runtime
+	if s.agentManager != nil {
+		s.agentManager.SetSwarmConfig(key, req)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status": "created",
+		"name":   key,
+		"swarm":  req,
+	})
+}
+
+func (s *Server) handleSwarmAction(w http.ResponseWriter, r *http.Request) {
+	name := strings.TrimPrefix(r.URL.Path, "/api/v1/swarms/")
+	name = strings.TrimSuffix(name, "/")
+	if name == "" || name == "templates" || name == "run" {
+		http.NotFound(w, r)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		s.handleSwarmGet(w, r, name)
+	case http.MethodPut:
+		s.handleSwarmUpdate(w, r, name)
+	case http.MethodDelete:
+		s.handleSwarmDelete(w, r, name)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *Server) handleSwarmGet(w http.ResponseWriter, r *http.Request, name string) {
+	_, userUUID, ok := s.getUserStorage(r)
+	if !ok {
+		writeJSONError(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	userCfg, err := config.LoadConfigForUser(userUUID)
+	if err != nil {
+		writeJSONError(w, "Failed to load config", http.StatusInternalServerError)
+		return
+	}
+
+	if userCfg.Agents.Swarms == nil {
+		writeJSONError(w, "Swarm not found", http.StatusNotFound)
+		return
+	}
+
+	swarm, ok := userCfg.Agents.Swarms[name]
+	if !ok {
+		writeJSONError(w, "Swarm not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(swarm)
+}
+
+func (s *Server) handleSwarmUpdate(w http.ResponseWriter, r *http.Request, name string) {
+	_, userUUID, ok := s.getUserStorage(r)
+	if !ok {
+		writeJSONError(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req config.SwarmConfig
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONError(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	userCfg, err := config.LoadConfigForUser(userUUID)
+	if err != nil {
+		writeJSONError(w, "Failed to load config", http.StatusInternalServerError)
+		return
+	}
+
+	if userCfg.Agents.Swarms == nil {
+		writeJSONError(w, "Swarm not found", http.StatusNotFound)
+		return
+	}
+
+	if _, exists := userCfg.Agents.Swarms[name]; !exists {
+		writeJSONError(w, "Swarm not found", http.StatusNotFound)
+		return
+	}
+
+	if req.Name == "" {
+		req.Name = name
+	}
+
+	userCfg.Agents.Swarms[name] = req
+	if err := config.SaveConfigForUser(userUUID, userCfg); err != nil {
+		writeJSONError(w, "Failed to save config", http.StatusInternalServerError)
+		return
+	}
+
+	if s.agentManager != nil {
+		s.agentManager.SetSwarmConfig(name, req)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"status": "updated", "swarm": req})
+}
+
+func (s *Server) handleSwarmDelete(w http.ResponseWriter, r *http.Request, name string) {
+	_, userUUID, ok := s.getUserStorage(r)
+	if !ok {
+		writeJSONError(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	userCfg, err := config.LoadConfigForUser(userUUID)
+	if err != nil {
+		writeJSONError(w, "Failed to load config", http.StatusInternalServerError)
+		return
+	}
+
+	if userCfg.Agents.Swarms == nil {
+		writeJSONError(w, "Swarm not found", http.StatusNotFound)
+		return
+	}
+
+	if _, exists := userCfg.Agents.Swarms[name]; !exists {
+		writeJSONError(w, "Swarm not found", http.StatusNotFound)
+		return
+	}
+
+	delete(userCfg.Agents.Swarms, name)
+	if err := config.SaveConfigForUser(userUUID, userCfg); err != nil {
+		writeJSONError(w, "Failed to save config", http.StatusInternalServerError)
+		return
+	}
+
+	if s.agentManager != nil {
+		s.agentManager.DeleteSwarmConfig(name)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"status": "deleted"})
+}
+
+func (s *Server) handleSwarmRun(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	_, _, ok := s.getUserStorage(r)
+	if !ok {
+		writeJSONError(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req struct {
+		Swarm string `json:"swarm"`
+		Task  string `json:"task"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONError(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if req.Swarm == "" || req.Task == "" {
+		writeJSONError(w, "Both 'swarm' and 'task' are required", http.StatusBadRequest)
+		return
+	}
+
+	if s.agentManager == nil {
+		writeJSONError(w, "Agent manager not available", http.StatusServiceUnavailable)
+		return
+	}
+
+	result, err := s.agentManager.RunSwarm(r.Context(), req.Swarm, req.Task)
+	if err != nil {
+		writeJSONError(w, "Swarm execution failed: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
+func (s *Server) handleSwarmTemplates(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	templates := make([]map[string]interface{}, 0, len(agent.BuiltInSwarmTemplates))
+	for key, tmpl := range agent.BuiltInSwarmTemplates {
+		templates = append(templates, map[string]interface{}{
+			"key":           key,
+			"name":          tmpl.Name,
+			"description":   tmpl.Description,
+			"members":       tmpl.Members,
+			"mode":          tmpl.Mode,
+			"shared_memory": tmpl.SharedMemory,
+			"timeout":       tmpl.Timeout,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"templates": templates})
+}
+
+// handleSwarmRunWS handles swarm execution over WebSocket
+func (s *Server) handleSwarmRunWS(ctx context.Context, conn *websocket.Conn, wsMu *sync.Mutex, agentMgr *agent.AgentManager, content, sessionID string, userID int64) {
+	var req struct {
+		Swarm string `json:"swarm"`
+		Task  string `json:"task"`
+	}
+	if err := json.Unmarshal([]byte(content), &req); err != nil {
+		req.Task = content
+	}
+
+	if req.Swarm == "" || req.Task == "" {
+		wsMu.Lock()
+		_ = conn.WriteJSON(map[string]interface{}{
+			"type":    "error",
+			"content": "Both 'swarm' and 'task' are required for swarm_run",
+		})
+		wsMu.Unlock()
+		return
+	}
+
+	// Emit swarm_start
+	wsMu.Lock()
+	_ = conn.WriteJSON(map[string]interface{}{
+		"type":  "swarm_start",
+		"swarm": req.Swarm,
+		"task":  req.Task,
+	})
+	wsMu.Unlock()
+
+	// Set up agent status callback for real-time updates
+	ctx = agent.ContextWithAgentStatusCallback(ctx, func(ev agent.AgentStatusEvent) error {
+		wsMu.Lock()
+		defer wsMu.Unlock()
+		return conn.WriteJSON(map[string]interface{}{
+			"type":            "agent_status",
+			"agent":           ev.Agent,
+			"status":          ev.Status,
+			"specialist_name": ev.SpecialistName,
+			"reason":          ev.Reason,
+		})
+	})
+
+	result, err := agentMgr.RunSwarm(ctx, req.Swarm, req.Task)
+
+	wsMu.Lock()
+	defer wsMu.Unlock()
+
+	if err != nil {
+		_ = conn.WriteJSON(map[string]interface{}{
+			"type":   "swarm_complete",
+			"swarm":  req.Swarm,
+			"status": "failed",
+			"error":  err.Error(),
+		})
+	} else {
+		_ = conn.WriteJSON(map[string]interface{}{
+			"type":       "swarm_complete",
+			"swarm":      req.Swarm,
+			"status":     result.Status,
+			"result":     result.AggregatedText,
+			"total_cost": result.TotalCost,
+			"duration":   result.Duration.String(),
+			"members":    result.MemberResults,
+		})
+	}
+	_ = conn.WriteJSON(map[string]interface{}{"type": "ready"})
 }

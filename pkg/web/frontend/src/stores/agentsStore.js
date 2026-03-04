@@ -14,9 +14,13 @@ export const useAgentsStore = defineStore('agents', () => {
   const showSpecialistModal = ref(false)
   const specialistFormMode = ref('create')
   const aiGenerating = ref(false)
+  const swarms = ref([])
+  const swarmTemplates = ref([])
+  const swarmRunning = ref(false)
 
   const orchestrated = computed(() => orchestrator.value?.enabled || false)
   const specialistsCount = computed(() => specialists.value.length)
+  const swarmsCount = computed(() => swarms.value.length)
 
   async function fetchAgents() {
     loading.value = true
@@ -163,6 +167,98 @@ export const useAgentsStore = defineStore('agents', () => {
     specialistFormMode.value = 'create'
   }
 
+  // --- Swarm actions ---
+
+  async function fetchSwarms() {
+    try {
+      const response = await api.get('/swarms')
+      swarms.value = response.data.swarms || []
+    } catch (error) {
+      console.error('Failed to load swarms:', error)
+    }
+  }
+
+  async function fetchSwarmTemplates() {
+    try {
+      const response = await api.get('/swarms/templates')
+      swarmTemplates.value = response.data.templates || []
+    } catch (error) {
+      console.error('Failed to load swarm templates:', error)
+    }
+  }
+
+  async function createSwarm(swarmData) {
+    try {
+      await api.post('/swarms', swarmData)
+      await fetchSwarms()
+      toast.success('Swarm created successfully')
+      return true
+    } catch (error) {
+      toast.error('Failed to create swarm')
+      console.error(error)
+      return false
+    }
+  }
+
+  async function updateSwarm(name, swarmData) {
+    try {
+      await api.put(`/swarms/${name}`, swarmData)
+      await fetchSwarms()
+      toast.success('Swarm updated successfully')
+      return true
+    } catch (error) {
+      toast.error('Failed to update swarm')
+      console.error(error)
+      return false
+    }
+  }
+
+  async function deleteSwarm(name) {
+    try {
+      await api.delete(`/swarms/${name}`)
+      await fetchSwarms()
+      toast.success('Swarm deleted successfully')
+      return true
+    } catch (error) {
+      toast.error('Failed to delete swarm')
+      console.error(error)
+      return false
+    }
+  }
+
+  async function runSwarm(swarmName, task) {
+    swarmRunning.value = true
+    try {
+      const response = await api.post('/swarms/run', { swarm: swarmName, task })
+      toast.success('Swarm execution completed')
+      return response.data
+    } catch (error) {
+      toast.error('Swarm execution failed')
+      console.error(error)
+      return null
+    } finally {
+      swarmRunning.value = false
+    }
+  }
+
+  function getSwarmModeColor(mode) {
+    const colors = {
+      sequential: 'text-blue-400',
+      parallel: 'text-green-400',
+      consensus: 'text-purple-400'
+    }
+    return colors[mode] || 'text-gray-400'
+  }
+
+  function getSwarmModeBgColor(mode) {
+    const colors = {
+      sequential: 'bg-blue-500/10',
+      parallel: 'bg-green-500/10',
+      consensus: 'bg-purple-500/10'
+    }
+    return colors[mode] || 'bg-gray-500/10'
+  }
+
   function getSpecialistIcon(name) {
     const icons = {
       developer: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4 4" />',
@@ -208,8 +304,12 @@ export const useAgentsStore = defineStore('agents', () => {
     showSpecialistModal,
     specialistFormMode,
     aiGenerating,
+    swarms,
+    swarmTemplates,
+    swarmRunning,
     orchestrated,
     specialistsCount,
+    swarmsCount,
     fetchAgents,
     fetchSpecialistDetails,
     createSpecialist,
@@ -221,6 +321,14 @@ export const useAgentsStore = defineStore('agents', () => {
     updateOrchestrator,
     openSpecialistModal,
     closeSpecialistModal,
+    fetchSwarms,
+    fetchSwarmTemplates,
+    createSwarm,
+    updateSwarm,
+    deleteSwarm,
+    runSwarm,
+    getSwarmModeColor,
+    getSwarmModeBgColor,
     getSpecialistIcon,
     getSpecialistColor,
     getSpecialistBgColor
