@@ -766,7 +766,9 @@ func (oa *OrchestratorAgent) processSpecialistTask(ctx context.Context, speciali
 	taskWithFormat := task + `
 
 --- SPECIAL RESPONSE FORMAT REQUIRED ---
-You MUST provide your response in TWO distinct parts:
+IMPORTANT: When you have completed your work, you MUST stop calling tools and provide a final text response. Do NOT continue calling tools indefinitely. Once you have enough information to answer, STOP and respond.
+
+Your final response MUST contain TWO distinct parts:
 
 1. A JSON report block. It MUST be enclosed in markdown JSON tags:
 ` + "```json\n" + `{"status":"complete","confidence":0.9,"request_help":"","suggestion":""}
