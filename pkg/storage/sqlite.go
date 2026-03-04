@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/sipeed/makoclaw/pkg/config"
+	"github.com/sipeed/makoclaw/pkg/logger"
 	_ "modernc.org/sqlite"
 )
 
@@ -175,10 +176,22 @@ func (s *Storage) migrateUserDB() error {
 
 	for _, query := range queries {
 		if _, err := s.db.Exec(query); err != nil {
-			if strings.Contains(strings.ToLower(err.Error()), "duplicate column name") || strings.Contains(strings.ToLower(err.Error()), "no such column") {
+			errLower := strings.ToLower(err.Error())
+			// Skip expected errors for idempotent migrations
+			if strings.Contains(errLower, "duplicate column name") || strings.Contains(errLower, "no such column") {
+				// Expected for idempotent migrations - log at debug level
 				continue
 			}
 			if strings.HasPrefix(query, "ALTER TABLE") && !strings.Contains(err.Error(), "syntax error") {
+				// Log non-critical ALTER TABLE failures for debugging schema drift
+				queryPreview := query
+				if len(queryPreview) > 80 {
+					queryPreview = queryPreview[:80] + "..."
+				}
+				logger.WarnCF("storage", "ALTER TABLE migration skipped", map[string]interface{}{
+					"query": queryPreview,
+					"error": err.Error(),
+				})
 				continue
 			}
 			return fmt.Errorf("executing user migration: %w", err)

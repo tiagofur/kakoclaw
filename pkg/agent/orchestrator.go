@@ -1183,10 +1183,26 @@ func (oa *OrchestratorAgent) parseSpecialistReport(specialistName, result string
 			jsonStr = strings.TrimSpace(result[start+7 : start+7+end])
 		}
 	} else if start := strings.Index(result, "{"); start != -1 {
-		// Fallback for raw JSON
-		end := strings.Index(result[start:], "}")
+		// Fallback for raw JSON - find matching closing brace
+		depth := 0
+		end := -1
+		for i := start; i < len(result); i++ {
+			switch result[i] {
+			case '{':
+				depth++
+			case '}':
+				depth--
+				if depth == 0 {
+					end = i
+					break
+				}
+			}
+			if end != -1 {
+				break
+			}
+		}
 		if end != -1 {
-			jsonStr = result[start : start+end+1]
+			jsonStr = result[start : end+1]
 		}
 	}
 

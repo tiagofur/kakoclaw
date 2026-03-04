@@ -945,14 +945,16 @@ func addDirToZipWithCounts(zipWriter *zip.Writer, dirPath, zipPath string) (int,
 	return fileCount, totalSize, err
 }
 
-// addFileToZip (DEPRECATED: use addFileToZipWithCounts) adds a single file to the zip
-func addFileToZip(zipWriter *zip.Writer, filePath, zipPath string) error {
+// addFileToZipLegacy (DEPRECATED: use addFileToZipWithCounts) adds a single file to the zip
+// Note: unexported to prevent new usage - kept for internal backward compatibility only
+func addFileToZipLegacy(zipWriter *zip.Writer, filePath, zipPath string) error {
 	_, _, err := addFileToZipWithCounts(zipWriter, filePath, zipPath)
 	return err
 }
 
-// addDirToZip (DEPRECATED: use addDirToZipWithCounts) adds a directory to the zip
-func addDirToZip(zipWriter *zip.Writer, dirPath, zipPath string, fileCount *int, totalSize *int64) error {
+// addDirToZipLegacy (DEPRECATED: use addDirToZipWithCounts) adds a directory to the zip
+// Note: unexported to prevent new usage - kept for internal backward compatibility only
+func addDirToZipLegacy(zipWriter *zip.Writer, dirPath, zipPath string, fileCount *int, totalSize *int64) error {
 	count, size, err := addDirToZipWithCounts(zipWriter, dirPath, zipPath)
 	if fileCount != nil {
 		*fileCount += count

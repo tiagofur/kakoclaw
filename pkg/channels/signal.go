@@ -155,9 +155,34 @@ func (c *SignalChannel) handleMessage(msg SignalMessage) {
 		content = "[empty message]"
 	}
 
+	// Download any attachments
+	var attachmentPaths []string
+	if msg.Envelope.DataMessage != nil && len(msg.Envelope.DataMessage.Attachments) > 0 {
+		for _, att := range msg.Envelope.DataMessage.Attachments {
+			if att.ID != "" {
+				path, err := c.downloadAttachment(att.ID)
+				if err != nil {
+					logger.WarnCF("signal", "Failed to download attachment", map[string]interface{}{
+						"attachment_id": att.ID,
+						"filename":      att.Filename,
+						"error":         err.Error(),
+					})
+					continue
+				}
+				attachmentPaths = append(attachmentPaths, path)
+				logger.DebugCF("signal", "Downloaded attachment", map[string]interface{}{
+					"attachment_id": att.ID,
+					"filename":      att.Filename,
+					"path":          path,
+				})
+			}
+		}
+	}
+
 	logger.DebugCF("signal", "Received message", map[string]interface{}{
-		"sender":  senderID,
-		"preview": truncate(content, 50),
+		"sender":      senderID,
+		"preview":     truncate(content, 50),
+		"attachments": len(attachmentPaths),
 	})
 
 	metadata := map[string]string{
@@ -166,7 +191,7 @@ func (c *SignalChannel) handleMessage(msg SignalMessage) {
 	}
 
 	// Use phone number as chat ID for 1:1 conversations
-	_ = c.HandleMessage(senderID, senderID, content, nil, metadata)
+	_ = c.HandleMessage(senderID, senderID, content, attachmentPaths, metadata)
 }
 
 // receiveMessages fetches new messages from signal-cli

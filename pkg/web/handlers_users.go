@@ -3,6 +3,8 @@ package web
 import (
 	"encoding/json"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -222,6 +224,18 @@ func (s *Server) handleUserAction(w http.ResponseWriter, r *http.Request) {
 		// Archive per-user data (close connection if open)
 		if s.userMgr != nil && user.UUID != "" {
 			_ = s.userMgr.CloseUser(user.UUID)
+		}
+
+		// Clean up user's workspace directory to prevent orphaned files
+		if user.UUID != "" && s.fullConfig != nil && s.fullConfig.Storage.Path != "" {
+			userWorkspace := filepath.Join(s.fullConfig.Storage.Path, "users", user.UUID)
+			if err := os.RemoveAll(userWorkspace); err != nil {
+				logger.WarnCF("web", "Failed to cleanup user workspace", map[string]interface{}{
+					"user_uuid": user.UUID,
+					"path":      userWorkspace,
+					"error":     err.Error(),
+				})
+			}
 		}
 
 		w.Header().Set("Content-Type", "application/json")

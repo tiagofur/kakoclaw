@@ -26,7 +26,7 @@ type QQChannel struct {
 	ctx            context.Context
 	cancel         context.CancelFunc
 	sessionManager botgo.SessionManager
-	processedIDs   map[string]bool
+	processedIDs   map[string]time.Time // messageID -> timestamp for time-based expiry
 	mu             sync.RWMutex
 }
 
@@ -36,7 +36,7 @@ func NewQQChannel(cfg config.QQConfig, messageBus *bus.MessageBus) (*QQChannel, 
 	return &QQChannel{
 		BaseChannel:  base,
 		config:       cfg,
-		processedIDs: make(map[string]bool),
+		processedIDs: make(map[string]time.Time),
 	}, nil
 }
 
@@ -218,17 +218,25 @@ func (c *QQChannel) isDuplicate(messageID string) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.processedIDs[messageID] {
+	now := time.Now()
+
+	// Check if message was already processed
+	if _, exists := c.processedIDs[messageID]; exists {
 		return true
 	}
 
-	c.processedIDs[messageID] = true
+	// Record this message with current timestamp
+	c.processedIDs[messageID] = now
 
-	// Evict all entries when map grows too large. This is safe because
-	// duplicate messages only arrive within a short window; old entries
-	// are no longer needed.
-	if len(c.processedIDs) > 10000 {
-		c.processedIDs = map[string]bool{messageID: true}
+	// Time-based cleanup: remove entries older than 5 minutes
+	// This prevents memory leak while maintaining duplicate detection window
+	const expiryDuration = 5 * time.Minute
+	if len(c.processedIDs) > 1000 {
+		for id, ts := range c.processedIDs {
+			if now.Sub(ts) > expiryDuration {
+				delete(c.processedIDs, id)
+			}
+		}
 	}
 
 	return false

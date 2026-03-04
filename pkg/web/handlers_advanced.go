@@ -598,6 +598,7 @@ Return the complete, refined SKILL.md content.
 }
 
 func normalizeSkillDraft(name, content string) string {
+	content = strings.ReplaceAll(content, "\r\n", "\n")
 	content = strings.TrimSpace(content)
 	content = strings.TrimPrefix(content, "```markdown")
 	content = strings.TrimPrefix(content, "```md")
@@ -634,6 +635,7 @@ func normalizeSkillDraft(name, content string) string {
 }
 
 func validateSkillContent(content string) error {
+	content = strings.ReplaceAll(content, "\r\n", "\n")
 	trimmed := strings.TrimSpace(content)
 	if trimmed == "" {
 		return fmt.Errorf("content is empty")
