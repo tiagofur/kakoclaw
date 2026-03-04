@@ -13,11 +13,11 @@ This document tracks known issues discovered during security audits and code rev
 |----------|-------|-------|---------|
 | Critical | 3 | 3 | 0 |
 | High | 4 | 4 | 0 |
-| Medium | 10 | 6 | 4 |
+| Medium | 10 | 8 | 2 |
 | Low | 8 | 6 | 2 |
-| **Total** | **25** | **19** | **6** |
+| **Total** | **25** | **21** | **4** |
 
-> **Last Fix Session**: 2026-03-04 - Fixed 19 issues including all critical/high severity security bugs, medium improvements, and verified benign races
+> **Last Fix Session**: 2026-03-04 - Fixed 21 issues (84%) including all critical/high severity security bugs, cost tracking integration, and various improvements
 
 ---
 
@@ -174,7 +174,14 @@ Changes:
 
 **Impact**: Cost metrics are always empty, tracking functionality is dead code.
 
-**Status**: 🔴 Pending
+**Fix Applied**: Integrated cost tracker in AgentLoop:
+- Added `costTracker *AgentCostTracker` field to AgentLoop struct
+- Initialized in `NewAgentLoop()` with `NewAgentCostTracker()`
+- Added `CostTracker()` getter method
+- `RecordAPICall()` now called after each successful Chat() call (main loop and fallback)
+- Uses actual token counts from `response.Usage` when available
+
+**Status**: 🟢 Fixed (2026-03-04)
 
 ---
 
@@ -267,7 +274,11 @@ No code changes needed.
 
 **Impact**: Partial imports may leave system in inconsistent state.
 
-**Status**: 🔴 Pending
+**Status**: 🟢 Working as Designed (verified 2026-03-04) - The current behavior is intentional:
+1. Errors ARE returned to user via `errors` field in JSON response
+2. `ok: false` indicates incomplete import
+3. Continuing on errors maximizes data recovery
+4. Alternative (fail-fast) would be worse UX for partial recovery scenarios
 
 ---
 

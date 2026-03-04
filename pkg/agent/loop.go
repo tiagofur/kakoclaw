@@ -54,12 +54,18 @@ type AgentLoop struct {
 	involvedAgentsMu sync.Mutex               // Mutex for thread-safe agent tracking
 	involvedAgents   []string                 // Agents involved in current/last response
 	summarizeWg      sync.WaitGroup           // Tracks active summarization goroutines
+	costTracker      *AgentCostTracker        // Tracks token usage and estimated costs
 }
 
 // ToolRegistry returns the agent loop's tool registry so external
 // components (e.g. the workflow engine) can invoke tools directly.
 func (al *AgentLoop) ToolRegistry() *tools.ToolRegistry {
 	return al.tools
+}
+
+// CostTracker returns the agent's cost tracker for metrics access.
+func (al *AgentLoop) CostTracker() *AgentCostTracker {
+	return al.costTracker
 }
 
 // AddInvolvedAgent adds an agent/specialist name to the list of agents involved in the current response.
@@ -339,6 +345,7 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 		centralStorage:   nil, // Set via SetCentralStorage in multi-user mode
 		auditLogger:      auditLogger,
 		cfg:              cfg,
+		costTracker:      NewAgentCostTracker(),
 	}
 }
 
@@ -1104,8 +1111,18 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 		tokensOut := 0
 		if err == nil {
 			tokensOut = len(response.Content) / 4 // rough estimate
+			// Use actual usage if available from provider
+			if response.Usage != nil {
+				tokensIn = response.Usage.PromptTokens
+				tokensOut = response.Usage.CompletionTokens
+			}
 		}
 		observability.Global().RecordLLMCall(model, llmDur, tokensIn, tokensOut, err)
+
+		// Record API call for cost tracking
+		if err == nil && al.costTracker != nil {
+			al.costTracker.RecordAPICall("main", int64(tokensIn), int64(tokensOut), model)
+		}
 
 		if err != nil {
 			logger.ErrorCF("agent", "LLM call failed",
@@ -1488,8 +1505,19 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 		fallbackTokensOut := 0
 		if err == nil {
 			fallbackTokensOut = len(response.Content) / 4
+			// Use actual usage if available
+			if response.Usage != nil {
+				fallbackTokensIn = response.Usage.PromptTokens
+				fallbackTokensOut = response.Usage.CompletionTokens
+			}
 		}
 		observability.Global().RecordLLMCall(model, fallbackDur, fallbackTokensIn, fallbackTokensOut, err)
+
+		// Record API call for cost tracking
+		if err == nil && al.costTracker != nil {
+			al.costTracker.RecordAPICall("main", int64(fallbackTokensIn), int64(fallbackTokensOut), model)
+		}
+
 		if err != nil {
 			return "", iteration, fmt.Errorf("LLM call failed: %w", err)
 		}
