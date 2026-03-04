@@ -1678,7 +1678,8 @@ const saveEditedSkill = async () => {
     editingSkill.value = null
     await loadSkills()
   } catch (err) {
-    toast.error(err?.response?.data || 'Failed to update skill')
+    const msg = err?.response?.data?.error || err?.response?.data || 'Failed to update skill'
+    toast.error(msg)
   } finally {
     savingSkill.value = false
   }
@@ -1911,7 +1912,7 @@ const handleSaveGenerated = async (overwrite = false) => {
       }
       return
     }
-    generateError.value = err?.response?.data || 'Failed to save skill'
+    generateError.value = err?.response?.data?.error || err?.response?.data || 'Failed to save skill'
   } finally {
     savingGenerated.value = false
   }

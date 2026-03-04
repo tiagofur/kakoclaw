@@ -303,47 +303,48 @@ Respond ONLY with a valid JSON object matching this exact structure, with no mar
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			logger.ErrorCF("web", "create skill invalid body", map[string]interface{}{"error": err.Error()})
-			http.Error(w, "invalid request body", http.StatusBadRequest)
+			writeJSONError(w, "invalid request body: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 		skillName, ok := sanitizeSkillName(body.Name)
 		if !ok {
 			logger.ErrorCF("web", "create skill invalid name", map[string]interface{}{"name": body.Name})
-			http.Error(w, "invalid skill name", http.StatusBadRequest)
+			writeJSONError(w, "invalid skill name: '"+body.Name+"'", http.StatusBadRequest)
 			return
 		}
 		content := normalizeSkillDraft(skillName, body.Content)
 		if err := validateSkillContent(content); err != nil {
-			logger.ErrorCF("web", "create skill invalid content", map[string]interface{}{"name": skillName, "error": err.Error(), "preview": content[:min(len(content), 200)]})
-			http.Error(w, "invalid skill content: "+err.Error(), http.StatusBadRequest)
+			previewLen := min(len(content), 200)
+			logger.ErrorCF("web", "create skill invalid content", map[string]interface{}{"name": skillName, "error": err.Error(), "content_len": len(content), "preview": content[:previewLen]})
+			writeJSONError(w, "invalid skill content: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		// Get user-specific workspace
 		_, userUUID, ok := s.getUserStorage(r)
 		if !ok {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			writeJSONError(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 
 		userWorkspace, err := config.EnsureUserWorkspace(userUUID)
 		if err != nil {
-			http.Error(w, "failed to access workspace", http.StatusInternalServerError)
+			writeJSONError(w, "failed to access workspace", http.StatusInternalServerError)
 			return
 		}
 
 		skillDir := filepath.Join(userWorkspace, "skills", skillName)
 		skillPath := filepath.Join(skillDir, "SKILL.md")
 		if _, err := os.Stat(skillPath); err == nil && !body.Overwrite {
-			http.Error(w, "skill already exists", http.StatusConflict)
+			writeJSONError(w, "skill already exists", http.StatusConflict)
 			return
 		}
 		if err := os.MkdirAll(skillDir, 0755); err != nil {
-			http.Error(w, "failed to create skill directory", http.StatusInternalServerError)
+			writeJSONError(w, "failed to create skill directory", http.StatusInternalServerError)
 			return
 		}
 		if err := os.WriteFile(skillPath, []byte(content), 0644); err != nil {
-			http.Error(w, "failed to save skill", http.StatusInternalServerError)
+			writeJSONError(w, "failed to save skill", http.StatusInternalServerError)
 			return
 		}
 		writeJSONResponse(w, map[string]interface{}{
