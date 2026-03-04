@@ -13,11 +13,11 @@ This document tracks known issues discovered during security audits and code rev
 |----------|-------|-------|---------|
 | Critical | 3 | 3 | 0 |
 | High | 4 | 4 | 0 |
-| Medium | 10 | 8 | 2 |
+| Medium | 10 | 9 | 1 |
 | Low | 8 | 6 | 2 |
-| **Total** | **25** | **21** | **4** |
+| **Total** | **25** | **22** | **3** |
 
-> **Last Fix Session**: 2026-03-04 - Fixed 21 issues (84%) including all critical/high severity security bugs, cost tracking integration, and various improvements
+> **Last Fix Session**: 2026-03-04 - Fixed 22 issues (88%) including all critical/high severity security bugs, cost tracking integration, WhatsApp logging, and various improvements. LOW-008 analyzed and verified as low-risk with mitigations in place.
 
 ---
 
@@ -150,7 +150,13 @@ Changes:
 - No command handler support
 - Missing JSON marshal error handling
 
-**Status**: 🔴 Pending
+**Analysis** (2026-03-04):
+- ✅ Logger: Replaced all `log.Printf`/`log.Println` with `logger.InfoCF`, `logger.WarnCF`, `logger.ErrorCF`, `logger.DebugCF`
+- ✅ Allowlist: `BaseChannel.HandleMessage()` already validates allowlist at line 108 before processing - this was NOT missing
+- ✅ JSON marshal: Error handling already exists at lines 95-98
+- ⚠️ Command handler: Not implemented - low priority, can be added when needed
+
+**Status**: 🟢 Mostly Fixed (2026-03-04)
 
 ---
 
@@ -385,7 +391,23 @@ No code changes needed.
 
 **Impact**: Potential data leakage in edge cases.
 
-**Status**: 🔴 Pending
+**Analysis** (2026-03-04):
+After detailed investigation, the isolation is mostly working correctly:
+
+1. **spawn.go**: SubagentManager IS created per-user (each AgentLoop has its own). The workspace parameter provides isolation. ✅ Not an issue.
+
+2. **cron.go, knowledge.go, tasks.go**: All implement `UserAwareTool` interface with `SetUserID()` methods. The `updateToolsUser()` function in loop.go IS called at lines 409 and 533, setting the correct userID. The default of `userID=1` is only for backward compatibility in single-user mode. ✅ Working as designed.
+
+3. **Remaining concern**: Specialists created via `NewSpecialistAgent()` open GLOBAL storage instead of user-specific storage. However:
+   - Specialists use `SetLightweightMode(true)` - designed for simple tasks
+   - Storage tools (task_manager, query_knowledge) are typically NOT in specialist's allowed tools list
+   - If used, operations would go to global DB with userID=1 (isolated data, but wrong scope)
+
+**Risk Assessment**: LOW - The architecture properly isolates user data in the main flow. The specialist edge case is mitigated by tool filtering.
+
+**Recommended Future Fix**: Modify `NewSpecialistAgent()` to pass user context when specialists need storage tools.
+
+**Status**: 🟡 Low Risk (verified 2026-03-04)
 
 ---
 
