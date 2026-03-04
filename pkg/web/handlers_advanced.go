@@ -606,6 +606,29 @@ func normalizeSkillDraft(name, content string) string {
 	content = strings.TrimSpace(content)
 	if !strings.HasPrefix(content, "---") {
 		content = fmt.Sprintf("---\nname: %s\ndescription: AI-generated skill\n---\n\n# %s\n\n%s\n", name, strings.Title(strings.ReplaceAll(name, "-", " ")), content)
+	} else {
+		// Content already has frontmatter — ensure required fields are present.
+		// Find the closing "---" of the frontmatter (look for "\n---" after the opening "---").
+		closeOff := strings.Index(content[3:], "\n---")
+		if closeOff != -1 {
+			closeAbs := 3 + closeOff       // absolute index of the '\n' before closing '---'
+			endFM := closeAbs + 4          // absolute index right after '\n---'
+			fm := content[:endFM]          // frontmatter block including closing "---"
+			body := content[endFM:]        // everything after the closing "---"
+
+			// Inject description field if missing.
+			if !strings.Contains(fm, "\ndescription:") {
+				fm = content[:closeAbs] + "\ndescription: Custom skill" + content[closeAbs:endFM]
+			}
+
+			// Inject H1 heading if missing from the full content.
+			if !strings.Contains(fm+body, "\n# ") {
+				title := strings.Title(strings.ReplaceAll(name, "-", " "))
+				body = "\n\n# " + title + "\n" + strings.TrimLeft(body, "\n")
+			}
+
+			content = fm + body
+		}
 	}
 	return strings.TrimSpace(content) + "\n"
 }

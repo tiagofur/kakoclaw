@@ -85,6 +85,22 @@ func (am *AgentManager) InitializeOrchestrator(
 	am.orchestrator = orchestrator
 	am.isOrchestarted = true
 
+	// Propagate user context dependencies so the orchestrator and specialists
+	// write sessions/messages to the user's private workspace instead of the
+	// global default workspace.
+	if am.defaultAgent.centralStorage != nil {
+		orchestrator.SetCentralStorage(am.defaultAgent.centralStorage)
+		for _, spec := range am.specialistReg.ListSpecialists() {
+			spec.SetCentralStorage(am.defaultAgent.centralStorage)
+		}
+	}
+	if am.defaultAgent.storage != nil {
+		orchestrator.SetStorage(am.defaultAgent.storage)
+		for _, spec := range am.specialistReg.ListSpecialists() {
+			spec.SetStorage(am.defaultAgent.storage)
+		}
+	}
+
 	logger.InfoCF("agent", "Orchestrator initialized successfully", map[string]interface{}{
 		"specialists": len(am.specialistReg.ListSpecialists()),
 	})
