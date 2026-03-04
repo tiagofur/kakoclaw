@@ -935,12 +935,15 @@ func gatewayCmd() {
 			webServer.SetMCPManager(mcpManager)
 		}
 		home, _ := os.UserHomeDir()
+		wd, _ := os.Getwd()
+		builtinDir := filepath.Join(wd, "skills")
 		skillsLoader := skills.NewSkillsLoader(
 			cfg.WorkspacePath(),
 			filepath.Join(home, ".MakoClaw", "skills"),
-			"",
+			builtinDir,
 		)
 		skillInstaller := skills.NewSkillInstaller(cfg.WorkspacePath())
+		webServer.SetBuiltinSkillsDir(builtinDir)
 		webServer.SetSkills(skillsLoader, skillInstaller)
 		// Wire workflow engine only when a global agent loop is available
 		if channelStore != nil && defaultAgentLoop != nil {
@@ -1107,12 +1110,15 @@ func webCmd() {
 		webServer.SetMCPManager(mcpManagerWeb)
 	}
 	homeWeb, _ := os.UserHomeDir()
+	wdWeb, _ := os.Getwd()
+	builtinDirWeb := filepath.Join(wdWeb, "skills")
 	skillsLoaderWeb := skills.NewSkillsLoader(
 		cfg.WorkspacePath(),
 		filepath.Join(homeWeb, ".MakoClaw", "skills"),
-		"",
+		builtinDirWeb,
 	)
 	skillInstallerWeb := skills.NewSkillInstaller(cfg.WorkspacePath())
+	webServer.SetBuiltinSkillsDir(builtinDirWeb)
 	webServer.SetSkills(skillsLoaderWeb, skillInstallerWeb)
 	// Wire workflow engine (only if agent loop is available)
 	if store != nil && agentLoop != nil {

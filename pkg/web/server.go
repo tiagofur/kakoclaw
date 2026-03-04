@@ -67,6 +67,7 @@ type Server struct {
 	cronService             *cron.CronService
 	skillsLoader            *skills.SkillsLoader
 	skillInstaller          *skills.SkillInstaller
+	builtinSkillsDir        string
 	channelManager          *channels.Manager
 	multiUserChannelManager *channels.MultiUserChannelManager
 	transcriber             *voice.GroqTranscriber
@@ -171,6 +172,11 @@ func (s *Server) SetCronService(cs *cron.CronService) {
 func (s *Server) SetSkills(loader *skills.SkillsLoader, installer *skills.SkillInstaller) {
 	s.skillsLoader = loader
 	s.skillInstaller = installer
+}
+
+// SetBuiltinSkillsDir sets the resolved path to the builtin skills directory
+func (s *Server) SetBuiltinSkillsDir(dir string) {
+	s.builtinSkillsDir = dir
 }
 
 // SetChannelManager injects the channel manager for REST exposure
@@ -2421,7 +2427,7 @@ func (s *Server) handleWorkspaceInit(w http.ResponseWriter, r *http.Request) {
 	// Install selected skills
 	if len(req.Skills) > 0 {
 		// Get built-in skills path from repo
-		builtinSkillsPath := filepath.Join(filepath.Dir(s.fullConfig.WorkspacePath()), "..", "..", "skills")
+		builtinSkillsPath := s.builtinSkillsDir
 		userSkillsDir := filepath.Join(userWorkspace, "skills")
 
 		// Create skills directory if it doesn't exist

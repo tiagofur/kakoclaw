@@ -31,11 +31,10 @@ import (
 
 // newUserSkillsLoader creates a SkillsLoader correctly configured for a user,
 // including user-specific, global, and builtin skills paths.
-func newUserSkillsLoader(userUUID, userWorkspace string) *skills.SkillsLoader {
+func (s *Server) newUserSkillsLoader(userUUID, userWorkspace string) *skills.SkillsLoader {
 	home, _ := os.UserHomeDir()
 	globalSkillsDir := filepath.Join(home, ".makoclaw", "skills")
-	builtinSkillsDir := "skills"
-	loader := skills.NewSkillsLoader(userWorkspace, globalSkillsDir, builtinSkillsDir)
+	loader := skills.NewSkillsLoader(userWorkspace, globalSkillsDir, s.builtinSkillsDir)
 	if userUUID != "" {
 		userSkillsPath := filepath.Join(home, ".makoclaw", "users", userUUID, "skills")
 		loader.SetUserSkillsPath(userSkillsPath)
@@ -81,7 +80,7 @@ func (s *Server) handleSkills(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		userLoader := newUserSkillsLoader(userUUID, userWorkspace)
+		userLoader := s.newUserSkillsLoader(userUUID, userWorkspace)
 		installed := userLoader.ListSkills()
 		writeJSONResponse(w, map[string]interface{}{"skills": installed})
 		return
@@ -486,7 +485,7 @@ Respond ONLY with a valid JSON object matching this exact structure, with no mar
 			return
 		}
 
-		userLoader := newUserSkillsLoader(userUUID, userWorkspace)
+		userLoader := s.newUserSkillsLoader(userUUID, userWorkspace)
 		content, ok := userLoader.LoadSkill(skillName)
 		if !ok {
 			http.Error(w, "skill not found", http.StatusNotFound)
