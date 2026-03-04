@@ -421,9 +421,9 @@ func TestSlugifySkillName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := slugifySkillName(tt.name)
+			got := Slugify(tt.name)
 			if got != tt.want {
-				t.Errorf("slugifySkillName(%q) = %q, want %q", tt.name, got, tt.want)
+				t.Errorf("Slugify(%q) = %q, want %q", tt.name, got, tt.want)
 			}
 		})
 	}

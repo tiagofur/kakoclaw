@@ -23,10 +23,9 @@ type SkillInfo struct {
 	Description string `json:"description"`
 }
 
-// slugifySkillName converts a raw skill directory name to the slugified form
-// used as skill_slug in the database. Mirrors the slugify() function in
-// pkg/web/handlers_marketplace.go.
-func slugifySkillName(name string) string {
+// Slugify converts a name to a URL-safe slug: lowercase, non-alphanumeric
+// characters replaced with hyphens, trimmed, max 64 chars.
+func Slugify(name string) string {
 	name = strings.ToLower(name)
 	reg := regexp.MustCompile(`[^a-z0-9]+`)
 	slug := reg.ReplaceAllString(name, "-")
@@ -73,7 +72,7 @@ func (sl *SkillsLoader) ListSkills() []SkillInfo {
 					if _, err := os.Stat(skillFile); err == nil {
 						info := SkillInfo{
 							Name:   dir.Name(),
-							Slug:   slugifySkillName(dir.Name()),
+							Slug:   Slugify(dir.Name()),
 							Path:   skillFile,
 							Source: "user",
 						}
@@ -109,7 +108,7 @@ func (sl *SkillsLoader) ListSkills() []SkillInfo {
 
 						info := SkillInfo{
 							Name:   dir.Name(),
-							Slug:   slugifySkillName(dir.Name()),
+							Slug:   Slugify(dir.Name()),
 							Path:   skillFile,
 							Source: "workspace",
 						}
@@ -145,7 +144,7 @@ func (sl *SkillsLoader) ListSkills() []SkillInfo {
 
 						info := SkillInfo{
 							Name:   dir.Name(),
-							Slug:   slugifySkillName(dir.Name()),
+							Slug:   Slugify(dir.Name()),
 							Path:   skillFile,
 							Source: "global",
 						}
@@ -181,7 +180,7 @@ func (sl *SkillsLoader) ListSkills() []SkillInfo {
 
 						info := SkillInfo{
 							Name:   dir.Name(),
-							Slug:   slugifySkillName(dir.Name()),
+							Slug:   Slugify(dir.Name()),
 							Path:   skillFile,
 							Source: "builtin",
 						}
@@ -200,7 +199,15 @@ func (sl *SkillsLoader) ListSkills() []SkillInfo {
 }
 
 func (sl *SkillsLoader) LoadSkill(name string) (string, bool) {
-	// 1. 优先从 workspace skills 加载（项目级别）
+	// 1. User-specific skills (~/.makoclaw/users/<uuid>/skills) - highest priority
+	if sl.userSkillsPath != "" {
+		skillFile := filepath.Join(sl.userSkillsPath, name, "SKILL.md")
+		if content, err := os.ReadFile(skillFile); err == nil {
+			return sl.stripFrontmatter(string(content)), true
+		}
+	}
+
+	// 2. Workspace skills
 	if sl.workspaceSkills != "" {
 		skillFile := filepath.Join(sl.workspaceSkills, name, "SKILL.md")
 		if content, err := os.ReadFile(skillFile); err == nil {
@@ -208,7 +215,7 @@ func (sl *SkillsLoader) LoadSkill(name string) (string, bool) {
 		}
 	}
 
-	// 2. 其次从全局 skills 加载 (~/.makoclaw/skills)
+	// 3. Global skills (~/.makoclaw/skills)
 	if sl.globalSkills != "" {
 		skillFile := filepath.Join(sl.globalSkills, name, "SKILL.md")
 		if content, err := os.ReadFile(skillFile); err == nil {
@@ -216,7 +223,7 @@ func (sl *SkillsLoader) LoadSkill(name string) (string, bool) {
 		}
 	}
 
-	// 3. 最后从内置 skills 加载
+	// 4. Builtin skills
 	if sl.builtinSkills != "" {
 		skillFile := filepath.Join(sl.builtinSkills, name, "SKILL.md")
 		if content, err := os.ReadFile(skillFile); err == nil {

@@ -256,7 +256,7 @@ import MarkdownRenderer from './Chat/MarkdownRenderer.vue'
 import ToolCallItem from './ToolCallItem.vue'
 import SpecialistBadge from './Chat/SpecialistBadge.vue'
 import AgentActivityItem from './Chat/AgentActivityItem.vue'
-import { useAuthStore } from '../stores/auth'
+import { useAuthStore } from '../stores/authStore'
 
 const showSegments = ref(false)
 const isSynthesizing = ref(false)

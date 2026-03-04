@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -50,7 +49,7 @@ func (s *Server) handleMarketplaceSkills(w http.ResponseWriter, r *http.Request)
 	}
 
 	if s.centralStore == nil {
-		http.Error(w, "marketplace unavailable", http.StatusServiceUnavailable)
+		writeJSONError(w, "marketplace unavailable", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -60,7 +59,10 @@ func (s *Server) handleMarketplaceSkills(w http.ResponseWriter, r *http.Request)
 	if page < 1 {
 		page = 1
 	}
-	limit := 20
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
 	offset := (page - 1) * limit
 
 	// Determine caller's user ID (0 if unauthenticated; private skills will still be filtered to the owner)
@@ -130,7 +132,7 @@ func (s *Server) handleMarketplaceSkillDetail(w http.ResponseWriter, r *http.Req
 	slug = strings.TrimSuffix(slug, "/install")
 
 	if s.centralStore == nil {
-		http.Error(w, "marketplace unavailable", http.StatusServiceUnavailable)
+		writeJSONError(w, "marketplace unavailable", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -174,7 +176,7 @@ func (s *Server) handleMarketplaceInstall(w http.ResponseWriter, r *http.Request
 	slug = strings.TrimSuffix(slug, "/install")
 
 	if s.centralStore == nil {
-		http.Error(w, "marketplace unavailable", http.StatusServiceUnavailable)
+		writeJSONError(w, "marketplace unavailable", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -269,7 +271,7 @@ func (s *Server) handleMarketplaceFork(w http.ResponseWriter, r *http.Request) {
 	slug = strings.TrimSuffix(slug, "/fork")
 
 	if s.centralStore == nil {
-		http.Error(w, "marketplace unavailable", http.StatusServiceUnavailable)
+		writeJSONError(w, "marketplace unavailable", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -405,7 +407,7 @@ func (s *Server) handleMarketplaceSubmit(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Create slug from name
-	slug := slugify(body.Name)
+	slug := skills.Slugify(body.Name)
 
 	// Check for existing submission with same slug
 	existing, _ := s.centralStore.GetSkillSubmissionBySlug(slug)
@@ -569,7 +571,7 @@ func (s *Server) handleMarketplaceCategories(w http.ResponseWriter, r *http.Requ
 	}
 
 	if s.centralStore == nil {
-		http.Error(w, "marketplace unavailable", http.StatusServiceUnavailable)
+		writeJSONError(w, "marketplace unavailable", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -698,7 +700,7 @@ func (s *Server) handleSkillRating(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	if s.centralStore == nil {
-		http.Error(w, "marketplace unavailable", http.StatusServiceUnavailable)
+		writeJSONError(w, "marketplace unavailable", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -801,7 +803,7 @@ func (s *Server) handleMarketplaceBundles(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Type", "application/json")
 
 	if s.centralStore == nil {
-		http.Error(w, "marketplace unavailable", http.StatusServiceUnavailable)
+		writeJSONError(w, "marketplace unavailable", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -875,7 +877,7 @@ func (s *Server) handleMarketplaceBundles(w http.ResponseWriter, r *http.Request
 			icon = "📦"
 		}
 
-		slug := slugify(body.Name)
+		slug := skills.Slugify(body.Name)
 
 		existing, _ := s.centralStore.GetBundleBySlug(slug)
 		if existing != nil {
@@ -927,7 +929,7 @@ func (s *Server) handleMarketplaceBundleInstall(w http.ResponseWriter, r *http.R
 	}
 
 	if s.centralStore == nil {
-		http.Error(w, "marketplace unavailable", http.StatusServiceUnavailable)
+		writeJSONError(w, "marketplace unavailable", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -1062,16 +1064,6 @@ func (s *Server) handleAdminSubmissionAction(w http.ResponseWriter, r *http.Requ
 
 // ==================== HELPERS ====================
 
-func slugify(name string) string {
-	name = strings.ToLower(name)
-	reg := regexp.MustCompile(`[^a-z0-9]+`)
-	slug := reg.ReplaceAllString(name, "-")
-	slug = strings.Trim(slug, "-")
-	if len(slug) > 64 {
-		slug = slug[:64]
-	}
-	return slug
-}
 
 func getSubmissionMessage(status string, score int) string {
 	switch status {

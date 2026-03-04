@@ -65,9 +65,10 @@ export default {
   },
 
   // Marketplace
-  fetchMarketplaceSkills: async ({ category = '', page = 1, sort = '' } = {}) => {
+  fetchMarketplaceSkills: async ({ category = '', page = 1, sort = '', limit } = {}) => {
     const params = { category, page }
     if (sort) params.sort = sort
+    if (limit) params.limit = limit
     const response = await client.get('/marketplace/skills', { params })
     return response.data
   },

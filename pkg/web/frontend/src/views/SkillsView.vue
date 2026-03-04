@@ -293,7 +293,7 @@
                   <button
                     v-if="skill.source === 'workspace'"
                     class="skill-action-btn text-makoclaw-error ml-auto"
-                    @click="uninstallSkill(skill.name)"
+                    @click="confirmUninstall(skill.name)"
                   >
                     <svg
                       class="w-3.5 h-3.5"
@@ -1110,7 +1110,51 @@
               {{ savingGenerated ? 'Saving...' : 'Save Skill' }}
             </button>
           </div>
+
+          <!-- Overwrite confirmation -->
+          <div
+            v-if="showOverwriteConfirm"
+            class="flex items-center justify-between p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl"
+          >
+            <span class="text-sm text-amber-300">A skill with this name already exists. Overwrite?</span>
+            <div class="flex gap-2">
+              <button
+                class="px-3 py-1 text-xs font-medium bg-amber-500 text-white rounded-lg hover:bg-amber-400 transition-all"
+                @click="handleSaveGenerated(true)"
+              >
+                Overwrite
+              </button>
+              <button
+                class="px-3 py-1 text-xs font-medium text-makoclaw-text-secondary hover:text-makoclaw-text transition-all"
+                @click="showOverwriteConfirm = false"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
+      </div>
+    </Transition>
+
+    <!-- Uninstall Confirmation -->
+    <Transition name="modal">
+      <div
+        v-if="pendingUninstall"
+        class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 px-5 py-3 bg-makoclaw-surface/95 backdrop-blur-xl border border-makoclaw-border/30 rounded-2xl shadow-2xl"
+      >
+        <span class="text-sm text-makoclaw-text">Uninstall <strong>{{ pendingUninstall }}</strong>?</span>
+        <button
+          class="px-3 py-1.5 text-xs font-semibold bg-makoclaw-error text-white rounded-lg hover:bg-red-500 transition-all"
+          @click="uninstallSkill(pendingUninstall)"
+        >
+          Uninstall
+        </button>
+        <button
+          class="px-3 py-1.5 text-xs font-medium text-makoclaw-text-secondary hover:text-makoclaw-text transition-all"
+          @click="cancelUninstall"
+        >
+          Cancel
+        </button>
       </div>
     </Transition>
 
@@ -1292,9 +1336,17 @@
               </p>
             </div>
 
+            <!-- Security Scan Error -->
+            <div
+              v-if="scanResult?.error && submitForm.visibility !== 'private'"
+              class="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20"
+            >
+              <p class="text-sm text-amber-400">{{ scanResult.error }}</p>
+            </div>
+
             <!-- Security Scan -->
             <div
-              v-if="scanResult && submitForm.visibility !== 'private'"
+              v-if="scanResult && !scanResult.error && submitForm.visibility !== 'private'"
               class="p-4 rounded-xl"
               :class="scanResult.passed ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-makoclaw-error/10 border border-makoclaw-error/20'"
             >
@@ -1592,6 +1644,14 @@ const submitRating = async (skill) => {
   }
 }
 
+// Helpers
+const getErrorMessage = (err, fallback) => {
+  const data = err?.response?.data
+  if (typeof data === 'string' && data) return data
+  if (data?.error) return data.error
+  return fallback
+}
+
 // Load functions
 const loadSkills = async () => {
   loading.value = true
@@ -1600,6 +1660,7 @@ const loadSkills = async () => {
     skills.value = data.skills || []
   } catch (err) {
     console.error('Failed to load skills:', err)
+    toast.error(getErrorMessage(err, 'Failed to load skills'))
   } finally {
     loading.value = false
   }
@@ -1610,8 +1671,9 @@ const loadMarketplace = async () => {
   try {
     const data = await advancedService.fetchMarketplaceSkills()
     marketplaceSkills.value = data.skills || []
-  } catch {
+  } catch (err) {
     marketplaceSkills.value = []
+    toast.error(getErrorMessage(err, 'Failed to load marketplace'))
   } finally {
     loadingMarketplace.value = false
   }
@@ -1638,8 +1700,9 @@ const loadBundles = async () => {
   try {
     const data = await advancedService.fetchMarketplaceBundles()
     bundles.value = data.bundles || []
-  } catch {
-    console.error('Failed to load bundles')
+  } catch (err) {
+    console.error('Failed to load bundles:', err)
+    toast.error(getErrorMessage(err, 'Failed to load bundles'))
   } finally {
     loadingBundles.value = false
   }
@@ -1685,13 +1748,24 @@ const saveEditedSkill = async () => {
   }
 }
 
+const pendingUninstall = ref(null)
+
+const confirmUninstall = (name) => {
+  pendingUninstall.value = name
+}
+
+const cancelUninstall = () => {
+  pendingUninstall.value = null
+}
+
 const uninstallSkill = async (name) => {
+  pendingUninstall.value = null
   try {
     await advancedService.uninstallSkill(name)
     toast.success('Skill uninstalled')
     await loadSkills()
-  } catch {
-    toast.error('Failed to uninstall skill')
+  } catch (err) {
+    toast.error(getErrorMessage(err, 'Failed to uninstall skill'))
   }
 }
 
@@ -1722,7 +1796,7 @@ const forkSkill = async (skill) => {
     skill.fork_count = (skill.fork_count || 0) + 1
     await loadSkills()
   } catch (err) {
-    toast.error(err.response?.data || 'Failed to fork skill')
+    toast.error(getErrorMessage(err, 'Failed to fork skill'))
   } finally {
     forking.value = null
   }
@@ -1741,7 +1815,7 @@ const installBundle = async (bundle) => {
     bundle.install_count = (bundle.install_count || 0) + 1
     await loadSkills()
   } catch (err) {
-    toast.error(err.response?.data || 'Failed to install bundle')
+    toast.error(getErrorMessage(err, 'Failed to install bundle'))
   } finally {
     installingBundle.value = null
   }
@@ -1757,7 +1831,9 @@ const openSubmitModal = async (skill) => {
     showSubmitModal.value = true
     try {
       scanResult.value = await advancedService.scanSkill(data.content)
-    } catch { /* scan failure is non-critical */ }
+    } catch {
+      scanResult.value = { error: 'Security scan unavailable. You can still submit.' }
+    }
   } catch {
     toast.error('Failed to load skill')
   }
@@ -1787,7 +1863,7 @@ const handleSubmitToMarketplace = async () => {
     await loadMySubmissions()
     activeTab.value = 'submissions'
   } catch (err) {
-    toast.error(err?.response?.data || 'Failed to submit skill')
+    toast.error(getErrorMessage(err, 'Failed to submit skill'))
   } finally {
     submitting.value = false
   }
@@ -1888,6 +1964,8 @@ const handleGenerate = async () => {
   }
 }
 
+const showOverwriteConfirm = ref(false)
+
 const handleSaveGenerated = async (overwrite = false) => {
   if (!generatedPreview.value.trim()) {
     generateError.value = 'No content to save'
@@ -1895,6 +1973,7 @@ const handleSaveGenerated = async (overwrite = false) => {
   }
   savingGenerated.value = true
   generateError.value = ''
+  showOverwriteConfirm.value = false
   try {
     await advancedService.createSkill({
       name: generateForm.value.name,
@@ -1906,13 +1985,11 @@ const handleSaveGenerated = async (overwrite = false) => {
     await loadSkills()
   } catch (err) {
     if (err?.response?.status === 409 && !overwrite) {
-      const confirmed = confirm('A skill with this name exists. Overwrite?')
-      if (confirmed) {
-        await handleSaveGenerated(true)
-      }
+      savingGenerated.value = false
+      showOverwriteConfirm.value = true
       return
     }
-    generateError.value = err?.response?.data?.error || err?.response?.data || 'Failed to save skill'
+    generateError.value = getErrorMessage(err, 'Failed to save skill')
   } finally {
     savingGenerated.value = false
   }

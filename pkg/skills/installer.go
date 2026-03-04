@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 )
 
@@ -22,12 +21,6 @@ type AvailableSkill struct {
 	Description string   `json:"description"`
 	Author      string   `json:"author"`
 	Tags        []string `json:"tags"`
-}
-
-type BuiltinSkill struct {
-	Name    string `json:"name"`
-	Path    string `json:"path"`
-	Enabled bool   `json:"enabled"`
 }
 
 var installerHTTPClient = &http.Client{Timeout: 15 * time.Second}
@@ -144,48 +137,3 @@ func (si *SkillInstaller) ListAvailableSkills(ctx context.Context) ([]AvailableS
 	return skills, nil
 }
 
-func (si *SkillInstaller) ListBuiltinSkills() []BuiltinSkill {
-	builtinSkillsDir := filepath.Join(filepath.Dir(si.workspace), "makoclaw", "skills")
-
-	entries, err := os.ReadDir(builtinSkillsDir)
-	if err != nil {
-		return nil
-	}
-
-	var skills []BuiltinSkill
-	for _, entry := range entries {
-		if entry.IsDir() {
-			_ = entry
-			skillName := entry.Name()
-			skillFile := filepath.Join(builtinSkillsDir, skillName, "SKILL.md")
-
-			data, err := os.ReadFile(skillFile)
-			description := ""
-			if err == nil {
-				content := string(data)
-				if idx := strings.Index(content, "\n"); idx > 0 {
-					firstLine := content[:idx]
-					if strings.Contains(firstLine, "description:") {
-						descLine := strings.Index(content[idx:], "\n")
-						if descLine > 0 {
-							description = strings.TrimSpace(content[idx+descLine : idx+descLine])
-						}
-					}
-				}
-			}
-
-			// skill := BuiltinSkill{
-			// 	Name:    skillName,
-			// 	Path:    description,
-			// 	Enabled: true,
-			// }
-
-			status := "✓"
-			fmt.Printf("  %s  %s\n", status, entry.Name())
-			if description != "" {
-				fmt.Printf("    %s\n", description)
-			}
-		}
-	}
-	return skills
-}
