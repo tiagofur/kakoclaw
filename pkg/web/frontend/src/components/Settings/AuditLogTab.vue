@@ -104,16 +104,32 @@
             High-fidelity mission activity logs
           </p>
         </div>
-        <button
-          class="p-3 rounded-2xl bg-makoclaw-surface border border-makoclaw-border/10 text-makoclaw-text-secondary hover:text-makoclaw-accent transition-all hover:scale-110 active:scale-90 disabled:opacity-30 shadow-lg"
-          :disabled="loading"
-          @click="refreshLog"
-        >
-          <ArrowPathIcon
-            class="w-5 h-5"
-            :class="{ 'animate-spin': loading }"
-          />
-        </button>
+        <div class="flex items-center gap-2">
+          <button
+            class="px-3 py-2 rounded-xl bg-makoclaw-surface border border-makoclaw-border/10 text-makoclaw-text-secondary hover:text-makoclaw-accent transition-all active:scale-95 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5"
+            @click="exportAudit('csv')"
+          >
+            <ArrowDownTrayIcon class="w-4 h-4" />
+            CSV
+          </button>
+          <button
+            class="px-3 py-2 rounded-xl bg-makoclaw-surface border border-makoclaw-border/10 text-makoclaw-text-secondary hover:text-makoclaw-accent transition-all active:scale-95 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5"
+            @click="exportAudit('json')"
+          >
+            <ArrowDownTrayIcon class="w-4 h-4" />
+            JSON
+          </button>
+          <button
+            class="p-3 rounded-2xl bg-makoclaw-surface border border-makoclaw-border/10 text-makoclaw-text-secondary hover:text-makoclaw-accent transition-all hover:scale-110 active:scale-90 disabled:opacity-30 shadow-lg"
+            :disabled="loading"
+            @click="refreshLog"
+          >
+            <ArrowPathIcon
+              class="w-5 h-5"
+              :class="{ 'animate-spin': loading }"
+            />
+          </button>
+        </div>
       </div>
 
       <div
@@ -366,16 +382,17 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { 
-  AdjustmentsHorizontalIcon, 
-  MagnifyingGlassIcon, 
-  DocumentMagnifyingGlassIcon, 
-  ArrowPathIcon, 
-  ServerIcon, 
-  PlusIcon, 
-  XMarkIcon, 
-  CommandLineIcon, 
-  ExclamationTriangleIcon 
+import {
+  AdjustmentsHorizontalIcon,
+  MagnifyingGlassIcon,
+  DocumentMagnifyingGlassIcon,
+  ArrowPathIcon,
+  ArrowDownTrayIcon,
+  ServerIcon,
+  PlusIcon,
+  XMarkIcon,
+  CommandLineIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/vue/24/outline'
 import toolsService from '../../services/toolsService'
 import usersService from '../../services/usersService'
@@ -440,6 +457,25 @@ const loadMore = () => {
 
 const showDetails = (l) => {
   selectedLog.value = l
+}
+
+const exportAudit = (format) => {
+  const params = new URLSearchParams()
+  params.set('format', format)
+  if (filters.value.user_id) params.set('user_id', filters.value.user_id)
+  if (filters.value.tool) params.set('tool', filters.value.tool)
+
+  const token = localStorage.getItem('token')
+  const baseUrl = import.meta.env.VITE_API_URL || '/api/v1'
+  const url = `${baseUrl}/tools/audit/export?${params.toString()}`
+
+  // Open in new window for download
+  const link = document.createElement('a')
+  link.href = url
+  link.target = '_blank'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
 }
 
 const loadUsers = async () => {

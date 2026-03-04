@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -399,6 +400,93 @@ func (s *Server) handleToolAudit(w http.ResponseWriter, r *http.Request) {
 			"offset":  filters.Offset,
 		},
 	})
+}
+
+// handleToolAuditExport exports audit logs as CSV or JSON file download
+func (s *Server) handleToolAuditExport(w http.ResponseWriter, r *http.Request) {
+	claims, ok := r.Context().Value(userClaimsKey).(*jwtClaims)
+	if !ok || claims == nil || claims.Role != "admin" {
+		http.Error(w, "forbidden: admin role required", http.StatusForbidden)
+		return
+	}
+
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse query parameters (same as handleToolAudit)
+	query := r.URL.Query()
+	filters := tools.AuditQueryFilters{
+		Tool:   query.Get("tool"),
+		Limit:  100000, // Higher limit for exports
+		Offset: 0,
+	}
+
+	if userIDStr := query.Get("user_id"); userIDStr != "" {
+		userID, err := strconv.ParseInt(userIDStr, 10, 64)
+		if err == nil {
+			filters.UserID = &userID
+		}
+	}
+
+	if startStr := query.Get("start"); startStr != "" {
+		if start, err := time.Parse(time.RFC3339, startStr); err == nil {
+			filters.StartTime = &start
+		}
+	}
+
+	if endStr := query.Get("end"); endStr != "" {
+		if end, err := time.Parse(time.RFC3339, endStr); err == nil {
+			filters.EndTime = &end
+		}
+	}
+
+	// Get storage
+	var store *storage.Storage
+	if s.store != nil {
+		store = s.store
+	} else {
+		http.Error(w, "audit logging not available", http.StatusServiceUnavailable)
+		return
+	}
+
+	auditLogger, err := tools.NewSQLiteAuditLogger(store)
+	if err != nil {
+		http.Error(w, "failed to initialize audit logger", http.StatusInternalServerError)
+		return
+	}
+
+	logs, err := auditLogger.QueryLogs(r.Context(), filters)
+	if err != nil {
+		http.Error(w, "failed to query audit logs", http.StatusInternalServerError)
+		return
+	}
+
+	format := query.Get("format")
+	if format == "csv" {
+		w.Header().Set("Content-Type", "text/csv")
+		w.Header().Set("Content-Disposition", "attachment; filename=audit_log.csv")
+
+		// Write CSV header
+		w.Write([]byte("id,timestamp,user_id,username,tool,success,error,duration_ms\n"))
+		for _, log := range logs {
+			errField := strings.ReplaceAll(log.Error, "\"", "\"\"")
+			line := fmt.Sprintf("%d,%s,%d,%s,%s,%t,\"%s\",%d\n",
+				log.ID, log.Timestamp.Format(time.RFC3339), log.UserID, log.Username,
+				log.Tool, log.Success, errField, log.Duration)
+			w.Write([]byte(line))
+		}
+	} else {
+		// Default: JSON
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Disposition", "attachment; filename=audit_log.json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"logs":       logs,
+			"count":      len(logs),
+			"exported_at": time.Now().Format(time.RFC3339),
+		})
+	}
 }
 
 // splitPath splits a URL path into segments

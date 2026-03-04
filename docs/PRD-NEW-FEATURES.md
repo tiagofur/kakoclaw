@@ -38,74 +38,51 @@ This PRD documents new features identified through competitive analysis and code
 
 ---
 
-## 1. Agent Swarms
+## 1. Agent Swarms — IMPLEMENTED
 
-### Overview
-Enable multiple specialized agents to collaborate on complex tasks within a single conversation, inspired by NanoClaw's differentiated feature.
+> **Status**: Implemented on 2026-03-04 (commit `cd5925d`)
+> **Actual effort**: ~1 session (vs estimated 6-7 weeks)
 
-### Problem Statement
-Currently, the orchestrator delegates to one specialist at a time. Complex tasks requiring multiple domains (e.g., "build a web app with tests and documentation") require sequential delegation, losing context between specialists.
+### What Was Built
 
-### Proposed Solution
+**Backend** (`pkg/agent/swarm.go`, ~370 lines):
+- `SwarmRunner` with 3 execution modes: sequential, parallel (`errgroup`), consensus
+- Shared `TeamContext` memory propagation between specialists (capped at 4000 chars)
+- Per-swarm cost budget enforcement with automatic cancellation
+- Context-based timeout enforcement (default 300s)
+- Real-time `AgentStatusEvent` callbacks per member
+- 3 built-in templates: code-review-team, research-team, full-stack-team
 
-```go
-type AgentSwarm struct {
-    ID          string
-    Name        string
-    Agents      []*SpecialistAgent
-    Coordinator *OrchestratorAgent
-    SharedMem   *SwarmMemory
-    Mode        SwarmMode // Parallel | Sequential | Consensus
-}
+**Config** (`pkg/config/config.go`):
+- `SwarmConfig` struct with name, description, members, mode, max_budget, timeout, shared_memory
+- Persisted per-user via existing `config.json` system
 
-type SwarmMemory struct {
-    Context     map[string]interface{}
-    Artifacts   []Artifact
-    Decisions   []Decision
-    Mutex       sync.RWMutex
-}
+**API** (`pkg/web/server.go`):
+- `GET/POST /api/v1/swarms` — list/create swarms
+- `GET/PUT/DELETE /api/v1/swarms/{name}` — CRUD
+- `POST /api/v1/swarms/run` — execute swarm via REST
+- `GET /api/v1/swarms/templates` — list built-in templates
+- WebSocket `swarm_run` message type with `swarm_start`/`agent_status`/`swarm_complete` events
 
-type SwarmMode int
-const (
-    SwarmParallel   SwarmMode = iota  // All agents work simultaneously
-    SwarmSequential                    // Agents work in defined order
-    SwarmConsensus                     // Agents must agree on output
-)
-```
+**Frontend**:
+- Swarm section in AgentsView with create/run/delete modals
+- `SwarmVisualizer.vue` — SVG flow diagram with status-colored nodes
+- Pinia store integration (agentsStore + chatStore)
 
-### User Stories
+**Tests** (`pkg/agent/swarm_test.go`): 24 unit tests covering creation, validation, budget, timeout, aggregation, shared notes, templates, AgentManager CRUD.
 
-| ID | As a... | I want to... | So that... |
-|----|---------|--------------|------------|
-| SW-1 | Developer | Create a swarm of code-review + security-audit agents | I get comprehensive feedback in one pass |
-| SW-2 | Team Lead | Have researcher + writer + editor agents collaborate | Complex documents are produced faster |
-| SW-3 | DevOps | Deploy infrastructure-planner + security-checker + cost-optimizer | Deployments are safe and efficient |
+**Bug fixes included**: goroutine leak in SubagentManager (detached context + 5min timeout).
 
-### Technical Requirements
+### Requirements Delivered
 
-| Req ID | Requirement | Priority |
-|--------|-------------|----------|
-| SW-R1 | Swarm creation via UI and API | P0 |
-| SW-R2 | Shared memory between swarm agents | P0 |
-| SW-R3 | Configurable execution mode (parallel/sequential/consensus) | P1 |
-| SW-R4 | Swarm-level cost tracking | P1 |
-| SW-R5 | Visual representation of agent collaboration | P2 |
-| SW-R6 | Swarm templates (pre-configured teams) | P2 |
-
-### Success Metrics
-- User adoption: 30% of power users using swarms within 3 months
-- Task completion: 40% faster for complex multi-domain tasks
-- User satisfaction: NPS increase of 10 points
-
-### Effort Estimate
-- Backend: 3-4 weeks
-- Frontend: 2 weeks
-- Testing: 1 week
-- **Total: 6-7 weeks**
-
-### Dependencies
-- Fix existing orchestrator bugs first (delegation counter, goroutine leak)
-- Cost tracker integration
+| Req ID | Requirement | Status |
+|--------|-------------|--------|
+| SW-R1 | Swarm creation via UI and API | Done |
+| SW-R2 | Shared memory between swarm agents | Done |
+| SW-R3 | Configurable execution mode (parallel/sequential/consensus) | Done |
+| SW-R4 | Swarm-level cost tracking | Done |
+| SW-R5 | Visual representation of agent collaboration | Done |
+| SW-R6 | Swarm templates (pre-configured teams) | Done |
 
 ---
 
@@ -468,141 +445,87 @@ type Participant struct {
 
 ---
 
-## 9. Cost Dashboard
+## 9. Cost Dashboard — IMPLEMENTED
 
-### Overview
-Visualize API costs by provider, user, agent, and time period.
+> **Status**: Implemented on 2026-03-04
+> **Scope**: Phase 1 (real-time in-memory metrics)
 
-### Current State
-- `cost_tracker.go` exists but is NEVER CALLED
-- Metrics are always empty
+### What Was Built
 
-### Required Work
+**Backend**:
+- `GetCostTracker()` method on `AgentManager` to expose cost tracker
+- `handleAgentMetrics` now returns real data from `AgentCostTracker` (was hardcoded mock)
+- `POST /api/v1/agents/metrics/reset` — admin-only endpoint to reset cost metrics
 
-1. **Integration**: Call `RecordAPICall()` in agent loop
-2. **Storage**: Persist cost data to database
-3. **API**: Endpoints for cost queries
-4. **UI**: Dashboard with charts
+**Frontend** (`MetricsView.vue`):
+- 4th "Cost Estimates" card showing total cost, API calls, tokens, top agent
+- "Cost by Agent" breakdown table with per-agent calls, tokens, cost, avg cost
+- Admin-only reset button
+- Fetches from `/agents/metrics` in parallel with existing `/metrics`
 
-### Dashboard Views
+**Tests** (`cost_tracker_test.go`):
+- `GetCostTracker` on nil/empty manager
+- `GetCostSummary` with multiple agents
+- `Reset` clears all metrics
 
-```typescript
-interface CostDashboard {
-  totalCost: number;
-  byProvider: { [provider: string]: number };
-  byUser: { [userId: string]: number };
-  byAgent: { [agentId: string]: number };
-  timeline: TimeSeriesData[];
-  topTools: { tool: string; cost: number; calls: number }[];
-}
-```
-
-### Visualizations
-1. **Total spend**: This month, trend
-2. **By provider**: Pie chart
-3. **By user**: Bar chart (multi-user)
-4. **By agent/specialist**: See which agents cost most
-5. **Timeline**: Daily/weekly/monthly trends
-6. **Alerts**: Budget thresholds
-
-### Effort Estimate
-- Backend integration: 1 week
-- API: 1 week
-- Frontend: 2 weeks
-- **Total: 4 weeks**
+### Remaining Work (Phase 2)
+- Persist cost data to database for historical tracking
+- Timeline charts (daily/weekly/monthly trends)
+- Budget alerts/thresholds
+- By-provider breakdown
 
 ---
 
-## 10. Audit Trail UI
+## 10. Audit Trail UI — IMPLEMENTED
 
-### Overview
-Search and export all agent actions for compliance and debugging.
+> **Status**: UI existed prior (`AuditLogTab.vue`). Export feature added 2026-03-04.
 
-### Current State
-- SQLiteAuditLogger exists in `pkg/tools/audit.go`
-- No UI to view audit logs
+### What Was Built
 
-### Features
+**Pre-existing** (already in codebase):
+- `AuditLogTab.vue` in Settings with filters (user, tool, success/failure)
+- `handleToolAudit` handler with paginated queries
+- `SQLiteAuditLogger` with full CRUD
 
-1. **Search**: By user, tool, date range, action type
-2. **Filters**: Success/failure, restricted tools only
-3. **Export**: CSV, JSON for compliance
-4. **Alerts**: Suspicious activity notifications
-5. **Retention**: Configurable log retention
+**Added**:
+- `GET /api/v1/tools/audit/export?format=csv|json` — admin-only bulk export endpoint (100K limit)
+- CSV export with Content-Disposition header for download
+- JSON export with timestamp and count metadata
+- Export buttons (CSV/JSON) in `AuditLogTab.vue` with current filter passthrough
 
-### UI Components
+**Tests** (`handlers_tools_test.go`):
+- JSON export, CSV export, auth check, empty results
 
-```typescript
-interface AuditEntry {
-  id: string;
-  timestamp: Date;
-  userId: string;
-  toolName: string;
-  action: string;
-  arguments: object;
-  result: 'success' | 'failure' | 'blocked';
-  duration: number;
-  channel: string;
-}
-
-// Filters
-interface AuditFilters {
-  dateRange: [Date, Date];
-  users: string[];
-  tools: string[];
-  results: string[];
-  searchQuery: string;
-}
-```
-
-### Effort Estimate
-- Backend API: 1 week
-- Frontend: 2 weeks
-- **Total: 3 weeks**
+### Remaining Work
+- Suspicious activity alerts
+- Configurable log retention/cleanup
+- Date range filters in export UI
 
 ---
 
-## 11. Multilingual Stop Keywords
+## 11. Multilingual Stop Keywords — IMPLEMENTED
 
-### Overview
-Detect stop/cancel commands in multiple languages for international users.
+> **Status**: Implemented on 2026-03-04
 
-### Inspired By
-OpenClaw v2026.3.2 added ES/FR/ZH/HI/AR/JP/DE/PT/RU stop keywords.
+### What Was Built
 
-### Implementation
+**Backend** (`pkg/agent/stop_keywords.go`):
+- `IsStopCommand(text string) bool` — O(1) lookup via pre-built map in `init()`
+- 10 languages: en, es, fr, de, pt, zh, ja, ar, hi, ru
+- Case-insensitive, whitespace-trimmed matching
 
-```go
-var StopKeywords = map[string][]string{
-    "en": {"stop", "cancel", "abort", "quit", "exit", "halt"},
-    "es": {"para", "parar", "cancela", "cancelar", "detente", "alto"},
-    "fr": {"arrête", "arrêter", "annule", "annuler", "stop"},
-    "de": {"stopp", "abbrechen", "halt", "beenden"},
-    "pt": {"para", "parar", "cancela", "cancelar"},
-    "zh": {"停止", "取消", "停"},
-    "ja": {"やめて", "止めて", "キャンセル", "中止"},
-    "ar": {"توقف", "إلغاء", "قف"},
-    "hi": {"रुको", "बंद करो", "रद्द करें"},
-    "ru": {"стоп", "отмена", "прекрати"},
-}
+**WebSocket integration** (`pkg/web/server.go`):
+- Stop keyword check before message processing
+- Cancels all active executions for session
+- Sends `stream_end` + `ready` messages back to client
 
-func IsStopCommand(text string) bool {
-    normalized := strings.ToLower(strings.TrimSpace(text))
-    for _, keywords := range StopKeywords {
-        for _, kw := range keywords {
-            if strings.EqualFold(normalized, kw) {
-                return true
-            }
-        }
-    }
-    return false
-}
-```
+**Channel integration** (`pkg/channels/command_handler.go`):
+- `isStopCommand` check at top of `HandleCommand` (before `/` prefix check)
+- `SetCancelFunc` to wire up execution cancellation per channel
+- Local keyword set (avoids circular import with agent package)
 
-### Effort Estimate
-- Implementation: 2-3 days
-- Testing: 1 day
-- **Total: 3-4 days**
+**Tests** (`pkg/agent/stop_keywords_test.go`):
+- All 10 languages, case insensitivity, whitespace handling, non-stop words
 
 ---
 
@@ -679,21 +602,21 @@ React Native app for iOS and Android with core MakoClaw functionality.
 
 ## Priority Matrix
 
-| Feature | Impact | Effort | Priority | Quarter |
-|---------|--------|--------|----------|---------|
-| Multilingual Stop Keywords | Medium | Low | P0 | Q1 |
-| Cost Dashboard | High | Medium | P0 | Q1 |
-| Memory Timeline UI | Medium | Low | P1 | Q1 |
-| Audit Trail UI | Medium | Low | P1 | Q1 |
-| PDF Tool Native | High | Medium | P1 | Q1 |
-| Agent Swarms | Very High | High | P1 | Q2 |
-| Voice-to-Voice | High | Medium | P2 | Q2 |
-| Plugin Marketplace | High | High | P2 | Q2 |
-| Workflow Builder v2 | Medium | High | P2 | Q2 |
-| Browser Automation | High | High | P3 | Q3 |
-| Real-time Collaboration | Medium | High | P3 | Q3 |
-| Offline Mode | Medium | High | P3 | Q3 |
-| Mobile App | High | Very High | P3 | Q4 |
+| Feature | Impact | Effort | Priority | Status |
+|---------|--------|--------|----------|--------|
+| ~~Multilingual Stop Keywords~~ | ~~Medium~~ | ~~Low~~ | ~~P0~~ | **DONE** |
+| ~~Cost Dashboard~~ | ~~High~~ | ~~Medium~~ | ~~P0~~ | **DONE** (Phase 1) |
+| Memory Timeline UI | Medium | Low | P1 | Pre-existing |
+| ~~Audit Trail UI~~ | ~~Medium~~ | ~~Low~~ | ~~P1~~ | **DONE** (+ export) |
+| PDF Tool Native | High | Medium | P1 | Pending |
+| ~~Agent Swarms~~ | ~~Very High~~ | ~~High~~ | ~~P1~~ | **DONE** |
+| Voice-to-Voice | High | Medium | P2 | Pending |
+| Plugin Marketplace | High | High | P2 | Pending |
+| Workflow Builder v2 | Medium | High | P2 | Pending |
+| Browser Automation | High | High | P3 | Pending |
+| Real-time Collaboration | Medium | High | P3 | Pending |
+| Offline Mode | Medium | High | P3 | Pending |
+| Mobile App | High | Very High | P3 | Pending |
 
 ---
 
@@ -705,7 +628,7 @@ React Native app for iOS and Android with core MakoClaw functionality.
 | Startup | <1s | 5.98s | ~2s | <1s | <10ms |
 | Web UI | Yes | Yes | No | No | No |
 | Multi-user | Yes | Yes | Yes | No | No |
-| Agent Swarms | **Planned** | Yes | Yes | No | No |
+| Agent Swarms | **Yes** | Yes | Yes | No | No |
 | Channels | 9 | 12+ | 5 | 4 | 3 |
 | Specialists | Yes | Yes | No | No | No |
 | PDF Tool | Basic | Advanced | No | No | No |
@@ -714,7 +637,7 @@ React Native app for iOS and Android with core MakoClaw functionality.
 | Cron Jobs | Yes | Yes | No | No | No |
 | Knowledge Base | Yes | Yes | No | No | No |
 | MCP Support | Yes | Yes | Yes | No | No |
-| Cost Tracking | **Planned** | Yes | No | No | No |
+| Cost Tracking | **Yes** | Yes | No | No | No |
 
 ---
 
@@ -735,3 +658,5 @@ React Native app for iOS and Android with core MakoClaw functionality.
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-03-04 | Claude + Tiago | Initial PRD based on competitive analysis and audit |
+| 1.1 | 2026-03-04 | Claude + Tiago | Agent Swarms implemented (all 6 requirements delivered) |
+| 1.2 | 2026-03-04 | Claude + Tiago | Cost Dashboard (Phase 1), Audit Export, Multilingual Stop Keywords implemented |

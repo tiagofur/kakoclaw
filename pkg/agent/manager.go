@@ -294,6 +294,14 @@ func (am *AgentManager) SetSwarmConfig(name string, cfg config.SwarmConfig) {
 	am.swarmConfigs[name] = cfg
 }
 
+// GetCostTracker returns the cost tracker from the default agent
+func (am *AgentManager) GetCostTracker() *AgentCostTracker {
+	if am == nil || am.defaultAgent == nil {
+		return nil
+	}
+	return am.defaultAgent.costTracker
+}
+
 // DeleteSwarmConfig removes a swarm config
 func (am *AgentManager) DeleteSwarmConfig(name string) bool {
 	if am.swarmConfigs == nil {

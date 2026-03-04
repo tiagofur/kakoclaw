@@ -292,6 +292,7 @@ func (s *Server) Start(ctx context.Context) error {
 	// Tool permissions management endpoints (Admin only)
 	mux.HandleFunc("/api/v1/tools/permissions", s.handleToolPermissions)
 	mux.HandleFunc("/api/v1/tools/audit", s.handleToolAudit)
+	mux.HandleFunc("/api/v1/tools/audit/export", s.handleToolAuditExport) // Audit log export
 
 	mux.HandleFunc("/api/v1/tasks", s.handleTasks)
 	mux.HandleFunc("/api/v1/tasks/search", s.handleTaskSearch) // Search tasks
@@ -334,6 +335,7 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/agents/generate", s.handleSpecialistGenerate)     // Generate specialist with AI
 	mux.HandleFunc("/api/v1/agents/orchestrator", s.handleOrchestratorConfig) // Update orchestrator config
 	mux.HandleFunc("/api/v1/agents/metrics", s.handleAgentMetrics)            // Agent cost metrics
+	mux.HandleFunc("/api/v1/agents/metrics/reset", s.handleAgentMetricsReset) // Reset cost metrics
 	mux.HandleFunc("/api/v1/agents/specialists", s.handleGetSpecialists)      // Get active specialists list
 	mux.HandleFunc("/api/v1/swarms", s.handleSwarms)                          // Swarms: list + create
 	mux.HandleFunc("/api/v1/swarms/templates", s.handleSwarmTemplates)        // Swarm templates
@@ -1176,6 +1178,32 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 		sessionID := strings.TrimSpace(req.SessionID)
 		if sessionID == "" {
 			sessionID = "web:chat"
+		}
+
+		// Check for stop keywords (multilingual cancel)
+		if agent.IsStopCommand(input) {
+			s.execMu.Lock()
+			canceled := 0
+			for id, exec := range s.activeExecs {
+				if exec.SessionID == sessionID {
+					exec.Cancel()
+					delete(s.activeExecs, id)
+					canceled++
+				}
+			}
+			s.execMu.Unlock()
+
+			wsMu.Lock()
+			_ = conn.WriteJSON(map[string]interface{}{
+				"type":     "stream_end",
+				"canceled": canceled,
+				"message":  fmt.Sprintf("Canceled %d execution(s)", canceled),
+			})
+			_ = conn.WriteJSON(map[string]interface{}{
+				"type": "ready",
+			})
+			wsMu.Unlock()
+			continue
 		}
 
 		// Handle swarm_run message type
@@ -4399,46 +4427,81 @@ func (s *Server) handleAgentMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	period := r.URL.Query().Get("period")
-	if period == "" {
-		period = "7d"
+	costTracker := s.agentManager.GetCostTracker()
+	if costTracker == nil {
+		w.Header().Set("Content-Type", "application/json")
+		writeJSONResponse(w, map[string]interface{}{
+			"total_cost":    0,
+			"total_calls":   0,
+			"total_tokens":  0,
+			"by_specialist": map[string]interface{}{},
+		})
+		return
+	}
+
+	summary := costTracker.GetCostSummary()
+	allMetrics := costTracker.GetAllMetrics()
+
+	bySpecialist := make(map[string]interface{}, len(allMetrics))
+	var totalCalls int64
+	var totalTokens int64
+	for name, m := range allMetrics {
+		var avgCost float64
+		if m.APICallsCount > 0 {
+			avgCost = m.EstimatedCostUSD / float64(m.APICallsCount)
+		}
+		bySpecialist[name] = map[string]interface{}{
+			"calls":         m.APICallsCount,
+			"tokens":        m.TotalTokensUsed,
+			"input_tokens":  m.InputTokensUsed,
+			"output_tokens": m.OutputTokensUsed,
+			"cost":          m.EstimatedCostUSD,
+			"avg_cost":      avgCost,
+			"last_updated":  m.LastUpdated,
+		}
+		totalCalls += m.APICallsCount
+		totalTokens += m.TotalTokensUsed
 	}
 
 	response := map[string]interface{}{
-		"period":       period,
-		"total_cost":   0.0125,
-		"total_calls":  125,
-		"total_tokens": 125000,
-		"by_specialist": map[string]interface{}{
-			"developer": map[string]interface{}{
-				"calls":    45,
-				"tokens":   45000,
-				"cost":     0.0045,
-				"avg_cost": 0.0001,
-			},
-			"testing": map[string]interface{}{
-				"calls":    30,
-				"tokens":   30000,
-				"cost":     0.0030,
-				"avg_cost": 0.0001,
-			},
-			"documentation": map[string]interface{}{
-				"calls":    25,
-				"tokens":   25000,
-				"cost":     0.0025,
-				"avg_cost": 0.0001,
-			},
-			"devops": map[string]interface{}{
-				"calls":    15,
-				"tokens":   15000,
-				"cost":     0.0015,
-				"avg_cost": 0.0001,
-			},
-		},
+		"total_cost":     summary.TotalCost,
+		"total_calls":    totalCalls,
+		"total_tokens":   totalTokens,
+		"most_expensive": summary.MostExpensive,
+		"most_used":      summary.MostUsed,
+		"by_specialist":  bySpecialist,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	writeJSONResponse(w, response)
+}
+
+// handleAgentMetricsReset resets cost metrics
+func (s *Server) handleAgentMetricsReset(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	claims, ok := r.Context().Value(userClaimsKey).(*jwtClaims)
+	if !ok || claims == nil || claims.Role != "admin" {
+		http.Error(w, "forbidden: admin role required", http.StatusForbidden)
+		return
+	}
+
+	costTracker := s.agentManager.GetCostTracker()
+	if costTracker == nil {
+		http.Error(w, "cost tracker not available", http.StatusServiceUnavailable)
+		return
+	}
+
+	costTracker.Reset()
+
+	w.Header().Set("Content-Type", "application/json")
+	writeJSONResponse(w, map[string]interface{}{
+		"success": true,
+		"message": "Cost metrics reset successfully",
+	})
 }
 
 // handleConfigStatus returns the current configuration status including degraded mode

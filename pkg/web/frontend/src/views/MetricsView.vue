@@ -111,7 +111,7 @@
       <!-- Summary Cards -->
       <div
         v-if="metrics"
-        class="grid grid-cols-1 md:grid-cols-3 gap-6"
+        class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
       >
         <!-- LLM Card -->
         <div class="glass-panel p-6 rounded-2xl relative overflow-hidden group/card hover:-translate-y-1 transition-all duration-300 shadow-xl shadow-makoclaw-accent/5">
@@ -332,8 +332,132 @@
             </div>
           </div>
         </div>
+
+        <!-- Cost Estimates Card -->
+        <div class="glass-panel p-6 rounded-2xl relative overflow-hidden group/card hover:-translate-y-1 transition-all duration-300 shadow-xl shadow-makoclaw-accent/5">
+          <div class="absolute bottom-0 left-0 h-[2px] w-0 bg-gradient-to-r from-amber-400 to-orange-500 group-hover/card:w-full transition-all duration-500 opacity-50" />
+
+          <div class="flex items-center gap-4 mb-6">
+            <div class="p-3 bg-amber-500/10 rounded-xl text-amber-400 relative">
+              <div class="absolute inset-0 bg-amber-500/20 blur-lg rounded-full opacity-0 group-hover/card:opacity-100 transition-opacity duration-500" />
+              <svg
+                class="w-6 h-6 relative z-10"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </div>
+            <h3 class="text-lg font-bold text-makoclaw-text tracking-tight">
+              Cost Estimates
+            </h3>
+          </div>
+          <div class="space-y-3">
+            <div class="flex justify-between items-center group/item p-2 hover:bg-amber-500/5 rounded-lg transition-colors">
+              <span class="text-xs font-bold text-makoclaw-text-secondary uppercase tracking-wider opacity-60">
+                Total cost
+              </span>
+              <span class="font-mono text-base font-bold text-amber-400">
+                ${{ costMetrics?.total_cost?.toFixed(4) || '0.0000' }}
+              </span>
+            </div>
+            <div class="flex justify-between items-center group/item p-2 hover:bg-amber-500/5 rounded-lg transition-colors">
+              <span class="text-xs font-bold text-makoclaw-text-secondary uppercase tracking-wider opacity-60">
+                API calls
+              </span>
+              <span class="font-mono text-base font-bold text-makoclaw-text">
+                {{ costMetrics?.total_calls || 0 }}
+              </span>
+            </div>
+            <div class="flex justify-between items-center group/item p-2 hover:bg-amber-500/5 rounded-lg transition-colors">
+              <span class="text-xs font-bold text-makoclaw-text-secondary uppercase tracking-wider opacity-60">
+                Total tokens
+              </span>
+              <span class="font-mono text-base font-bold text-makoclaw-text">
+                {{ formatNumber(costMetrics?.total_tokens || 0) }}
+              </span>
+            </div>
+            <div class="p-3 bg-makoclaw-bg/20 rounded-xl border border-makoclaw-border/30 mt-4">
+              <div class="flex justify-between items-center">
+                <div>
+                  <p class="text-[10px] font-bold text-makoclaw-text-secondary uppercase opacity-50 mb-1">
+                    Top Agent
+                  </p>
+                  <p class="font-mono text-sm font-bold text-makoclaw-text truncate max-w-[120px]">
+                    {{ costMetrics?.most_expensive || 'N/A' }}
+                  </p>
+                </div>
+                <button
+                  v-if="isAdmin"
+                  class="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors"
+                  @click="resetCostMetrics"
+                >
+                  Reset
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
+      <!-- Cost by Agent breakdown -->
+      <div v-if="costMetrics && Object.keys(costMetrics.by_specialist || {}).length > 0">
+        <h3 class="text-xl font-bold text-makoclaw-text mb-4 px-1">
+          Cost by Agent
+        </h3>
+        <div class="glass-panel rounded-2xl border border-makoclaw-border/50 overflow-hidden shadow-xl shadow-makoclaw-accent/5">
+          <table class="w-full text-sm">
+            <thead class="bg-makoclaw-bg/50 text-makoclaw-text-secondary">
+              <tr class="border-b border-makoclaw-border/50">
+                <th class="text-left px-6 py-4 text-xs font-bold uppercase tracking-wider">
+                  Agent
+                </th>
+                <th class="text-right px-6 py-4 text-xs font-bold uppercase tracking-wider">
+                  Calls
+                </th>
+                <th class="text-right px-6 py-4 text-xs font-bold uppercase tracking-wider">
+                  Tokens
+                </th>
+                <th class="text-right px-6 py-4 text-xs font-bold uppercase tracking-wider">
+                  Cost
+                </th>
+                <th class="text-right px-6 py-4 text-xs font-bold uppercase tracking-wider">
+                  Avg Cost
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="(m, name) in costMetrics.by_specialist"
+                :key="name"
+                class="border-b border-makoclaw-border/30 hover:bg-amber-500/5 transition-colors"
+              >
+                <td class="px-6 py-4 font-mono text-[11px] text-amber-400 font-bold">
+                  {{ name }}
+                </td>
+                <td class="px-6 py-4 text-right font-mono text-makoclaw-text font-bold">
+                  {{ m.calls }}
+                </td>
+                <td class="px-6 py-4 text-right font-mono text-makoclaw-text">
+                  {{ formatNumber(m.tokens) }}
+                </td>
+                <td class="px-6 py-4 text-right font-mono text-amber-400 font-bold">
+                  ${{ m.cost?.toFixed(4) }}
+                </td>
+                <td class="px-6 py-4 text-right font-mono text-makoclaw-text font-medium">
+                  ${{ m.avg_cost?.toFixed(6) }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       <!-- Per-model breakdown -->
       <div v-if="metrics && Object.keys(metrics.llm_by_model || {}).length > 0">
@@ -571,10 +695,16 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import advancedService from '../services/advancedService'
+import { useAuthStore } from '../stores/authStore'
+import client from '../services/api'
+
+const authStore = useAuthStore()
+const isAdmin = computed(() => authStore.user?.role === 'admin')
 
 const metrics = ref(null)
+const costMetrics = ref(null)
 const loading = ref(false)
 const error = ref('')
 
@@ -582,11 +712,25 @@ async function loadMetrics() {
   loading.value = true
   error.value = ''
   try {
-    metrics.value = await advancedService.fetchMetrics()
+    const [metricsData, costData] = await Promise.all([
+      advancedService.fetchMetrics(),
+      client.get('/agents/metrics').then(r => r.data).catch(() => null)
+    ])
+    metrics.value = metricsData
+    costMetrics.value = costData
   } catch (e) {
     error.value = 'Failed to load metrics: ' + (e.response?.data?.error || e.message)
   } finally {
     loading.value = false
+  }
+}
+
+async function resetCostMetrics() {
+  try {
+    await client.post('/agents/metrics/reset')
+    costMetrics.value = { total_cost: 0, total_calls: 0, total_tokens: 0, by_specialist: {} }
+  } catch (e) {
+    error.value = 'Failed to reset cost metrics: ' + (e.response?.data?.error || e.message)
   }
 }
 

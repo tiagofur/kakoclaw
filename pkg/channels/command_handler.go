@@ -3,6 +3,7 @@ package channels
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/sipeed/makoclaw/pkg/logger"
 	"github.com/sipeed/makoclaw/pkg/storage"
@@ -10,7 +11,8 @@ import (
 
 // CommandHandler processes special commands like /setup
 type CommandHandler struct {
-	store *storage.Storage
+	store      *storage.Storage
+	cancelFunc func(channel, senderID string) int
 }
 
 // NewCommandHandler creates a new command handler
@@ -20,8 +22,22 @@ func NewCommandHandler(store *storage.Storage) *CommandHandler {
 	}
 }
 
+// SetCancelFunc sets the function used to cancel active executions for a channel/sender
+func (ch *CommandHandler) SetCancelFunc(fn func(channel, senderID string) int) {
+	ch.cancelFunc = fn
+}
+
 // HandleCommand processes a command and returns true if handled
 func (ch *CommandHandler) HandleCommand(ctx context.Context, channel, senderID, content string) (handled bool, response string, err error) {
+	// Check for stop keywords before command prefix check
+	if ch.isStopCommand(content) {
+		canceled := 0
+		if ch.cancelFunc != nil {
+			canceled = ch.cancelFunc(channel, senderID)
+		}
+		return true, fmt.Sprintf("Canceled %d active execution(s).", canceled), nil
+	}
+
 	// Check if it's a command
 	if !IsCommand(content) {
 		return false, "", nil
@@ -78,6 +94,31 @@ func IsCommand(content string) bool {
 		return false
 	}
 	return content[0] == '/'
+}
+
+// channelStopKeywords contains stop/cancel keywords in multiple languages.
+// Duplicated from agent.stopKeywords to avoid circular import.
+var channelStopKeywords = map[string]struct{}{
+	"stop": {}, "cancel": {}, "abort": {}, "halt": {},
+	"parar": {}, "cancelar": {}, "detener": {},
+	"arrêter": {}, "annuler": {},
+	"stopp": {}, "abbrechen": {},
+	"abortar": {},
+	"停止": {}, "取消": {},
+	"中止": {}, "やめて": {}, "キャンセル": {},
+	"توقف": {}, "إلغاء": {},
+	"रुको": {}, "बंद करो": {}, "रद्द करो": {},
+	"стоп": {}, "отмена": {}, "остановить": {},
+}
+
+// isStopCommand checks if the content is a stop/cancel command
+func (ch *CommandHandler) isStopCommand(content string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(content))
+	if normalized == "" {
+		return false
+	}
+	_, ok := channelStopKeywords[normalized]
+	return ok
 }
 
 // ParseCommand extracts the command and arguments
