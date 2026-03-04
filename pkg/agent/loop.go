@@ -249,6 +249,7 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 	toolsRegistry.Register(tools.NewWriteFileTool(workspace, restrict))
 	toolsRegistry.Register(tools.NewListDirTool(workspace, restrict))
 	toolsRegistry.Register(tools.NewExecTool(workspace, restrict))
+	toolsRegistry.Register(tools.NewPDFTool(workspace, restrict))
 
 	braveAPIKey := cfg.Tools.Web.Search.APIKey
 	toolsRegistry.Register(tools.NewWebSearchTool(braveAPIKey, cfg.Tools.Web.Search.MaxResults))

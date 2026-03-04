@@ -1094,6 +1094,11 @@ func webCmd() {
 		webTranscriber := voice.NewGroqTranscriber(cfg.Providers.Groq.APIKey)
 		webServer.SetTranscriber(webTranscriber)
 	}
+	// Wire TTS synthesizer if configured
+	if cfg.TTS.Enabled && cfg.TTS.APIKey != "" {
+		ttsSynth := voice.NewTTSSynthesizer(cfg.TTS)
+		webServer.SetTTSSynthesizer(ttsSynth)
+	}
 	// Wire MCP manager if configured
 	var mcpManagerWeb *mcp.Manager
 	if len(cfg.Tools.MCP.Servers) > 0 {

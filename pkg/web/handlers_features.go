@@ -1,7 +1,6 @@
 package web
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/sipeed/makoclaw/pkg/logger"
 	"github.com/sipeed/makoclaw/pkg/storage"
+	"github.com/sipeed/makoclaw/pkg/tools"
 )
 
 // ==================== PROMPTS (F7 - Prompt Templates Library) ====================
@@ -247,19 +247,12 @@ func extractTextFromFile(data []byte, ext, filename string) (string, string, err
 		return sanitizeText(string(data)), "text/plain", nil
 
 	case ".pdf":
-		// Basic PDF text extraction: look for text between BT/ET markers
-		// Note: This only works for simple, uncompressed PDFs. Most modern PDFs
-		// use FlateDecode compression and would need a proper PDF library to extract.
-		text := extractPDFText(data)
+		text, err := tools.ExtractPDFTextFromBytes(data)
+		if err != nil {
+			return "", "", fmt.Errorf("PDF extraction failed: %w", err)
+		}
 		if text == "" {
-			// Provide helpful error message based on what we detected
-			if bytes.Contains(data, []byte("/Encrypt")) {
-				return "", "", fmt.Errorf("PDF is encrypted - please use an unencrypted version")
-			}
-			if bytes.Contains(data, []byte("FlateDecode")) || bytes.Contains(data, []byte("/Filter")) {
-				return "", "", fmt.Errorf("PDF uses compressed streams - basic text extraction not supported. Try copying text manually or use a PDF-to-text tool")
-			}
-			return "", "", fmt.Errorf("could not extract readable text from PDF")
+			return "", "", fmt.Errorf("no readable text found in PDF (may be image-based or encrypted)")
 		}
 		return text, "application/pdf", nil
 
@@ -296,53 +289,6 @@ func stripHTMLTags(s string) string {
 	return buf.String()
 }
 
-// extractPDFText does basic extraction by scanning for readable text between BT/ET markers
-func extractPDFText(data []byte) string {
-	var buf strings.Builder
-	content := string(data)
-
-	// Look for strings inside parentheses in PDF streams (very basic heuristic)
-	i := 0
-	for i < len(content) {
-		if i+1 < len(content) && content[i] == 'B' && content[i+1] == 'T' {
-			// Inside a text block, find parenthesized strings
-			end := strings.Index(content[i:], "ET")
-			if end < 0 {
-				break
-			}
-			block := content[i : i+end]
-			for j := 0; j < len(block); j++ {
-				if block[j] == '(' {
-					start := j + 1
-					for k := start; k < len(block); k++ {
-						if block[k] == ')' && (k == 0 || block[k-1] != '\\') {
-							text := block[start:k]
-							// Filter out non-printable chars
-							clean := strings.Map(func(r rune) rune {
-								if r >= 32 && r < 127 {
-									return r
-								}
-								return -1
-							}, text)
-							if len(clean) > 1 {
-								buf.WriteString(clean)
-								buf.WriteRune(' ')
-							}
-							j = k
-							break
-						}
-					}
-				}
-			}
-			buf.WriteRune('\n')
-			i += end + 2
-		} else {
-			i++
-		}
-	}
-
-	return strings.TrimSpace(buf.String())
-}
 
 func isLikelyText(data []byte) bool {
 	if len(data) == 0 {
@@ -361,6 +307,3 @@ func isLikelyText(data []byte) bool {
 	}
 	return float64(nonText)/float64(len(sample)) < 0.1
 }
-
-// Avoid unused import errors
-var _ = bytes.NewBuffer

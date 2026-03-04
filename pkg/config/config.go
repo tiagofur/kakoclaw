@@ -103,8 +103,18 @@ type Config struct {
 	Tools           ToolsConfig           `json:"tools"`
 	ToolPermissions ToolPermissionsConfig `json:"tool_permissions"`
 	Storage         StorageConfig         `json:"storage"`
+	TTS             TTSConfig             `json:"tts"`
 	DegradedMode    bool                  `json:"-"` // Runtime flag: true when no valid LLM provider is configured
 	mu              sync.RWMutex
+}
+
+// TTSConfig configures text-to-speech synthesis.
+type TTSConfig struct {
+	Enabled  bool   `json:"enabled" env:"MAKOCLAW_TTS_ENABLED"`
+	Provider string `json:"provider" env:"MAKOCLAW_TTS_PROVIDER"` // "openai" (default) or "elevenlabs"
+	APIKey   string `json:"api_key" env:"MAKOCLAW_TTS_API_KEY"`
+	Voice    string `json:"voice" env:"MAKOCLAW_TTS_VOICE"`       // e.g. "alloy", "echo", "fable", "onyx", "nova", "shimmer"
+	Model    string `json:"model" env:"MAKOCLAW_TTS_MODEL"`       // e.g. "tts-1", "tts-1-hd"
 }
 
 type StorageConfig struct {

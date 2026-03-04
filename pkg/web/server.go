@@ -70,6 +70,7 @@ type Server struct {
 	channelManager          *channels.Manager
 	multiUserChannelManager *channels.MultiUserChannelManager
 	transcriber             *voice.GroqTranscriber
+	ttsSynthesizer          *voice.TTSSynthesizer
 	mcpManager              *mcp.Manager
 	workflowEngine          *workflow.Engine
 	execMu                  sync.RWMutex
@@ -190,6 +191,11 @@ func (s *Server) SetAgentManager(m *agent.AgentManager) {
 // SetTranscriber injects the Groq voice transcriber for REST exposure
 func (s *Server) SetTranscriber(t *voice.GroqTranscriber) {
 	s.transcriber = t
+}
+
+// SetTTSSynthesizer injects the TTS synthesizer for REST exposure
+func (s *Server) SetTTSSynthesizer(t *voice.TTSSynthesizer) {
+	s.ttsSynthesizer = t
 }
 
 // SetFullConfig injects the full config for read-only settings endpoint
@@ -359,6 +365,7 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/models", s.handleModels)                          // Available models/providers
 	mux.HandleFunc("/api/v1/providers/catalog", s.handleProvidersCatalog)     // All available providers metadata
 	mux.HandleFunc("/api/v1/voice/transcribe", s.handleVoiceTranscribe)       // Voice-to-text (Groq STT)
+	mux.HandleFunc("/api/v1/voice/synthesize", s.handleVoiceSynthesize)       // Text-to-speech (TTS)
 	mux.HandleFunc("/api/v1/knowledge", s.handleKnowledge)                    // Knowledge base: list + upload
 	mux.HandleFunc("/api/v1/knowledge/search", s.handleKnowledgeSearch)       // Knowledge base: FTS5 search
 	mux.HandleFunc("/api/v1/knowledge/chunks/", s.handleKnowledgeChunkAction) // Knowledge base: update chunks
@@ -374,6 +381,8 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/prompts/", s.handlePromptAction)                  // Prompt templates: update/delete
 	mux.HandleFunc("/api/v1/chat/attachments", s.handleChatAttachment)        // Chat file upload/extract
 	mux.HandleFunc("/api/v1/workflows", s.handleWorkflows)                    // Workflows: list + create
+	mux.HandleFunc("/api/v1/workflows/approvals", s.handleWorkflowApprovals)   // Workflow approvals: list pending
+	mux.HandleFunc("/api/v1/workflows/approvals/", s.handleWorkflowApprovalAction) // Resolve approval
 	mux.HandleFunc("/api/v1/workflows/", s.handleWorkflowAction)              // Workflow actions: get/update/delete/run
 	mux.HandleFunc("/api/v1/backup/export", s.handleBackupExport)             // Export backup
 	mux.HandleFunc("/api/v1/backup/import", s.handleBackupImport)             // Import backup
@@ -1231,8 +1240,9 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 		}
 
 		func() {
-			// Create cancelable context for this execution
-			ctx, cancel := context.WithCancel(r.Context())
+			// Create cancelable context with timeout for this execution
+			// 10 minutes max to prevent specialist hangs from blocking forever
+			ctx, cancel := context.WithTimeout(r.Context(), 10*time.Minute)
 			// Inject activeAgentLoop as agent tracker so that any orchestrator
 			// delegations register involved agents into this loop's tracking.
 			ctx = agent.ContextWithAgentTracker(ctx, activeAgentLoop)
@@ -1273,14 +1283,30 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 						})
 						wsMu.Unlock()
 
-						response, err := specialist.ProcessWithSpeciality(ctx, input)
+						// Add timeout for direct specialist invocation (5 minutes)
+						specialistCtx, specialistCancel := context.WithTimeout(ctx, 5*time.Minute)
+						defer specialistCancel()
+						response, err := specialist.ProcessWithSpeciality(specialistCtx, input)
 
 						wsMu.Lock()
 						if err != nil {
+							errMsg := err.Error()
+							status := "failed"
+							if specialistCtx.Err() == context.DeadlineExceeded {
+								errMsg = fmt.Sprintf("Specialist '%s' timed out after 5 minutes", req.TargetSpecialist)
+								status = "timeout"
+							}
+							_ = conn.WriteJSON(map[string]interface{}{
+								"type":            "agent_status",
+								"agent":           req.TargetSpecialist,
+								"status":          status,
+								"specialist_name": req.TargetSpecialist,
+								"timestamp":       time.Now().Format(time.RFC3339),
+							})
 							_ = conn.WriteJSON(map[string]interface{}{
 								"type":    "stream_end",
 								"content": "",
-								"error":   err.Error(),
+								"error":   errMsg,
 							})
 						} else {
 							_ = conn.WriteJSON(map[string]interface{}{
@@ -1443,6 +1469,17 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 					errMsg := err.Error()
 					if ctx.Err() == context.Canceled {
 						errMsg = "Execution canceled by user"
+					} else if ctx.Err() == context.DeadlineExceeded {
+						errMsg = "Execution timed out after 10 minutes"
+						// Send timeout status for any active agent
+						_ = func() error {
+							wsMu.Lock()
+							defer wsMu.Unlock()
+							return conn.WriteJSON(map[string]interface{}{
+								"type":   "agent_status",
+								"status": "timeout",
+							})
+						}()
 					}
 					wsMu.Lock()
 					_ = conn.WriteJSON(map[string]interface{}{
@@ -3401,6 +3438,54 @@ func (s *Server) handleVoiceTranscribe(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	writeJSONResponse(w, result)
+}
+
+// handleVoiceSynthesize converts text to speech audio.
+func (s *Server) handleVoiceSynthesize(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if s.ttsSynthesizer == nil || !s.ttsSynthesizer.IsAvailable() {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		writeJSONResponse(w, map[string]string{
+			"error": "Text-to-speech not available. Configure TTS API key.",
+		})
+		return
+	}
+
+	var req struct {
+		Text  string `json:"text"`
+		Voice string `json:"voice,omitempty"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		writeJSONResponse(w, map[string]string{"error": "Invalid request body"})
+		return
+	}
+
+	if req.Text == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		writeJSONResponse(w, map[string]string{"error": "text is required"})
+		return
+	}
+
+	audio, err := s.ttsSynthesizer.Synthesize(r.Context(), req.Text)
+	if err != nil {
+		logger.ErrorCF("web", "TTS synthesis failed", map[string]interface{}{"error": err.Error()})
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		writeJSONResponse(w, map[string]string{"error": "Synthesis failed: " + err.Error()})
+		return
+	}
+
+	w.Header().Set("Content-Type", "audio/mpeg")
+	w.Header().Set("Content-Length", strconv.Itoa(len(audio)))
+	w.Write(audio)
 }
 
 // handleMetrics returns in-process observability metrics (LLM calls, tool calls, agent runs).

@@ -29,6 +29,20 @@ import (
 
 // ==================== SKILLS ====================
 
+// newUserSkillsLoader creates a SkillsLoader correctly configured for a user,
+// including user-specific, global, and builtin skills paths.
+func newUserSkillsLoader(userUUID, userWorkspace string) *skills.SkillsLoader {
+	home, _ := os.UserHomeDir()
+	globalSkillsDir := filepath.Join(home, ".makoclaw", "skills")
+	builtinSkillsDir := "skills"
+	loader := skills.NewSkillsLoader(userWorkspace, globalSkillsDir, builtinSkillsDir)
+	if userUUID != "" {
+		userSkillsPath := filepath.Join(home, ".makoclaw", "users", userUUID, "skills")
+		loader.SetUserSkillsPath(userSkillsPath)
+	}
+	return loader
+}
+
 func (s *Server) handleSkills(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		q := r.URL.Query().Get("type")
@@ -67,11 +81,7 @@ func (s *Server) handleSkills(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Create a temporary loader for this user's workspace
-		globalSkillsDir := filepath.Join(filepath.Dir(filepath.Dir(userWorkspace)), "..", ".makoclaw", "skills")
-		builtinSkillsDir := "skills"
-		userLoader := skills.NewSkillsLoader(userWorkspace, globalSkillsDir, builtinSkillsDir)
-
+		userLoader := newUserSkillsLoader(userUUID, userWorkspace)
 		installed := userLoader.ListSkills()
 		writeJSONResponse(w, map[string]interface{}{"skills": installed})
 		return
@@ -476,11 +486,7 @@ Respond ONLY with a valid JSON object matching this exact structure, with no mar
 			return
 		}
 
-		// Create a temporary loader for this user's workspace
-		globalSkillsDir := filepath.Join(filepath.Dir(filepath.Dir(userWorkspace)), "..", ".makoclaw", "skills")
-		builtinSkillsDir := "skills"
-		userLoader := skills.NewSkillsLoader(userWorkspace, globalSkillsDir, builtinSkillsDir)
-
+		userLoader := newUserSkillsLoader(userUUID, userWorkspace)
 		content, ok := userLoader.LoadSkill(skillName)
 		if !ok {
 			http.Error(w, "skill not found", http.StatusNotFound)
@@ -607,7 +613,7 @@ func normalizeSkillDraft(name, content string) string {
 	content = strings.TrimSuffix(content, "```")
 	content = strings.TrimSpace(content)
 	if !strings.HasPrefix(content, "---") {
-		content = fmt.Sprintf("---\nname: %s\ndescription: AI-generated skill\n---\n\n# %s\n\n%s\n", name, strings.Title(strings.ReplaceAll(name, "-", " ")), content)
+		content = fmt.Sprintf("---\nname: %s\ndescription: AI-generated skill\n---\n\n# %s\n\n%s\n", name, toTitleCase(strings.ReplaceAll(name, "-", " ")), content)
 	} else {
 		// Content already has frontmatter — ensure required fields are present.
 		// Find the closing "---" of the frontmatter (look for "\n---" after the opening "---").
@@ -625,7 +631,7 @@ func normalizeSkillDraft(name, content string) string {
 
 			// Inject H1 heading if missing from the full content.
 			if !strings.Contains(fm+body, "\n# ") {
-				title := strings.Title(strings.ReplaceAll(name, "-", " "))
+				title := toTitleCase(strings.ReplaceAll(name, "-", " "))
 				body = "\n\n# " + title + "\n" + strings.TrimLeft(body, "\n")
 			}
 
@@ -633,6 +639,17 @@ func normalizeSkillDraft(name, content string) string {
 		}
 	}
 	return strings.TrimSpace(content) + "\n"
+}
+
+// toTitleCase capitalises the first letter of each word (ASCII-only, suitable for skill names).
+func toTitleCase(s string) string {
+	words := strings.Fields(s)
+	for i, w := range words {
+		if len(w) > 0 {
+			words[i] = strings.ToUpper(w[:1]) + w[1:]
+		}
+	}
+	return strings.Join(words, " ")
 }
 
 func validateSkillContent(content string) error {
@@ -3404,6 +3421,68 @@ func (s *Server) handleWorkflowRun(w http.ResponseWriter, r *http.Request, workf
 		"ok":      true,
 		"results": results,
 	})
+}
+
+// handleWorkflowApprovals lists pending workflow approvals.
+func (s *Server) handleWorkflowApprovals(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	store, _, ok := s.getUserStorage(r)
+	if !ok {
+		writeJSONError(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	approvals, err := store.GetPendingApprovals()
+	if err != nil {
+		writeJSONError(w, "failed to get approvals: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSONResponse(w, map[string]interface{}{"approvals": approvals})
+}
+
+// handleWorkflowApprovalAction resolves a workflow approval (approve/reject).
+func (s *Server) handleWorkflowApprovalAction(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	store, _, ok := s.getUserStorage(r)
+	if !ok {
+		writeJSONError(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Extract approval ID from path: /api/v1/workflows/approvals/{id}/resolve
+	path := strings.TrimPrefix(r.URL.Path, "/api/v1/workflows/approvals/")
+	path = strings.TrimSuffix(path, "/resolve")
+	approvalID, err := strconv.ParseInt(path, 10, 64)
+	if err != nil {
+		writeJSONError(w, "invalid approval ID", http.StatusBadRequest)
+		return
+	}
+
+	var req struct {
+		Status     string `json:"status"`      // "approved" or "rejected"
+		ApprovedBy string `json:"approved_by"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONError(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if req.Status != "approved" && req.Status != "rejected" {
+		writeJSONError(w, "status must be 'approved' or 'rejected'", http.StatusBadRequest)
+		return
+	}
+
+	if err := store.ResolveWorkflowApproval(approvalID, req.Status, req.ApprovedBy); err != nil {
+		writeJSONError(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	writeJSONResponse(w, map[string]interface{}{"ok": true, "status": req.Status})
 }
 
 func updateProvidersConfig(cfg *config.Config, updates map[string]interface{}) {

@@ -21,6 +21,9 @@ const (
 	StepPrompt    StepType = "prompt"
 	StepTool      StepType = "tool"
 	StepCondition StepType = "condition"
+	StepLoop      StepType = "loop"
+	StepParallel  StepType = "parallel"
+	StepApproval  StepType = "approval"
 )
 
 // Step defines a single step in a workflow pipeline.
@@ -49,6 +52,26 @@ type ConditionConfig struct {
 	Operator  string `json:"operator"`  // "contains", "equals", "regex", "not_empty"
 	Value     string `json:"value"`     // compare value
 	Reference string `json:"reference"` // e.g. "{{step.1.output}}"
+}
+
+// LoopConfig holds settings for a loop step that iterates over items.
+type LoopConfig struct {
+	Items    string `json:"items"`    // comma-separated list or template ref
+	Variable string `json:"variable"` // variable name for current item
+	Steps    []Step `json:"steps"`    // nested steps to execute per item
+}
+
+// ParallelConfig holds settings for parallel step execution.
+type ParallelConfig struct {
+	Steps          []Step `json:"steps"`           // nested steps to run concurrently
+	MaxConcurrency int    `json:"max_concurrency"` // 0 = unlimited
+}
+
+// ApprovalConfig holds settings for an approval gate step.
+type ApprovalConfig struct {
+	Message   string   `json:"message"`
+	Approvers []string `json:"approvers,omitempty"`
+	Timeout   string   `json:"timeout,omitempty"` // e.g. "24h"
 }
 
 // StepResult captures the outcome of a single step execution.
@@ -140,6 +163,12 @@ func (e *Engine) RunWithParams(ctx context.Context, wf *storage.Workflow, params
 			} else {
 				output = "condition: true — continuing"
 			}
+		case StepLoop:
+			output, stepErr = e.executeLoop(ctx, step, sessionKey, results, params)
+		case StepParallel:
+			output, stepErr = e.executeParallel(ctx, step, sessionKey, results, params)
+		case StepApproval:
+			output, stepErr = e.executeApproval(ctx, step, wf.ID, runID)
 		default:
 			stepErr = fmt.Errorf("unknown step type: %s", step.Type)
 		}
@@ -271,6 +300,154 @@ func (e *Engine) evaluateCondition(step Step, prevResults []StepResult, params m
 	default:
 		return false, fmt.Errorf("unknown operator: %s", cfg.Operator)
 	}
+}
+
+// executeLoop runs nested steps for each item in the list.
+func (e *Engine) executeLoop(ctx context.Context, step Step, sessionKey string, prevResults []StepResult, params map[string]string) (string, error) {
+	var cfg LoopConfig
+	if err := json.Unmarshal(step.Config, &cfg); err != nil {
+		return "", fmt.Errorf("parsing loop config: %w", err)
+	}
+
+	itemsStr := interpolate(cfg.Items, prevResults, params)
+	items := strings.Split(itemsStr, ",")
+	variable := cfg.Variable
+	if variable == "" {
+		variable = "item"
+	}
+
+	var allOutputs []string
+	for _, item := range items {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+
+		// Create params copy with loop variable
+		loopParams := make(map[string]string)
+		for k, v := range params {
+			loopParams[k] = v
+		}
+		loopParams[variable] = item
+
+		for _, nested := range cfg.Steps {
+			if ctx.Err() != nil {
+				return strings.Join(allOutputs, "\n"), ctx.Err()
+			}
+
+			var output string
+			var stepErr error
+			switch nested.Type {
+			case StepPrompt:
+				output, stepErr = e.executePrompt(ctx, nested, sessionKey, prevResults, loopParams)
+			case StepTool:
+				output, stepErr = e.executeTool(ctx, nested, prevResults, loopParams)
+			default:
+				stepErr = fmt.Errorf("unsupported nested step type in loop: %s", nested.Type)
+			}
+
+			if stepErr != nil {
+				allOutputs = append(allOutputs, fmt.Sprintf("[%s] error: %v", item, stepErr))
+				if nested.OnError != "continue" {
+					return strings.Join(allOutputs, "\n"), stepErr
+				}
+			} else {
+				allOutputs = append(allOutputs, fmt.Sprintf("[%s] %s", item, output))
+			}
+		}
+	}
+
+	return strings.Join(allOutputs, "\n"), nil
+}
+
+// executeParallel runs nested steps concurrently.
+func (e *Engine) executeParallel(ctx context.Context, step Step, sessionKey string, prevResults []StepResult, params map[string]string) (string, error) {
+	var cfg ParallelConfig
+	if err := json.Unmarshal(step.Config, &cfg); err != nil {
+		return "", fmt.Errorf("parsing parallel config: %w", err)
+	}
+
+	if len(cfg.Steps) == 0 {
+		return "no steps to execute", nil
+	}
+
+	maxConc := cfg.MaxConcurrency
+	if maxConc <= 0 {
+		maxConc = len(cfg.Steps)
+	}
+
+	type result struct {
+		index  int
+		output string
+		err    error
+	}
+
+	results := make(chan result, len(cfg.Steps))
+	sem := make(chan struct{}, maxConc)
+
+	for i, nested := range cfg.Steps {
+		sem <- struct{}{} // acquire semaphore
+		go func(idx int, s Step) {
+			defer func() { <-sem }() // release semaphore
+			var output string
+			var stepErr error
+			switch s.Type {
+			case StepPrompt:
+				output, stepErr = e.executePrompt(ctx, s, sessionKey, prevResults, params)
+			case StepTool:
+				output, stepErr = e.executeTool(ctx, s, prevResults, params)
+			default:
+				stepErr = fmt.Errorf("unsupported nested step type in parallel: %s", s.Type)
+			}
+			results <- result{index: idx, output: output, err: stepErr}
+		}(i, nested)
+	}
+
+	outputs := make([]string, len(cfg.Steps))
+	var firstErr error
+	for range cfg.Steps {
+		r := <-results
+		if r.err != nil {
+			outputs[r.index] = fmt.Sprintf("[step %d] error: %v", r.index+1, r.err)
+			if firstErr == nil {
+				firstErr = r.err
+			}
+		} else {
+			outputs[r.index] = fmt.Sprintf("[step %d] %s", r.index+1, r.output)
+		}
+	}
+
+	return strings.Join(outputs, "\n"), firstErr
+}
+
+// executeApproval creates an approval record and returns pending status.
+func (e *Engine) executeApproval(ctx context.Context, step Step, workflowID, runID int64) (string, error) {
+	var cfg ApprovalConfig
+	if err := json.Unmarshal(step.Config, &cfg); err != nil {
+		return "", fmt.Errorf("parsing approval config: %w", err)
+	}
+
+	if e.store == nil {
+		return "", fmt.Errorf("storage not available for approval tracking")
+	}
+
+	message := cfg.Message
+	if message == "" {
+		message = "Approval required to continue workflow"
+	}
+
+	approvalID, err := e.store.CreateWorkflowApproval(workflowID, runID, step.ID, message)
+	if err != nil {
+		return "", fmt.Errorf("creating approval record: %w", err)
+	}
+
+	logger.InfoCF("workflow", "Approval gate created", map[string]interface{}{
+		"approval_id": approvalID,
+		"step_id":     step.ID,
+		"message":     message,
+	})
+
+	return fmt.Sprintf("approval pending (id: %d) — %s", approvalID, message), nil
 }
 
 // templatePattern matches {{step.N.output}} or {{step.N.error}}

@@ -164,6 +164,43 @@
               />
             </svg>
           </button>
+          <!-- Speak button (TTS) -->
+          <button
+            v-if="msg.role === 'assistant' && !msg.streaming && msg.content"
+            :disabled="isSynthesizing"
+            class="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 sm:p-2 rounded-lg hover:bg-makoclaw-bg/80 text-makoclaw-text-secondary hover:text-makoclaw-accent disabled:opacity-30"
+            :title="isSynthesizing ? 'Synthesizing...' : 'Read aloud'"
+            @click="synthesizeAudio(msg.content)"
+          >
+            <svg
+              v-if="!isSynthesizing"
+              class="w-3 sm:w-3.5 h-3 sm:h-3.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M15.536 8.464a5 5 0 010 7.072M17.95 6.05a8 8 0 010 11.9M6.5 8.8l4.29-3.575A1 1 0 0112.5 6v12a1 1 0 01-1.71.705L6.5 15.2H4a1 1 0 01-1-1v-4.4a1 1 0 011-1h2.5z"
+              />
+            </svg>
+            <svg
+              v-else
+              class="w-3 sm:w-3.5 h-3 sm:h-3.5 animate-pulse"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m-4-4h8"
+              />
+            </svg>
+          </button>
           <!-- Copy button -->
           <button
             v-if="msg.role === 'assistant' && !msg.streaming"
@@ -219,10 +256,11 @@ import MarkdownRenderer from './Chat/MarkdownRenderer.vue'
 import ToolCallItem from './ToolCallItem.vue'
 import SpecialistBadge from './Chat/SpecialistBadge.vue'
 import AgentActivityItem from './Chat/AgentActivityItem.vue'
+import { useAuthStore } from '../stores/auth'
 
 const showSegments = ref(false)
-
-// activityDotColor removed — now handled by AgentActivityItem component
+const isSynthesizing = ref(false)
+const authStore = useAuthStore()
 
 defineProps({
   msg: {
@@ -244,6 +282,35 @@ defineProps({
 })
 
 defineEmits(['fork', 'copy', 'regenerate'])
+
+async function synthesizeAudio(text) {
+  if (isSynthesizing.value || !text) return
+  isSynthesizing.value = true
+  try {
+    const resp = await fetch('/api/v1/voice/synthesize', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authStore.token}`
+      },
+      body: JSON.stringify({ text: text.slice(0, 4096) })
+    })
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}))
+      console.error('TTS error:', err.error || resp.statusText)
+      return
+    }
+    const blob = await resp.blob()
+    const url = URL.createObjectURL(blob)
+    const audio = new Audio(url)
+    audio.onended = () => URL.revokeObjectURL(url)
+    audio.play()
+  } catch (e) {
+    console.error('TTS synthesis failed:', e)
+  } finally {
+    isSynthesizing.value = false
+  }
+}
 
 const formatTime = (isoString) => {
   if (!isoString) return ''

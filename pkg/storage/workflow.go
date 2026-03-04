@@ -29,6 +29,19 @@ type WorkflowRun struct {
 	FinishedAt *time.Time      `json:"finished_at,omitempty"`
 }
 
+// WorkflowApproval tracks pending approval gates in workflow execution.
+type WorkflowApproval struct {
+	ID         int64      `json:"id"`
+	WorkflowID int64      `json:"workflow_id"`
+	RunID      int64      `json:"run_id"`
+	StepID     string     `json:"step_id"`
+	Message    string     `json:"message"`
+	Status     string     `json:"status"` // "pending", "approved", "rejected"
+	ApprovedBy string     `json:"approved_by,omitempty"`
+	CreatedAt  time.Time  `json:"created_at"`
+	ResolvedAt *time.Time `json:"resolved_at,omitempty"`
+}
+
 func (s *Storage) migrateWorkflows() error {
 	queries := []string{
 		`CREATE TABLE IF NOT EXISTS workflows (
@@ -51,6 +64,17 @@ func (s *Storage) migrateWorkflows() error {
 			finished_at DATETIME
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_workflow_runs_workflow_id ON workflow_runs(workflow_id);`,
+		`CREATE TABLE IF NOT EXISTS workflow_approvals (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			workflow_id INTEGER NOT NULL,
+			run_id INTEGER NOT NULL,
+			step_id TEXT NOT NULL,
+			message TEXT,
+			status TEXT DEFAULT 'pending',
+			approved_by TEXT,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			resolved_at DATETIME
+		);`,
 	}
 
 	for _, q := range queries {
@@ -241,4 +265,54 @@ func (s *Storage) ListWorkflowRuns(workflowID int64, limit int) ([]WorkflowRun, 
 		return nil, fmt.Errorf("iterating workflow runs: %w", err)
 	}
 	return runs, nil
+}
+
+// CreateWorkflowApproval inserts a pending approval record.
+func (s *Storage) CreateWorkflowApproval(workflowID, runID int64, stepID, message string) (int64, error) {
+	result, err := s.db.Exec(
+		`INSERT INTO workflow_approvals (workflow_id, run_id, step_id, message) VALUES (?, ?, ?, ?)`,
+		workflowID, runID, stepID, message,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("creating approval: %w", err)
+	}
+	return result.LastInsertId()
+}
+
+// ResolveWorkflowApproval approves or rejects a pending approval.
+func (s *Storage) ResolveWorkflowApproval(id int64, status, approvedBy string) error {
+	result, err := s.db.Exec(
+		`UPDATE workflow_approvals SET status = ?, approved_by = ?, resolved_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'pending'`,
+		status, approvedBy, id,
+	)
+	if err != nil {
+		return fmt.Errorf("resolving approval: %w", err)
+	}
+	n, _ := result.RowsAffected()
+	if n == 0 {
+		return fmt.Errorf("approval not found or already resolved")
+	}
+	return nil
+}
+
+// GetPendingApprovals returns all pending workflow approvals.
+func (s *Storage) GetPendingApprovals() ([]WorkflowApproval, error) {
+	rows, err := s.db.Query(
+		`SELECT id, workflow_id, run_id, step_id, COALESCE(message, ''), status, COALESCE(approved_by, ''), created_at, resolved_at
+		FROM workflow_approvals WHERE status = 'pending' ORDER BY created_at DESC`,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("listing approvals: %w", err)
+	}
+	defer rows.Close()
+
+	approvals := make([]WorkflowApproval, 0)
+	for rows.Next() {
+		var a WorkflowApproval
+		if err := rows.Scan(&a.ID, &a.WorkflowID, &a.RunID, &a.StepID, &a.Message, &a.Status, &a.ApprovedBy, &a.CreatedAt, &a.ResolvedAt); err != nil {
+			return nil, fmt.Errorf("scanning approval: %w", err)
+		}
+		approvals = append(approvals, a)
+	}
+	return approvals, rows.Err()
 }

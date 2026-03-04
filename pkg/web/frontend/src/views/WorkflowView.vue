@@ -737,6 +737,89 @@
                       >
                     </div>
                   </template>
+
+                  <!-- Loop Config -->
+                  <template v-if="step.type === 'loop'">
+                    <div>
+                      <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">
+                        Items
+                        <span class="font-normal normal-case opacity-60 ml-1">(comma-separated or template)</span>
+                      </label>
+                      <input
+                        v-model="step._config.items"
+                        type="text"
+                        placeholder="item1, item2, item3"
+                        class="w-full px-4 py-2.5 bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500/50 font-mono transition-all min-h-[40px]"
+                      >
+                    </div>
+                    <div>
+                      <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">Variable Name</label>
+                      <input
+                        v-model="step._config.variable"
+                        type="text"
+                        placeholder="item"
+                        class="w-full px-4 py-2.5 bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500/50 transition-all min-h-[40px]"
+                      >
+                    </div>
+                    <div>
+                      <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">Nested Steps (JSON)</label>
+                      <textarea
+                        v-model="step._config._stepsJson"
+                        rows="4"
+                        placeholder='[{"id":"s1","type":"prompt","label":"Process","config":{"message":"Process item"}}]'
+                        class="w-full px-4 py-3 bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500/50 font-mono resize-y transition-all"
+                      />
+                    </div>
+                  </template>
+
+                  <!-- Parallel Config -->
+                  <template v-if="step.type === 'parallel'">
+                    <div>
+                      <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">Max Concurrency</label>
+                      <input
+                        v-model.number="step._config.max_concurrency"
+                        type="number"
+                        min="1"
+                        max="10"
+                        placeholder="0 = unlimited"
+                        class="w-full px-4 py-2.5 bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/50 transition-all min-h-[40px]"
+                      >
+                    </div>
+                    <div>
+                      <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">Parallel Steps (JSON)</label>
+                      <textarea
+                        v-model="step._config._stepsJson"
+                        rows="4"
+                        placeholder='[{"id":"s1","type":"tool","label":"Task A","config":{"tool_name":"web_search","args":{}}}]'
+                        class="w-full px-4 py-3 bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/50 font-mono resize-y transition-all"
+                      />
+                    </div>
+                  </template>
+
+                  <!-- Approval Config -->
+                  <template v-if="step.type === 'approval'">
+                    <div>
+                      <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">Approval Message</label>
+                      <textarea
+                        v-model="step._config.message"
+                        rows="3"
+                        placeholder="Describe what needs to be approved..."
+                        class="w-full px-4 py-3 bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/50 resize-y transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">
+                        Approvers
+                        <span class="font-normal normal-case opacity-60 ml-1">(comma-separated, optional)</span>
+                      </label>
+                      <input
+                        v-model="step._config.approvers"
+                        type="text"
+                        placeholder="admin, manager"
+                        class="w-full px-4 py-2.5 bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/50 transition-all min-h-[40px]"
+                      >
+                    </div>
+                  </template>
                 </div>
               </Transition>
             </div>
@@ -795,6 +878,27 @@
               d="M12 4v16m8-8H4"
             /></svg>
             Condition
+          </button>
+          <button
+            class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded-xl hover:bg-cyan-500/20 transition-all active:scale-95 min-h-[40px]"
+            @click="addStep('loop')"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+            Loop
+          </button>
+          <button
+            class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-xl hover:bg-emerald-500/20 transition-all active:scale-95 min-h-[40px]"
+            @click="addStep('parallel')"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" /></svg>
+            Parallel
+          </button>
+          <button
+            class="flex items-center gap-2 px-4 py-2.5 text-xs font-bold bg-orange-500/10 text-orange-400 border border-orange-500/20 rounded-xl hover:bg-orange-500/20 transition-all active:scale-95 min-h-[40px]"
+            @click="addStep('approval')"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            Approval
           </button>
         </div>
 
@@ -1124,6 +1228,9 @@ function defaultConfig(type) {
   if (type === 'prompt') return { message: '', model: '' }
   if (type === 'tool') return { tool_name: '', _argsJson: '{}', _argsError: '' }
   if (type === 'condition') return { operator: 'contains', value: '', reference: '' }
+  if (type === 'loop') return { items: '', variable: 'item', _stepsJson: '[]' }
+  if (type === 'parallel') return { max_concurrency: 0, _stepsJson: '[]' }
+  if (type === 'approval') return { message: '', approvers: '' }
   return {}
 }
 
@@ -1140,6 +1247,16 @@ function deserializeStep(raw) {
     step._config = { tool_name: cfg.tool_name || '', _argsJson: argsJson, _argsError: '' }
   } else if (raw.type === 'condition') {
     step._config = { operator: cfg.operator || 'contains', value: cfg.value || '', reference: cfg.reference || '' }
+  } else if (raw.type === 'loop') {
+    let stepsJson = '[]'
+    try { stepsJson = JSON.stringify(cfg.steps || [], null, 2) } catch { stepsJson = '[]' }
+    step._config = { items: cfg.items || '', variable: cfg.variable || 'item', _stepsJson: stepsJson }
+  } else if (raw.type === 'parallel') {
+    let stepsJson = '[]'
+    try { stepsJson = JSON.stringify(cfg.steps || [], null, 2) } catch { stepsJson = '[]' }
+    step._config = { max_concurrency: cfg.max_concurrency || 0, _stepsJson: stepsJson }
+  } else if (raw.type === 'approval') {
+    step._config = { message: cfg.message || '', approvers: (cfg.approvers || []).join(', ') }
   } else {
     step._config = cfg
   }
@@ -1158,6 +1275,17 @@ function serializeSteps(steps) {
       out.config = { tool_name: s._config.tool_name || '', args }
     } else if (s.type === 'condition') {
       out.config = { operator: s._config.operator, value: s._config.value, reference: s._config.reference }
+    } else if (s.type === 'loop') {
+      let steps = []
+      try { steps = JSON.parse(s._config._stepsJson || '[]') } catch { /* keep empty */ }
+      out.config = { items: s._config.items || '', variable: s._config.variable || 'item', steps }
+    } else if (s.type === 'parallel') {
+      let steps = []
+      try { steps = JSON.parse(s._config._stepsJson || '[]') } catch { /* keep empty */ }
+      out.config = { steps, max_concurrency: s._config.max_concurrency || 0 }
+    } else if (s.type === 'approval') {
+      const approvers = (s._config.approvers || '').split(',').map(a => a.trim()).filter(Boolean)
+      out.config = { message: s._config.message || '', approvers }
     }
     return out
   })
@@ -1368,6 +1496,9 @@ function stepTypeClass(type) {
   if (type === 'prompt') return 'bg-rose-500/15 text-rose-400'
   if (type === 'tool') return 'bg-amber-500/15 text-amber-400'
   if (type === 'condition') return 'bg-fuchsia-500/15 text-fuchsia-400'
+  if (type === 'loop') return 'bg-cyan-500/15 text-cyan-400'
+  if (type === 'parallel') return 'bg-emerald-500/15 text-emerald-400'
+  if (type === 'approval') return 'bg-orange-500/15 text-orange-400'
   return 'bg-gray-500/10 text-gray-400'
 }
 </script>

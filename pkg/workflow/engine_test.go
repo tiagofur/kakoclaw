@@ -1,8 +1,13 @@
 package workflow
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
+
+	"github.com/sipeed/makoclaw/pkg/config"
+	"github.com/sipeed/makoclaw/pkg/storage"
+	"github.com/sipeed/makoclaw/pkg/tools"
 )
 
 func TestNewEngine(t *testing.T) {
@@ -282,5 +287,187 @@ func TestEvaluateCondition_OutOfBounds(t *testing.T) {
 	// The key behavior being tested is that no panic/crash occurs.
 	if !got {
 		t.Error("expected true since unresolved placeholder is non-empty text")
+	}
+}
+
+// --- New step type tests (loop, parallel, approval) ---
+
+func setupTestEngine(t *testing.T) (*Engine, *storage.Storage) {
+	t.Helper()
+	store, err := storage.New(config.StorageConfig{Path: ":memory:"})
+	if err != nil {
+		t.Fatalf("failed to create storage: %v", err)
+	}
+	t.Cleanup(func() { store.Close() })
+
+	registry := tools.NewToolRegistry()
+	engine := NewEngine(nil, registry, store)
+	return engine, store
+}
+
+func mustMarshal(t *testing.T, v interface{}) json.RawMessage {
+	t.Helper()
+	data, err := json.Marshal(v)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	return data
+}
+
+func TestLoopExecution(t *testing.T) {
+	engine, store := setupTestEngine(t)
+
+	loopConfig := LoopConfig{
+		Items:    "apple, banana, cherry",
+		Variable: "fruit",
+		Steps: []Step{
+			{
+				ID:   "nested1",
+				Type: StepTool,
+				Config: mustMarshal(t, ToolConfig{
+					ToolName: "nonexistent_tool",
+					Args:     map[string]interface{}{"input": "{{param.fruit}}"},
+				}),
+				OnError: "continue",
+			},
+		},
+	}
+
+	stepsJSON := mustMarshal(t, []Step{
+		{
+			ID:      "loop1",
+			Type:    StepLoop,
+			Label:   "Process fruits",
+			Config:  mustMarshal(t, loopConfig),
+			OnError: "continue",
+		},
+	})
+
+	wfID, err := store.CreateWorkflow("Loop Test", "test", stepsJSON, nil, nil)
+	if err != nil {
+		t.Fatalf("failed to create workflow: %v", err)
+	}
+	wf, _ := store.GetWorkflow(wfID)
+
+	results, _ := engine.RunWithParams(context.Background(), wf, nil)
+	if len(results) == 0 {
+		t.Fatal("expected at least one result")
+	}
+	if results[0].StepType != "loop" {
+		t.Errorf("expected step type 'loop', got %q", results[0].StepType)
+	}
+}
+
+func TestParallelExecution(t *testing.T) {
+	engine, store := setupTestEngine(t)
+
+	parallelConfig := ParallelConfig{
+		MaxConcurrency: 2,
+		Steps: []Step{
+			{
+				ID:      "p1",
+				Type:    StepTool,
+				Config:  mustMarshal(t, ToolConfig{ToolName: "nonexistent1", Args: map[string]interface{}{}}),
+				OnError: "continue",
+			},
+			{
+				ID:      "p2",
+				Type:    StepTool,
+				Config:  mustMarshal(t, ToolConfig{ToolName: "nonexistent2", Args: map[string]interface{}{}}),
+				OnError: "continue",
+			},
+		},
+	}
+
+	stepsJSON := mustMarshal(t, []Step{
+		{
+			ID:      "par1",
+			Type:    StepParallel,
+			Label:   "Parallel tasks",
+			Config:  mustMarshal(t, parallelConfig),
+			OnError: "continue",
+		},
+	})
+
+	wfID, err := store.CreateWorkflow("Parallel Test", "test", stepsJSON, nil, nil)
+	if err != nil {
+		t.Fatalf("failed to create workflow: %v", err)
+	}
+	wf, _ := store.GetWorkflow(wfID)
+
+	results, _ := engine.RunWithParams(context.Background(), wf, nil)
+	if len(results) == 0 {
+		t.Fatal("expected at least one result")
+	}
+	if results[0].StepType != "parallel" {
+		t.Errorf("expected step type 'parallel', got %q", results[0].StepType)
+	}
+	if results[0].Output == "" {
+		t.Error("expected non-empty output from parallel step")
+	}
+}
+
+func TestApprovalCreation(t *testing.T) {
+	engine, store := setupTestEngine(t)
+
+	approvalConfig := ApprovalConfig{
+		Message:   "Please approve this deployment",
+		Approvers: []string{"admin"},
+	}
+
+	stepsJSON := mustMarshal(t, []Step{
+		{
+			ID:      "approve1",
+			Type:    StepApproval,
+			Label:   "Deploy approval",
+			Config:  mustMarshal(t, approvalConfig),
+			OnError: "stop",
+		},
+	})
+
+	wfID, err := store.CreateWorkflow("Approval Test", "test", stepsJSON, nil, nil)
+	if err != nil {
+		t.Fatalf("failed to create workflow: %v", err)
+	}
+	wf, _ := store.GetWorkflow(wfID)
+
+	results, err := engine.RunWithParams(context.Background(), wf, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if results[0].StepType != "approval" {
+		t.Errorf("expected step type 'approval', got %q", results[0].StepType)
+	}
+	if results[0].Error != "" {
+		t.Errorf("unexpected error: %s", results[0].Error)
+	}
+
+	// Verify approval was created in storage
+	approvals, err := store.GetPendingApprovals()
+	if err != nil {
+		t.Fatalf("failed to get approvals: %v", err)
+	}
+	if len(approvals) != 1 {
+		t.Fatalf("expected 1 pending approval, got %d", len(approvals))
+	}
+	if approvals[0].Message != "Please approve this deployment" {
+		t.Errorf("message = %q, want %q", approvals[0].Message, "Please approve this deployment")
+	}
+	if approvals[0].Status != "pending" {
+		t.Errorf("status = %q, want %q", approvals[0].Status, "pending")
+	}
+
+	// Resolve the approval
+	err = store.ResolveWorkflowApproval(approvals[0].ID, "approved", "admin")
+	if err != nil {
+		t.Fatalf("failed to resolve approval: %v", err)
+	}
+
+	approvals, _ = store.GetPendingApprovals()
+	if len(approvals) != 0 {
+		t.Errorf("expected 0 pending after resolution, got %d", len(approvals))
 	}
 }
