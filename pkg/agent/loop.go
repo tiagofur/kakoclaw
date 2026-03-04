@@ -1110,7 +1110,7 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 		tokensIn := al.estimateTokens(messages)
 		tokensOut := 0
 		if err == nil {
-			tokensOut = len(response.Content) / 4 // rough estimate
+			tokensOut = (len(response.Content) * 10) / 35 // ~3.5 chars/token estimate
 			// Use actual usage if available from provider
 			if response.Usage != nil {
 				tokensIn = response.Usage.PromptTokens
@@ -1410,7 +1410,7 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 
 			// Record streaming LLM call metrics
 			streamContent := contentBuilder.String()
-			streamTokensOut := len(streamContent) / 4
+			streamTokensOut := (len(streamContent) * 10) / 35 // ~3.5 chars/token estimate
 			observability.Global().RecordLLMCall(model, time.Since(llmStart), al.estimateTokens(messages), streamTokensOut, nil)
 
 			// If no tool calls — we're done
@@ -1504,7 +1504,7 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 		fallbackTokensIn := al.estimateTokens(messages)
 		fallbackTokensOut := 0
 		if err == nil {
-			fallbackTokensOut = len(response.Content) / 4
+			fallbackTokensOut = (len(response.Content) * 10) / 35 // ~3.5 chars/token estimate
 			// Use actual usage if available
 			if response.Usage != nil {
 				fallbackTokensIn = response.Usage.PromptTokens
@@ -1712,8 +1712,8 @@ func (al *AgentLoop) summarizeSession(sessionKey string) {
 		if m.Role != "user" && m.Role != "assistant" {
 			continue
 		}
-		// Estimate tokens for this message
-		msgTokens := len(m.Content) / 4
+		// Estimate tokens for this message (~3.5 chars/token)
+		msgTokens := (len(m.Content) * 10) / 35
 		if msgTokens > maxMessageTokens {
 			omitted = true
 			continue
@@ -1784,10 +1784,16 @@ func (al *AgentLoop) summarizeBatch(ctx context.Context, batch []providers.Messa
 }
 
 // estimateTokens estimates the number of tokens in a message list.
+// This is a rough heuristic (~3.5 chars/token for English, varies by language/code).
+// When possible, actual token counts from provider Usage data should be preferred.
+// Used as fallback for providers that don't report usage (e.g., Ollama).
 func (al *AgentLoop) estimateTokens(messages []providers.Message) int {
 	total := 0
 	for _, m := range messages {
-		total += len(m.Content) / 4 // Simple heuristic: 4 chars per token
+		// Use ~3.5 chars per token (conservative estimate for mixed content)
+		// This errs on the side of triggering summarization earlier, which is safer
+		// than hitting context limits. English averages ~4, code ~3, non-Latin ~1-2.
+		total += (len(m.Content) * 10) / 35 // equivalent to / 3.5
 	}
 	return total
 }

@@ -248,9 +248,18 @@ func extractTextFromFile(data []byte, ext, filename string) (string, string, err
 
 	case ".pdf":
 		// Basic PDF text extraction: look for text between BT/ET markers
+		// Note: This only works for simple, uncompressed PDFs. Most modern PDFs
+		// use FlateDecode compression and would need a proper PDF library to extract.
 		text := extractPDFText(data)
 		if text == "" {
-			return "", "", fmt.Errorf("could not extract text from PDF (binary or encrypted)")
+			// Provide helpful error message based on what we detected
+			if bytes.Contains(data, []byte("/Encrypt")) {
+				return "", "", fmt.Errorf("PDF is encrypted - please use an unencrypted version")
+			}
+			if bytes.Contains(data, []byte("FlateDecode")) || bytes.Contains(data, []byte("/Filter")) {
+				return "", "", fmt.Errorf("PDF uses compressed streams - basic text extraction not supported. Try copying text manually or use a PDF-to-text tool")
+			}
+			return "", "", fmt.Errorf("could not extract readable text from PDF")
 		}
 		return text, "application/pdf", nil
 

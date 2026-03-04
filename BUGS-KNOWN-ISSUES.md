@@ -14,10 +14,10 @@ This document tracks known issues discovered during security audits and code rev
 | Critical | 3 | 3 | 0 |
 | High | 4 | 4 | 0 |
 | Medium | 10 | 9 | 1 |
-| Low | 8 | 6 | 2 |
-| **Total** | **25** | **22** | **3** |
+| Low | 8 | 7 | 1 |
+| **Total** | **25** | **23** | **2** |
 
-> **Last Fix Session**: 2026-03-04 - Fixed 22 issues (88%) including all critical/high severity security bugs, cost tracking integration, WhatsApp logging, and various improvements. LOW-008 analyzed and verified as low-risk with mitigations in place.
+> **Last Fix Session**: 2026-03-04 - Fixed 23 issues (92%) including all critical/high severity security bugs, cost tracking integration, WhatsApp logging, improved token estimation, PDF error messaging, and various improvements. LOW-008 and LOW-004 documented with mitigations.
 
 ---
 
@@ -307,13 +307,20 @@ No code changes needed.
 
 ### LOW-002: Token Estimation Primitive
 
-**File**: [pkg/agent/loop.go:1759-1765](pkg/agent/loop.go#L1759-L1765)
+**File**: [pkg/agent/loop.go:1786-1797](pkg/agent/loop.go#L1786-L1797)
 
-**Description**: Uses `len(content) / 4` for token estimation.
+**Description**: Uses character-based heuristic for token estimation.
 
 **Impact**: Inaccurate summarization triggers.
 
-**Status**: 🔴 Pending
+**Fix Applied**:
+- Changed estimate from `len(content) / 4` to `(len(content) * 10) / 35` (~3.5 chars/token)
+- More conservative estimate errs toward earlier summarization (safer than hitting context limits)
+- Added documentation explaining the rationale
+- Note: Actual token counts from provider Usage data are used when available (most providers)
+- Updated all 5 occurrences in loop.go for consistency
+
+**Status**: 🟢 Improved (2026-03-04)
 
 ---
 
@@ -333,13 +340,21 @@ No code changes needed.
 
 ### LOW-004: PDF Extraction Basic
 
-**File**: [pkg/web/handlers_features.go:249-256](pkg/web/handlers_features.go#L249-L256)
+**File**: [pkg/web/handlers_features.go:249-265](pkg/web/handlers_features.go#L249-L265)
 
 **Description**: Only extracts text between BT/ET markers.
 
 **Impact**: Encrypted/complex PDFs fail silently.
 
-**Status**: 🔴 Pending
+**Improvement Applied** (2026-03-04):
+- Added detection for encrypted PDFs (`/Encrypt` marker)
+- Added detection for compressed PDFs (`FlateDecode`, `/Filter` markers)
+- Improved error messages to explain WHY extraction failed and suggest alternatives
+- Added code comments explaining the limitation
+
+**Known Limitation**: Full PDF support requires a proper library (pdfcpu, ledongthuc/pdf, etc.) to handle compressed streams. Most modern PDFs use FlateDecode compression.
+
+**Status**: 🟡 Improved with documentation (2026-03-04)
 
 ---
 
