@@ -342,11 +342,6 @@
 
       <!-- Main Chat Area -->
       <div class="flex-1 flex flex-col min-w-0 relative">
-        <!-- Specialists Panel -->
-        <div class="px-2 sm:px-3 md:px-4 pt-2 sm:pt-3">
-          <SpecialistsPanel />
-        </div>
-
         <!-- Messages Area -->
         <div
           ref="messagesContainer"
@@ -881,7 +876,6 @@ import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { storeToRefs } from 'pinia'
 import MessageBubble from '../components/MessageBubble.vue'
 import AgentStatusIndicator from '../components/Chat/AgentStatusIndicator.vue'
-import SpecialistsPanel from '../components/Chat/SpecialistsPanel.vue'
 import SessionContextMenu from '../components/Chat/SessionContextMenu.vue'
 import TeamActivityPanel from '../components/Chat/TeamActivityPanel.vue'
 import PromptLibrary from '../components/PromptModal.vue'
@@ -1254,6 +1248,8 @@ const handleMessage = (message) => {
       delegationChain: message.delegation_chain,
       delegationDepth: message.delegation_depth,
       parentAgent: message.parent_agent,
+      activeSkills: message.active_skills,
+      maxIterations: message.max_iterations,
       timestamp: new Date().toISOString()
     })
     // Update team activity panel

@@ -1380,6 +1380,12 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 					if ev.ParentAgent != "" {
 						msg["parent_agent"] = ev.ParentAgent
 					}
+					if len(ev.ActiveSkills) > 0 {
+						msg["active_skills"] = ev.ActiveSkills
+					}
+					if ev.MaxIterations > 0 {
+						msg["max_iterations"] = ev.MaxIterations
+					}
 					return conn.WriteJSON(msg)
 				})
 

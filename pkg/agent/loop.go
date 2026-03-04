@@ -135,6 +135,8 @@ type AgentStatusEvent struct {
 	DelegationChain []string  `json:"delegation_chain,omitempty"` // e.g. ["orchestrator", "developer", "security"]
 	DelegationDepth int       `json:"delegation_depth,omitempty"` // 0=orchestrator, 1=specialist, 2=colleague
 	ParentAgent     string    `json:"parent_agent,omitempty"`     // who delegated to this agent
+	ActiveSkills    []string  `json:"active_skills,omitempty"`    // skills the agent is using
+	MaxIterations   int       `json:"max_iterations,omitempty"`   // iteration limit for visibility
 }
 
 // AgentStatusCallback is called when agent status changes
@@ -1261,6 +1263,34 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 		}
 	}
 
+	// If we exhausted iterations without a text response, force a concluding call
+	// with no tools so the LLM must produce a final answer instead of looping.
+	if finalContent == "" && iteration >= al.maxIterations {
+		logger.WarnCF("agent", "Iteration limit reached without text response, forcing concluding call",
+			map[string]interface{}{
+				"iterations": iteration,
+				"max":        al.maxIterations,
+			})
+
+		// Append an instruction to wrap up
+		messages = append(messages, providers.Message{
+			Role:    "user",
+			Content: "[System: You have reached the maximum number of tool iterations. You MUST now provide your final response as text. Summarize what you accomplished and any remaining items.]",
+		})
+
+		// Call LLM with NO tools so it must produce text
+		concludeResp, err := al.provider.Chat(ctx, messages, nil, model, map[string]interface{}{
+			"max_tokens":  4096,
+			"temperature": 0.7,
+		})
+		if err != nil {
+			logger.ErrorCF("agent", "Concluding LLM call failed", map[string]interface{}{"error": err.Error()})
+			return "", iteration, fmt.Errorf("concluding LLM call failed: %w", err)
+		}
+		finalContent = concludeResp.Content
+		iteration++
+	}
+
 	return finalContent, iteration, nil
 }
 
@@ -1583,6 +1613,38 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 			messages = append(messages, toolResultMsg)
 			al.sessions.AddFullMessageForUser(al.userID, opts.SessionKey, toolResultMsg)
 		}
+	}
+
+	// If we exhausted iterations without a text response, force a concluding call
+	// with no tools so the LLM must produce a final answer instead of looping.
+	if finalContent == "" && iteration >= al.maxIterations {
+		logger.WarnCF("agent", "Streaming iteration limit reached without text response, forcing concluding call",
+			map[string]interface{}{
+				"iterations": iteration,
+				"max":        al.maxIterations,
+			})
+
+		// Append an instruction to wrap up
+		messages = append(messages, providers.Message{
+			Role:    "user",
+			Content: "[System: You have reached the maximum number of tool iterations. You MUST now provide your final response as text. Summarize what you accomplished and any remaining items.]",
+		})
+
+		// Call LLM with NO tools so it must produce text
+		concludeResp, err := al.provider.Chat(ctx, messages, nil, model, map[string]interface{}{
+			"max_tokens":  4096,
+			"temperature": 0.7,
+		})
+		if err != nil {
+			logger.ErrorCF("agent", "Concluding streaming LLM call failed", map[string]interface{}{"error": err.Error()})
+			return "", iteration, fmt.Errorf("concluding LLM call failed: %w", err)
+		}
+		finalContent = concludeResp.Content
+		// Stream the concluding content to the client
+		if onToken != nil && finalContent != "" {
+			_ = onToken(finalContent)
+		}
+		iteration++
 	}
 
 	return finalContent, iteration, nil
