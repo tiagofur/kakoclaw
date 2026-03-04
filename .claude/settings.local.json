@@ -64,7 +64,16 @@
       "Bash(MSYS_NO_PATHCONV=1 docker exec makoclaw sh -c 'echo \"\"test with exclaim: Passw0rd!2026\"\" && printf \"\"%s\"\" \"\"Passw0rd!2026\"\" | xxd | head -2')",
       "Bash(powershell.exe:*)",
       "Bash(cmd.exe:*)",
-      "Bash(docker.exe ps:*)"
+      "Bash(docker.exe ps:*)",
+      "Bash(git -C \"c:\\\\Users\\\\tfurt\\\\source\\\\repos\\\\kakoclaw\" ls-files pkg/agent/)",
+      "Bash(for f in api-reference/{providers,channels,config,agent}.md architecture/{components,diagrams}.md development/{project-structure,creating-tools,creating-channels,creating-skills,testing,code-conventions}.md guides/{llm-providers,channels,agent-cli,cron-jobs}.md examples/{automation,integrations}.md deployment/{local,server,systemd,embedded}.md troubleshooting/{common-issues,config-errors,channel-issues,debugging}.md)",
+      "Bash(do if [ -f \"$f\" ])",
+      "Bash(then echo \"EXISTS: $f\")",
+      "Bash(else echo \"MISSING: $f\")",
+      "Bash(fi)",
+      "Bash(done)",
+      "Bash(du:*)",
+      "Bash(npx vue-tsc:*)"
     ]
   },
   "enabledPlugins": {
