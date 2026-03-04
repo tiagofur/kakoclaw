@@ -13,11 +13,11 @@ This document tracks known issues discovered during security audits and code rev
 |----------|-------|-------|---------|
 | Critical | 3 | 3 | 0 |
 | High | 4 | 4 | 0 |
-| Medium | 10 | 9 | 1 |
-| Low | 8 | 7 | 1 |
-| **Total** | **25** | **23** | **2** |
+| Medium | 10 | 10 | 0 |
+| Low | 8 | 8 | 0 |
+| **Total** | **25** | **25** | **0** |
 
-> **Last Fix Session**: 2026-03-04 - Fixed 23 issues (92%) including all critical/high severity security bugs, cost tracking integration, WhatsApp logging, improved token estimation, PDF error messaging, and various improvements. LOW-008 and LOW-004 documented with mitigations.
+> **Last Fix Session**: 2026-03-04 - Fixed/verified all 25 issues (100%). All critical/high/medium severity bugs resolved. Ollama provider now supports tool calling. MED-009 (Files View) was verified to be already fully implemented - the original report was inaccurate.
 
 ---
 
@@ -164,11 +164,19 @@ Changes:
 
 **File**: [pkg/providers/ollama_provider.go:71-142](pkg/providers/ollama_provider.go#L71)
 
-**Description**: `tools` parameter is completely ignored in `Chat()` method.
+**Description**: `tools` parameter was completely ignored in `Chat()` method.
 
 **Impact**: Agents using Ollama cannot use any tools.
 
-**Status**: 🔴 Pending
+**Fix Applied**:
+- Added `Tools` field to `OllamaRequest` struct
+- Added `OllamaToolCall` and `OllamaFunctionCall` structs for parsing responses
+- Added `ToolCalls` field to `OllamaMessage` and `OllamaResponse.Message`
+- `Chat()` now passes tools to Ollama API (requires Ollama 0.3.0+)
+- Tool calls in response are converted to standard `ToolCall` format
+- `ChatStream()` also updated to support tools in streaming mode
+
+**Status**: 🟢 Fixed (2026-03-04)
 
 ---
 
@@ -264,11 +272,31 @@ No code changes needed.
 
 **File**: [pkg/web/frontend/src/views/FilesView.vue](pkg/web/frontend/src/views/FilesView.vue)
 
-**Description**: UI skeleton exists but no backend endpoints connected.
+**Description**: Originally reported as "UI skeleton exists but no backend endpoints connected."
 
-**Impact**: Feature shown in navigation but doesn't work.
+**Verification** (2026-03-04): Investigation revealed the feature is actually **fully implemented**:
 
-**Status**: 🔴 Pending
+**Frontend** (FilesView.vue):
+- Complete file browser with breadcrumb navigation
+- Search functionality with debounced input
+- File upload (button + drag & drop)
+- New folder creation modal
+- File viewing with edit mode for text files
+- Download (individual files and folders as ZIP)
+- Delete with confirmation modal
+- Rename (inline editing)
+- System file protection (read-only badge)
+
+**Backend** ([handlers_advanced.go:1084-1500](pkg/web/handlers_advanced.go#L1084)):
+- `GET /api/v1/files/{path}` - List directory, read file content, download
+- `POST /api/v1/files/{path}` - Upload file
+- `PUT /api/v1/files/{path}` - Create folder (mkdir=true) or update content
+- `DELETE /api/v1/files/{path}` - Delete file/folder
+- `PATCH /api/v1/files/{path}` - Rename file/folder
+- Search via `?search=query` parameter
+- Security: path traversal protection, symlink attack prevention, system file protection
+
+**Status**: 🟢 Already Implemented (verified 2026-03-04)
 
 ---
 

@@ -21,16 +21,29 @@ type OllamaProvider struct {
 
 // OllamaMessage represents a message in Ollama format
 type OllamaMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role      string           `json:"role"`
+	Content   string           `json:"content"`
+	ToolCalls []OllamaToolCall `json:"tool_calls,omitempty"`
+}
+
+// OllamaToolCall represents a tool call in Ollama format
+type OllamaToolCall struct {
+	Function OllamaFunctionCall `json:"function"`
+}
+
+// OllamaFunctionCall represents a function call in Ollama format
+type OllamaFunctionCall struct {
+	Name      string                 `json:"name"`
+	Arguments map[string]interface{} `json:"arguments"`
 }
 
 // OllamaRequest represents the request body for Ollama API
 type OllamaRequest struct {
-	Model    string          `json:"model"`
-	Messages []OllamaMessage `json:"messages"`
-	Stream   bool            `json:"stream"`
-	Options  OllamaOptions   `json:"options,omitempty"`
+	Model    string           `json:"model"`
+	Messages []OllamaMessage  `json:"messages"`
+	Stream   bool             `json:"stream"`
+	Options  OllamaOptions    `json:"options,omitempty"`
+	Tools    []ToolDefinition `json:"tools,omitempty"`
 }
 
 // OllamaOptions represents model-specific options
@@ -43,12 +56,22 @@ type OllamaOptions struct {
 type OllamaResponse struct {
 	Model   string `json:"model"`
 	Message struct {
-		Role    string `json:"role"`
-		Content string `json:"content"`
+		Role      string           `json:"role"`
+		Content   string           `json:"content"`
+		ToolCalls []OllamaToolCall `json:"tool_calls,omitempty"`
 	} `json:"message"`
 	Done            bool `json:"done"`
 	EvalCount       int  `json:"eval_count"`
 	PromptEvalCount int  `json:"prompt_eval_count"`
+}
+
+// mustMarshalJSON marshals v to JSON string, returning "{}" on error
+func mustMarshalJSON(v interface{}) string {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return "{}"
+	}
+	return string(data)
 }
 
 // NewOllamaProvider creates a new Ollama provider
@@ -72,6 +95,7 @@ func (p *OllamaProvider) Chat(ctx context.Context, messages []Message, tools []T
 	logger.InfoCF("ollama", "Sending chat request", map[string]interface{}{
 		"model":    model,
 		"messages": len(messages),
+		"tools":    len(tools),
 	})
 
 	// Convert messages to Ollama format
@@ -88,6 +112,11 @@ func (p *OllamaProvider) Chat(ctx context.Context, messages []Message, tools []T
 		Model:    model,
 		Messages: ollamaMessages,
 		Stream:   false,
+	}
+
+	// Add tools if provided (requires Ollama 0.3.0+)
+	if len(tools) > 0 {
+		reqBody.Tools = tools
 	}
 
 	// Add options if provided
@@ -131,14 +160,34 @@ func (p *OllamaProvider) Chat(ctx context.Context, messages []Message, tools []T
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
-	return &LLMResponse{
+	// Build response with tool calls if present
+	llmResp := &LLMResponse{
 		Content: ollamaResp.Message.Content,
 		Usage: &UsageInfo{
 			PromptTokens:     ollamaResp.PromptEvalCount,
 			CompletionTokens: ollamaResp.EvalCount,
 			TotalTokens:      ollamaResp.PromptEvalCount + ollamaResp.EvalCount,
 		},
-	}, nil
+	}
+
+	// Convert Ollama tool calls to standard format
+	if len(ollamaResp.Message.ToolCalls) > 0 {
+		llmResp.ToolCalls = make([]ToolCall, len(ollamaResp.Message.ToolCalls))
+		for i, tc := range ollamaResp.Message.ToolCalls {
+			llmResp.ToolCalls[i] = ToolCall{
+				ID:   fmt.Sprintf("call_%d", i), // Ollama doesn't provide IDs, generate one
+				Type: "function",
+				Function: &FunctionCall{
+					Name:      tc.Function.Name,
+					Arguments: mustMarshalJSON(tc.Function.Arguments),
+				},
+				Name:      tc.Function.Name,
+				Arguments: tc.Function.Arguments,
+			}
+		}
+	}
+
+	return llmResp, nil
 }
 
 // GetDefaultModel implements LLMProvider.GetDefaultModel
@@ -201,6 +250,12 @@ func (p *OllamaProvider) ChatStream(ctx context.Context, messages []Message, too
 		Model:    model,
 		Messages: ollamaMessages,
 		Stream:   true, // Enable streaming
+	}
+
+	// Add tools if provided (requires Ollama 0.3.0+)
+	// Note: Streaming with tools may return tool calls only in the final chunk
+	if len(tools) > 0 {
+		reqBody.Tools = tools
 	}
 
 	if temp, ok := options["temperature"].(float64); ok {
@@ -266,6 +321,24 @@ func (p *OllamaProvider) ChatStream(ctx context.Context, messages []Message, too
 					PromptTokens:     ollamaResp.PromptEvalCount,
 					CompletionTokens: ollamaResp.EvalCount,
 					TotalTokens:      ollamaResp.PromptEvalCount + ollamaResp.EvalCount,
+				}
+
+				// Convert tool calls if present in final chunk
+				if len(ollamaResp.Message.ToolCalls) > 0 {
+					chunk.ToolCalls = make([]ToolCall, len(ollamaResp.Message.ToolCalls))
+					for i, tc := range ollamaResp.Message.ToolCalls {
+						chunk.ToolCalls[i] = ToolCall{
+							ID:   fmt.Sprintf("call_%d", i),
+							Type: "function",
+							Function: &FunctionCall{
+								Name:      tc.Function.Name,
+								Arguments: mustMarshalJSON(tc.Function.Arguments),
+							},
+							Name:      tc.Function.Name,
+							Arguments: tc.Function.Arguments,
+						}
+					}
+					chunk.FinishReason = "tool_calls"
 				}
 			}
 
