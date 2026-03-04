@@ -266,6 +266,55 @@
                   </p>
                 </div>
               </div>
+
+              <!-- Slack specific form -->
+              <div
+                v-else-if="selectedChannel?.id === 'slack'"
+                class="space-y-4"
+              >
+                <div>
+                  <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">
+                    Bot Token (xoxb-...)
+                  </label>
+                  <input
+                    v-model="channelForm.bot_token"
+                    type="password"
+                    :placeholder="channelForm._hasExistingToken ? '•••••••• (saved — leave empty to keep)' : 'xoxb-...'"
+                    class="w-full px-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent/50 transition-all min-h-[40px] backdrop-blur-sm"
+                  >
+                  <p
+                    v-if="channelForm._hasExistingToken"
+                    class="text-xs text-makoclaw-success/70 mt-1.5 flex items-center gap-1"
+                  >
+                    ✓ Token configured — leave empty to keep current token
+                  </p>
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">
+                    App Token (xapp-...)
+                  </label>
+                  <input
+                    v-model="channelForm.app_token"
+                    type="password"
+                    placeholder="xapp-..."
+                    class="w-full px-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent/50 transition-all min-h-[40px] backdrop-blur-sm"
+                  >
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">
+                    Allowed User IDs
+                  </label>
+                  <input
+                    v-model="channelForm.allow_from"
+                    type="text"
+                    placeholder="U01234, U56789"
+                    class="w-full px-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent/50 transition-all min-h-[40px] backdrop-blur-sm"
+                  >
+                  <p class="text-xs text-makoclaw-text-secondary/60 mt-1.5">
+                    Comma-separated list of authorized Slack user IDs
+                  </p>
+                </div>
+              </div>
             </div>
 
             <div class="p-5 border-t border-makoclaw-border/30 flex items-center justify-end gap-3 bg-makoclaw-bg/30">
@@ -644,6 +693,14 @@ const saveChannelConfig = async () => {
   if (formData.token === '' && formData._hasExistingToken) {
     delete formData.token
   }
+  // For Slack: don't send empty bot_token if one already exists
+  if (formData.bot_token === '' && formData._hasExistingToken) {
+    delete formData.bot_token
+  }
+  // Remove empty app_token for Slack (don't overwrite if blank)
+  if (formData.app_token === '') {
+    delete formData.app_token
+  }
   // Remove internal tracking field before sending to backend
   delete formData._hasExistingToken
   // Convert comma-separated allow_from string to array for backend
@@ -658,10 +715,19 @@ const saveChannelConfig = async () => {
 const openChannelConfig = (c) => {
   selectedChannel.value = c
   const existing = configData.value?.channels?.[c.id] || {}
-  channelForm.value = {
-    token: '',  // Always empty — backend never returns real token (redacted)
-    allow_from: existing.allow_from || '',
-    _hasExistingToken: existing.configured || false
+  if (c.id === 'slack') {
+    channelForm.value = {
+      bot_token: '',
+      app_token: '',
+      allow_from: existing.allow_from || '',
+      _hasExistingToken: existing.configured || false
+    }
+  } else {
+    channelForm.value = {
+      token: '',  // Always empty — backend never returns real token (redacted)
+      allow_from: existing.allow_from || '',
+      _hasExistingToken: existing.configured || false
+    }
   }
   showChannelModal.value = true
 }

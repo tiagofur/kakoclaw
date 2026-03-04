@@ -1,69 +1,11 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import { VitePWA } from 'vite-plugin-pwa'
+// NOTE: vite-plugin-pwa disabled — incompatible with Node.js v24 (minipass/path-scurry issue)
+// import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   plugins: [
     vue(),
-    VitePWA({
-      registerType: 'prompt',
-      injectRegister: 'auto',
-      includeAssets: ['favicon.svg', 'pwa-192x192.png', 'pwa-512x512.png'],
-      manifest: {
-        name: 'makoclaw',
-        short_name: 'makoclaw',
-        description: 'AI Agent Dashboard — Chat, Tasks, Knowledge Base, MCP & more',
-        theme_color: '#3b82f6',
-        background_color: '#0f172a',
-        display: 'standalone',
-        orientation: 'any',
-        scope: '/',
-        start_url: '/',
-        categories: ['productivity', 'utilities'],
-        icons: [
-          {
-            src: 'favicon.svg',
-            sizes: 'any',
-            type: 'image/svg+xml',
-            purpose: 'any'
-          },
-          {
-            src: 'pwa-192x192.png',
-            sizes: '192x192',
-            type: 'image/png'
-          },
-          {
-            src: 'pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png'
-          }
-        ]
-      },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
-        navigateFallback: 'index.html',
-        navigateFallbackDenylist: [/^\/api\//, /^\/ws\//],
-        runtimeCaching: [
-          {
-            urlPattern: /^\/api\/v1\/models$/,
-            handler: 'StaleWhileRevalidate',
-            options: {
-              cacheName: 'api-models',
-              expiration: { maxEntries: 1, maxAgeSeconds: 300 }
-            }
-          },
-          {
-            urlPattern: /^\/api\/v1\/health$/,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-health',
-              expiration: { maxEntries: 1, maxAgeSeconds: 60 }
-            }
-          }
-        ]
-      },
-      devOptions: { enabled: false }
-    })
   ],
   root: __dirname,
   base: '/',
@@ -97,4 +39,3 @@ export default defineConfig({
     }
   }
 })
-
