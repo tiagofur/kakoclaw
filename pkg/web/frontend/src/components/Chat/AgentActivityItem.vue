@@ -20,7 +20,13 @@
             {{ activity.agent }}
           </span>
           <span
-            v-if="activity.status === 'working'"
+            v-if="activity.activeSkills && activity.activeSkills.length > 0"
+            class="text-[9px] hidden sm:inline text-purple-400/80"
+          >
+            using {{ activity.activeSkills.join(', ') }}
+          </span>
+          <span
+            v-else-if="activity.status === 'working'"
             class="text-[9px] italic hidden sm:inline text-emerald-400/80"
           >
             working...
@@ -129,6 +135,35 @@
                   →
                 </span>
               </template>
+            </div>
+          </div>
+
+          <!-- Active Skills -->
+          <div v-if="activity.activeSkills && activity.activeSkills.length > 0">
+            <div class="detail-label">
+              <svg
+                class="w-3 h-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M13 10V3L4 14h7v7l9-11h-7z"
+                />
+              </svg>
+              Skills
+            </div>
+            <div class="flex flex-wrap gap-1 mt-1">
+              <span
+                v-for="skill in activity.activeSkills"
+                :key="skill"
+                class="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 ring-1 ring-purple-500/30 font-medium"
+              >
+                {{ skill }}
+              </span>
             </div>
           </div>
 

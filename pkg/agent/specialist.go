@@ -23,6 +23,7 @@ type SpecialistAgent struct {
 	prompt       string
 	allowedTools map[string]bool
 	keywords     []string
+	skills       []string // skill names assigned to this specialist
 	providerName string
 	processMu    sync.Mutex // guards tool-swap in ProcessWithSpeciality
 }
@@ -187,6 +188,16 @@ func NewSpecialistAgent(
 	// Create base agent loop for specialist
 	al := NewAgentLoop(globalCfg, msgBus, provider)
 
+	// Apply specialist-specific MaxToolIterations if configured.
+	// NewAgentLoop uses globalCfg defaults, so we override here.
+	if cfg.MaxToolIterations > 0 {
+		al.maxIterations = cfg.MaxToolIterations
+	} else if al.maxIterations == 0 || al.maxIterations > 10 {
+		// Default specialists to 10 iterations max (lower than the global 20)
+		// to prevent long-running specialist loops that delay handoff.
+		al.maxIterations = 10
+	}
+
 	// Build allowed tools map from config
 	allowedTools := make(map[string]bool)
 	for _, tool := range cfg.Tools {
@@ -210,6 +221,7 @@ func NewSpecialistAgent(
 		prompt:       cfg.Prompt,
 		allowedTools: allowedTools,
 		keywords:     cfg.Keywords,
+		skills:       cfg.Skills,
 		providerName: cfg.Provider,
 	}
 

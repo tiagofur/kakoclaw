@@ -135,6 +135,8 @@ type AgentStatusEvent struct {
 	DelegationChain []string  `json:"delegation_chain,omitempty"` // e.g. ["orchestrator", "developer", "security"]
 	DelegationDepth int       `json:"delegation_depth,omitempty"` // 0=orchestrator, 1=specialist, 2=colleague
 	ParentAgent     string    `json:"parent_agent,omitempty"`     // who delegated to this agent
+	ActiveSkills    []string  `json:"active_skills,omitempty"`    // skills the agent is using
+	MaxIterations   int       `json:"max_iterations,omitempty"`   // iteration limit for visibility
 }
 
 // AgentStatusCallback is called when agent status changes

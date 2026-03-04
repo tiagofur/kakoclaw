@@ -765,18 +765,23 @@ func (oa *OrchestratorAgent) processSpecialistTask(ctx context.Context, speciali
 	// Inject response format instruction for structured feedback
 	taskWithFormat := task + `
 
---- SPECIAL RESPONSE FORMAT REQUIRED ---
-IMPORTANT: When you have completed your work, you MUST stop calling tools and provide a final text response. Do NOT continue calling tools indefinitely. Once you have enough information to answer, STOP and respond.
+--- MANDATORY RESPONSE FORMAT ---
+CRITICAL RULES:
+1. You have a LIMITED number of tool iterations. Do NOT waste them.
+2. Once you have enough information, STOP calling tools IMMEDIATELY and provide your final text response.
+3. Do NOT loop — if you called the same tool twice with similar args, STOP and respond.
+4. If a tool call fails, do NOT retry more than once — respond with what you have.
+5. Your response MUST be a TEXT message (no more tool calls).
 
-Your final response MUST contain TWO distinct parts:
+Your final response MUST contain TWO parts:
 
-1. A JSON report block. It MUST be enclosed in markdown JSON tags:
+1. A JSON report block enclosed in markdown JSON tags:
 ` + "```json\n" + `{"status":"complete","confidence":0.9,"request_help":"","suggestion":""}
 ` + "```" + `
-(Status values: "complete", "partial", or "needs_help". Confidence: 0.0-1.0)
+(Status: "complete", "partial", or "needs_help". Confidence: 0.0-1.0)
 
-2. YOUR FULL DETAILED RESPONSE below the JSON block:
-Provide a comprehensive answer to the user's task here. DO NOT just return the JSON. The user will only see the text below the JSON block, so you MUST include all research, analysis, and final results in this section.
+2. YOUR FULL DETAILED RESPONSE below the JSON block.
+The user only sees text below the JSON block — include all findings there.
 ---`
 
 	// Timeout configurable (default: 5 minutes)
@@ -784,13 +789,15 @@ Provide a comprehensive answer to the user's task here. DO NOT just return the J
 	ctxWithTimeout, cancel := context.WithTimeout(specialistCtx, timeout)
 	defer cancel()
 
-	// Emit delegation start with chain info
+	// Emit delegation start with chain info (including active skills)
 	emitAgentStatus(ctx, AgentStatusEvent{
 		Agent:           specialistName,
 		Status:          "working",
 		DelegationChain: currentChain,
 		DelegationDepth: currentDepth,
 		ParentAgent:     parentAgent,
+		ActiveSkills:    specialist.skills,
+		MaxIterations:   specialist.maxIterations,
 		Timestamp:       time.Now(),
 	})
 

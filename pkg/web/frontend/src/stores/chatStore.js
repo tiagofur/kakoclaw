@@ -127,6 +127,8 @@ export const useChatStore = defineStore('chat', () => {
           existing.status = event.status
           if (event.reason) existing.reason = event.reason
           if (event.delegationChain) existing.delegationChain = event.delegationChain
+          if (event.activeSkills) existing.activeSkills = event.activeSkills
+          if (event.maxIterations) existing.maxIterations = event.maxIterations
           existing.timestamp = event.timestamp || new Date().toISOString()
           // Collapse when complete, expand when working
           existing.expanded = event.status === 'working' || event.status === 'delegating'
@@ -138,6 +140,8 @@ export const useChatStore = defineStore('chat', () => {
             reason: event.reason || '',
             delegationChain: event.delegationChain || [],
             parentAgent: event.parentAgent || '',
+            activeSkills: event.activeSkills || [],
+            maxIterations: event.maxIterations || 0,
             timestamp: event.timestamp || new Date().toISOString(),
             expanded: event.status === 'working' || event.status === 'delegating',
             // Fields to be filled by specialist reports

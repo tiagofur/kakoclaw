@@ -1248,6 +1248,8 @@ const handleMessage = (message) => {
       delegationChain: message.delegation_chain,
       delegationDepth: message.delegation_depth,
       parentAgent: message.parent_agent,
+      activeSkills: message.active_skills,
+      maxIterations: message.max_iterations,
       timestamp: new Date().toISOString()
     })
     // Update team activity panel
