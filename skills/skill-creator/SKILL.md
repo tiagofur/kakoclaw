@@ -359,6 +359,21 @@ The packaging script will:
 
 If validation fails, the script will report the errors and exit without creating a package. Fix any validation errors and run the packaging command again.
 
+## Creating a Skill in This Workspace
+
+When running inside MakoClaw (web chat, CLI agent), use `write_file` directly — do **not** run `init_skill.py` or `package_skill.py` (those scripts are for the skill-creator developer toolkit, not the in-agent workflow).
+
+Write skill files to: `{workspace}/skills/{skill-name}/SKILL.md`
+
+The workspace path is shown in your system context under **Runtime Info** (e.g., `~/.MakoClaw/users/{uuid}/workspace` or `~/.MakoClaw/workspace`).
+
+Example — creating a `hello-world` skill:
+```
+write_file("{workspace}/skills/hello-world/SKILL.md", "---\nname: hello-world\ndescription: Greets the user by name. Use when the user asks to be greeted.\n---\n\n# Hello World\n\nGreet the user warmly by name.\n")
+```
+
+After writing the file the skill is immediately available — no packaging step needed for personal workspace skills.
+
 ### Step 6: Iterate
 
 After testing the skill, users may request improvements. Often this happens right after using the skill, with fresh context of how the skill performed.

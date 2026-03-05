@@ -309,8 +309,8 @@ func NewOrchestratorAgent(
 	// Inject orchestrator context into the system prompt so the LLM sees
 	// the specialist catalog and delegation rules via the standard BuildSystemPrompt() path.
 	orchestrator.contextBuilder.SetAgentSystemPrompt(orchestrator.BuildOrchestratorContext())
-	// Orchestrator only delegates — no skills needed
-	orchestrator.contextBuilder.SetSkillFilter([]string{})
+	// Orchestrator needs skill-creator so it can inform users about skill creation
+	orchestrator.contextBuilder.SetSkillFilter([]string{"skill-creator"})
 	// Lean context: skip bootstrap files and memory
 	orchestrator.contextBuilder.SetLightweightMode(true)
 
