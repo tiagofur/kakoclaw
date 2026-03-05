@@ -285,7 +285,7 @@ func (s *Storage) ListSessionsForUser(userKey interface{}, archived *bool, limit
 				COALESCE(sess.title, ''),
 				sess.archived,
 				COALESCE(c.content, ''),
-				COALESCE(c.created_at, sess.updated_at),
+				sess.updated_at,
 				COALESCE(counts.msg_count, 0)
 			FROM sessions sess
 			LEFT JOIN (
@@ -293,9 +293,15 @@ func (s *Storage) ListSessionsForUser(userKey interface{}, archived *bool, limit
 				FROM chats
 				GROUP BY session_id
 			) counts ON sess.session_id = counts.session_id
-			LEFT JOIN chats c ON c.session_id = counts.session_id AND c.id = counts.max_id
+			LEFT JOIN (
+				SELECT session_id, MAX(id) AS last_user_msg_id
+				FROM chats
+				WHERE role = 'user'
+				GROUP BY session_id
+			) user_counts ON sess.session_id = user_counts.session_id
+			LEFT JOIN chats c ON c.session_id = user_counts.session_id AND c.id = user_counts.last_user_msg_id
 			WHERE sess.archived = ?
-			ORDER BY COALESCE(c.created_at, sess.updated_at) DESC
+			ORDER BY sess.updated_at DESC
 			LIMIT ? OFFSET ?
 		`
 		args = []interface{}{archivedFilter, limit, offset}
@@ -307,7 +313,7 @@ func (s *Storage) ListSessionsForUser(userKey interface{}, archived *bool, limit
 				COALESCE(sess.title, ''),
 				sess.archived,
 				COALESCE(c.content, ''),
-				COALESCE(c.created_at, sess.updated_at),
+				sess.updated_at,
 				COALESCE(counts.msg_count, 0)
 			FROM sessions sess
 			LEFT JOIN (
@@ -316,9 +322,15 @@ func (s *Storage) ListSessionsForUser(userKey interface{}, archived *bool, limit
 				WHERE user_id = ?
 				GROUP BY session_id
 			) counts ON sess.session_id = counts.session_id
-			LEFT JOIN chats c ON c.session_id = counts.session_id AND c.id = counts.max_id
+			LEFT JOIN (
+				SELECT session_id, MAX(id) AS last_user_msg_id
+				FROM chats
+				WHERE user_id = ? AND role = 'user'
+				GROUP BY session_id
+			) user_counts ON sess.session_id = user_counts.session_id
+			LEFT JOIN chats c ON c.session_id = user_counts.session_id AND c.id = user_counts.last_user_msg_id
 			WHERE sess.user_id = ? AND sess.archived = ?
-			ORDER BY COALESCE(c.created_at, sess.updated_at) DESC
+			ORDER BY sess.updated_at DESC
 			LIMIT ? OFFSET ?
 		`
 		args = []interface{}{uid, uid, archivedFilter, limit, offset}
@@ -342,15 +354,21 @@ func (s *Storage) ListSessionsForUser(userKey interface{}, archived *bool, limit
 					'' AS title,
 					0 AS archived,
 					COALESCE(c.content, ''),
-					COALESCE(c.created_at, counts.last_created_at),
+					counts.last_created_at,
 					COALESCE(counts.msg_count, 0)
 				FROM (
 					SELECT session_id, MAX(id) AS max_id, MAX(created_at) AS last_created_at, COUNT(*) AS msg_count
 					FROM chats
 					GROUP BY session_id
 				) counts
-				LEFT JOIN chats c ON c.session_id = counts.session_id AND c.id = counts.max_id
-				ORDER BY COALESCE(c.created_at, counts.last_created_at) DESC
+				LEFT JOIN (
+					SELECT session_id, MAX(id) AS last_user_msg_id
+					FROM chats
+					WHERE role = 'user'
+					GROUP BY session_id
+				) user_counts ON counts.session_id = user_counts.session_id
+				LEFT JOIN chats c ON c.session_id = user_counts.session_id AND c.id = user_counts.last_user_msg_id
+				ORDER BY counts.last_created_at DESC
 				LIMIT ? OFFSET ?
 			`
 			legacyArgs = []interface{}{limit, offset}
@@ -362,7 +380,7 @@ func (s *Storage) ListSessionsForUser(userKey interface{}, archived *bool, limit
 					'' AS title,
 					0 AS archived,
 					COALESCE(c.content, ''),
-					COALESCE(c.created_at, counts.last_created_at),
+					counts.last_created_at,
 					COALESCE(counts.msg_count, 0)
 				FROM (
 					SELECT session_id, MAX(id) AS max_id, MAX(created_at) AS last_created_at, COUNT(*) AS msg_count
@@ -370,8 +388,14 @@ func (s *Storage) ListSessionsForUser(userKey interface{}, archived *bool, limit
 					WHERE user_id = ?
 					GROUP BY session_id
 				) counts
-				LEFT JOIN chats c ON c.session_id = counts.session_id AND c.id = counts.max_id
-				ORDER BY COALESCE(c.created_at, counts.last_created_at) DESC
+				LEFT JOIN (
+					SELECT session_id, MAX(id) AS last_user_msg_id
+					FROM chats
+					WHERE user_id = ? AND role = 'user'
+					GROUP BY session_id
+				) user_counts ON counts.session_id = user_counts.session_id
+				LEFT JOIN chats c ON c.session_id = user_counts.session_id AND c.id = user_counts.last_user_msg_id
+				ORDER BY counts.last_created_at DESC
 				LIMIT ? OFFSET ?
 			`
 			legacyArgs = []interface{}{uid, limit, offset}

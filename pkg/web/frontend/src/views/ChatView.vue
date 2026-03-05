@@ -1068,13 +1068,44 @@ const loadSession = async (sessionId, options = { updateRoute: true }) => {
   try {
     const data = await taskService.fetchSessionMessages(normalizedSessionId)
     chatStore.setMessages((data.messages || []).map(m => {
-      // Parse metadata to extract agents
+      // Parse metadata to extract agents and tool calls
       let agents = []
+      let toolCalls = []
       if (m.metadata && typeof m.metadata === 'string') {
         try {
           const meta = JSON.parse(m.metadata)
           if (meta.agents && Array.isArray(meta.agents)) {
             agents = meta.agents
+          }
+          if (meta.messages && Array.isArray(meta.messages)) {
+            const callsMap = {}
+            meta.messages.forEach(tm => {
+              if (tm.role === 'assistant' && tm.tool_calls) {
+                tm.tool_calls.forEach(tc => {
+                  let parsedArgs = tc.function?.arguments
+                  try {
+                     if (typeof parsedArgs === 'string') {
+                        parsedArgs = JSON.parse(parsedArgs)
+                     }
+                  } catch (e) {
+                     // Ignore parse errors for arguments
+                  }
+                  
+                  callsMap[tc.id] = {
+                    id: tc.id,
+                    name: tc.function?.name,
+                    arguments: parsedArgs,
+                    status: 'finished',
+                    result: ''
+                  }
+                })
+              } else if (tm.role === 'tool' && tm.tool_call_id) {
+                if (callsMap[tm.tool_call_id]) {
+                  callsMap[tm.tool_call_id].result = tm.content
+                }
+              }
+            })
+            toolCalls = Object.values(callsMap)
           }
         } catch (e) {
           // Ignore parse errors
@@ -1083,7 +1114,8 @@ const loadSession = async (sessionId, options = { updateRoute: true }) => {
       return {
         ...m,
         timestamp: m.created_at, // Normalize timestamp
-        agents: agents
+        agents: agents,
+        toolCalls: toolCalls.length > 0 ? toolCalls : undefined
       }
     }))
     // Close sidebar on mobile

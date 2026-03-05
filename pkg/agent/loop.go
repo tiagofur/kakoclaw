@@ -856,14 +856,35 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, opts processOptions) (str
 	al.sessions.AddMessageForUser(al.userID, opts.SessionKey, "assistant", finalContent)
 	al.sessions.SaveForUser(al.userID, al.sessions.GetOrCreateForUser(al.userID, opts.SessionKey))
 	if al.storage != nil {
-		// Prepare metadata with involved agents
+		// Prepare metadata with involved agents and tool calls
 		agents := al.GetInvolvedAgents()
 		if len(agents) == 0 {
 			agents = []string{"default"}
 		}
+		
+		// Collect recent tool calls and tool results
+		var trailing []providers.Message
+		for i := len(messages) - 1; i >= 0; i-- {
+			if messages[i].Role == "user" {
+				// Don't go past the last user message
+				break
+			}
+			if len(messages[i].ToolCalls) > 0 || messages[i].Role == "tool" {
+				trailing = append([]providers.Message{messages[i]}, trailing...)
+			}
+		}
+
+		metadataObj := map[string]interface{}{
+			"agents": agents,
+		}
+		
+		if len(trailing) > 0 {
+			metadataObj["messages"] = trailing
+		}
+
 		var metadata string
-		if agentJSON, err := json.Marshal(map[string]interface{}{"agents": agents}); err == nil {
-			metadata = string(agentJSON)
+		if metaJSON, err := json.Marshal(metadataObj); err == nil {
+			metadata = string(metaJSON)
 		} else {
 			logger.WarnCF("agent", "Failed to marshal agent metadata", map[string]interface{}{"error": err.Error()})
 		}
@@ -967,14 +988,35 @@ func (al *AgentLoop) runAgentLoopStream(ctx context.Context, opts processOptions
 	al.sessions.AddMessageForUser(al.userID, opts.SessionKey, "assistant", finalContent)
 	al.sessions.SaveForUser(al.userID, al.sessions.GetOrCreateForUser(al.userID, opts.SessionKey))
 	if al.storage != nil {
-		// Prepare metadata with involved agents
+		// Prepare metadata with involved agents and tool calls
 		agents := al.GetInvolvedAgents()
 		if len(agents) == 0 {
 			agents = []string{"default"}
 		}
+		
+		// Collect recent tool calls and tool results
+		var trailing []providers.Message
+		for i := len(messages) - 1; i >= 0; i-- {
+			if messages[i].Role == "user" {
+				// Don't go past the last user message
+				break
+			}
+			if len(messages[i].ToolCalls) > 0 || messages[i].Role == "tool" {
+				trailing = append([]providers.Message{messages[i]}, trailing...)
+			}
+		}
+
+		metadataObj := map[string]interface{}{
+			"agents": agents,
+		}
+		
+		if len(trailing) > 0 {
+			metadataObj["messages"] = trailing
+		}
+
 		var metadata string
-		if agentJSON, err := json.Marshal(map[string]interface{}{"agents": agents}); err == nil {
-			metadata = string(agentJSON)
+		if metaJSON, err := json.Marshal(metadataObj); err == nil {
+			metadata = string(metaJSON)
 		} else {
 			logger.WarnCF("agent", "Failed to marshal agent metadata", map[string]interface{}{"error": err.Error()})
 		}
