@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Light Theme */
+  --pc-bg: 248 250 252;
+  --pc-surface: 255 255 255;
+  --pc-surface-hover: 241 245 249;
+  --pc-border: 226 232 240;
+  --pc-accent: 59 130 246;
+  --pc-accent-hover: 37 99 235;
+  --pc-success: 16 185 129;
+  --pc-warning: 245 158 11;
+  --pc-error: 239 68 68;
+  --pc-text: 15 23 42;
+  --pc-text-secondary: 100 116 139;
+
+  /* Ionic Overrides */
+  --ion-background-color: rgb(var(--pc-bg));
+  --ion-text-color: rgb(var(--pc-text));
+  --ion-color-primary: rgb(var(--pc-accent));
+  --ion-color-step-50: rgb(var(--pc-surface));
+  --ion-color-step-100: rgb(var(--pc-surface-hover));
+}
+
+.dark,
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Dark Theme */
+    --pc-bg: 15 23 42;
+    --pc-surface: 30 41 59;
+    --pc-surface-hover: 51 65 85;
+    --pc-border: 51 65 85;
+    --pc-accent: 59 130 246;
+    --pc-accent-hover: 37 99 235;
+    --pc-text: 248 250 252;
+    --pc-text-secondary: 148 163 184;
+
+    /* Ionic Overrides */
+    --ion-background-color: rgb(var(--pc-bg));
+    --ion-text-color: rgb(var(--pc-text));
+    --ion-color-primary: rgb(var(--pc-accent));
+    --ion-color-step-50: rgb(var(--pc-surface));
+    --ion-color-step-100: rgb(var(--pc-surface-hover));
+  }
+}
+
+body {
+  background-color: rgb(var(--pc-bg));
+  color: rgb(var(--pc-text));
+  font-family:
+    "Inter",
+    system-ui,
+    -apple-system,
+    sans-serif;
+}

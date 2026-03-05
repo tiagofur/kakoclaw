@@ -1,0 +1,7 @@
+{
+  "name": "makoclaw-mobile",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "vue-vite"
+}
