@@ -443,7 +443,6 @@
         <!-- Team Activity Panel -->
         <div class="px-2.5 md:px-4">
           <TeamActivityPanel
-            ref="teamActivityRef"
             :agent-status="teamAgentStatus"
             :team-communications="teamCommunications"
             :involved-agents-list="involvedAgentsList"
@@ -910,7 +909,6 @@ const showPromptLibrary = ref(false)
 const searchQuery = ref('')
 
 // Team activity state
-const teamActivityRef = ref(null)
 const teamAgentStatus = ref(null)
 const teamCommunications = ref([])
 const involvedAgentsList = ref([])
@@ -1061,9 +1059,6 @@ const loadSession = async (sessionId, options = { updateRoute: true }) => {
   teamAgentStatus.value = null
   teamCommunications.value = []
   involvedAgentsList.value = []
-  if (teamActivityRef.value?.reset) {
-    teamActivityRef.value.reset()
-  }
 
   try {
     const data = await taskService.fetchSessionMessages(normalizedSessionId)
@@ -1094,7 +1089,7 @@ const loadSession = async (sessionId, options = { updateRoute: true }) => {
                   callsMap[tc.id] = {
                     id: tc.id,
                     name: tc.function?.name,
-                    arguments: parsedArgs,
+                    args: parsedArgs,
                     status: 'finished',
                     result: ''
                   }
@@ -1136,9 +1131,6 @@ const startNewChat = () => {
   teamAgentStatus.value = null
   teamCommunications.value = []
   involvedAgentsList.value = []
-  if (teamActivityRef.value?.reset) {
-    teamActivityRef.value.reset()
-  }
   // Focus input
   // nextTick(() => document.querySelector('input')?.focus())
 }
@@ -1267,6 +1259,7 @@ const handleMessage = (message) => {
       message.specialist_name,
       message.reason
     )
+    chatStore.updateCurrentAgent(message.specialist_name || message.agent || message.name)
     // Update delegation chain if present
     if (message.delegation_chain) {
       chatStore.updateDelegationChain(message)

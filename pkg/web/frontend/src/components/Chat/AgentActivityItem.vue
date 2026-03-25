@@ -168,7 +168,7 @@
           </div>
 
           <!-- Tools used -->
-          <div v-if="activity.toolsUsed && activity.toolsUsed.length > 0">
+          <div v-if="hasToolDetails">
             <div class="detail-label">
               <svg
                 class="w-3 h-3"
@@ -199,6 +199,33 @@
               >
                 {{ tool }}
               </span>
+            </div>
+
+            <div
+              v-if="agentToolCalls.length > 0"
+              class="mt-2 space-y-1.5"
+            >
+              <div
+                v-for="toolCall in agentToolCalls"
+                :key="toolCall.id"
+                class="rounded-lg border border-makoclaw-border/30 bg-makoclaw-bg/30 px-2.5 py-2"
+              >
+                <div class="flex items-center justify-between gap-2">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <div
+                      class="w-2 h-2 rounded-full flex-shrink-0"
+                      :class="toolStatusDotClass(toolCall.status)"
+                    />
+                    <span class="text-[10px] font-mono text-makoclaw-text truncate">{{ toolCall.name }}</span>
+                  </div>
+                  <span
+                    class="text-[9px] px-1.5 py-0.5 rounded-full flex-shrink-0"
+                    :class="toolStatusBadgeClass(toolCall.status)"
+                  >
+                    {{ toolStatusLabel(toolCall.status) }}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -257,7 +284,20 @@ const props = defineProps({
   activity: {
     type: Object,
     required: true
+  },
+  msg: {
+    type: Object,
+    default: null
   }
+})
+
+const agentToolCalls = computed(() => {
+  if (!props.msg?.toolCalls?.length) return []
+  return props.msg.toolCalls.filter(tc => tc.agentName === props.activity.agent)
+})
+
+const hasToolDetails = computed(() => {
+  return (props.activity.toolsUsed && props.activity.toolsUsed.length > 0) || agentToolCalls.value.length > 0
 })
 
 const statusDotClass = computed(() => {
@@ -300,6 +340,24 @@ const formattedTime = computed(() => {
   const date = new Date(props.activity.timestamp)
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 })
+
+function toolStatusLabel(status) {
+  if (status === 'started') return 'executing…'
+  if (status === 'error') return 'error'
+  return 'done'
+}
+
+function toolStatusBadgeClass(status) {
+  if (status === 'started') return 'bg-makoclaw-warning/15 text-makoclaw-warning ring-1 ring-makoclaw-warning/30'
+  if (status === 'error') return 'bg-makoclaw-error/15 text-makoclaw-error ring-1 ring-makoclaw-error/30'
+  return 'bg-makoclaw-success/15 text-makoclaw-success ring-1 ring-makoclaw-success/30'
+}
+
+function toolStatusDotClass(status) {
+  if (status === 'started') return 'bg-makoclaw-warning animate-pulse'
+  if (status === 'error') return 'bg-makoclaw-error'
+  return 'bg-makoclaw-success'
+}
 </script>
 
 <style scoped>

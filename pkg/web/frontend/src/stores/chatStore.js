@@ -21,7 +21,7 @@ export const useChatStore = defineStore('chat', () => {
   const enabledTools = ref([])        // Tools currently enabled by user
 
   const orchestratorStatus = ref('idle') // 'idle', 'analyzing', 'delegating', 'working', 'complete'
-  const currentAgent = ref(null)         // Agente actualmente activo
+  const currentAgent = ref('main')       // Agente actualmente activo
   const activeSpecialist = ref(null)     // Especialista activo cuando se delega
   const delegationReason = ref('')       // Por qué el orchestrator delegó
   const agentHistory = ref([])           // Historial de eventos de agentes
@@ -110,6 +110,11 @@ export const useChatStore = defineStore('chat', () => {
     isStreaming.value = false
   }
 
+  const streamingMessage = computed(() => {
+    if (!streamingMessageId.value) return null
+    return messages.value.find(m => m.id === streamingMessageId.value) || null
+  })
+
   // Add an agent event as an inline indicator AND as an activity block on the streaming message
   function addAgentEvent(event) {
     const persistableStatuses = ['delegating', 'working', 'complete', 'fallback', 'requesting_help']
@@ -164,7 +169,7 @@ export const useChatStore = defineStore('chat', () => {
   // Set agent status during execution
   function setAgentStatus(agent, status, specialistName = null, reason = '') {
     orchestratorStatus.value = status
-    currentAgent.value = agent
+    currentAgent.value = specialistName || agent || 'main'
 
     if (specialistName) {
       activeSpecialist.value = specialistName
@@ -186,7 +191,7 @@ export const useChatStore = defineStore('chat', () => {
   // Clear agent status (call when execution completes)
   function clearAgentStatus() {
     orchestratorStatus.value = 'idle'
-    currentAgent.value = null
+    currentAgent.value = 'main'
     activeSpecialist.value = null
     delegationReason.value = ''
     agentHistory.value = []
@@ -312,19 +317,32 @@ export const useChatStore = defineStore('chat', () => {
     const msg = messages.value.find(m => m.id === streamingMessageId.value)
     if (msg) {
       if (!msg.toolCalls) msg.toolCalls = []
+      const agentName = currentAgent.value || 'main'
+      const expanded = msg.streaming && toolCall.status === 'started'
       
       // Try to find an open tool call with the same name to update it
       const existingIdx = msg.toolCalls.findLastIndex(tc => tc.name === toolCall.name && tc.status === 'started')
       if (existingIdx !== -1 && toolCall.status !== 'started') {
-        msg.toolCalls[existingIdx] = { ...msg.toolCalls[existingIdx], ...toolCall }
+        msg.toolCalls[existingIdx] = {
+          ...msg.toolCalls[existingIdx],
+          ...toolCall,
+          agentName,
+          expanded
+        }
       } else {
         msg.toolCalls.push({
           ...toolCall,
           id: Date.now() + Math.random(),
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          agentName,
+          expanded
         })
       }
     }
+  }
+
+  function updateCurrentAgent(agentName) {
+    currentAgent.value = agentName || 'main'
   }
 
   function setMessages(newMessages) {
@@ -497,6 +515,7 @@ export const useChatStore = defineStore('chat', () => {
     pendingMessages,
     isStreaming,
     streamingMessageId,
+    streamingMessage,
     ws,
     selectedModel,
     currentModel,
@@ -517,6 +536,7 @@ export const useChatStore = defineStore('chat', () => {
     setAgentsForMessage,
     setAgentStatus,
     clearAgentStatus,
+    updateCurrentAgent,
     addAgentEvent,
     addContentSegment,
     addToolCall,

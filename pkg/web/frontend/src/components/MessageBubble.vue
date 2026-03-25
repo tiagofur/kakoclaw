@@ -40,6 +40,7 @@
             v-for="act in msg.agentActivities"
             :key="act.id"
             :activity="act"
+            :msg="msg"
           />
         </div>
 
@@ -51,7 +52,8 @@
           <ToolCallItem
             v-for="tc in msg.toolCalls"
             :key="tc.id"
-            :tc="tc"
+            :tool-call="tc"
+            :msg="msg"
           />
         </div>
 

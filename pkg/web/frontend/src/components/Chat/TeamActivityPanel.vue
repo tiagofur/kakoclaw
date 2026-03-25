@@ -3,7 +3,6 @@
     v-if="isMultiAgent"
     class="glass-panel rounded-xl p-3 mb-3 relative overflow-hidden"
   >
-    <!-- Header - clickable to expand/collapse -->
     <button
       class="flex items-center justify-between w-full text-left"
       @click="collapsed = !collapsed"
@@ -32,7 +31,6 @@
         >
           LIVE
         </span>
-        <!-- Compact agent badges when collapsed -->
         <div v-if="collapsed" class="flex gap-1 ml-1">
           <span
             v-for="agent in involvedAgents.slice(0, 3)"
@@ -67,7 +65,6 @@
 
     <transition name="expand">
       <div v-if="!collapsed" class="mt-3 space-y-2.5">
-        <!-- Delegation Chain - compact inline view -->
         <div
           v-if="props.delegationChain && props.delegationChain.length > 1"
           class="flex items-center gap-1 flex-wrap"
@@ -107,7 +104,6 @@
           </span>
         </div>
 
-        <!-- Specialist Report with Confidence - only show when complete or needs help -->
         <div
           v-if="lastReport && (lastReport.status !== 'working')"
           class="p-2 rounded-lg border text-xs"
@@ -138,7 +134,6 @@
               </span>
             </div>
           </div>
-          <!-- Help Request -->
           <p
             v-if="lastReport.request_help"
             class="text-[10px] text-red-400 mt-1"
@@ -147,7 +142,6 @@
           </p>
         </div>
 
-        <!-- Communications Log - compact -->
         <div v-if="communications.length > 0" class="space-y-1">
           <div
             v-for="(comm, index) in communications.slice(-3)"
@@ -164,13 +158,63 @@
             <span class="truncate opacity-70">{{ comm.message }}</span>
           </div>
         </div>
+
+        <div
+          v-if="involvedAgents.length > 0"
+          class="space-y-2"
+        >
+          <div
+            v-for="agent in involvedAgents"
+            :key="agent"
+            class="rounded-lg border border-makoclaw-border/20 bg-makoclaw-surface/20 px-2.5 py-2"
+          >
+            <div class="flex items-center gap-2 flex-wrap">
+              <span
+                class="text-[10px] px-1.5 py-0.5 rounded capitalize font-medium"
+                :class="agentBadgeClass(agent)"
+              >
+                {{ agent }}
+              </span>
+              <span
+                v-if="hasActiveTools(agent)"
+                class="text-[9px] text-makoclaw-text-secondary"
+              >
+                {{ activeToolCallsFor(agent).length }} active tool{{ activeToolCallsFor(agent).length > 1 ? 's' : '' }}
+              </span>
+            </div>
+
+            <div
+              v-if="hasActiveTools(agent)"
+              class="mt-2 space-y-1.5"
+            >
+              <div
+                v-for="toolCall in activeToolCallsFor(agent)"
+                :key="toolCall.id"
+                class="rounded-lg border border-makoclaw-border/25 bg-makoclaw-bg/30 px-2 py-1.5"
+              >
+                <div class="flex items-center justify-between gap-2">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <div class="w-2 h-2 rounded-full bg-makoclaw-warning animate-pulse flex-shrink-0" />
+                    <span class="text-[10px] font-mono text-makoclaw-text truncate">{{ toolCall.name }}</span>
+                  </div>
+                  <span class="text-[9px] px-1.5 py-0.5 rounded-full bg-makoclaw-warning/15 text-makoclaw-warning ring-1 ring-makoclaw-warning/30 flex-shrink-0">
+                    executing…
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </transition>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
+import { useChatStore } from '../../stores/chatStore'
+
+const chatStore = useChatStore()
 
 const props = defineProps({
   agentStatus: {
@@ -199,55 +243,52 @@ const props = defineProps({
   }
 })
 
-const collapsed = ref(true) // Start collapsed
-const currentAgent = ref(null)
-const communications = ref([])
-const involvedAgents = ref([])
-const lastReport = ref(null)
+const collapsed = ref(true)
 
-// Only show panel when there are 2+ agents involved (real multi-agent activity)
+const communications = computed(() => props.teamCommunications || [])
+const lastReport = computed(() => props.specialistReport)
+
+function groupBy(items, key) {
+  return items.reduce((groups, item) => {
+    const groupKey = item?.[key] || 'main'
+    if (!groups[groupKey]) groups[groupKey] = []
+    groups[groupKey].push(item)
+    return groups
+  }, {})
+}
+
+const streamingMsg = computed(() => chatStore.streamingMessage)
+
+const agentToolCalls = computed(() => groupBy(streamingMsg.value?.toolCalls || [], 'agentName'))
+
+const activeToolCallsByAgent = computed(() => {
+  return Object.entries(agentToolCalls.value).reduce((groups, [agent, toolCalls]) => {
+    const activeTools = toolCalls.filter(toolCall => toolCall.status === 'started')
+    if (activeTools.length > 0) {
+      groups[agent] = activeTools
+    }
+    return groups
+  }, {})
+})
+
+const involvedAgents = computed(() => {
+  const activityAgents = (streamingMsg.value?.agentActivities || []).map(activity => activity.agent)
+  return [...new Set([
+    ...props.involvedAgentsList,
+    ...props.delegationChain,
+    props.agentStatus?.agent,
+    props.agentStatus?.specialistName,
+    lastReport.value?.specialist_name,
+    ...activityAgents,
+    ...Object.keys(agentToolCalls.value)
+  ].filter(Boolean))]
+})
+
 const isMultiAgent = computed(() => {
   return involvedAgents.value.length > 1 ||
          communications.value.length > 0 ||
          (props.delegationChain && props.delegationChain.length > 1)
 })
-
-watch(() => props.agentStatus, (newStatus) => {
-  if (newStatus) {
-    currentAgent.value = newStatus
-    if (newStatus.agent && !involvedAgents.value.includes(newStatus.agent)) {
-      involvedAgents.value.push(newStatus.agent)
-    }
-  }
-}, { deep: true })
-
-watch(() => props.teamCommunications, (newComms) => {
-  if (newComms && newComms.length > 0) {
-    communications.value = [...newComms]
-  }
-}, { deep: true })
-
-watch(() => props.involvedAgentsList, (newList) => {
-  if (newList && newList.length > 0) {
-    involvedAgents.value = [...new Set([...involvedAgents.value, ...newList])]
-  }
-}, { deep: true })
-
-watch(() => props.specialistReport, (newReport) => {
-  if (newReport) {
-    lastReport.value = newReport
-    if (newReport.specialist_name && !involvedAgents.value.includes(newReport.specialist_name)) {
-      involvedAgents.value.push(newReport.specialist_name)
-    }
-    if (newReport.request_help) {
-      communications.value.push({
-        from: newReport.specialist_name,
-        to: newReport.request_help,
-        message: newReport.suggestions?.[0] || 'assistance needed'
-      })
-    }
-  }
-}, { deep: true })
 
 const confidenceColor = computed(() => {
   if (!lastReport.value?.confidence) return null
@@ -278,9 +319,9 @@ const reportStatusClass = computed(() => {
 })
 
 const isWorking = computed(() => {
-  return currentAgent.value?.status === 'working' ||
-         currentAgent.value?.status === 'analyzing' ||
-         currentAgent.value?.status === 'delegating'
+  return props.agentStatus?.status === 'working' ||
+         props.agentStatus?.status === 'analyzing' ||
+         props.agentStatus?.status === 'delegating'
 })
 
 function getAgentTextColor(agent) {
@@ -295,14 +336,17 @@ function getAgentTextColor(agent) {
   return colors[agent] || 'text-makoclaw-text'
 }
 
-function reset() {
-  currentAgent.value = null
-  communications.value = []
-  involvedAgents.value = []
-  lastReport.value = null
+function agentBadgeClass(agent) {
+  return `${getAgentTextColor(agent)} bg-makoclaw-surface/50`
 }
 
-defineExpose({ reset })
+function activeToolCallsFor(agent) {
+  return activeToolCallsByAgent.value[agent] || []
+}
+
+function hasActiveTools(agent) {
+  return activeToolCallsFor(agent).length > 0
+}
 </script>
 
 <style scoped>
@@ -321,6 +365,6 @@ defineExpose({ reset })
 .expand-enter-to,
 .expand-leave-from {
   opacity: 1;
-  max-height: 300px;
+  max-height: 500px;
 }
 </style>

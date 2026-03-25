@@ -28,13 +28,20 @@
         </svg>
       </div>
 
-      <!-- Status text - single line, compact -->
-      <span
-        class="text-sm font-medium truncate"
-        :class="iconColorClass"
-      >
-        {{ statusText }}
-      </span>
+      <div class="min-w-0 flex-1">
+        <div
+          class="text-sm font-medium truncate"
+          :class="iconColorClass"
+        >
+          {{ statusText }}
+        </div>
+        <div
+          v-if="agentLine"
+          class="text-[11px] text-makoclaw-text-secondary truncate mt-0.5"
+        >
+          {{ agentLine }}
+        </div>
+      </div>
 
       <!-- Elapsed time -->
       <span
@@ -67,6 +74,20 @@ const isActive = computed(() => {
 
 const currentAgent = computed(() => {
   return chatStore.currentAgent || chatStore.activeSpecialist
+})
+
+const activeToolCall = computed(() => {
+  const toolCalls = chatStore.streamingMessage?.toolCalls || []
+  const exactMatch = toolCalls.find(tc => tc.status === 'started' && tc.agentName === currentAgent.value)
+  return exactMatch || toolCalls.find(tc => tc.status === 'started') || null
+})
+
+const agentLine = computed(() => {
+  const agentName = activeToolCall.value?.agentName || currentAgent.value
+  const toolName = activeToolCall.value?.name
+
+  if (agentName && toolName) return `${agentName} — ${toolName}`
+  return agentName || toolName || ''
 })
 
 const statusText = computed(() => {
