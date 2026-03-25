@@ -62,19 +62,19 @@
   - **Acceptance:** Handler resolves `userID`; all CRUD calls receive correct `userID`; no compile errors
   - **Effort:** Small
 
-- [ ] **1.9** Integration test: `ListWorkflows` in legacy mode returns only requesting user's rows
+- [x] **1.9** Integration test: `ListWorkflows` in legacy mode returns only requesting user's rows
   - **Files:** `pkg/storage/workflow_test.go`
   - **Dependencies:** 1.7
   - **Acceptance:** Insert rows for user A and user B; query as user A returns only user A rows
   - **Effort:** Small
 
-- [ ] **1.10** Integration test: workflow migration is idempotent and non-destructive
+- [x] **1.10** Integration test: workflow migration is idempotent and non-destructive
   - **Files:** `pkg/storage/workflow_test.go`
   - **Dependencies:** 1.6
   - **Acceptance:** Pre-populate DB; run migration twice; assert row count unchanged; all `user_id` columns present
   - **Effort:** Small
 
-- [ ] **1.11** Document backfill SQL snippet for existing `user_id=0` rows in `openspec/changes/audit-isolation-user-data/release-notes.md`
+- [x] **1.11** Document backfill SQL snippet for existing `user_id=0` rows in `openspec/changes/audit-isolation-user-data/release-notes.md`
   - **Files:** `openspec/changes/audit-isolation-user-data/release-notes.md` (new)
   - **Dependencies:** 1.6
   - **Acceptance:** Release notes contain `UPDATE workflows SET user_id = (SELECT id FROM users LIMIT 1)` snippet with explanation; open question #2 resolved as manual/documented
@@ -82,35 +82,101 @@
 
 ---
 
-## Phase 2 — MEDIUM Priority: Information Leakage / Silent Misconfiguration
+## Phase 2 — HIGH Priority: Multi-Agent User Context Propagation
+
+### ISSUE-9: Multi-Agent User Context Propagation
+
+- [x] **2.12** Add `SetUserForAgent(userUUID, userID)` call for all specialists in `pkg/agent/manager.go:InitializeOrchestrator`
+  - **Files:** `pkg/agent/manager.go`
+  - **Dependencies:** none
+  - **Acceptance:** All specialists created via `NewAgentLoop(globalCfg)` have `SetUserForAgent` called with correct userUUID and userID
+  - **Effort:** Small
+
+- [x] **2.13** Add `UserUUID string` and `UserID int64` fields to `TeamContext` struct in `pkg/agent/orchestrator.go`
+  - **Files:** `pkg/agent/orchestrator.go`
+  - **Dependencies:** none
+  - **Acceptance:** `TeamContext` struct includes both user identity fields; compiles
+  - **Effort:** Small
+
+- [x] **2.14** Update `TaskDecompositionTool` in `pkg/agent/orchestrator.go` to populate `TeamContext.UserUUID` and `TeamContext.UserID` from parent agent's context
+  - **Files:** `pkg/agent/orchestrator.go`
+  - **Dependencies:** 2.13
+  - **Acceptance:** When delegating to specialists, `TeamContext` includes correct user identity from parent agent
+  - **Effort:** Small
+
+- [x] **2.15** Ensure `SwarmRunner` in `pkg/agent/swarm.go` propagates user context to all spawned specialists
+  - **Files:** `pkg/agent/swarm.go`
+  - **Dependencies:** none
+  - **Acceptance:** Swarm executor calls `SetUserForAgent(userUUID, userID)` for each child specialist
+  - **Effort:** Small
+
+- [x] **2.16** Add `UserID int64` and `UserUUID string` fields to `SpecialistSpawnTask` struct in `pkg/agent/spawner.go`
+  - **Files:** `pkg/agent/spawner.go`
+  - **Dependencies:** none
+  - **Acceptance:** Struct includes both user identity fields for audit trail; compiles
+  - **Effort:** Small
+
+- [x] **2.17** Update spawn logic in `pkg/agent/spawner.go` to set `SpecialistSpawnTask.UserID` and `UserUUID` from parent agent context
+  - **Files:** `pkg/agent/spawner.go`
+  - **Dependencies:** 2.16
+  - **Acceptance:** When spawning a specialist, task includes correct user identity from parent agent
+  - **Effort:** Small
+
+- [x] **2.18** Unit test: `InitializeOrchestrator` calls `SetUserForAgent` for all specialists
+  - **Files:** `pkg/agent/manager_test.go`
+  - **Dependencies:** 2.12
+  - **Acceptance:** Mock agent creation, assert `SetUserForAgent` invoked with correct userUUID and userID
+  - **Effort:** Small
+
+- [x] **2.19** Unit test: `TeamContext` includes user identity when created via `TaskDecompositionTool`
+  - **Files:** `pkg/agent/orchestrator_test.go`
+  - **Dependencies:** 2.13, 2.14
+  - **Acceptance:** Create `TeamContext`, assert `UserUUID` and `UserID` populated from parent agent
+  - **Effort:** Small
+
+- [x] **2.20** Unit test: `SwarmRunner` propagates user context to child specialists
+  - **Files:** `pkg/agent/swarm_test.go`
+  - **Dependencies:** 2.15
+  - **Acceptance:** Mock swarm execution, verify child specialists receive parent's user context
+  - **Effort:** Small
+
+- [x] **2.21** Unit test: `SpecialistSpawnTask` includes `UserID` for audit trail
+  - **Files:** `pkg/agent/spawner_test.go`
+  - **Dependencies:** 2.16, 2.17
+  - **Acceptance:** Create spawn task, assert `UserID` and `UserUUID` fields present and correct
+  - **Effort:** Small
+
+---
+
+## Phase 3 — MEDIUM Priority: Information Leakage / Silent Misconfiguration
 
 ### ISSUE-1: Per-User Metrics Instances
 
-- [ ] **2.1** Add `userMetrics map[string]*observability.Metrics` field and `userMetricsMu sync.RWMutex` to `Server` struct; initialize map in `NewServer` / constructor; implement `getOrCreateUserMetrics(userUUID string) *observability.Metrics` method
+- [x] **2.1** Add `userMetrics map[string]*observability.Metrics` field and `userMetricsMu sync.RWMutex` to `Server` struct; initialize map in `NewServer` / constructor; implement `getOrCreateUserMetrics(userUUID string) *observability.Metrics` method
   - **Files:** `pkg/web/server.go`
   - **Dependencies:** none
   - **Acceptance:** Double-checked locking pattern correct; map initialized; `New()` called for first access per UUID
   - **Effort:** Small
 
-- [ ] **2.2** Remove `observability.Global().SetStorage(s.store)` from `server.go:253`; `Global()` shim survives as no-op
+- [x] **2.2** Remove `observability.Global().SetStorage(s.store)` from `server.go:253`; `Global()` shim survives as no-op
   - **Files:** `pkg/web/server.go`
   - **Dependencies:** 2.1
   - **Acceptance:** Line removed; legacy single-user mode does not panic; `Global()` function still exists
   - **Effort:** Small
 
-- [ ] **2.3** Update `handleMetrics` to call `getUserStorage(r)` → resolve `userUUID` → call `getOrCreateUserMetrics(userUUID).Snapshot()`; return 401 if `!ok`
+- [x] **2.3** Update `handleMetrics` to call `getUserStorage(r)` → resolve `userUUID` → call `getOrCreateUserMetrics(userUUID).Snapshot()`; return 401 if `!ok`
   - **Files:** `pkg/web/server.go`
   - **Dependencies:** 2.1
   - **Acceptance:** Handler only returns per-user metrics; returns 401 for unauthenticated requests
   - **Effort:** Small
 
-- [ ] **2.4** Add `metrics *observability.Metrics` field to `AgentLoop`; inject per-user instance at construction in `NewAgentLoopForUser`; redirect `RecordLLMCall` / `RecordToolCall` / `RecordAgentRun` from `Global()` to the injected instance
+- [x] **2.4** Add `metrics *observability.Metrics` field to `AgentLoop`; inject per-user instance at construction in `NewAgentLoopForUser`; redirect `RecordLLMCall` / `RecordToolCall` / `RecordAgentRun` from `Global()` to the injected instance
   - **Files:** `pkg/agent/loop.go`, `pkg/web/server.go` (construction site)
   - **Dependencies:** 2.1
   - **Acceptance:** Agent metrics recorded to per-user instance, not global; server passes correct instance at `NewAgentLoopForUser`
   - **Effort:** Medium
 
-- [ ] **2.5** Integration test: two users generate LLM call metrics; each `GET /api/metrics` returns only own data
+- [x] **2.5** Integration test: two users generate LLM call metrics; each `GET /api/metrics` returns only own data
   - **Files:** `pkg/web/server_test.go` or `pkg/web/metrics_test.go`
   - **Dependencies:** 2.3, 2.4
   - **Acceptance:** User A's metrics contain only User A's counts; no cross-contamination
@@ -120,25 +186,25 @@
 
 ### ISSUE-7: CronService Hard Failure
 
-- [ ] **2.6** Create `pkg/cron/errors.go` with `var ErrCronNotInitialized = errors.New("per-user cron service not initialized")`
+- [x] **2.6** Create `pkg/cron/errors.go` with `var ErrCronNotInitialized = errors.New("per-user cron service not initialized")`
   - **Files:** `pkg/cron/errors.go` (new)
   - **Dependencies:** none
   - **Acceptance:** File exists; exported sentinel error compiles
   - **Effort:** Small
 
-- [ ] **2.7** Update `getCronServiceForRequest` signature in `pkg/web/server.go`: change return type from `(*cron.CronService, int64, bool)` to `(*cron.CronService, int64, error)`; replace silent shared-cron fallback with `return nil, userID, cron.ErrCronNotInitialized` for authenticated multi-user requests; legacy single-user path returns `nil` error
+- [x] **2.7** Update `getCronServiceForRequest` signature in `pkg/web/server.go`: change return type from `(*cron.CronService, int64, bool)` to `(*cron.CronService, int64, error)`; replace silent shared-cron fallback with `return nil, userID, cron.ErrCronNotInitialized` for authenticated multi-user requests; legacy single-user path returns `nil` error
   - **Files:** `pkg/web/server.go`
   - **Dependencies:** 2.6
   - **Acceptance:** Authenticated user + no per-user cron → returns `ErrCronNotInitialized`; legacy path unaffected
   - **Effort:** Small
 
-- [ ] **2.8** Update all callers of `getCronServiceForRequest` in `pkg/web/handlers_advanced.go`: change `ok bool` to `err error`; return HTTP 500 on `ErrCronNotInitialized` with opaque message + internal structured log
+- [x] **2.8** Update all callers of `getCronServiceForRequest` in `pkg/web/handlers_advanced.go`: change `ok bool` to `err error`; return HTTP 500 on `ErrCronNotInitialized` with opaque message + internal structured log
   - **Files:** `pkg/web/handlers_advanced.go`
   - **Dependencies:** 2.7
   - **Acceptance:** All callers updated; no `ok bool` usages remain; 500 returned to client; error logged with user UUID
   - **Effort:** Small
 
-- [ ] **2.9** Unit test: authenticated context + no registered cron → `getCronServiceForRequest` returns `ErrCronNotInitialized`
+- [x] **2.9** Unit test: authenticated context + no registered cron → `getCronServiceForRequest` returns `ErrCronNotInitialized`
   - **Files:** `pkg/web/server_test.go`
   - **Dependencies:** 2.7
   - **Acceptance:** Test passes; error matches sentinel
@@ -148,13 +214,13 @@
 
 ### ISSUE-8: SessionManager Audit (Comment Only)
 
-- [ ] **2.10** Add comment in `pkg/channels/multiuser_manager.go` near line 114 confirming per-user `SessionManager` isolation (path is `{userWorkspace}/sessions/`, cross-user access is structurally impossible)
+- [x] **3.10** Add comment in `pkg/channels/multiuser_manager.go` near line 114 confirming per-user `SessionManager` isolation (path is `{userWorkspace}/sessions/`, cross-user access is structurally impossible)
   - **Files:** `pkg/channels/multiuser_manager.go`
   - **Dependencies:** none
   - **Acceptance:** Comment present; no code change; ISSUE-8 closed as confirmed-correct
   - **Effort:** Small
 
-- [ ] **2.11** Integration test: write session as User A, attempt read via User B's `SessionManager`, assert not-found error
+- [x] **3.11** Integration test: write session as User A, attempt read via User B's `SessionManager`, assert not-found error
   - **Files:** `pkg/session/manager_test.go` or `pkg/channels/multiuser_manager_test.go`
   - **Dependencies:** 2.10
   - **Acceptance:** Session file under `users/aaa/.../sessions/` not visible via `users/bbb/` manager
@@ -162,23 +228,23 @@
 
 ---
 
-## Phase 3 — LOW Priority: Code Quality & Documentation
+## Phase 4 — LOW Priority: Code Quality & Documentation
 
 ### ISSUE-2: Task Logs Ownership Guard
 
-- [ ] **3.1** Update `GetTaskLogs` signature in `pkg/storage/task_logs.go` to accept `userID int64`; add `isUserDB` branch — legacy mode executes ownership `JOIN tasks ON tasks.id = task_logs.task_id AND tasks.user_id = ?`; per-user mode skips JOIN
+- [x] **4.1** Update `GetTaskLogs` signature in `pkg/storage/task_logs.go` to accept `userID int64`; add `isUserDB` branch — legacy mode executes ownership `JOIN tasks ON tasks.id = task_logs.task_id AND tasks.user_id = ?`; per-user mode skips JOIN
   - **Files:** `pkg/storage/task_logs.go`
   - **Dependencies:** none
   - **Acceptance:** Legacy mode returns empty set for cross-user `task_id`; per-user mode unaffected
   - **Effort:** Small
 
-- [ ] **3.2** Update all callers of `GetTaskLogs` (handlers) to pass `userID` extracted from `getUserStorage(r)` context
+- [x] **4.2** Update all callers of `GetTaskLogs` (handlers) to pass `userID` extracted from `getUserStorage(r)` context
   - **Files:** `pkg/web/handlers_advanced.go` (or wherever `GetTaskLogs` is called)
   - **Dependencies:** 3.1
   - **Acceptance:** No callers use old zero-arg signature; compiles
   - **Effort:** Small
 
-- [ ] **3.3** Unit test: `GetTaskLogs` in legacy mode returns empty list when `userID` does not own the `task_id`
+- [x] **4.3** Unit test: `GetTaskLogs` in legacy mode returns empty list when `userID` does not own the `task_id`
   - **Files:** `pkg/storage/task_logs_test.go`
   - **Dependencies:** 3.1
   - **Acceptance:** Insert task for user 1; query as user 2 (`isUserDB=false`); assert empty result, no error
@@ -188,19 +254,19 @@
 
 ### ISSUE-6: Workspace Init Consolidation
 
-- [ ] **3.4** Replace body of `UserStorageManager.EnsureUserDirectory` in `pkg/storage/user_storage.go` with single delegate call: `_, err := config.EnsureUserWorkspace(userUUID); return err`
+- [x] **4.4** Replace body of `UserStorageManager.EnsureUserDirectory` in `pkg/storage/user_storage.go` with single delegate call: `_, err := config.EnsureUserWorkspace(userUUID); return err`
   - **Files:** `pkg/storage/user_storage.go`
   - **Dependencies:** none (canonical function already exists in `pkg/config/workspace_init.go`)
   - **Acceptance:** Function body replaced; callers receive same behavior; idempotent
   - **Effort:** Small
 
-- [ ] **3.5** Unit test: `EnsureUserWorkspace` on a fresh temp dir creates all expected subdirectories (workspace, memory/, sessions/, skills/, cron/, tasks/, temp/)
+- [x] **4.5** Unit test: `EnsureUserWorkspace` on a fresh temp dir creates all expected subdirectories (workspace, memory/, sessions/, skills/, cron/, tasks/, temp/)
   - **Files:** `pkg/config/workspace_init_test.go`
   - **Dependencies:** none
   - **Acceptance:** All paths from spec §ISSUE-6 exist after one call
   - **Effort:** Small
 
-- [ ] **3.6** Unit test: `EnsureUserDirectory` delegates to `config.EnsureUserWorkspace` (spy/mock or verify identical subdirectory outcome)
+- [x] **4.6** Unit test: `EnsureUserDirectory` delegates to `config.EnsureUserWorkspace` (spy/mock or verify identical subdirectory outcome)
   - **Files:** `pkg/storage/user_storage_test.go`
   - **Dependencies:** 3.4, 3.5
   - **Acceptance:** Delegating call confirmed; output identical to canonical function
@@ -210,7 +276,7 @@
 
 ### ISSUE-5: Documentation
 
-- [ ] **3.7** Add inline comment to `pkg/storage/knowledge.go` at `user_id INTEGER NOT NULL DEFAULT 1` explaining: why DEFAULT 1 exists, that it is safe in per-user mode, and that `userID` is always passed explicitly at write time
+- [x] **4.7** Add inline comment to `pkg/storage/knowledge.go` at `user_id INTEGER NOT NULL DEFAULT 1` explaining: why DEFAULT 1 exists, that it is safe in per-user mode, and that `userID` is always passed explicitly at write time
   - **Files:** `pkg/storage/knowledge.go`
   - **Dependencies:** none
   - **Acceptance:** Comment present immediately adjacent to the schema line; matches spec wording
@@ -220,7 +286,7 @@
 
 ### Open Questions Resolution
 
-- [ ] **3.8** Confirm `multiuser_manager.go:108-109` (`storage.New()` with `isUserDB=false`) is explicitly out of scope: add a `// TODO(future): ...` comment and note in `openspec/changes/audit-isolation-user-data/explore.md` or release notes
+- [x] **4.8** Confirm `multiuser_manager.go:108-109` (`storage.New()` with `isUserDB=false`) is explicitly out of scope: add a `// TODO(future): ...` comment and note in `openspec/changes/audit-isolation-user-data/explore.md` or release notes
   - **Files:** `pkg/channels/multiuser_manager.go`, `openspec/changes/audit-isolation-user-data/release-notes.md`
   - **Dependencies:** none
   - **Acceptance:** Open question #1 documented and closed; no code change to this path in this change
@@ -233,16 +299,20 @@
 | Phase | Tasks | Focus |
 |-------|-------|-------|
 | Phase 1 | 1.1 – 1.11 (11 tasks) | HIGH: task worker guard + workflows isolation |
-| Phase 2 | 2.1 – 2.11 (11 tasks) | MEDIUM: metrics, cron, session audit |
-| Phase 3 | 3.1 – 3.8 (8 tasks) | LOW: task logs, workspace consolidation, docs |
-| **Total** | **30 tasks** | |
+| Phase 2 | 2.1 – 2.21 (21 tasks) | HIGH: multi-agent user context propagation |
+| Phase 3 | 3.1 – 3.11 (11 tasks) | MEDIUM: metrics, cron, session audit |
+| Phase 4 | 4.1 – 4.8 (8 tasks) | LOW: task logs, workspace consolidation, docs |
+| **Total** | **51 tasks** | |
 
 ## Implementation Order Notes
 
 - **Start with 1.1** (CountUsers) as it unblocks 1.3.
 - **1.6 before 1.7** — migration must exist before CRUD changes reference the column.
 - **1.7 before 1.8** — handler depends on updated storage signatures.
+- **Phase 2 (ISSUE-9) can be implemented independently** of Phase 1 tasks — all multi-agent changes are additive and don't block other phases.
+- **2.13 before 2.14** — struct fields must exist before they can be populated.
+- **2.16 before 2.17** — struct fields must exist before spawn logic can set them.
 - **2.1 before 2.2, 2.3, 2.4** — map must exist before any method touches it.
-- **2.6 before 2.7 before 2.8** — error type → signature → callers.
-- **3.4 can run anytime** — canonical function already exists; delegation is a one-liner.
-- **All Phase 3 tasks are independent** — can be parallelized across files.
+- **2.6 before 2.7 before 2.8** — error type → signature → callers (now in Phase 3 as 3.6-3.8).
+- **4.4 can run anytime** — canonical function already exists; delegation is a one-liner.
+- **All Phase 4 tasks are independent** — can be parallelized across files.

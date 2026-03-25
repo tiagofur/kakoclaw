@@ -22,9 +22,25 @@ func (s *Storage) AddTaskLog(taskID int64, event, message string) error {
 	return nil
 }
 
-func (s *Storage) GetTaskLogs(taskID int64) ([]TaskLog, error) {
-	query := `SELECT id, task_id, event, message, created_at FROM task_logs WHERE task_id = ? ORDER BY created_at ASC`
-	rows, err := s.db.Query(query, taskID)
+func (s *Storage) GetTaskLogs(taskID, userID int64) ([]TaskLog, error) {
+	var (
+		query string
+		args  []interface{}
+	)
+
+	if s.isUserDB {
+		query = `SELECT id, task_id, event, message, created_at FROM task_logs WHERE task_id = ? ORDER BY created_at ASC`
+		args = []interface{}{taskID}
+	} else {
+		query = `SELECT tl.id, tl.task_id, tl.event, tl.message, tl.created_at
+			FROM task_logs tl
+			JOIN tasks t ON t.id = tl.task_id AND t.user_id = ?
+			WHERE tl.task_id = ?
+			ORDER BY tl.created_at ASC`
+		args = []interface{}{userID, taskID}
+	}
+
+	rows, err := s.db.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("getting task logs: %w", err)
 	}

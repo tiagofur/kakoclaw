@@ -40,6 +40,9 @@ func (s *Storage) migrateKnowledge() error {
 	queries := []string{
 		`CREATE TABLE IF NOT EXISTS knowledge_documents (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			-- DEFAULT 1 exists for legacy schema compatibility; in per-user DB mode this is safe
+			-- because SaveKnowledgeDocument always writes the real userID explicitly, so the default
+			-- is only a harmless fallback and never the ownership source of truth.
 			user_id INTEGER NOT NULL DEFAULT 1,
 			name TEXT NOT NULL,
 			mime_type TEXT NOT NULL DEFAULT 'text/plain',

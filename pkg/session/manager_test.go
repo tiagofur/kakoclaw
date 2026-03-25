@@ -1,6 +1,7 @@
 package session
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -299,6 +300,34 @@ func TestSetStorage(t *testing.T) {
 	history := sm.GetHistoryForUser(1, "chat")
 	if len(history) != 0 {
 		t.Errorf("After SetStorage, history should be empty; got %d messages", len(history))
+	}
+}
+
+func TestSessionManagerCrossUserStorageIsolation(t *testing.T) {
+	baseDir := t.TempDir()
+	userASessions := filepath.Join(baseDir, "users", "aaa-111", "workspace", "sessions")
+	userBSessions := filepath.Join(baseDir, "users", "bbb-222", "workspace", "sessions")
+
+	smA := NewSessionManager(userASessions)
+	smA.AddMessage("sess-99", "user", "owned by user A")
+	sessionA := smA.GetOrCreate("sess-99")
+	if err := smA.Save(sessionA); err != nil {
+		t.Fatalf("Save user A session failed: %v", err)
+	}
+
+	userAPath := filepath.Join(userASessions, sanitizeSessionKey(sessionA.Key)+".json")
+	if _, err := os.Stat(userAPath); err != nil {
+		t.Fatalf("expected session file in user A storage: %v", err)
+	}
+
+	smB := NewSessionManager(userBSessions)
+	if history := smB.GetHistory("sess-99"); len(history) != 0 {
+		t.Fatalf("expected user B history to be empty, got %d messages", len(history))
+	}
+
+	userBPath := filepath.Join(userBSessions, sanitizeSessionKey(sessionA.Key)+".json")
+	if _, err := os.Stat(userBPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected no cross-user session file in user B storage, got err=%v", err)
 	}
 }
 

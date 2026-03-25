@@ -2,6 +2,9 @@ package agent
 
 import (
 	"context"
+	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -362,3 +365,58 @@ func TestAgentManager_GetSwarmConfig_NotFound(t *testing.T) {
 	}
 }
 
+func TestSwarmRunnerPropagatesUserContextToChildSpecialists(t *testing.T) {
+	dataDir := t.TempDir()
+	previousDataDir := config.GetDataDir()
+	config.InitDataDir(dataDir)
+	t.Cleanup(func() { config.InitDataDir(previousDataDir) })
+
+	registry := NewSpecialistRegistry()
+	provider := &staticProvider{response: "swarm complete"}
+	cfg := newAgentTestConfig(filepath.Join(dataDir, "global-workspace"))
+	specialist, err := NewSpecialistAgent("worker", &config.SpecialistConfig{
+		Name:        "worker",
+		Description: "test worker",
+	}, cfg, nil, provider, nil)
+	if err != nil {
+		t.Fatalf("NewSpecialistAgent failed: %v", err)
+	}
+	if err := registry.RegisterSpecialist(specialist); err != nil {
+		t.Fatalf("RegisterSpecialist failed: %v", err)
+	}
+
+	runner := NewSwarmRunner(registry, nil)
+	ctx := ContextWithTeamContext(context.Background(), &TeamContext{
+		UserUUID: "aaa-111",
+		UserID:   7,
+	})
+
+	result, err := runner.RunSwarm(ctx, config.SwarmConfig{
+		Name:         "isolation",
+		Members:      []string{"worker"},
+		Mode:         "sequential",
+		SharedMemory: true,
+	}, "write into the user workspace")
+	if err != nil {
+		t.Fatalf("RunSwarm failed: %v", err)
+	}
+
+	if specialist.userUUID != "aaa-111" {
+		t.Fatalf("expected propagated user UUID aaa-111, got %q", specialist.userUUID)
+	}
+	if specialist.userID != 7 {
+		t.Fatalf("expected propagated user ID 7, got %d", specialist.userID)
+	}
+	if result.TeamContext == nil || result.TeamContext.UserUUID != "aaa-111" || result.TeamContext.UserID != 7 {
+		t.Fatalf("expected swarm result team context to keep propagated user identity, got %+v", result.TeamContext)
+	}
+
+	userSession := filepath.Join(dataDir, "users", "aaa-111", "workspace", "sessions", "specialist_worker.json")
+	if _, err := os.Stat(userSession); err != nil {
+		t.Fatalf("expected swarm specialist session in user workspace: %v", err)
+	}
+	otherUserSession := filepath.Join(dataDir, "users", "bbb-222", "workspace", "sessions", "specialist_worker.json")
+	if _, err := os.Stat(otherUserSession); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected no swarm session in another user's workspace, got err=%v", err)
+	}
+}

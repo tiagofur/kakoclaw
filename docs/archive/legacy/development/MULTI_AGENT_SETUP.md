@@ -21,6 +21,15 @@ User Request
 Result returned to user with specialist attribution
 ```
 
+## Isolation guarantees
+
+In multi-user deployments, the orchestrator, every specialist, spawned specialist tasks, and swarm members now inherit the active user's identity before they run.
+
+- Each agent resolves its workspace under `~/.MakoClaw/users/<uuid>/workspace`.
+- Session files stay under that user's `sessions/` directory and are not shared across users.
+- Swarm and spawned specialist audit records now keep both `UserUUID` and `UserID` so delegation history stays attributable to the originating user.
+- Runtime-added specialists are rehydrated with the same storage and user context as the parent agent manager.
+
 ## Configuration
 
 ### Basic Orchestrator Setup

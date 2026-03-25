@@ -105,6 +105,9 @@ func (m *MultiUserChannelManager) getOrCreateManagerForUserLocked(userUUID strin
 	}
 
 	// Create base agent loop for user
+	// TODO(future): This path still opens workspace/data.db through storage.New() instead of
+	// routing through UserStorageManager + user.db. That legacy inconsistency predates this
+	// change and is explicitly out of scope for audit-isolation-user-data.
 	userStorePath := filepath.Join(workspace, "data.db")
 	userStore, err := storage.New(config.StorageConfig{Path: userStorePath})
 	if err != nil {
@@ -115,6 +118,9 @@ func (m *MultiUserChannelManager) getOrCreateManagerForUserLocked(userUUID strin
 	if err != nil {
 		return nil, fmt.Errorf("failed to create agent loop for user: %w", err)
 	}
+	// SessionManager is per-user: path is {userWorkspace}/sessions/
+	// Cross-user access is structurally impossible - each user has
+	// their own SessionManager instance with isolated storage path.
 
 	// Wrap in an AgentManager to get Orchestrator support if enabled
 	agentMgr := agent.NewAgentManager(baseAgentLoop)

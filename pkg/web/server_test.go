@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -11,8 +12,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sipeed/makoclaw/pkg/config"
+	"github.com/sipeed/makoclaw/pkg/cron"
 	"github.com/sipeed/makoclaw/pkg/skills"
 	"github.com/sipeed/makoclaw/pkg/storage"
 )
@@ -117,6 +120,40 @@ func withTestUserContext(t *testing.T, s *Server, req *http.Request) *http.Reque
 	}
 	ctx := context.WithValue(req.Context(), userClaimsKey, claims)
 	return req.WithContext(ctx)
+}
+
+func withUserContext(req *http.Request, user *storage.User) *http.Request {
+	claims := &jwtClaims{
+		Sub:  user.Username,
+		UUID: user.UUID,
+		Role: user.Role,
+	}
+	ctx := context.WithValue(req.Context(), userClaimsKey, claims)
+	return req.WithContext(ctx)
+}
+
+func createUserForTest(t *testing.T, s *Server, username string) *storage.User {
+	t.Helper()
+
+	user, err := s.centralStore.CreateUserWithEmail(username, username+"@test.com", "StrongPassword123!", "user")
+	if err != nil {
+		if err != storage.ErrUserExists {
+			t.Fatalf("failed to create user %s: %v", username, err)
+		}
+		user, err = s.centralStore.GetUserByUsername(username)
+		if err != nil {
+			t.Fatalf("failed to load existing user %s: %v", username, err)
+		}
+	}
+	if user == nil {
+		t.Fatalf("user %s is nil", username)
+	}
+	if s.userMgr != nil {
+		if _, err := s.userMgr.GetOrCreate(user.UUID); err != nil {
+			t.Fatalf("failed to create per-user store for %s: %v", username, err)
+		}
+	}
+	return user
 }
 
 func TestAuthMiddlewareBlocksUnauthorizedAPI(t *testing.T) {
@@ -366,6 +403,80 @@ func TestLogUnsafeLegacyTaskWorkerModeEmitsFatalCondition(t *testing.T) {
 	}
 	if !strings.Contains(output, "[ERROR]") {
 		t.Fatalf("expected error level log, got %q", output)
+	}
+}
+
+func TestHandleMetricsIsolatesPerUserLLMCounts(t *testing.T) {
+	s := newTestServer(t)
+	userA := createUserForTest(t, s, "metrics-a")
+	userB := createUserForTest(t, s, "metrics-b")
+
+	s.getOrCreateUserMetrics(userA.UUID).RecordLLMCall("model-a", 120*time.Millisecond, 11, 13, nil)
+	s.getOrCreateUserMetrics(userB.UUID).RecordLLMCall("model-b", 80*time.Millisecond, 7, 9, nil)
+	s.getOrCreateUserMetrics(userB.UUID).RecordLLMCall("model-b", 90*time.Millisecond, 5, 6, nil)
+
+	type metricsResponse struct {
+		LLMCalls     int64                       `json:"llm_calls"`
+		LLMByModel   map[string]map[string]int64 `json:"llm_by_model"`
+		RecentEvents []map[string]interface{}    `json:"recent_events"`
+	}
+
+	assertMetrics := func(name string, user *storage.User, expectedCalls int64, expectedModel string, unexpectedModel string) {
+		t.Helper()
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/metrics", nil)
+		req = withUserContext(req, user)
+		rr := httptest.NewRecorder()
+
+		s.handleMetrics(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Fatalf("%s: expected 200, got %d: %s", name, rr.Code, rr.Body.String())
+		}
+
+		var out metricsResponse
+		if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
+			t.Fatalf("%s: invalid metrics response: %v", name, err)
+		}
+		if out.LLMCalls != expectedCalls {
+			t.Fatalf("%s: expected llm_calls=%d, got %d", name, expectedCalls, out.LLMCalls)
+		}
+		if _, ok := out.LLMByModel[expectedModel]; !ok {
+			t.Fatalf("%s: expected model %q in response: %#v", name, expectedModel, out.LLMByModel)
+		}
+		if _, ok := out.LLMByModel[unexpectedModel]; ok {
+			t.Fatalf("%s: unexpected model %q leaked into response: %#v", name, unexpectedModel, out.LLMByModel)
+		}
+		if len(out.RecentEvents) != int(expectedCalls) {
+			t.Fatalf("%s: expected %d recent events, got %d", name, expectedCalls, len(out.RecentEvents))
+		}
+		for _, evt := range out.RecentEvents {
+			if evt["model"] != expectedModel {
+				t.Fatalf("%s: unexpected event model %#v", name, evt["model"])
+			}
+		}
+	}
+
+	assertMetrics("user-a", userA, 1, "model-a", "model-b")
+	assertMetrics("user-b", userB, 2, "model-b", "model-a")
+}
+
+func TestGetCronServiceForRequestReturnsErrCronNotInitialized(t *testing.T) {
+	s := newTestServer(t)
+	user := createUserForTest(t, s, "cron-user")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/cron", nil)
+	req = withUserContext(req, user)
+
+	cronService, userID, err := s.getCronServiceForRequest(req)
+	if !errors.Is(err, cron.ErrCronNotInitialized) {
+		t.Fatalf("expected ErrCronNotInitialized, got %v", err)
+	}
+	if cronService != nil {
+		t.Fatalf("expected nil cron service, got %#v", cronService)
+	}
+	if userID != user.ID {
+		t.Fatalf("expected userID=%d, got %d", user.ID, userID)
 	}
 }
 

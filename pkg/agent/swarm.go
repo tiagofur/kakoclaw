@@ -26,8 +26,8 @@ type SwarmExecution struct {
 	Config      config.SwarmConfig            `json:"config"`
 	Task        string                        `json:"task"`
 	Status      string                        `json:"status"` // "running", "completed", "failed", "cancelled"
-	TeamContext *TeamContext                   `json:"team_context"`
-	Results     map[string]*SwarmMemberResult  `json:"results"`
+	TeamContext *TeamContext                  `json:"team_context"`
+	Results     map[string]*SwarmMemberResult `json:"results"`
 	StartTime   time.Time                     `json:"start_time"`
 	EndTime     time.Time                     `json:"end_time,omitempty"`
 	TotalCost   float64                       `json:"total_cost"`
@@ -37,24 +37,24 @@ type SwarmExecution struct {
 
 // SwarmMemberResult holds the output of one member's execution
 type SwarmMemberResult struct {
-	Member     string    `json:"member"`
-	Status     string    `json:"status"` // "pending", "running", "completed", "failed"
-	Result     string    `json:"result"`
-	Error      string    `json:"error,omitempty"`
-	StartTime  time.Time `json:"start_time"`
-	EndTime    time.Time `json:"end_time,omitempty"`
-	CostUSD    float64   `json:"cost_usd"`
+	Member    string    `json:"member"`
+	Status    string    `json:"status"` // "pending", "running", "completed", "failed"
+	Result    string    `json:"result"`
+	Error     string    `json:"error,omitempty"`
+	StartTime time.Time `json:"start_time"`
+	EndTime   time.Time `json:"end_time,omitempty"`
+	CostUSD   float64   `json:"cost_usd"`
 }
 
 // SwarmResult is the final output of a swarm execution
 type SwarmResult struct {
-	ExecutionID    string                       `json:"execution_id"`
-	SwarmName      string                       `json:"swarm_name"`
-	Status         string                       `json:"status"`
-	AggregatedText string                       `json:"aggregated_text"`
+	ExecutionID    string                        `json:"execution_id"`
+	SwarmName      string                        `json:"swarm_name"`
+	Status         string                        `json:"status"`
+	AggregatedText string                        `json:"aggregated_text"`
 	MemberResults  map[string]*SwarmMemberResult `json:"member_results"`
-	TotalCost      float64                      `json:"total_cost"`
-	Duration       time.Duration                `json:"duration"`
+	TotalCost      float64                       `json:"total_cost"`
+	Duration       time.Duration                 `json:"duration"`
 	TeamContext    *TeamContext                  `json:"team_context"`
 }
 
@@ -97,11 +97,21 @@ func (sr *SwarmRunner) RunSwarm(ctx context.Context, swarmCfg config.SwarmConfig
 		StartTime: time.Now(),
 	}
 
+	parentTeamCtx := TeamContextFromCtx(ctx)
+
 	// Initialize TeamContext for shared memory
 	exec.TeamContext = &TeamContext{
-		TaskID:       exec.ID,
-		OriginalTask: task,
-		Progress:     make(map[string]string),
+		TaskID:         exec.ID,
+		OriginalTask:   task,
+		Progress:       make(map[string]string),
+		SharedNotes:    []TeamNote{},
+		Artifacts:      []string{},
+		Decisions:      []TeamDecision{},
+		Communications: []TeamComm{},
+	}
+	if parentTeamCtx != nil {
+		exec.TeamContext.UserUUID = parentTeamCtx.UserUUID
+		exec.TeamContext.UserID = parentTeamCtx.UserID
 	}
 
 	// Embed TeamContext into the context if shared memory is enabled (default true)
@@ -125,8 +135,8 @@ func (sr *SwarmRunner) RunSwarm(ctx context.Context, swarmCfg config.SwarmConfig
 	})
 
 	emitAgentStatus(ctx, AgentStatusEvent{
-		Agent:   "swarm:" + swarmCfg.Name,
-		Status:  "starting",
+		Agent:  "swarm:" + swarmCfg.Name,
+		Status: "starting",
 		Reason: fmt.Sprintf("Starting swarm '%s' with %d members in %s mode", swarmCfg.Name, len(swarmCfg.Members), swarmCfg.Mode),
 	})
 
@@ -159,8 +169,8 @@ func (sr *SwarmRunner) RunSwarm(ctx context.Context, swarmCfg config.SwarmConfig
 	aggregated := sr.aggregateResults(exec)
 
 	emitAgentStatus(ctx, AgentStatusEvent{
-		Agent:   "swarm:" + swarmCfg.Name,
-		Status:  exec.Status,
+		Agent:  "swarm:" + swarmCfg.Name,
+		Status: exec.Status,
 		Reason: fmt.Sprintf("Swarm '%s' %s (%.4f USD)", swarmCfg.Name, exec.Status, exec.TotalCost),
 	})
 
@@ -251,6 +261,9 @@ func (sr *SwarmRunner) executeMember(ctx context.Context, exec *SwarmExecution, 
 		exec.mu.Unlock()
 		return err
 	}
+	if exec.TeamContext != nil {
+		specialist.SetUserForAgent(exec.TeamContext.UserUUID, exec.TeamContext.UserID)
+	}
 
 	exec.mu.Lock()
 	exec.Results[memberName].Status = "running"
@@ -259,8 +272,8 @@ func (sr *SwarmRunner) executeMember(ctx context.Context, exec *SwarmExecution, 
 	exec.mu.Unlock()
 
 	emitAgentStatus(ctx, AgentStatusEvent{
-		Agent:   memberName,
-		Status:  "working",
+		Agent:  memberName,
+		Status: "working",
 		Reason: fmt.Sprintf("Specialist '%s' working on swarm task", memberName),
 	})
 
@@ -319,8 +332,8 @@ func (sr *SwarmRunner) executeMember(ctx context.Context, exec *SwarmExecution, 
 	})
 
 	emitAgentStatus(ctx, AgentStatusEvent{
-		Agent:   memberName,
-		Status:  "completed",
+		Agent:  memberName,
+		Status: "completed",
 		Reason: fmt.Sprintf("Specialist '%s' completed swarm task", memberName),
 	})
 

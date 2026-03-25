@@ -17,6 +17,8 @@ type SpecialistSpawnTask struct {
 	Label          string
 	OriginChannel  string
 	OriginChatID   string
+	UserID         int64
+	UserUUID       string
 	Status         string
 	Result         string
 	Error          string
@@ -58,6 +60,16 @@ func (ss *SpecialistSpawner) SpawnForSpecialist(
 		return "", fmt.Errorf("specialist not found: %w", err)
 	}
 
+	var userUUID string
+	var userID int64
+	if teamCtx := TeamContextFromCtx(ctx); teamCtx != nil {
+		userUUID = teamCtx.UserUUID
+		userID = teamCtx.UserID
+	}
+	if userUUID != "" || userID != 0 {
+		specialist.SetUserForAgent(userUUID, userID)
+	}
+
 	ss.mu.Lock()
 	taskID := fmt.Sprintf("spawn-%s-%d", specialistName, ss.nextID)
 	ss.nextID++
@@ -69,6 +81,8 @@ func (ss *SpecialistSpawner) SpawnForSpecialist(
 		Label:          label,
 		OriginChannel:  originChannel,
 		OriginChatID:   originChatID,
+		UserID:         userID,
+		UserUUID:       userUUID,
 		Status:         "running",
 		CreatedAt:      time.Now(),
 	}
@@ -115,7 +129,7 @@ func (ss *SpecialistSpawner) runSpecialistTask(
 	// Announce completion via message bus
 	if ss.messageBus != nil {
 		ss.messageBus.PublishOutbound(bus.OutboundMessage{
-			UserID:  0, // Will be set by router if needed
+			UserID:  task.UserID,
 			Channel: task.OriginChannel,
 			ChatID:  task.OriginChatID,
 			Content: fmt.Sprintf(

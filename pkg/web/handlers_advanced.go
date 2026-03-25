@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,7 +19,6 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/sipeed/makoclaw/pkg/agent"
 	"github.com/sipeed/makoclaw/pkg/config"
 	"github.com/sipeed/makoclaw/pkg/cron"
 	"github.com/sipeed/makoclaw/pkg/logger"
@@ -132,7 +132,7 @@ func (s *Server) handleSkillAction(w http.ResponseWriter, r *http.Request) {
 			writeJSONError(w, "user storage unavailable", http.StatusServiceUnavailable)
 			return
 		}
-		userAgentLoop, loopErr := agent.NewAgentLoopForUser(userUUID, s.fullConfig, s.msgBus, s.centralStore, userStore)
+		userAgentLoop, loopErr := s.newAgentLoopForUser(userUUID, userStore)
 		if loopErr != nil {
 			logger.ErrorCF("web", "Failed to create agent loop for skill generation", map[string]interface{}{"user_uuid": userUUID, "error": loopErr.Error()})
 			writeJSONError(w, "AI not available - "+loopErr.Error(), http.StatusServiceUnavailable)
@@ -187,7 +187,7 @@ func (s *Server) handleSkillAction(w http.ResponseWriter, r *http.Request) {
 			writeJSONError(w, "user storage unavailable", http.StatusServiceUnavailable)
 			return
 		}
-		userAgentLoop, loopErr := agent.NewAgentLoopForUser(userUUID, s.fullConfig, s.msgBus, s.centralStore, userStore)
+		userAgentLoop, loopErr := s.newAgentLoopForUser(userUUID, userStore)
 		if loopErr != nil {
 			logger.ErrorCF("web", "Failed to create agent loop for skill config generation", map[string]interface{}{"user_uuid": userUUID, "error": loopErr.Error()})
 			writeJSONError(w, "AI not available - "+loopErr.Error(), http.StatusServiceUnavailable)
@@ -266,7 +266,7 @@ Respond ONLY with a valid JSON object matching this exact structure, with no mar
 			writeJSONError(w, "user storage unavailable", http.StatusServiceUnavailable)
 			return
 		}
-		userAgentLoop, loopErr := agent.NewAgentLoopForUser(userUUID, s.fullConfig, s.msgBus, s.centralStore, userStore)
+		userAgentLoop, loopErr := s.newAgentLoopForUser(userUUID, userStore)
 		if loopErr != nil {
 			logger.ErrorCF("web", "Failed to create agent loop for skill refinement", map[string]interface{}{"user_uuid": userUUID, "error": loopErr.Error()})
 			writeJSONError(w, "AI not available - "+loopErr.Error(), http.StatusServiceUnavailable)
@@ -413,7 +413,7 @@ Respond ONLY with a valid JSON object matching this exact structure, with no mar
 		if s.userMgr != nil && s.fullConfig != nil && s.msgBus != nil && s.centralStore != nil {
 			userStore, userUUID, userOK := s.getUserStorage(r)
 			if userOK && userUUID != "" && userStore != nil {
-				if userAgentLoop, loopErr := agent.NewAgentLoopForUser(userUUID, s.fullConfig, s.msgBus, s.centralStore, userStore); loopErr == nil {
+				if userAgentLoop, loopErr := s.newAgentLoopForUser(userUUID, userStore); loopErr == nil {
 					defer userAgentLoop.Stop()
 					aiReviewer = skills.NewLLMSecurityReviewer(userAgentLoop)
 				}
@@ -680,9 +680,23 @@ func validateSkillContent(content string) error {
 func (s *Server) handleCron(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	cronService, userID, ok := s.getCronServiceForRequest(r)
-	if !ok {
+	cronService, userID, err := s.getCronServiceForRequest(r)
+	if userID == 0 {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if err != nil {
+		userUUID := ""
+		if claims, ok := r.Context().Value(userClaimsKey).(*jwtClaims); ok && claims != nil {
+			userUUID = claims.UUID
+		}
+		if errors.Is(err, cron.ErrCronNotInitialized) {
+			logger.ErrorCF("web", "Per-user cron service not initialized", map[string]interface{}{"user_uuid": userUUID, "error": err.Error()})
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+		logger.ErrorCF("web", "Failed to resolve cron service for request", map[string]interface{}{"user_uuid": userUUID, "error": err.Error()})
+		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 	if cronService == nil {
@@ -769,9 +783,23 @@ func (s *Server) handleCronAction(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/api/v1/cron/")
 	w.Header().Set("Content-Type", "application/json")
 
-	cronService, userID, ok := s.getCronServiceForRequest(r)
-	if !ok {
+	cronService, userID, err := s.getCronServiceForRequest(r)
+	if userID == 0 {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if err != nil {
+		userUUID := ""
+		if claims, ok := r.Context().Value(userClaimsKey).(*jwtClaims); ok && claims != nil {
+			userUUID = claims.UUID
+		}
+		if errors.Is(err, cron.ErrCronNotInitialized) {
+			logger.ErrorCF("web", "Per-user cron service not initialized", map[string]interface{}{"user_uuid": userUUID, "error": err.Error()})
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+		logger.ErrorCF("web", "Failed to resolve cron service for request", map[string]interface{}{"user_uuid": userUUID, "error": err.Error()})
+		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 	if cronService == nil {
@@ -3875,7 +3903,7 @@ func (s *Server) handleAIFixJson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userAgentLoop, err := agent.NewAgentLoopForUser(userUUID, s.fullConfig, s.msgBus, s.centralStore, userStore)
+	userAgentLoop, err := s.newAgentLoopForUser(userUUID, userStore)
 	if err != nil {
 		logger.ErrorCF("web", "Failed to create agent loop for AI fix JSON", map[string]interface{}{
 			"user_uuid": userUUID,
@@ -3999,7 +4027,7 @@ func (s *Server) handleAICreateCron(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userAgentLoop, err := agent.NewAgentLoopForUser(userUUID, s.fullConfig, s.msgBus, s.centralStore, userStore)
+	userAgentLoop, err := s.newAgentLoopForUser(userUUID, userStore)
 	if err != nil {
 		logger.ErrorCF("web", "Failed to create agent loop for AI cron create", map[string]interface{}{
 			"user_uuid": userUUID,
@@ -4140,7 +4168,7 @@ func (s *Server) handleSkillGenerateConfig(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	userAgentLoop, err := agent.NewAgentLoopForUser(userUUID, s.fullConfig, s.msgBus, s.centralStore, userStore)
+	userAgentLoop, err := s.newAgentLoopForUser(userUUID, userStore)
 	if err != nil {
 		logger.ErrorCF("web", "Failed to create agent loop for skill config generation", map[string]interface{}{
 			"user_uuid": userUUID,

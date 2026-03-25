@@ -384,11 +384,11 @@ func TestTaskDelete(t *testing.T) {
 
 func TestTaskLogs(t *testing.T) {
 	s := newTestStorage(t)
-	id, _ := s.CreateTask("logged task", "", "todo", "")
+	id, _ := s.CreateTaskForUser(int64(1), "logged task", "", "todo", "")
 	_ = s.AddTaskLog(id, "created", "task created")
 	_ = s.AddTaskLog(id, "started", "execution began")
 
-	logs, err := s.GetTaskLogs(id)
+	logs, err := s.GetTaskLogs(id, 1)
 	if err != nil {
 		t.Fatalf("GetTaskLogs: %v", err)
 	}
@@ -1067,7 +1067,7 @@ func TestChannelMapping_NotFound(t *testing.T) {
 
 func TestTaskLogs_AddAndGet(t *testing.T) {
 	s := newTestStorage(t)
-	taskID, err := s.CreateTask("logged task2", "", "todo", "")
+	taskID, err := s.CreateTaskForUser(int64(1), "logged task2", "", "todo", "")
 	if err != nil {
 		t.Fatalf("CreateTask: %v", err)
 	}
@@ -1076,7 +1076,7 @@ func TestTaskLogs_AddAndGet(t *testing.T) {
 	_ = s.AddTaskLog(taskID, "started", "execution started")
 	_ = s.AddTaskLog(taskID, "completed", "execution finished")
 
-	logs, err := s.GetTaskLogs(taskID)
+	logs, err := s.GetTaskLogs(taskID, 1)
 	if err != nil {
 		t.Fatalf("GetTaskLogs: %v", err)
 	}
@@ -1101,7 +1101,7 @@ func TestTaskLogs_AddAndGet(t *testing.T) {
 func TestTaskLogs_EmptyForNonExistentTask(t *testing.T) {
 	s := newTestStorage(t)
 
-	logs, err := s.GetTaskLogs(99999)
+	logs, err := s.GetTaskLogs(99999, 1)
 	if err != nil {
 		t.Fatalf("GetTaskLogs: %v", err)
 	}

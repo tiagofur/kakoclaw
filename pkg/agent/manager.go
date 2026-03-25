@@ -103,6 +103,10 @@ func (am *AgentManager) InitializeOrchestrator(
 			spec.SetStorage(am.defaultAgent.storage)
 		}
 	}
+	orchestrator.SetUserForAgent(am.defaultAgent.userUUID, am.defaultAgent.userID)
+	for _, spec := range am.specialistReg.ListSpecialists() {
+		spec.SetUserForAgent(am.defaultAgent.userUUID, am.defaultAgent.userID)
+	}
 
 	logger.InfoCF("agent", "Orchestrator initialized successfully", map[string]interface{}{
 		"specialists": len(am.specialistReg.ListSpecialists()),
@@ -160,6 +164,13 @@ func (am *AgentManager) AddOrUpdateSpecialist(name string, cfg *config.Specialis
 	if err != nil {
 		return nil, err
 	}
+	if am.defaultAgent.centralStorage != nil {
+		specialist.SetCentralStorage(am.defaultAgent.centralStorage)
+	}
+	if am.defaultAgent.storage != nil {
+		specialist.SetStorage(am.defaultAgent.storage)
+	}
+	specialist.SetUserForAgent(am.defaultAgent.userUUID, am.defaultAgent.userID)
 
 	if err := am.specialistReg.RegisterSpecialist(specialist); err != nil {
 		return nil, err
@@ -244,6 +255,25 @@ func (am *AgentManager) RunSwarm(ctx context.Context, name, task string) (*Swarm
 		return nil, fmt.Errorf("swarm '%s' not found", name)
 	}
 
+	activeAgent := am.GetActiveAgent()
+	if activeAgent != nil {
+		teamCtx := TeamContextFromCtx(ctx)
+		if teamCtx == nil {
+			teamCtx = &TeamContext{
+				UserUUID: activeAgent.userUUID,
+				UserID:   activeAgent.userID,
+			}
+			ctx = ContextWithTeamContext(ctx, teamCtx)
+		} else {
+			if teamCtx.UserUUID == "" {
+				teamCtx.UserUUID = activeAgent.userUUID
+			}
+			if teamCtx.UserID == 0 {
+				teamCtx.UserID = activeAgent.userID
+			}
+		}
+	}
+
 	return am.swarmRunner.RunSwarm(ctx, swarmCfg, task)
 }
 
@@ -251,6 +281,25 @@ func (am *AgentManager) RunSwarm(ctx context.Context, name, task string) (*Swarm
 func (am *AgentManager) RunSwarmWithConfig(ctx context.Context, swarmCfg config.SwarmConfig, task string) (*SwarmResult, error) {
 	if am.swarmRunner == nil {
 		return nil, fmt.Errorf("swarm runner not initialized")
+	}
+
+	activeAgent := am.GetActiveAgent()
+	if activeAgent != nil {
+		teamCtx := TeamContextFromCtx(ctx)
+		if teamCtx == nil {
+			teamCtx = &TeamContext{
+				UserUUID: activeAgent.userUUID,
+				UserID:   activeAgent.userID,
+			}
+			ctx = ContextWithTeamContext(ctx, teamCtx)
+		} else {
+			if teamCtx.UserUUID == "" {
+				teamCtx.UserUUID = activeAgent.userUUID
+			}
+			if teamCtx.UserID == 0 {
+				teamCtx.UserID = activeAgent.userID
+			}
+		}
 	}
 
 	return am.swarmRunner.RunSwarm(ctx, swarmCfg, task)

@@ -822,6 +822,34 @@ func TestTaskDecompositionTool_Parameters(t *testing.T) {
 	}
 }
 
+func TestTaskDecompositionTool_PopulatesTeamContextUserIdentity(t *testing.T) {
+	teamCtx := &TeamContext{Progress: map[string]string{}}
+	oa := &OrchestratorAgent{
+		SpecialistAgent: &SpecialistAgent{
+			AgentLoop: &AgentLoop{
+				userUUID: "aaa-111",
+				userID:   42,
+			},
+		},
+	}
+	tool := &TaskDecompositionTool{orchestrator: oa}
+
+	_, err := tool.Execute(ContextWithTeamContext(context.Background(), teamCtx), map[string]interface{}{
+		"task":     "break this down",
+		"subtasks": []interface{}{},
+	})
+	if err != nil {
+		t.Fatalf("Execute returned error: %v", err)
+	}
+
+	if teamCtx.UserUUID != "aaa-111" {
+		t.Fatalf("expected TeamContext.UserUUID aaa-111, got %q", teamCtx.UserUUID)
+	}
+	if teamCtx.UserID != 42 {
+		t.Fatalf("expected TeamContext.UserID 42, got %d", teamCtx.UserID)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // DelegationRequest / DelegationResult struct construction
 // ---------------------------------------------------------------------------

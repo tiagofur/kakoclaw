@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/sipeed/makoclaw/pkg/config"
 )
 
 // UserStorageManager manages per-user SQLite database connections.
@@ -129,114 +131,6 @@ func (m *UserStorageManager) Central() *CentralStorage {
 
 // EnsureUserDirectory creates the complete directory structure for a user.
 func (m *UserStorageManager) EnsureUserDirectory(userUUID string) error {
-	userRoot := m.UserDataRoot(userUUID)
-	workspace := m.UserWorkspacePath(userUUID)
-
-	// Core directories
-	coreDirs := []string{
-		workspace,
-		filepath.Join(workspace, "memory"),
-		filepath.Join(workspace, "sessions"),
-		filepath.Join(workspace, "skills"),
-		filepath.Join(workspace, "cron"),
-		filepath.Join(workspace, "tasks"),
-		filepath.Join(workspace, "temp"),
-	}
-	for _, dir := range coreDirs {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return fmt.Errorf("creating directory %s: %w", dir, err)
-		}
-	}
-
-	// Bootstrap workspace templates
-	templates := map[string]string{
-		"AGENTS.md": `# Agent Instructions
-
-You are a helpful AI assistant. Be concise, accurate, and friendly.
-
-## Guidelines
-
-- Always explain what you're doing before taking actions
-- Ask for clarification when request is ambiguous
-- Use tools to help accomplish tasks
-- Remember important information in your memory files
-- Be proactive and helpful
-- Learn from user feedback
-`,
-		"SOUL.md": `# Soul
-
-I am makoclaw, a lightweight AI assistant powered by AI.
-
-## Personality
-
-- Helpful and friendly
-- Concise and to the point
-- Curious and eager to learn
-- Honest and transparent
-
-## Values
-
-- Accuracy over speed
-- User privacy and safety
-- Transparency in actions
-- Continuous improvement
-`,
-		"USER.md": `# User
-
-Information about user goes here.
-
-## Preferences
-
-- Communication style: (casual/formal)
-- Timezone: (your timezone)
-- Language: (your preferred language)
-`,
-		"IDENTITY.md": `# Identity
-
-## Name
-makoclaw (The Apex AI Agent)
-
-## Description
-An ultra-efficient, Go-native personal AI assistant.
-
-## Version
-0.1.0
-`,
-	}
-
-	for filename, content := range templates {
-		filePath := filepath.Join(workspace, filename)
-		if _, err := os.Stat(filePath); os.IsNotExist(err) {
-			if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
-				return fmt.Errorf("creating template %s: %w", filename, err)
-			}
-		}
-	}
-
-	// Memory file
-	memoryFile := filepath.Join(workspace, "memory", "MEMORY.md")
-	if _, err := os.Stat(memoryFile); os.IsNotExist(err) {
-		memoryContent := `# Long-term Memory
-
-This file stores important information that should persist across sessions.
-
-## User Information
-
-(Important facts about user)
-
-## Preferences
-
-(User preferences learned over time)
-
-## Important Notes
-
-(Things to remember)
-`
-		if err := os.WriteFile(memoryFile, []byte(memoryContent), 0644); err != nil {
-			return fmt.Errorf("creating memory file: %w", err)
-		}
-	}
-
-	_ = userRoot // used for future per-user files
-	return nil
+	_, err := config.EnsureUserWorkspace(userUUID)
+	return err
 }

@@ -182,6 +182,70 @@ Jobs in the shared cron service DO have a `UserID` field and all list/remove/upd
 
 ---
 
+### ISSUE-9 — Multi-Agent User Context Propagation
+
+**Finding:** The multi-agent system (specialists, swarms, orchestrators) may not consistently propagate user identity, risking cross-user workspace access and incomplete audit trails.
+
+**File:** `pkg/agent/manager.go:InitializeOrchestrator`
+```go
+specialist := agent.NewAgentLoop(globalCfg)
+// No SetUserForAgent() call — specialist lacks user context!
+```
+
+**Impact:** HIGH — specialists created by the manager operate without user identity, potentially reading from wrong workspace or misattributing actions in audit logs.
+
+**Fix direction:** Add `SetUserForAgent(userUUID, userID)` call for all specialists in `InitializeOrchestrator`.
+
+---
+
+**File:** `pkg/agent/orchestrator.go` — `TeamContext` struct
+```go
+type TeamContext struct {
+    ParentAgentID string
+    TaskID        string
+    TaskType      string
+    // No UserUUID or UserID fields!
+}
+```
+
+**Impact:** MEDIUM — when delegating to specialists, the team context lacks user identity for workspace isolation.
+
+**Fix direction:** Add `UserUUID string` and `UserID int64` to `TeamContext`. Update `TaskDecompositionTool` to populate these from parent agent.
+
+---
+
+**File:** `pkg/agent/swarm.go` — `SwarmRunner`
+```go
+func (sr *SwarmRunner) Execute(ctx context.Context, swarm *SwarmConfig) error {
+    for _, specialistCfg := range swarm.Specialists {
+        specialist := agent.NewAgentLoop(globalCfg)
+        // Missing: SetUserForAgent(userUUID, userID)
+    }
+}
+```
+
+**Impact:** MEDIUM — swarm executions may bypass per-user workspace isolation if user context is not propagated to child specialists.
+
+**Fix direction:** Ensure `SwarmRunner` receives and passes user context to all spawned specialists.
+
+---
+
+**File:** `pkg/agent/spawner.go` — `SpecialistSpawnTask`
+```go
+type SpecialistSpawnTask struct {
+    TaskID      string
+    AgentID     string
+    Specialist  string
+    // No UserID or UserUUID for audit trail!
+}
+```
+
+**Impact:** LOW — audit trail cannot trace which user spawned which specialist during multi-agent workflows.
+
+**Fix direction:** Add `UserID int64` and `UserUUID string` fields to `SpecialistSpawnTask` for audit tracking.
+
+---
+
 ## What Is Working Correctly
 
 - ✅ All HTTP handlers use `getUserStorage(r)` to get the per-user DB
@@ -209,14 +273,16 @@ Jobs in the shared cron service DO have a `UserID` field and all list/remove/upd
 | 6 | Duplicate workspace init code (drift risk) | Low | Both modes |
 | 7 | CronService falls back to shared instance silently | Medium | Both modes |
 | 8 | SessionManager storage path must be set per-user | Medium | Per-user mode |
+| 9 | Multi-agent user context not propagated (specialists, swarms) | HIGH | Both modes |
 
 ---
 
 ## Recommended Next Steps
 
 1. **Workflows user isolation** — Add `user_id` column to `workflows` table and scope all CRUD methods (mirrors the `tasks` pattern). This is the highest-risk gap in the data model itself.
-2. **Metrics per-user** — Replace `observability.Global()` with per-user metrics instances, or add `user_id` attribution + filtering to the metrics endpoint.
-3. **CronService fallback hardening** — Remove or gate the fallback to shared cron; log an error instead of silently degrading.
-4. **SessionManager audit** — Confirm `MultiUserChannelManager` sets per-user storage paths on session managers.
-5. **Legacy task worker deprecation** — Add a log warning that `processNextTodoTaskLegacy` is unsafe in multi-user deployments; document that it is only for single-user mode.
-6. **Workspace init consolidation** — Merge `config.EnsureUserWorkspace` and `UserStorageManager.EnsureUserDirectory` into one canonical function.
+2. **Multi-agent user context propagation** — Ensure all specialists, swarms, and orchestrators carry user identity via `SetUserForAgent(userUUID, userID)` calls and `TeamContext` fields.
+3. **Metrics per-user** — Replace `observability.Global()` with per-user metrics instances, or add `user_id` attribution + filtering to the metrics endpoint.
+4. **CronService fallback hardening** — Remove or gate the fallback to shared cron; log an error instead of silently degrading.
+5. **SessionManager audit** — Confirm `MultiUserChannelManager` sets per-user storage paths on session managers.
+6. **Legacy task worker deprecation** — Add a log warning that `processNextTodoTaskLegacy` is unsafe in multi-user deployments; document that it is only for single-user mode.
+7. **Workspace init consolidation** — Merge `config.EnsureUserWorkspace` and `UserStorageManager.EnsureUserDirectory` into one canonical function.

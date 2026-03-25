@@ -168,45 +168,47 @@ type DelegationResult struct {
 // SpecialistReport represents structured feedback from a specialist
 // This enables the orchestrator to make intelligent re-delegation decisions
 type SpecialistReport struct {
-	SpecialistName string    `json:"specialist_name"` // Who generated this report
-	Status         string    `json:"status"`          // "complete", "needs_help", "partial", "failed"
-	Result         string    `json:"result"`          // The actual output
-	Confidence     float64   `json:"confidence"`      // 0.0-1.0 confidence in result
-	Suggestions    []string  `json:"suggestions"`     // Recommendations for improvement
-	NeedsReview    bool      `json:"needs_review"`    // Request orchestrator review
-	RequestHelp    string    `json:"request_help"`    // Request another specialist (e.g., "security")
-	HelpContext    string    `json:"help_context"`    // Context for the help request
-	Artifacts      []string  `json:"artifacts"`       // Files created/modified
-	TimeSpent      string    `json:"time_spent"`      // Execution time
-	Iteration      int       `json:"iteration"`       // Which iteration this is from
-	Timestamp      time.Time `json:"timestamp"`       // When the report was generated
-	DelegationChain []string `json:"delegation_chain,omitempty"` // delegation path
-	DelegationDepth int      `json:"delegation_depth,omitempty"` // depth in chain
-	ToolsUsed       []string `json:"tools_used,omitempty"`       // tools the specialist called
-	IterationsUsed  int      `json:"iterations_used,omitempty"`  // LLM iterations consumed
+	SpecialistName  string    `json:"specialist_name"`            // Who generated this report
+	Status          string    `json:"status"`                     // "complete", "needs_help", "partial", "failed"
+	Result          string    `json:"result"`                     // The actual output
+	Confidence      float64   `json:"confidence"`                 // 0.0-1.0 confidence in result
+	Suggestions     []string  `json:"suggestions"`                // Recommendations for improvement
+	NeedsReview     bool      `json:"needs_review"`               // Request orchestrator review
+	RequestHelp     string    `json:"request_help"`               // Request another specialist (e.g., "security")
+	HelpContext     string    `json:"help_context"`               // Context for the help request
+	Artifacts       []string  `json:"artifacts"`                  // Files created/modified
+	TimeSpent       string    `json:"time_spent"`                 // Execution time
+	Iteration       int       `json:"iteration"`                  // Which iteration this is from
+	Timestamp       time.Time `json:"timestamp"`                  // When the report was generated
+	DelegationChain []string  `json:"delegation_chain,omitempty"` // delegation path
+	DelegationDepth int       `json:"delegation_depth,omitempty"` // depth in chain
+	ToolsUsed       []string  `json:"tools_used,omitempty"`       // tools the specialist called
+	IterationsUsed  int       `json:"iterations_used,omitempty"`  // LLM iterations consumed
 }
 
 // TeamContext holds shared state for multi-specialist collaboration
 type TeamContext struct {
-	TaskID        string            `json:"task_id"`
-	OriginalTask  string            `json:"original_task"`
-	Subtasks      []Subtask         `json:"subtasks"`
-	Progress      map[string]string `json:"progress"`       // specialist -> status
-	SharedNotes   []TeamNote        `json:"shared_notes"`   // cross-specialist notes
-	Artifacts     []string          `json:"artifacts"`      // files created
-	Decisions     []TeamDecision    `json:"decisions"`      // key decisions made
-	Communications []TeamComm       `json:"communications"` // inter-specialist messages
+	TaskID         string            `json:"task_id"`
+	OriginalTask   string            `json:"original_task"`
+	UserUUID       string            `json:"user_uuid,omitempty"`
+	UserID         int64             `json:"user_id,omitempty"`
+	Subtasks       []Subtask         `json:"subtasks"`
+	Progress       map[string]string `json:"progress"`       // specialist -> status
+	SharedNotes    []TeamNote        `json:"shared_notes"`   // cross-specialist notes
+	Artifacts      []string          `json:"artifacts"`      // files created
+	Decisions      []TeamDecision    `json:"decisions"`      // key decisions made
+	Communications []TeamComm        `json:"communications"` // inter-specialist messages
 }
 
 // Subtask represents a decomposed part of a larger task
 type Subtask struct {
-	ID           int      `json:"id"`
-	Description  string   `json:"description"`
-	Specialist   string   `json:"specialist"`
-	Dependencies []int    `json:"dependencies"` // IDs of prerequisite subtasks
-	Priority     int      `json:"priority"`
-	Status       string   `json:"status"` // "pending", "in_progress", "complete", "failed"
-	Result       string   `json:"result"`
+	ID           int    `json:"id"`
+	Description  string `json:"description"`
+	Specialist   string `json:"specialist"`
+	Dependencies []int  `json:"dependencies"` // IDs of prerequisite subtasks
+	Priority     int    `json:"priority"`
+	Status       string `json:"status"` // "pending", "in_progress", "complete", "failed"
+	Result       string `json:"result"`
 }
 
 // TeamNote represents a shared note between specialists
@@ -219,11 +221,11 @@ type TeamNote struct {
 
 // TeamDecision records a decision made during task execution
 type TeamDecision struct {
-	Author      string    `json:"author"`
-	Decision    string    `json:"decision"`
-	Rationale   string    `json:"rationale"`
-	Timestamp   time.Time `json:"timestamp"`
-	AffectedBy  []string  `json:"affected_by"` // other agents affected
+	Author     string    `json:"author"`
+	Decision   string    `json:"decision"`
+	Rationale  string    `json:"rationale"`
+	Timestamp  time.Time `json:"timestamp"`
+	AffectedBy []string  `json:"affected_by"` // other agents affected
 }
 
 // TeamComm represents communication between specialists
@@ -568,10 +570,18 @@ func (tdt *TaskDecompositionTool) Execute(ctx context.Context, args map[string]i
 
 	// Get or create team context
 	teamCtx := TeamContextFromCtx(ctx)
+	userUUID := ""
+	var userID int64
+	if tdt.orchestrator != nil && tdt.orchestrator.AgentLoop != nil {
+		userUUID = tdt.orchestrator.AgentLoop.userUUID
+		userID = tdt.orchestrator.AgentLoop.userID
+	}
 	if teamCtx == nil {
 		teamCtx = &TeamContext{
 			TaskID:         fmt.Sprintf("task_%d", time.Now().UnixNano()),
 			OriginalTask:   task,
+			UserUUID:       userUUID,
+			UserID:         userID,
 			Progress:       make(map[string]string),
 			SharedNotes:    []TeamNote{},
 			Artifacts:      []string{},
@@ -579,6 +589,12 @@ func (tdt *TaskDecompositionTool) Execute(ctx context.Context, args map[string]i
 			Communications: []TeamComm{},
 		}
 		ctx = ContextWithTeamContext(ctx, teamCtx)
+	}
+	if teamCtx.UserUUID == "" {
+		teamCtx.UserUUID = userUUID
+	}
+	if teamCtx.UserID == 0 {
+		teamCtx.UserID = userID
 	}
 
 	// Parse subtasks
@@ -930,7 +946,6 @@ The user only sees text below the JSON block — include all findings there.
 	}
 	tracker.AddInvolvedAgent(specialistName)
 
-
 	return result, nil
 }
 
@@ -997,13 +1012,13 @@ func (oa *OrchestratorAgent) BuildOrchestratorContext() string {
 // generateDelegationReason creates a human-readable explanation for delegation
 func generateDelegationReason(specialistName, task string) string {
 	reasonMap := map[string]string{
-		"developer":       "requires code implementation or modification",
-		"documentation":   "requires documentation updates",
-		"testing":         "requires test creation or QA",
-		"devops":          "requires infrastructure work",
-		"analyst":         "requires data analysis",
-		"researcher":      "requires investigation",
-		"general":         "general-purpose task with full capabilities",
+		"developer":     "requires code implementation or modification",
+		"documentation": "requires documentation updates",
+		"testing":       "requires test creation or QA",
+		"devops":        "requires infrastructure work",
+		"analyst":       "requires data analysis",
+		"researcher":    "requires investigation",
+		"general":       "general-purpose task with full capabilities",
 	}
 
 	if reason, ok := reasonMap[specialistName]; ok {
@@ -1042,6 +1057,8 @@ func (oa *OrchestratorAgent) ProcessWithFeedbackLoop(ctx context.Context, userMe
 	teamCtx := &TeamContext{
 		TaskID:         fmt.Sprintf("task_%d", time.Now().UnixNano()),
 		OriginalTask:   userMessage,
+		UserUUID:       oa.AgentLoop.userUUID,
+		UserID:         oa.AgentLoop.userID,
 		Progress:       make(map[string]string),
 		SharedNotes:    []TeamNote{},
 		Artifacts:      []string{},
@@ -1267,7 +1284,7 @@ func (oa *OrchestratorAgent) cleanSpecialistResult(result string) string {
 	lines := strings.SplitN(result, "\n", 2)
 	if len(lines) > 1 {
 		firstLine := strings.TrimSpace(lines[0])
-		
+
 		// If first line is a JSON object, return the rest
 		if strings.HasPrefix(firstLine, "{") && strings.Contains(firstLine, "}") {
 			// Also checking if it parses as the report properly
@@ -1280,7 +1297,7 @@ func (oa *OrchestratorAgent) cleanSpecialistResult(result string) string {
 			}
 		}
 	}
-	
+
 	return strings.TrimSpace(result)
 }
 

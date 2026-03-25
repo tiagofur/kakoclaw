@@ -74,6 +74,8 @@ type Server struct {
 	ttsSynthesizer          *voice.TTSSynthesizer
 	mcpManager              *mcp.Manager
 	workflowEngine          *workflow.Engine
+	userMetrics             map[string]*observability.Metrics
+	userMetricsMu           sync.RWMutex
 	execMu                  sync.RWMutex
 	activeExecs             map[string]*activeExecution
 	msgBus                  *bus.MessageBus
@@ -135,6 +137,7 @@ func NewServer(cfg config.WebConfig, agentLoop *agent.AgentLoop, store *storage.
 		tasksClients: make(map[*websocket.Conn]struct{}),
 		connMu:       make(map[*websocket.Conn]*sync.Mutex),
 		memory:       agent.NewMemoryStore(workspace),
+		userMetrics:  make(map[string]*observability.Metrics),
 		activeExecs:  make(map[string]*activeExecution),
 	}
 }
@@ -151,6 +154,43 @@ func NewServerWithWorkspace(cfg config.WebConfig, agentLoop *agent.AgentLoop, wo
 // SetStorage allows setting storage after initialization (helper for legacy calls)
 func (s *Server) SetStorage(store *storage.Storage) {
 	s.store = store
+}
+
+func (s *Server) getOrCreateUserMetrics(userUUID string) *observability.Metrics {
+	s.userMetricsMu.RLock()
+	if metrics, ok := s.userMetrics[userUUID]; ok {
+		s.userMetricsMu.RUnlock()
+		return metrics
+	}
+	s.userMetricsMu.RUnlock()
+
+	s.userMetricsMu.Lock()
+	defer s.userMetricsMu.Unlock()
+
+	if metrics, ok := s.userMetrics[userUUID]; ok {
+		return metrics
+	}
+
+	metrics := observability.New()
+	if s.userMgr != nil && userUUID != "" {
+		if userStore, err := s.userMgr.GetOrCreate(userUUID); err == nil && userStore != nil {
+			metrics.SetStorage(userStore)
+		}
+	}
+
+	s.userMetrics[userUUID] = metrics
+	return metrics
+}
+
+func (s *Server) newAgentLoopForUser(userUUID string, userStore *storage.Storage) (*agent.AgentLoop, error) {
+	userAgentLoop, err := agent.NewAgentLoopForUser(userUUID, s.fullConfig, s.msgBus, s.centralStore, userStore)
+	if err != nil {
+		return nil, err
+	}
+	if metrics := s.getOrCreateUserMetrics(userUUID); metrics != nil {
+		userAgentLoop.SetMetrics(metrics)
+	}
+	return userAgentLoop, nil
 }
 
 // SetCentralStorage sets the central database storage for user auth operations.
@@ -659,12 +699,15 @@ func (s *Server) getUserIDFromClaims(r *http.Request) (int64, bool) {
 }
 
 // getCronServiceForRequest resolves the cron service and user ID for the request.
-// It prefers per-user cron services when the multi-user manager is available.
-// In degraded mode, it will create per-user cron services on demand.
-func (s *Server) getCronServiceForRequest(r *http.Request) (*cron.CronService, int64, bool) {
+// Authenticated multi-user requests MUST use a registered per-user cron service.
+// Legacy single-user mode may still use the shared cron service.
+func (s *Server) getCronServiceForRequest(r *http.Request) (*cron.CronService, int64, error) {
 	claims, ok := r.Context().Value(userClaimsKey).(*jwtClaims)
 	if !ok || claims == nil {
-		return nil, 0, false
+		if s.cronService != nil {
+			return s.cronService, 0, nil
+		}
+		return nil, 0, nil
 	}
 
 	var userID int64
@@ -701,29 +744,27 @@ func (s *Server) getCronServiceForRequest(r *http.Request) (*cron.CronService, i
 	}
 
 	if userID == 0 {
-		return nil, 0, false
+		return nil, 0, nil
 	}
 
-	// Try to get existing per-user cron service (full mode with agent loop)
 	if s.multiUserChannelManager != nil && userUUID != "" {
 		if cronService, exists := s.multiUserChannelManager.GetCronServiceForUser(userUUID); exists {
 			_ = cronService.Start()
-			return cronService, userID, true
+			return cronService, userID, nil
 		}
 
-		// In degraded mode, create a minimal per-user cron service on demand
-		// This allows users to schedule jobs (with deliver=true) without an LLM provider
-		if cronService, err := s.multiUserChannelManager.GetOrCreateCronServiceForUser(userUUID); err == nil {
-			_ = cronService.Start()
-			return cronService, userID, true
-		}
+		return nil, userID, cron.ErrCronNotInitialized
+	}
+
+	if s.userMgr != nil {
+		return nil, userID, cron.ErrCronNotInitialized
 	}
 
 	if s.cronService != nil {
-		return s.cronService, userID, true
+		return s.cronService, userID, nil
 	}
 
-	return nil, userID, true
+	return nil, userID, nil
 }
 
 // getUserStorage returns the per-user Storage for the authenticated user.
@@ -796,11 +837,12 @@ func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
-	store, userID, ok := s.getUserStorage(r)
+	store, userKey, ok := s.getUserStorage(r)
 	if !ok {
 		http.Error(w, "unauthorized or store unavailable", http.StatusUnauthorized)
 		return
 	}
+	requestUserID, hasRequestUserID := s.getUserIDFromClaims(r)
 
 	path := strings.TrimPrefix(r.URL.Path, "/api/v1/tasks")
 	path = strings.TrimPrefix(path, "/")
@@ -809,7 +851,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			includeArchived := r.URL.Query().Get("include_archived") == "true"
-			tasks, err := store.ListTasksForUser(userID, includeArchived)
+			tasks, err := store.ListTasksForUser(userKey, includeArchived)
 			if err != nil {
 				http.Error(w, "failed to list tasks", http.StatusInternalServerError)
 				return
@@ -853,14 +895,14 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "invalid status", http.StatusBadRequest)
 				return
 			}
-			id, err := store.CreateTaskForUser(userID, strings.TrimSpace(in.Title), strings.TrimSpace(in.Description), status, "")
+			id, err := store.CreateTaskForUser(userKey, strings.TrimSpace(in.Title), strings.TrimSpace(in.Description), status, "")
 			if err != nil {
 				http.Error(w, "failed to create task", http.StatusInternalServerError)
 				return
 			}
 
 			// Fetch the created task to get full details (like created_at)
-			created, err := store.GetTaskForUser(userID, id)
+			created, err := store.GetTaskForUser(userKey, id)
 			if err != nil {
 				http.Error(w, "failed to get created task", http.StatusInternalServerError)
 				return
@@ -912,7 +954,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		updated, err := store.UpdateTaskStatusForUser(userID, id, status)
+		updated, err := store.UpdateTaskStatusForUser(userKey, id, status)
 		if err != nil {
 			http.Error(w, "task not found", http.StatusNotFound)
 			return
@@ -948,12 +990,12 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if err := store.ArchiveTaskForUser(userID, id); err != nil {
+		if err := store.ArchiveTaskForUser(userKey, id); err != nil {
 			http.Error(w, "failed to archive task", http.StatusInternalServerError)
 			return
 		}
 
-		task, err := store.GetTaskForUser(userID, id)
+		task, err := store.GetTaskForUser(userKey, id)
 		if err == nil {
 			item := taskItem{
 				ID:          toString(task.ID),
@@ -986,12 +1028,12 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if err := store.UnarchiveTaskForUser(userID, id); err != nil {
+		if err := store.UnarchiveTaskForUser(userKey, id); err != nil {
 			http.Error(w, "failed to unarchive task", http.StatusInternalServerError)
 			return
 		}
 
-		task, err := store.GetTaskForUser(userID, id)
+		task, err := store.GetTaskForUser(userKey, id)
 		if err == nil {
 			item := taskItem{
 				ID:          toString(task.ID),
@@ -1019,7 +1061,11 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "invalid task id for logs", http.StatusBadRequest)
 			return
 		}
-		logs, err := store.GetTaskLogs(logsID)
+		if !hasRequestUserID {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		logs, err := store.GetTaskLogs(logsID, requestUserID)
 		if err != nil {
 			http.Error(w, "failed to get task logs", http.StatusInternalServerError)
 			return
@@ -1062,7 +1108,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		}
 
 		updated, err := store.UpdateTaskForUser(
-			userID,
+			userKey,
 			id,
 			strings.TrimSpace(in.Title),
 			strings.TrimSpace(in.Description),
@@ -1088,7 +1134,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		writeJSONResponse(w, item)
 	case http.MethodDelete:
-		if err := store.DeleteTaskForUser(userID, id); err != nil {
+		if err := store.DeleteTaskForUser(userKey, id); err != nil {
 			http.Error(w, "failed to delete task", http.StatusInternalServerError)
 			return
 		}
@@ -1125,7 +1171,7 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Step 1: Create the base handler
-	baseAgentLoop, err := agent.NewAgentLoopForUser(userUUID, s.fullConfig, s.msgBus, s.centralStore, userStore)
+	baseAgentLoop, err := s.newAgentLoopForUser(userUUID, userStore)
 	if err != nil {
 		logger.ErrorCF("web", "Failed to create per-user agent loop for websocket", map[string]interface{}{
 			"user_uuid": userUUID,
@@ -2781,7 +2827,7 @@ func (s *Server) processNextTodoTaskPerUser(ctx context.Context) {
 				continue
 			}
 
-			userLoop, loopErr := agent.NewAgentLoopForUser(user.UUID, s.fullConfig, s.msgBus, s.centralStore, userStore)
+			userLoop, loopErr := s.newAgentLoopForUser(user.UUID, userStore)
 			if loopErr != nil {
 				_ = userStore.AddTaskLog(t.ID, "error", "Failed to create user agent loop: "+loopErr.Error())
 				logger.WarnCF("web", "task worker: failed to create per-user agent loop", map[string]interface{}{"user_uuid": user.UUID, "task_id": t.ID, "error": loopErr.Error()})
@@ -3540,7 +3586,26 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	snapshot := observability.Global().Snapshot()
+	userStore, userUUID, ok := s.getUserStorage(r)
+	if !ok || userStore == nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if userUUID == "" {
+		if claims, claimsOK := r.Context().Value(userClaimsKey).(*jwtClaims); claimsOK && claims != nil {
+			userUUID = claims.UUID
+			if userUUID == "" {
+				if user, err := s.resolveUserByUsername(claims.Sub); err == nil && user != nil {
+					userUUID = user.UUID
+				}
+			}
+		}
+	}
+	if userUUID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	snapshot := s.getOrCreateUserMetrics(userUUID).Snapshot()
 	w.Header().Set("Content-Type", "application/json")
 	writeJSONResponse(w, snapshot)
 }
@@ -4254,7 +4319,7 @@ func (s *Server) handleSpecialistGenerate(w http.ResponseWriter, r *http.Request
 	}
 
 	// Create per-user agent loop with user's configured provider
-	userAgentLoop, err := agent.NewAgentLoopForUser(userUUID, s.fullConfig, s.msgBus, s.centralStore, userStore)
+	userAgentLoop, err := s.newAgentLoopForUser(userUUID, userStore)
 	if err != nil {
 		logger.ErrorCF("web", "Failed to create agent loop for specialist generation", map[string]interface{}{
 			"user_uuid": userUUID,

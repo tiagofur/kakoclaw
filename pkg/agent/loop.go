@@ -51,10 +51,11 @@ type AgentLoop struct {
 	centralStorage   *storage.CentralStorage  // Central DB for user identity and permissions lookups
 	auditLogger      *tools.SQLiteAuditLogger // Audit logger for restricted tools
 	cfg              *config.Config           // Config for permission checks
-	involvedAgentsMu sync.Mutex               // Mutex for thread-safe agent tracking
-	involvedAgents   []string                 // Agents involved in current/last response
-	summarizeWg      sync.WaitGroup           // Tracks active summarization goroutines
-	costTracker      *AgentCostTracker        // Tracks token usage and estimated costs
+	metrics          *observability.Metrics
+	involvedAgentsMu sync.Mutex        // Mutex for thread-safe agent tracking
+	involvedAgents   []string          // Agents involved in current/last response
+	summarizeWg      sync.WaitGroup    // Tracks active summarization goroutines
+	costTracker      *AgentCostTracker // Tracks token usage and estimated costs
 }
 
 // ToolRegistry returns the agent loop's tool registry so external
@@ -99,19 +100,19 @@ func (al *AgentLoop) ClearInvolvedAgents() {
 
 // processOptions configures how a message is processed
 type processOptions struct {
-	SessionKey         string                 // Session identifier for history/context
-	Channel            string                 // Target channel for tool execution
-	ChatID             string                 // Target chat ID for tool execution
-	UserMessage        string                 // User message content (may include prefix)
-	DefaultResponse    string                 // Response when LLM returns empty
-	EnableSummary      bool                   // Whether to trigger summarization
-	SendResponse       bool                   // Whether to send response via bus
-	ModelOverride      string                 // If set, use this model instead of the default for LLM calls
-	ExcludeTools       []string               // Tool names to exclude from this request (e.g., "web_search")
-	OnToken            StreamCallback         // Optional callback for text tokens
-	OnTool             ToolCallback           // Optional callback for tool call updates
-	OnAgentStatus      AgentStatusCallback    // Optional callback for agent status updates
-	OnContentSegment   ContentSegmentCallback // Optional callback for content segments
+	SessionKey       string                 // Session identifier for history/context
+	Channel          string                 // Target channel for tool execution
+	ChatID           string                 // Target chat ID for tool execution
+	UserMessage      string                 // User message content (may include prefix)
+	DefaultResponse  string                 // Response when LLM returns empty
+	EnableSummary    bool                   // Whether to trigger summarization
+	SendResponse     bool                   // Whether to send response via bus
+	ModelOverride    string                 // If set, use this model instead of the default for LLM calls
+	ExcludeTools     []string               // Tool names to exclude from this request (e.g., "web_search")
+	OnToken          StreamCallback         // Optional callback for text tokens
+	OnTool           ToolCallback           // Optional callback for tool call updates
+	OnAgentStatus    AgentStatusCallback    // Optional callback for agent status updates
+	OnContentSegment ContentSegmentCallback // Optional callback for content segments
 }
 
 // ToolEvent represents a tool call update during agent execution.
@@ -348,6 +349,7 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 		centralStorage:   nil, // Set via SetCentralStorage in multi-user mode
 		auditLogger:      auditLogger,
 		cfg:              cfg,
+		metrics:          observability.Global(),
 		costTracker:      NewAgentCostTracker(),
 	}
 }
@@ -355,6 +357,14 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 // SetCentralStorage sets the central database storage for user identity lookups.
 func (al *AgentLoop) SetCentralStorage(cs *storage.CentralStorage) {
 	al.centralStorage = cs
+}
+
+// SetMetrics replaces the active metrics collector for this agent loop.
+func (al *AgentLoop) SetMetrics(m *observability.Metrics) {
+	if m == nil {
+		return
+	}
+	al.metrics = m
 }
 
 // SetUserForAgent configures the agent loop for a specific user (multiuser support).
@@ -842,7 +852,7 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, opts processOptions) (str
 
 	// 4. Run LLM iteration loop
 	finalContent, iteration, err := al.runLLMIteration(ctx, messages, opts)
-	observability.Global().RecordAgentRun(time.Since(agentStart), iteration, err)
+	al.metrics.RecordAgentRun(time.Since(agentStart), iteration, err)
 	if err != nil {
 		return "", err
 	}
@@ -861,7 +871,7 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, opts processOptions) (str
 		if len(agents) == 0 {
 			agents = []string{"default"}
 		}
-		
+
 		// Collect recent tool calls and tool results
 		var trailing []providers.Message
 		for i := len(messages) - 1; i >= 0; i-- {
@@ -877,7 +887,7 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, opts processOptions) (str
 		metadataObj := map[string]interface{}{
 			"agents": agents,
 		}
-		
+
 		if len(trailing) > 0 {
 			metadataObj["messages"] = trailing
 		}
@@ -974,7 +984,7 @@ func (al *AgentLoop) runAgentLoopStream(ctx context.Context, opts processOptions
 
 	// 4. Run LLM iteration loop with streaming on the final response
 	finalContent, iteration, err := al.runLLMIterationStream(ctx, messages, opts, onToken)
-	observability.Global().RecordAgentRun(time.Since(agentStart), iteration, err)
+	al.metrics.RecordAgentRun(time.Since(agentStart), iteration, err)
 	if err != nil {
 		return "", err
 	}
@@ -993,7 +1003,7 @@ func (al *AgentLoop) runAgentLoopStream(ctx context.Context, opts processOptions
 		if len(agents) == 0 {
 			agents = []string{"default"}
 		}
-		
+
 		// Collect recent tool calls and tool results
 		var trailing []providers.Message
 		for i := len(messages) - 1; i >= 0; i-- {
@@ -1009,7 +1019,7 @@ func (al *AgentLoop) runAgentLoopStream(ctx context.Context, opts processOptions
 		metadataObj := map[string]interface{}{
 			"agents": agents,
 		}
-		
+
 		if len(trailing) > 0 {
 			metadataObj["messages"] = trailing
 		}
@@ -1162,7 +1172,7 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 				tokensOut = response.Usage.CompletionTokens
 			}
 		}
-		observability.Global().RecordLLMCall(model, llmDur, tokensIn, tokensOut, err)
+		al.metrics.RecordLLMCall(model, llmDur, tokensIn, tokensOut, err)
 
 		// Record API call for cost tracking
 		if err == nil && al.costTracker != nil {
@@ -1248,7 +1258,7 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 			toolStart := time.Now()
 			result, err := al.tools.ExecuteWithContext(ctx, tc.Name, tc.Arguments, opts.Channel, opts.ChatID)
 			toolDur := time.Since(toolStart)
-			observability.Global().RecordToolCall(tc.Name, toolDur, err)
+			al.metrics.RecordToolCall(tc.Name, toolDur, err)
 
 			// Audit restricted tool executions
 			if tools.IsRestrictedTool(tc.Name) && al.auditLogger != nil && al.userID > 0 {
@@ -1418,7 +1428,7 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 			llmStart := time.Now()
 			ch, err := streamingProvider.ChatStream(ctx, messages, providerToolDefs, model, llmOpts)
 			if err != nil {
-				observability.Global().RecordLLMCall(model, time.Since(llmStart), al.estimateTokens(messages), 0, err)
+				al.metrics.RecordLLMCall(model, time.Since(llmStart), al.estimateTokens(messages), 0, err)
 				logger.ErrorCF("agent", "Streaming LLM call failed",
 					map[string]interface{}{
 						"iteration": iteration,
@@ -1484,7 +1494,7 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 			// Record streaming LLM call metrics
 			streamContent := contentBuilder.String()
 			streamTokensOut := (len(streamContent) * 10) / 35 // ~3.5 chars/token estimate
-			observability.Global().RecordLLMCall(model, time.Since(llmStart), al.estimateTokens(messages), streamTokensOut, nil)
+			al.metrics.RecordLLMCall(model, time.Since(llmStart), al.estimateTokens(messages), streamTokensOut, nil)
 
 			// If no tool calls — we're done
 			if len(toolCalls) == 0 {
@@ -1544,7 +1554,7 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 				toolStart := time.Now()
 				result, err := al.tools.ExecuteWithContext(ctx, tc.Name, tc.Arguments, opts.Channel, opts.ChatID)
 				toolDur := time.Since(toolStart)
-				observability.Global().RecordToolCall(tc.Name, toolDur, err)
+				al.metrics.RecordToolCall(tc.Name, toolDur, err)
 				if err != nil {
 					result = fmt.Sprintf("Error: %v", err)
 				}
@@ -1584,7 +1594,7 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 				fallbackTokensOut = response.Usage.CompletionTokens
 			}
 		}
-		observability.Global().RecordLLMCall(model, fallbackDur, fallbackTokensIn, fallbackTokensOut, err)
+		al.metrics.RecordLLMCall(model, fallbackDur, fallbackTokensIn, fallbackTokensOut, err)
 
 		// Record API call for cost tracking
 		if err == nil && al.costTracker != nil {
@@ -1642,7 +1652,7 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 			toolStart := time.Now()
 			result, err := al.tools.ExecuteWithContext(ctx, tc.Name, tc.Arguments, opts.Channel, opts.ChatID)
 			toolDur := time.Since(toolStart)
-			observability.Global().RecordToolCall(tc.Name, toolDur, err)
+			al.metrics.RecordToolCall(tc.Name, toolDur, err)
 			if err != nil {
 				result = fmt.Sprintf("Error: %v", err)
 			}
