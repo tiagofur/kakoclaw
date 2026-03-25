@@ -648,12 +648,13 @@ func TestKnowledge_UpdateChunk(t *testing.T) {
 
 func TestWorkflow_CRUD(t *testing.T) {
 	s := newTestStorage(t)
+	const userID int64 = 1
 
 	steps := json.RawMessage(`[{"name":"step1","action":"echo"}]`)
 	params := json.RawMessage(`[{"name":"param1","type":"string"}]`)
 
 	// Create
-	id, err := s.CreateWorkflow("test-workflow", "a test workflow", steps, params, nil)
+	id, err := s.CreateWorkflow(userID, "test-workflow", "a test workflow", steps, params, nil)
 	if err != nil {
 		t.Fatalf("CreateWorkflow: %v", err)
 	}
@@ -662,7 +663,7 @@ func TestWorkflow_CRUD(t *testing.T) {
 	}
 
 	// Get
-	wf, err := s.GetWorkflow(id)
+	wf, err := s.GetWorkflow(id, userID)
 	if err != nil {
 		t.Fatalf("GetWorkflow: %v", err)
 	}
@@ -681,7 +682,7 @@ func TestWorkflow_CRUD(t *testing.T) {
 
 	// Update
 	newSteps := json.RawMessage(`[{"name":"step1","action":"echo"},{"name":"step2","action":"log"}]`)
-	updated, err := s.UpdateWorkflow(id, "updated-workflow", "updated desc", false, newSteps, params, nil)
+	updated, err := s.UpdateWorkflow(id, userID, "updated-workflow", "updated desc", false, newSteps, params, nil)
 	if err != nil {
 		t.Fatalf("UpdateWorkflow: %v", err)
 	}
@@ -693,7 +694,7 @@ func TestWorkflow_CRUD(t *testing.T) {
 	}
 
 	// List
-	workflows, err := s.ListWorkflows()
+	workflows, err := s.ListWorkflows(userID)
 	if err != nil {
 		t.Fatalf("ListWorkflows: %v", err)
 	}
@@ -705,10 +706,10 @@ func TestWorkflow_CRUD(t *testing.T) {
 	}
 
 	// Delete
-	if err := s.DeleteWorkflow(id); err != nil {
+	if err := s.DeleteWorkflow(id, userID); err != nil {
 		t.Fatalf("DeleteWorkflow: %v", err)
 	}
-	workflows, err = s.ListWorkflows()
+	workflows, err = s.ListWorkflows(userID)
 	if err != nil {
 		t.Fatalf("ListWorkflows after delete: %v", err)
 	}
@@ -719,8 +720,9 @@ func TestWorkflow_CRUD(t *testing.T) {
 
 func TestWorkflow_Runs(t *testing.T) {
 	s := newTestStorage(t)
+	const userID int64 = 1
 
-	wfID, err := s.CreateWorkflow("run-test", "workflow for run testing", nil, nil, nil)
+	wfID, err := s.CreateWorkflow(userID, "run-test", "workflow for run testing", nil, nil, nil)
 	if err != nil {
 		t.Fatalf("CreateWorkflow: %v", err)
 	}

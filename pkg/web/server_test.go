@@ -1,8 +1,10 @@
 package web
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -14,6 +16,23 @@ import (
 	"github.com/sipeed/makoclaw/pkg/skills"
 	"github.com/sipeed/makoclaw/pkg/storage"
 )
+
+func captureStdLog(t *testing.T) *bytes.Buffer {
+	t.Helper()
+	buf := new(bytes.Buffer)
+	originalWriter := log.Writer()
+	originalFlags := log.Flags()
+	originalPrefix := log.Prefix()
+	log.SetOutput(buf)
+	log.SetFlags(0)
+	log.SetPrefix("")
+	t.Cleanup(func() {
+		log.SetOutput(originalWriter)
+		log.SetFlags(originalFlags)
+		log.SetPrefix(originalPrefix)
+	})
+	return buf
+}
 
 func newTestServer(t *testing.T) *Server {
 	t.Helper()
@@ -276,6 +295,77 @@ func TestHandleTasksRejectsEmptyTitle(t *testing.T) {
 	s.handleTasks(rr, req)
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", rr.Code)
+	}
+}
+
+func TestProcessNextTodoTaskLegacySkipsWhenUserManagerPresent(t *testing.T) {
+	s := newTestServer(t)
+	logBuf := captureStdLog(t)
+
+	legacyStore, err := storage.New(config.StorageConfig{Path: filepath.Join(t.TempDir(), "legacy.db")})
+	if err != nil {
+		t.Fatalf("storage.New failed: %v", err)
+	}
+	t.Cleanup(func() { _ = legacyStore.Close() })
+
+	const legacyUserID int64 = 1
+	if _, err := legacyStore.ExecRaw(`INSERT INTO users (id, uuid, username, password_hash, role, email) VALUES (?, ?, ?, ?, ?, ?)`, legacyUserID, "legacy-user-1", "legacy-admin", "hash", "admin", "legacy@example.com"); err != nil {
+		t.Fatalf("insert legacy user failed: %v", err)
+	}
+	if _, err := legacyStore.CreateTaskForUser(legacyUserID, "legacy todo", "should not run", "todo", ""); err != nil {
+		t.Fatalf("CreateTaskForUser failed: %v", err)
+	}
+
+	s.store = legacyStore
+	s.userMgr = storage.NewUserStorageManager(s.centralStore, t.TempDir())
+	t.Cleanup(func() { s.userMgr.Close() })
+
+	s.processNextTodoTaskLegacy(context.Background())
+
+	tasks, err := legacyStore.ListAllUsersTasks(false)
+	if err != nil {
+		t.Fatalf("ListAllUsersTasks failed: %v", err)
+	}
+	if len(tasks) != 1 {
+		t.Fatalf("expected 1 task, got %d", len(tasks))
+	}
+	if tasks[0].Status != "todo" {
+		t.Fatalf("expected task to remain todo, got %q", tasks[0].Status)
+	}
+
+	if !strings.Contains(logBuf.String(), "processNextTodoTaskLegacy called in multi-user mode — skipping") {
+		t.Fatalf("expected skip log, got %q", logBuf.String())
+	}
+}
+
+func TestLogUnsafeLegacyTaskWorkerModeEmitsFatalCondition(t *testing.T) {
+	s := newTestServer(t)
+	logBuf := captureStdLog(t)
+
+	legacyStore, err := storage.New(config.StorageConfig{Path: filepath.Join(t.TempDir(), "legacy-multi.db")})
+	if err != nil {
+		t.Fatalf("storage.New failed: %v", err)
+	}
+	t.Cleanup(func() { _ = legacyStore.Close() })
+
+	if _, err := legacyStore.ExecRaw(`INSERT INTO users (id, uuid, username, password_hash, role, email) VALUES (?, ?, ?, ?, ?, ?)`, 1, "legacy-user-a", "legacy-admin-a", "hash", "admin", "a@example.com"); err != nil {
+		t.Fatalf("insert user A failed: %v", err)
+	}
+	if _, err := legacyStore.ExecRaw(`INSERT INTO users (id, uuid, username, password_hash, role, email) VALUES (?, ?, ?, ?, ?, ?)`, 2, "legacy-user-b", "legacy-admin-b", "hash", "admin", "b@example.com"); err != nil {
+		t.Fatalf("insert user B failed: %v", err)
+	}
+
+	s.store = legacyStore
+	s.userMgr = nil
+
+	s.logUnsafeLegacyTaskWorkerMode()
+
+	output := logBuf.String()
+	if !strings.Contains(output, "FATAL: UNSAFE legacy mode with multiple users detected") {
+		t.Fatalf("expected fatal condition log, got %q", output)
+	}
+	if !strings.Contains(output, "[ERROR]") {
+		t.Fatalf("expected error level log, got %q", output)
 	}
 }
 

@@ -1,5 +1,8 @@
 # PRD: Multi-user Data Handling & Isolation
 
+> Nota: Este documento se mantiene como referencia historica tecnica.
+> La version operativa consolidada del PRD ahora vive en `docs/PRD/README.md`.
+
 ## Overview
 
 MakoClaw is designed to be a multi-user, apex-efficiency AI agent. This document outlines the requirements and implementation details for user-specific data isolation.

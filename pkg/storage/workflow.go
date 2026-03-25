@@ -91,24 +91,64 @@ func (s *Storage) migrateWorkflows() error {
 			return fmt.Errorf("adding parameters column: %w", err)
 		}
 	}
+	if s.isUserDB {
+		return nil
+	}
+
+	workflowTables := []struct {
+		table string
+		index string
+	}{
+		{table: "workflows", index: "idx_workflows_user_id"},
+		{table: "workflow_runs", index: "idx_workflow_runs_user_id"},
+		{table: "workflow_approvals", index: "idx_workflow_approvals_user_id"},
+	}
+
+	for _, item := range workflowTables {
+		var userIDColumnExists int
+		query := fmt.Sprintf(`SELECT COUNT(*) FROM pragma_table_info('%s') WHERE name='user_id'`, item.table)
+		if err := s.db.QueryRow(query).Scan(&userIDColumnExists); err != nil {
+			return fmt.Errorf("checking %s.user_id column: %w", item.table, err)
+		}
+		if userIDColumnExists == 0 {
+			alter := fmt.Sprintf(`ALTER TABLE %s ADD COLUMN user_id INTEGER NOT NULL DEFAULT 0`, item.table)
+			if _, err := s.db.Exec(alter); err != nil {
+				return fmt.Errorf("adding user_id column to %s: %w", item.table, err)
+			}
+		}
+		index := fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON %s(user_id)`, item.index, item.table)
+		if _, err := s.db.Exec(index); err != nil {
+			return fmt.Errorf("creating %s: %w", item.index, err)
+		}
+	}
+
 	return nil
 }
 
 // CreateWorkflow inserts a new workflow and returns its ID.
-func (s *Storage) CreateWorkflow(name, description string, steps, parameters, schedule json.RawMessage) (int64, error) {
+func (s *Storage) CreateWorkflow(userID int64, name, description string, steps, parameters, schedule json.RawMessage) (int64, error) {
 	if steps == nil {
 		steps = json.RawMessage("[]")
 	}
 	if parameters == nil {
 		parameters = json.RawMessage("[]")
 	}
-	query := `INSERT INTO workflows (name, description, steps, parameters, schedule) VALUES (?, ?, ?, ?, ?)`
+	var query string
+	var args []interface{}
 	var scheduleStr *string
 	if schedule != nil && string(schedule) != "null" {
 		sv := string(schedule)
 		scheduleStr = &sv
 	}
-	result, err := s.db.Exec(query, name, description, string(steps), string(parameters), scheduleStr)
+	if s.isUserDB {
+		query = `INSERT INTO workflows (name, description, steps, parameters, schedule) VALUES (?, ?, ?, ?, ?)`
+		args = []interface{}{name, description, string(steps), string(parameters), scheduleStr}
+	} else {
+		uid := normalizeUserKey(userID)
+		query = `INSERT INTO workflows (user_id, name, description, steps, parameters, schedule) VALUES (?, ?, ?, ?, ?, ?)`
+		args = []interface{}{uid, name, description, string(steps), string(parameters), scheduleStr}
+	}
+	result, err := s.db.Exec(query, args...)
 	if err != nil {
 		return 0, fmt.Errorf("creating workflow: %w", err)
 	}
@@ -120,12 +160,21 @@ func (s *Storage) CreateWorkflow(name, description string, steps, parameters, sc
 }
 
 // GetWorkflow returns a single workflow by ID.
-func (s *Storage) GetWorkflow(id int64) (*Workflow, error) {
-	query := `SELECT id, name, COALESCE(description, ''), enabled, COALESCE(steps, '[]'), COALESCE(parameters, '[]'), schedule, created_at, updated_at FROM workflows WHERE id = ?`
+func (s *Storage) GetWorkflow(id, userID int64) (*Workflow, error) {
+	var query string
+	var args []interface{}
+	if s.isUserDB {
+		query = `SELECT id, name, COALESCE(description, ''), enabled, COALESCE(steps, '[]'), COALESCE(parameters, '[]'), schedule, created_at, updated_at FROM workflows WHERE id = ?`
+		args = []interface{}{id}
+	} else {
+		uid := normalizeUserKey(userID)
+		query = `SELECT id, name, COALESCE(description, ''), enabled, COALESCE(steps, '[]'), COALESCE(parameters, '[]'), schedule, created_at, updated_at FROM workflows WHERE id = ? AND user_id = ?`
+		args = []interface{}{id, uid}
+	}
 	var w Workflow
 	var stepsStr, parametersStr, scheduleStr string
 	var schedulePtr *string
-	err := s.db.QueryRow(query, id).Scan(&w.ID, &w.Name, &w.Description, &w.Enabled, &stepsStr, &parametersStr, &schedulePtr, &w.CreatedAt, &w.UpdatedAt)
+	err := s.db.QueryRow(query, args...).Scan(&w.ID, &w.Name, &w.Description, &w.Enabled, &stepsStr, &parametersStr, &schedulePtr, &w.CreatedAt, &w.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("getting workflow: %w", err)
 	}
@@ -139,9 +188,17 @@ func (s *Storage) GetWorkflow(id int64) (*Workflow, error) {
 }
 
 // ListWorkflows returns all workflows.
-func (s *Storage) ListWorkflows() ([]Workflow, error) {
-	query := `SELECT id, name, COALESCE(description, ''), enabled, COALESCE(steps, '[]'), COALESCE(parameters, '[]'), schedule, created_at, updated_at FROM workflows ORDER BY updated_at DESC`
-	rows, err := s.db.Query(query)
+func (s *Storage) ListWorkflows(userID int64) ([]Workflow, error) {
+	var query string
+	var args []interface{}
+	if s.isUserDB {
+		query = `SELECT id, name, COALESCE(description, ''), enabled, COALESCE(steps, '[]'), COALESCE(parameters, '[]'), schedule, created_at, updated_at FROM workflows ORDER BY updated_at DESC`
+	} else {
+		uid := normalizeUserKey(userID)
+		query = `SELECT id, name, COALESCE(description, ''), enabled, COALESCE(steps, '[]'), COALESCE(parameters, '[]'), schedule, created_at, updated_at FROM workflows WHERE user_id = ? ORDER BY updated_at DESC`
+		args = []interface{}{uid}
+	}
+	rows, err := s.db.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("listing workflows: %w", err)
 	}
@@ -169,7 +226,7 @@ func (s *Storage) ListWorkflows() ([]Workflow, error) {
 }
 
 // UpdateWorkflow updates a workflow's fields.
-func (s *Storage) UpdateWorkflow(id int64, name, description string, enabled bool, steps, parameters, schedule json.RawMessage) (*Workflow, error) {
+func (s *Storage) UpdateWorkflow(id, userID int64, name, description string, enabled bool, steps, parameters, schedule json.RawMessage) (*Workflow, error) {
 	if steps == nil {
 		steps = json.RawMessage("[]")
 	}
@@ -181,8 +238,17 @@ func (s *Storage) UpdateWorkflow(id int64, name, description string, enabled boo
 		sv := string(schedule)
 		scheduleStr = &sv
 	}
-	query := `UPDATE workflows SET name = ?, description = ?, enabled = ?, steps = ?, parameters = ?, schedule = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
-	result, err := s.db.Exec(query, name, description, enabled, string(steps), string(parameters), scheduleStr, id)
+	var query string
+	var args []interface{}
+	if s.isUserDB {
+		query = `UPDATE workflows SET name = ?, description = ?, enabled = ?, steps = ?, parameters = ?, schedule = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+		args = []interface{}{name, description, enabled, string(steps), string(parameters), scheduleStr, id}
+	} else {
+		uid := normalizeUserKey(userID)
+		query = `UPDATE workflows SET name = ?, description = ?, enabled = ?, steps = ?, parameters = ?, schedule = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`
+		args = []interface{}{name, description, enabled, string(steps), string(parameters), scheduleStr, id, uid}
+	}
+	result, err := s.db.Exec(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("updating workflow: %w", err)
 	}
@@ -193,12 +259,22 @@ func (s *Storage) UpdateWorkflow(id int64, name, description string, enabled boo
 	if n == 0 {
 		return nil, fmt.Errorf("workflow not found")
 	}
-	return s.GetWorkflow(id)
+	return s.GetWorkflow(id, userID)
 }
 
 // DeleteWorkflow removes a workflow.
-func (s *Storage) DeleteWorkflow(id int64) error {
-	result, err := s.db.Exec(`DELETE FROM workflows WHERE id = ?`, id)
+func (s *Storage) DeleteWorkflow(id, userID int64) error {
+	var query string
+	var args []interface{}
+	if s.isUserDB {
+		query = `DELETE FROM workflows WHERE id = ?`
+		args = []interface{}{id}
+	} else {
+		uid := normalizeUserKey(userID)
+		query = `DELETE FROM workflows WHERE id = ? AND user_id = ?`
+		args = []interface{}{id, uid}
+	}
+	result, err := s.db.Exec(query, args...)
 	if err != nil {
 		return fmt.Errorf("deleting workflow: %w", err)
 	}
@@ -207,6 +283,9 @@ func (s *Storage) DeleteWorkflow(id int64) error {
 		return fmt.Errorf("getting rows affected: %w", err)
 	}
 	if n == 0 {
+		if !s.isUserDB {
+			return nil
+		}
 		return fmt.Errorf("workflow not found")
 	}
 	return nil

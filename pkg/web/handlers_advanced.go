@@ -618,10 +618,10 @@ func normalizeSkillDraft(name, content string) string {
 		// Find the closing "---" of the frontmatter (look for "\n---" after the opening "---").
 		closeOff := strings.Index(content[3:], "\n---")
 		if closeOff != -1 {
-			closeAbs := 3 + closeOff       // absolute index of the '\n' before closing '---'
-			endFM := closeAbs + 4          // absolute index right after '\n---'
-			fm := content[:endFM]          // frontmatter block including closing "---"
-			body := content[endFM:]        // everything after the closing "---"
+			closeAbs := 3 + closeOff // absolute index of the '\n' before closing '---'
+			endFM := closeAbs + 4    // absolute index right after '\n---'
+			fm := content[:endFM]    // frontmatter block including closing "---"
+			body := content[endFM:]  // everything after the closing "---"
 
 			// Inject description field if missing.
 			if !strings.Contains(fm, "\ndescription:") {
@@ -718,7 +718,7 @@ func (s *Server) handleCron(w http.ResponseWriter, r *http.Request) {
 				TZ      string `json:"tz,omitempty"`
 			} `json:"schedule"`
 			Message string `json:"message"`
-			JobType string `json:"job_type"`          // New field: "task" or "reminder"
+			JobType string `json:"job_type"` // New field: "task" or "reminder"
 			Agent   string `json:"agent,omitempty"`
 			Deliver bool   `json:"deliver,omitempty"` // Deprecated, for backward compatibility
 			Channel string `json:"channel,omitempty"`
@@ -831,7 +831,7 @@ func (s *Server) handleCronAction(w http.ResponseWriter, r *http.Request) {
 				TZ      string `json:"tz,omitempty"`
 			} `json:"schedule"`
 			Message string `json:"message"`
-			JobType string `json:"job_type"`          // New field: "task" or "reminder"
+			JobType string `json:"job_type"` // New field: "task" or "reminder"
 			Agent   string `json:"agent,omitempty"`
 			Deliver bool   `json:"deliver,omitempty"` // Deprecated, for backward compatibility
 			Channel string `json:"channel,omitempty"`
@@ -2708,7 +2708,6 @@ func (s *Server) handleMCPTest(w http.ResponseWriter, r *http.Request, name stri
 	})
 }
 
-
 // isValidMCPServerName validates MCP server names (alphanumeric + hyphens + underscores, 1-64 chars)
 func isValidMCPServerName(name string) bool {
 	if name == "" || len(name) > 64 {
@@ -3243,10 +3242,15 @@ func (s *Server) handleWorkflows(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, "unauthorized or storage unavailable", http.StatusUnauthorized)
 		return
 	}
+	userID, ok := s.getUserIDFromClaims(r)
+	if !ok {
+		writeJSONError(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	switch r.Method {
 	case http.MethodGet:
-		workflows, err := store.ListWorkflows()
+		workflows, err := store.ListWorkflows(userID)
 		if err != nil {
 			writeJSONError(w, "failed to list workflows: "+err.Error(), http.StatusInternalServerError)
 			return
@@ -3272,12 +3276,12 @@ func (s *Server) handleWorkflows(w http.ResponseWriter, r *http.Request) {
 			writeJSONError(w, "name is required", http.StatusBadRequest)
 			return
 		}
-		id, err := store.CreateWorkflow(body.Name, body.Description, body.Steps, body.Parameters, body.Schedule)
+		id, err := store.CreateWorkflow(userID, body.Name, body.Description, body.Steps, body.Parameters, body.Schedule)
 		if err != nil {
 			writeJSONError(w, "failed to create workflow: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		wf, _ := store.GetWorkflow(id)
+		wf, _ := store.GetWorkflow(id, userID)
 		w.WriteHeader(http.StatusCreated)
 		writeJSONResponse(w, wf)
 
@@ -3293,6 +3297,11 @@ func (s *Server) handleWorkflowAction(w http.ResponseWriter, r *http.Request) {
 	store, _, ok := s.getUserStorage(r)
 	if !ok {
 		writeJSONError(w, "unauthorized or storage unavailable", http.StatusUnauthorized)
+		return
+	}
+	userID, ok := s.getUserIDFromClaims(r)
+	if !ok {
+		writeJSONError(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
@@ -3317,7 +3326,7 @@ func (s *Server) handleWorkflowAction(w http.ResponseWriter, r *http.Request) {
 
 	switch {
 	case action == "run" && r.Method == http.MethodPost:
-		s.handleWorkflowRun(w, r, workflowID, store)
+		s.handleWorkflowRun(w, r, workflowID, userID, store)
 
 	case action == "runs" && r.Method == http.MethodGet:
 		runs, err := store.ListWorkflowRuns(workflowID, 20)
@@ -3331,7 +3340,7 @@ func (s *Server) handleWorkflowAction(w http.ResponseWriter, r *http.Request) {
 		writeJSONResponse(w, map[string]interface{}{"runs": runs})
 
 	case action == "" && r.Method == http.MethodGet:
-		wf, err := store.GetWorkflow(workflowID)
+		wf, err := store.GetWorkflow(workflowID, userID)
 		if err != nil {
 			writeJSONError(w, "workflow not found", http.StatusNotFound)
 			return
@@ -3360,12 +3369,12 @@ func (s *Server) handleWorkflowAction(w http.ResponseWriter, r *http.Request) {
 		if body.Enabled != nil {
 			enabled = *body.Enabled
 		} else {
-			existing, err := store.GetWorkflow(workflowID)
+			existing, err := store.GetWorkflow(workflowID, userID)
 			if err == nil {
 				enabled = existing.Enabled
 			}
 		}
-		wf, err := store.UpdateWorkflow(workflowID, body.Name, body.Description, enabled, body.Steps, body.Parameters, body.Schedule)
+		wf, err := store.UpdateWorkflow(workflowID, userID, body.Name, body.Description, enabled, body.Steps, body.Parameters, body.Schedule)
 		if err != nil {
 			writeJSONError(w, "failed to update workflow: "+err.Error(), http.StatusInternalServerError)
 			return
@@ -3373,7 +3382,7 @@ func (s *Server) handleWorkflowAction(w http.ResponseWriter, r *http.Request) {
 		writeJSONResponse(w, wf)
 
 	case action == "" && r.Method == http.MethodDelete:
-		if err := store.DeleteWorkflow(workflowID); err != nil {
+		if err := store.DeleteWorkflow(workflowID, userID); err != nil {
 			writeJSONError(w, "failed to delete: "+err.Error(), http.StatusNotFound)
 			return
 		}
@@ -3387,7 +3396,7 @@ func (s *Server) handleWorkflowAction(w http.ResponseWriter, r *http.Request) {
 // handleWorkflowRun executes a workflow and returns the results.
 // Note: The engine's Run() method internally creates and updates the workflow run
 // record in the database, so no additional persistence is needed here.
-func (s *Server) handleWorkflowRun(w http.ResponseWriter, r *http.Request, workflowID int64, store *storage.Storage) {
+func (s *Server) handleWorkflowRun(w http.ResponseWriter, r *http.Request, workflowID int64, userID int64, store *storage.Storage) {
 	if s.workflowEngine == nil {
 		writeJSONError(w, "workflow engine not available", http.StatusServiceUnavailable)
 		return
@@ -3401,7 +3410,7 @@ func (s *Server) handleWorkflowRun(w http.ResponseWriter, r *http.Request, workf
 		_ = json.NewDecoder(r.Body).Decode(&reqBody)
 	}
 
-	wf, err := store.GetWorkflow(workflowID)
+	wf, err := store.GetWorkflow(workflowID, userID)
 	if err != nil {
 		writeJSONError(w, "workflow not found", http.StatusNotFound)
 		return
@@ -3464,7 +3473,7 @@ func (s *Server) handleWorkflowApprovalAction(w http.ResponseWriter, r *http.Req
 	}
 
 	var req struct {
-		Status     string `json:"status"`      // "approved" or "rejected"
+		Status     string `json:"status"` // "approved" or "rejected"
 		ApprovedBy string `json:"approved_by"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

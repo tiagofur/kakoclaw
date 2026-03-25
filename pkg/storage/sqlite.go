@@ -458,6 +458,15 @@ func (s *Storage) QueryRaw(query string, args ...interface{}) (*sql.Rows, error)
 	return s.db.Query(query, args...)
 }
 
+// CountUsers returns the total number of users in the shared users table.
+// In legacy shared-DB mode this is used to enforce the SINGLE-USER ONLY
+// contract for components that are not safe once multiple accounts exist.
+func (s *Storage) CountUsers() (int, error) {
+	var count int
+	err := s.db.QueryRow("SELECT COUNT(*) FROM users").Scan(&count)
+	return count, err
+}
+
 func (s *Storage) migrateSkillUsage() error {
 	queries := []string{
 		`CREATE TABLE IF NOT EXISTS skill_usage_events (

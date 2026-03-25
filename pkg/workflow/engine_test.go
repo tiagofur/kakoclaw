@@ -343,11 +343,11 @@ func TestLoopExecution(t *testing.T) {
 		},
 	})
 
-	wfID, err := store.CreateWorkflow("Loop Test", "test", stepsJSON, nil, nil)
+	wfID, err := store.CreateWorkflow(1, "Loop Test", "test", stepsJSON, nil, nil)
 	if err != nil {
 		t.Fatalf("failed to create workflow: %v", err)
 	}
-	wf, _ := store.GetWorkflow(wfID)
+	wf, _ := store.GetWorkflow(wfID, 1)
 
 	results, _ := engine.RunWithParams(context.Background(), wf, nil)
 	if len(results) == 0 {
@@ -389,11 +389,11 @@ func TestParallelExecution(t *testing.T) {
 		},
 	})
 
-	wfID, err := store.CreateWorkflow("Parallel Test", "test", stepsJSON, nil, nil)
+	wfID, err := store.CreateWorkflow(1, "Parallel Test", "test", stepsJSON, nil, nil)
 	if err != nil {
 		t.Fatalf("failed to create workflow: %v", err)
 	}
-	wf, _ := store.GetWorkflow(wfID)
+	wf, _ := store.GetWorkflow(wfID, 1)
 
 	results, _ := engine.RunWithParams(context.Background(), wf, nil)
 	if len(results) == 0 {
@@ -425,11 +425,11 @@ func TestApprovalCreation(t *testing.T) {
 		},
 	})
 
-	wfID, err := store.CreateWorkflow("Approval Test", "test", stepsJSON, nil, nil)
+	wfID, err := store.CreateWorkflow(1, "Approval Test", "test", stepsJSON, nil, nil)
 	if err != nil {
 		t.Fatalf("failed to create workflow: %v", err)
 	}
-	wf, _ := store.GetWorkflow(wfID)
+	wf, _ := store.GetWorkflow(wfID, 1)
 
 	results, err := engine.RunWithParams(context.Background(), wf, nil)
 	if err != nil {

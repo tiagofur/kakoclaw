@@ -55,13 +55,6 @@ func (u *User) GetEffectiveToolPermissions(roleDefaults []string) []string {
 	return roleDefaults
 }
 
-// CountUsers returns the total number of users.
-func (s *Storage) CountUsers() (int, error) {
-	var count int
-	err := s.db.QueryRow("SELECT COUNT(*) FROM users").Scan(&count)
-	return count, err
-}
-
 // CountAdmins returns the total number of admin users.
 func (s *Storage) CountAdmins() (int, error) {
 	var count int
