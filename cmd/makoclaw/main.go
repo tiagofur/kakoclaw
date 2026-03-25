@@ -1073,6 +1073,13 @@ func webCmd() {
 	// Create multi-user channel manager for per-user cron service support
 	// In web mode, we don't start channels, but we need the manager for cron services
 	multiChannelManager := channels.NewMultiUserChannelManager(cfg, msgBus, store, centralStore)
+	if centralStore != nil {
+		if err := multiChannelManager.InitializeAllUsers(); err != nil {
+			logger.WarnCF("web", "Failed to initialize user cron services", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}
 	webServer.SetMultiUserChannelManager(multiChannelManager)
 	fmt.Println("✓ Multi-user cron service manager ready")
 
