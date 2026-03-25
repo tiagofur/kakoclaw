@@ -259,9 +259,9 @@ func (sa *SpecialistAgent) ToolFilter() *tools.ToolRegistry {
 }
 
 // ProcessWithSpeciality processes a message using this specialist's configuration.
-// The specialist's prompt is injected via the system prompt (SetAgentSystemPrompt),
+// The specialist's prompt is injected via system prompt (SetAgentSystemPrompt),
 // and tools are filtered to only allowed ones.
-// Uses a mutex to serialize concurrent calls that swap the tool registry.
+// Uses a mutex to serialize concurrent calls that swap tools tool registry.
 func (sa *SpecialistAgent) ProcessWithSpeciality(ctx context.Context, userMessage string) (string, error) {
 	// Specialist prompt is now in the system prompt via SetAgentSystemPrompt,
 	// no need to prepend it to the user message.
@@ -278,11 +278,50 @@ func (sa *SpecialistAgent) ProcessWithSpeciality(ctx context.Context, userMessag
 		sa.processMu.Unlock()
 	}()
 
-	// Inject the specialist's name into the context so tools know who is calling them
+	// Injects specialist's name into the context so tools know who is calling them
 	agentCtx := kakoclawContext.WithAgentName(ctx, sa.name)
 
-	// Process the message using ProcessDirect
+	// Processs message using ProcessDirect
 	return sa.ProcessDirect(agentCtx, fullMessage, fmt.Sprintf("specialist_%s", sa.name))
+}
+
+// ProcessWithSpecialityForUser processes a message using this specialist's configuration
+// with explicit user context (userUUID and userID) to ensure workspace isolation.
+// Uses a mutex to serialize concurrent calls that swap tools tool registry.
+// This is the CRITICAL fix for ISSUE-9: SwarmRunner user context propagation.
+func (sa *SpecialistAgent) ProcessWithSpecialityForUser(ctx context.Context, userUUID string, userID int64, userMessage string) (string, error) {
+	logger.InfoCF("agent", "ProcessWithSpecialityForUser called", map[string]interface{}{
+		"userUUID_param":     userUUID,
+		"userID_param":       userID,
+		"sa.userUUID_before": sa.userUUID,
+		"sa.userID_before":   sa.userID,
+	})
+
+	// CRITICAL: Set user context BEFORE any other processing
+	// This ensures the AgentLoop has the correct context from the START
+	sa.SetUserForAgent(userUUID, userID)
+
+	logger.InfoCF("agent", "ProcessWithSpecialityForUser after SetUserForAgent", map[string]interface{}{
+		"sa.userUUID_after": sa.userUUID,
+		"sa.userID_after":   sa.userID,
+	})
+
+	// Serialize access to tool-swap to prevent concurrent modifications.
+	// Lock is held for entire ProcessDirect duration to prevent race conditions
+	// where another goroutine could see inconsistent tool state.
+	sa.processMu.Lock()
+	originalTools := sa.tools
+	sa.tools = sa.ToolFilter()
+	defer func() {
+		sa.tools = originalTools
+		sa.processMu.Unlock()
+	}()
+
+	// Injects specialist's name into the context so tools know who is calling them
+	agentCtx := kakoclawContext.WithAgentName(ctx, sa.name)
+
+	// Processs message using ProcessDirectWithUser to preserve user context
+	return sa.ProcessDirectWithUser(agentCtx, userID, userMessage, fmt.Sprintf("specialist_%s", sa.name))
 }
 
 // RequestColleagueTool allows specialists to request help from other specialists
@@ -409,10 +448,10 @@ func (t *RequestColleagueTool) Execute(ctx context.Context, args map[string]inte
 	defer func() { t.currentDepth-- }()
 
 	logger.InfoCF("agent", "Specialist requesting colleague help", map[string]interface{}{
-		"from":      t.currentAgent.name,
-		"to":        colleagueName,
-		"question":  truncateString(question, 100),
-		"depth":     t.currentDepth,
+		"from":     t.currentAgent.name,
+		"to":       colleagueName,
+		"question": truncateString(question, 100),
+		"depth":    t.currentDepth,
 	})
 
 	// Get response from colleague

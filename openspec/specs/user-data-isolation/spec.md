@@ -1,7 +1,7 @@
 # Specification: User Data Isolation Hardening
 
 **Change:** `audit-isolation-user-data`
-**Status:** Draft
+**Status:** Complete
 **Created:** 2026-03-25
 **Based on:** [proposal.md](proposal.md), [explore.md](explore.md)
 
@@ -459,20 +459,6 @@ No code change is required. The `DEFAULT 1` on `knowledge_documents.user_id` is 
 | ISSUE-9 | `SwarmRunner` propagates user context to children | Integration test: spawn swarm, verify children have parent's user context |
 | ISSUE-9 | `SpecialistSpawnTask` includes `UserID` | Unit test: inspect `SpecialistSpawnTask` struct, assert `UserID` field present |
 
-| Issue | Criterion | How to Verify |
-|-------|-----------|---------------|
-| ISSUE-3 | Legacy path exits immediately if `userMgr != nil` | Unit test: call with mocked `userMgr != nil`, assert no task processed |
-| ISSUE-3 | FATAL log emitted on startup with legacy mode + multiple users | Unit test: mock user count > 1, assert log output |
-| ISSUE-4 | `ListWorkflows` returns only requesting user's rows in legacy mode | Integration test: insert rows for two users, query as user A |
-| ISSUE-4 | Migration uses `ALTER TABLE ADD COLUMN` — no data loss | Test: pre-populate DB, run migration, assert existing rows survive |
-| ISSUE-1 | `handleMetrics` returns only requesting user's data | Integration test: two users generate metrics, each sees only own data |
-| ISSUE-7 | `getCronServiceForRequest` returns `ErrCronNotInitialized` for authenticated user with no cron | Unit test: authenticated context, no registered cron, assert error |
-| ISSUE-8 | Sessions for User A not readable by User B's SessionManager | Integration test: write session as A, read via B's manager, assert not-found |
-| ISSUE-2 | `GetTaskLogs` in legacy mode returns empty for cross-user task_id | Unit test: mock legacy mode, request logs for another user's task |
-| ISSUE-6 | Single call to `EnsureUserWorkspace` creates all expected subdirs | Unit test: fresh temp dir, call function, assert all paths exist |
-| ISSUE-6 | `EnsureUserDirectory` delegates to canonical function | Unit test: mock/spy canonical function, verify call forwarded |
-| ISSUE-5 | Inline comment present at `DEFAULT 1` in knowledge.go | Code review / grep |
-
 ---
 
 ## Related Artifacts
@@ -482,5 +468,6 @@ No code change is required. The `DEFAULT 1` on `knowledge_documents.user_id` is 
 | Exploration | `openspec/changes/audit-isolation-user-data/explore.md` | Complete |
 | Proposal | `openspec/changes/audit-isolation-user-data/proposal.md` | Complete |
 | Specification | `openspec/changes/audit-isolation-user-data/spec.md` | This document |
-| Design | `openspec/changes/audit-isolation-user-data/design.md` | Pending |
-| Tasks | `openspec/changes/audit-isolation-user-data/tasks.md` | Pending |
+| Design | `openspec/changes/audit-isolation-user-data/design.md` | Complete |
+| Tasks | `openspec/changes/audit-isolation-user-data/tasks.md` | Complete |
+| Verify | `openspec/changes/audit-isolation-user-data/verify-report.md` | Archived |

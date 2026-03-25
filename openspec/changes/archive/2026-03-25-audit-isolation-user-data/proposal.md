@@ -2,7 +2,7 @@
 
 **Change:** `audit-isolation-user-data`
 **Date:** 2026-03-25
-**Status:** Draft
+**Status:** Complete
 
 ---
 

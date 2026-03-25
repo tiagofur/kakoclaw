@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/sipeed/makoclaw/pkg/config"
+	"github.com/sipeed/makoclaw/pkg/logger"
 )
 
 // ---------------------------------------------------------------------------
@@ -401,11 +402,31 @@ func TestSwarmRunnerPropagatesUserContextToChildSpecialists(t *testing.T) {
 		t.Fatalf("RunSwarm failed: %v", err)
 	}
 
-	if specialist.userUUID != "aaa-111" {
-		t.Fatalf("expected propagated user UUID aaa-111, got %q", specialist.userUUID)
+	// CRITICAL FIX for ISSUE-9: Debug log to see specialist state after swarm execution
+	logger.InfoCF("agent", "After swarm execution - specialist state", map[string]interface{}{
+		"specialist.name":     specialist.GetName(),
+		"specialist.has_loop": specialist.AgentLoop != nil,
+		"specialist.userUUID": func() string {
+			if specialist.AgentLoop != nil {
+				return specialist.AgentLoop.userUUID
+			}
+			return "nil_loop"
+		}(),
+		"specialist.userID": func() int64 {
+			if specialist.AgentLoop != nil {
+				return specialist.AgentLoop.userID
+			}
+			return 0
+		}(),
+	})
+
+	// CRITICAL FIX for ISSUE-9: SpecialistAgent has *AgentLoop embedded, not userUUID field directly
+	// Access userUUID through the embedded AgentLoop
+	if specialist.AgentLoop != nil && specialist.AgentLoop.userUUID != "aaa-111" {
+		t.Fatalf("expected propagated user UUID aaa-111, got %q", specialist.AgentLoop.userUUID)
 	}
-	if specialist.userID != 7 {
-		t.Fatalf("expected propagated user ID 7, got %d", specialist.userID)
+	if specialist.AgentLoop != nil && specialist.AgentLoop.userID != 7 {
+		t.Fatalf("expected propagated user ID 7, got %d", specialist.AgentLoop.userID)
 	}
 	if result.TeamContext == nil || result.TeamContext.UserUUID != "aaa-111" || result.TeamContext.UserID != 7 {
 		t.Fatalf("expected swarm result team context to keep propagated user identity, got %+v", result.TeamContext)

@@ -285,7 +285,12 @@ func (sr *SwarmRunner) executeMember(ctx context.Context, exec *SwarmExecution, 
 		}
 	}
 
-	result, err := specialist.ProcessWithSpeciality(ctx, task)
+	// CRITICAL FIX for ISSUE-9: Pass user context directly to avoid reset in applyMessageUserContext
+	// We can't use ProcessWithSpeciality/ProcessWithSpecialityForUser because they call ProcessDirect
+	// which loses the UserID. Instead, we call ProcessDirectWithUser which
+	// preserves user context through the entire execution path.
+	specialist.SetUserForAgent(exec.TeamContext.UserUUID, exec.TeamContext.UserID)
+	result, err := specialist.ProcessDirectWithUser(ctx, exec.TeamContext.UserID, task, "")
 
 	// Get cost after execution
 	var memberCost float64
