@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
+import { useConfigStore } from '../stores/configStore'
 import { useOnboardingStore } from '../stores/onboardingStore'
 import LandingPage from '../views/LandingPage.vue'
 import LoginPage from '../views/LoginPage.vue'
@@ -154,6 +155,7 @@ const router = createRouter({
 // Navigation guard
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
+  const configStore = useConfigStore()
   const onboardingStore = useOnboardingStore()
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
 
@@ -170,8 +172,12 @@ router.beforeEach(async (to, from, next) => {
     // Check if onboarding is needed (only for authenticated users)
     // Skip onboarding check if already on onboarding page or certain exception routes
     const skipOnboardingCheck = ['onboarding', 'setup', 'logout'].includes(to.name) || to.path.startsWith('/api')
-    
+
     if (!skipOnboardingCheck) {
+      // Ensure config status is loaded before rendering (prevents false "not configured" banner)
+      if (!configStore.statusChecked && !configStore.loading) {
+        await configStore.checkStatus().catch(() => {})
+      }
       // Ensure onboarding status has been fetched from the server before deciding
       if (!onboardingStore.statusChecked && !onboardingStore.loading) {
         await onboardingStore.checkOnboardingStatus()
