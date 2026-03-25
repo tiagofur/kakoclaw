@@ -301,6 +301,7 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/auth/me", s.handleMe)
 
 	// User-specific config management (use /api/v1/me/* to avoid /api/v1/users/ conflict)
+	mux.HandleFunc("/api/v1/user/config", s.handleUserRuntimeConfig)             // Lightweight per-user runtime config
 	mux.HandleFunc("/api/v1/me/config", s.handleGetUserConfig)                   // Get user's merged config
 	mux.HandleFunc("/api/v1/me/config/update", s.handleUpdateUserConfig)         // Update user config
 	mux.HandleFunc("/api/v1/me/config/reset", s.handleDeleteUserConfigSection)   // Reset section to global
@@ -394,6 +395,7 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/swarms/", s.handleSwarmAction)                    // Swarm CRUD by name
 	mux.HandleFunc("/api/v1/reports/email", s.handleSendReportEmail)          // Send report email directly
 	mux.HandleFunc("/api/v1/ai/fix-json", s.handleAIFixJson)                  // AI JSON fixer and validator
+	mux.HandleFunc("/api/v1/soul/generate", s.handleSoulGenerate)             // Generate soul/identity with AI
 	mux.HandleFunc("/api/v1/ai/create-cron", s.handleAICreateCron)            // AI cron job generator
 
 	// Setup/Onboarding flow (Phase 4)
@@ -1291,6 +1293,17 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 		}
 
 		func() {
+			sessionCfg := storage.UserConfig{}
+			if s.centralStore != nil {
+				if user, err := s.centralStore.GetUserByUUID(userUUID); err == nil && user != nil {
+					sessionCfg.ExtendedThinking = user.ExtendedThinking
+				}
+			} else if s.store != nil {
+				if user, err := s.store.GetUserByUUID(userUUID); err == nil && user != nil {
+					sessionCfg.ExtendedThinking = user.ExtendedThinking
+				}
+			}
+
 			// Create cancelable context with timeout for this execution
 			// 10 minutes max to prevent specialist hangs from blocking forever
 			ctx, cancel := context.WithTimeout(r.Context(), 10*time.Minute)
@@ -1389,6 +1402,8 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 
 			// Use streaming if supported
 			if activeAgentLoop.SupportsStreaming() {
+				thinkingEnabled := sessionCfg.ExtendedThinking && supportsExtendedThinkingModel(req.Model, activeAgentLoop.Config())
+
 				// Reset delegation count for new message
 				if orch := agentMgr.GetOrchestrator(); orch != nil {
 					orch.ResetDelegationCount()
@@ -1508,6 +1523,21 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 							"content": token,
 						})
 					},
+					func(content string) {
+						if !thinkingEnabled || strings.TrimSpace(content) == "" {
+							return
+						}
+						wsMu.Lock()
+						defer wsMu.Unlock()
+						if err := conn.WriteJSON(map[string]interface{}{
+							"type":    "thinking_delta",
+							"content": content,
+						}); err != nil {
+							logger.WarnCF("web", "Failed to emit thinking_delta", map[string]interface{}{
+								"error": err.Error(),
+							})
+						}
+					},
 					func(ev agent.ToolEvent) error {
 						wsMu.Lock()
 						defer wsMu.Unlock()
@@ -1605,6 +1635,84 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 			}
 		}()
 	}
+}
+
+func (s *Server) handleUserRuntimeConfig(w http.ResponseWriter, r *http.Request) {
+	claims, ok := r.Context().Value(userClaimsKey).(*jwtClaims)
+	if !ok || claims == nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	resolveUser := func() (*storage.User, error) {
+		if s.centralStore != nil {
+			if claims.UUID != "" {
+				return s.centralStore.GetUserByUUID(claims.UUID)
+			}
+			return s.centralStore.GetUserByUsername(claims.Sub)
+		}
+		if s.store != nil {
+			if claims.UUID != "" {
+				return s.store.GetUserByUUID(claims.UUID)
+			}
+			return s.store.GetUserByUsername(claims.Sub)
+		}
+		return nil, storage.ErrUserNotFound
+	}
+
+	user, err := resolveUser()
+	if err != nil {
+		http.Error(w, "user not found", http.StatusNotFound)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		w.Header().Set("Content-Type", "application/json")
+		writeJSONResponse(w, storage.UserConfig{ExtendedThinking: user.ExtendedThinking})
+	case http.MethodPut:
+		var cfg storage.UserConfig
+		if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
+			http.Error(w, "invalid json", http.StatusBadRequest)
+			return
+		}
+
+		if s.centralStore != nil {
+			if err := s.centralStore.UpdateUserExtendedThinking(user.ID, cfg.ExtendedThinking); err != nil {
+				http.Error(w, "failed to update config", http.StatusInternalServerError)
+				return
+			}
+		} else if s.store != nil {
+			if err := s.store.UpdateUserExtendedThinking(user.ID, cfg.ExtendedThinking); err != nil {
+				http.Error(w, "failed to update config", http.StatusInternalServerError)
+				return
+			}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		writeJSONResponse(w, cfg)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func supportsExtendedThinkingModel(modelOverride string, cfg *config.Config) bool {
+	providerName := ""
+	effectiveModel := strings.TrimSpace(modelOverride)
+
+	if effectiveModel == "" && cfg != nil {
+		effectiveModel = strings.TrimSpace(cfg.Agents.Defaults.Model)
+		providerName = strings.ToLower(strings.TrimSpace(cfg.Agents.Defaults.Provider))
+	}
+
+	if effectiveModel != "" {
+		detectedProvider, _ := providers.GetProviderForModel(effectiveModel)
+		if detectedProvider != "" {
+			providerName = detectedProvider
+		}
+	}
+
+	return providerName == "anthropic"
 }
 
 func (s *Server) handleTaskChatCommand(userID int64, store *storage.Storage, input string) (bool, string) {
@@ -4403,6 +4511,139 @@ Return the configuration purely in JSON format without markdown wrapping, or wit
 
 	w.Header().Set("Content-Type", "application/json")
 	writeJSONResponse(w, response)
+}
+
+// handleSoulGenerate generates soul, identity, and user context using AI
+func (s *Server) handleSoulGenerate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Description string `json:"description"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		writeJSONResponse(w, map[string]string{
+			"error": "invalid request body: " + err.Error(),
+		})
+		return
+	}
+
+	if req.Description == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		writeJSONResponse(w, map[string]string{
+			"error": "description is required",
+		})
+		return
+	}
+
+	if s.userMgr == nil || s.fullConfig == nil || s.msgBus == nil || s.centralStore == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		writeJSONResponse(w, map[string]string{
+			"error": "AI generation not available - server not fully configured",
+		})
+		return
+	}
+
+	_, ok := s.getUserIDFromClaims(r)
+	if !ok {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		writeJSONResponse(w, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	userStore, userUUID, userOK := s.getUserStorage(r)
+	if !userOK || userUUID == "" || userStore == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		writeJSONResponse(w, map[string]string{
+			"error": "user storage unavailable",
+		})
+		return
+	}
+
+	userAgentLoop, err := s.newAgentLoopForUser(userUUID, userStore)
+	if err != nil {
+		logger.ErrorCF("web", "Failed to create agent loop for soul generation", map[string]interface{}{
+			"user_uuid": userUUID,
+			"error":     err.Error(),
+		})
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		writeJSONResponse(w, map[string]string{
+			"error": "AI generation not available - " + err.Error(),
+		})
+		return
+	}
+	defer userAgentLoop.Stop()
+
+	aiPrompt := fmt.Sprintf(`You are an AI assistant that defines the soul and identity for a personal AI agent called MakoClaw.
+
+The user wants the following personality:
+"%s"
+
+Generate the soul configuration as a JSON object with these three keys. Be creative, specific, and aligned with the user's description.
+
+Return JSON only (no markdown wrapping):
+{
+  "soul": {
+    "preamble": "A 1-2 sentence introduction starting with 'I am...'",
+    "personality": ["trait1", "trait2", "trait3", "trait4"],
+    "values": ["value1", "value2", "value3", "value4"]
+  },
+  "identity": {
+    "name": "agent name with optional tagline in parentheses",
+    "description": "One sentence describing the agent",
+    "purpose": ["purpose1", "purpose2"],
+    "capabilities": ["capability1", "capability2", "capability3"],
+    "philosophy": ["philosophy1", "philosophy2", "philosophy3"]
+  },
+  "user_context": {
+    "communication_style": "casual/formal/mixed",
+    "timezone": "",
+    "language": "based on the description language"
+  }
+}`, req.Description)
+
+	ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
+	defer cancel()
+
+	responseRaw, err := userAgentLoop.ProcessDirectWithUserAndModel(
+		ctx, 0, aiPrompt, "web:ai:generate-soul", "", "*",
+	)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		writeJSONResponse(w, map[string]string{
+			"error": "AI processing failed: " + err.Error(),
+		})
+		return
+	}
+
+	jsonStr := extractJsonFromResponse(responseRaw)
+	var soulDraft map[string]interface{}
+	if err := json.Unmarshal([]byte(jsonStr), &soulDraft); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		writeJSONResponse(w, map[string]string{
+			"error": "AI produced invalid JSON: " + err.Error(),
+		})
+		return
+	}
+
+	logger.InfoCF("web", "Generated soul with AI", map[string]interface{}{
+		"description": req.Description,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	writeJSONResponse(w, soulDraft)
 }
 
 // handleOrchestratorConfig updates the orchestrator configuration

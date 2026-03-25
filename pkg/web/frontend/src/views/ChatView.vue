@@ -1315,6 +1315,11 @@ const handleMessage = (message) => {
   if (message.type === 'tool_call') {
     chatStore.addToolCall(message)
   }
+  if (message.type === 'thinking_delta') {
+    if (chatStore.extendedThinkingEnabled !== false) {
+      chatStore.appendThinkingDelta(message.content || '')
+    }
+  }
   if (message.type === 'specialist_report') {
     // Handle structured specialist report
     chatStore.addSpecialistReport(message)

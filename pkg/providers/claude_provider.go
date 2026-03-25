@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
@@ -54,6 +55,118 @@ func (p *ClaudeProvider) Chat(ctx context.Context, messages []Message, tools []T
 
 func (p *ClaudeProvider) GetDefaultModel() string {
 	return "claude-sonnet-4-5-20250929"
+}
+
+func (p *ClaudeProvider) ChatStream(ctx context.Context, messages []Message, tools []ToolDefinition, model string, options map[string]interface{}) (<-chan StreamChunk, error) {
+	var opts []option.RequestOption
+	if p.tokenSource != nil {
+		tok, err := p.tokenSource()
+		if err != nil {
+			return nil, fmt.Errorf("refreshing token: %w", err)
+		}
+		opts = append(opts, option.WithAuthToken(tok))
+	}
+
+	params, err := buildClaudeParams(messages, tools, model, options)
+	if err != nil {
+		return nil, err
+	}
+
+	stream := p.client.Messages.NewStreaming(ctx, params, opts...)
+	ch := make(chan StreamChunk, 64)
+
+	go func() {
+		defer close(ch)
+		defer stream.Close()
+
+		usage := &UsageInfo{}
+		finishReason := "stop"
+
+		for stream.Next() {
+			event := stream.Current()
+
+			switch event.Type {
+			case "message_start":
+				usage.PromptTokens = int(event.Message.Usage.InputTokens)
+				usage.CompletionTokens = int(event.Message.Usage.OutputTokens)
+				usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
+			case "message_delta":
+				usage.CompletionTokens = int(event.Usage.OutputTokens)
+				usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
+				if event.Delta.StopReason != "" {
+					finishReason = mapClaudeStopReason(string(event.Delta.StopReason))
+				}
+			case "content_block_delta":
+				chunk := StreamChunk{}
+				switch event.Delta.Type {
+				case "text_delta":
+					chunk.Content = event.Delta.Text
+				case "thinking_delta":
+					chunk.ThinkingDelta = event.Delta.Thinking
+				case "input_json_delta":
+					chunk.ToolCalls = indexedToolCallChunk(int(event.Index), ToolCall{
+						Type:     "function",
+						Function: &FunctionCall{Arguments: event.Delta.PartialJSON},
+					})
+				}
+
+				if chunk.Content != "" || chunk.ThinkingDelta != "" || len(chunk.ToolCalls) > 0 {
+					select {
+					case ch <- chunk:
+					case <-ctx.Done():
+						return
+					}
+				}
+			case "content_block_start":
+				if event.ContentBlock.Type != "tool_use" {
+					continue
+				}
+
+				chunk := StreamChunk{
+					ToolCalls: indexedToolCallChunk(int(event.Index), ToolCall{
+						ID:   event.ContentBlock.ID,
+						Name: event.ContentBlock.Name,
+						Type: "function",
+					}),
+				}
+
+				select {
+				case ch <- chunk:
+				case <-ctx.Done():
+					return
+				}
+			case "message_stop":
+				finalChunk := StreamChunk{
+					Done:         true,
+					FinishReason: finishReason,
+					Usage:        usage,
+				}
+				select {
+				case ch <- finalChunk:
+				case <-ctx.Done():
+				}
+				return
+			}
+		}
+
+		if err := stream.Err(); err != nil {
+			if ctx.Err() != nil {
+				return
+			}
+			select {
+			case ch <- StreamChunk{Done: true, FinishReason: "error", Error: err.Error()}:
+			case <-ctx.Done():
+			}
+			return
+		}
+
+		select {
+		case ch <- StreamChunk{Done: true, FinishReason: finishReason, Usage: usage}:
+		case <-ctx.Done():
+		}
+	}()
+
+	return ch, nil
 }
 
 func buildClaudeParams(messages []Message, tools []ToolDefinition, model string, options map[string]interface{}) (anthropic.MessageNewParams, error) {
@@ -113,6 +226,28 @@ func buildClaudeParams(messages []Message, tools []ToolDefinition, model string,
 
 	if temp, ok := options["temperature"].(float64); ok {
 		params.Temperature = anthropic.Float(temp)
+	}
+
+	if enabled, ok := options["extended_thinking"].(bool); ok && enabled {
+		budgetTokens := int64(1024)
+		switch budget := options["thinking_budget_tokens"].(type) {
+		case int:
+			if budget > 0 {
+				budgetTokens = int64(budget)
+			}
+		case int64:
+			if budget > 0 {
+				budgetTokens = budget
+			}
+		case float64:
+			if budget > 0 {
+				budgetTokens = int64(budget)
+			}
+		}
+		if budgetTokens < 1024 {
+			budgetTokens = 1024
+		}
+		params.Thinking = anthropic.ThinkingConfigParamOfEnabled(budgetTokens)
 	}
 
 	if len(tools) > 0 {
@@ -203,5 +338,27 @@ func createClaudeTokenSource() func() (string, error) {
 			return "", fmt.Errorf("no credentials for anthropic. Run: makoclaw auth login --provider anthropic")
 		}
 		return cred.AccessToken, nil
+	}
+}
+
+func indexedToolCallChunk(index int, toolCall ToolCall) []ToolCall {
+	if index < 0 {
+		index = 0
+	}
+	chunk := make([]ToolCall, index+1)
+	chunk[index] = toolCall
+	return chunk
+}
+
+func mapClaudeStopReason(stopReason string) string {
+	switch strings.TrimSpace(stopReason) {
+	case "tool_use":
+		return "tool_calls"
+	case "max_tokens":
+		return "length"
+	case "end_turn", "stop_sequence", "pause_turn", "refusal", "":
+		return "stop"
+	default:
+		return stopReason
 	}
 }

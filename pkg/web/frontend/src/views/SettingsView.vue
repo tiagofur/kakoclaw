@@ -482,12 +482,14 @@ import {
   UserGroupIcon,
   DocumentMagnifyingGlassIcon,
   GlobeAltIcon,
+  SparklesIcon,
   XMarkIcon,
   NoSymbolIcon,
   CheckCircleIcon
 } from '@heroicons/vue/24/outline'
 
 import ProfileSettingsTab from '../components/Settings/ProfileSettingsTab.vue'
+import SoulSettingsTab from '../components/Settings/SoulSettingsTab.vue'
 import AgentSettingsTab from '../components/Settings/AgentSettingsTab.vue'
 import ProvidersSettingsTab from '../components/Settings/ProvidersSettingsTab.vue'
 import ChannelsSettingsTab from '../components/Settings/ChannelsSettingsTab.vue'
@@ -514,6 +516,7 @@ const activeTab = ref('profile')
 const tabs = computed(() => {
   const base = [
     { key: 'profile', label: 'Profile' },
+    { key: 'soul', label: 'Soul' },
     { key: 'agents', label: 'Agents' },
     { key: 'providers', label: 'Providers' },
     { key: 'channels', label: 'Channels' }
@@ -530,6 +533,7 @@ const tabs = computed(() => {
 const getTabIcon = (key) => {
   const map = {
     profile: UserIcon,
+    soul: SparklesIcon,
     agents: BeakerIcon,
     providers: Cog6ToothIcon,
     channels: ChatBubbleLeftRightIcon,
@@ -546,6 +550,7 @@ const activeTabLabel = computed(() => tabs.value.find(t => t.key === activeTab.v
 const activeTabDescription = computed(() => {
   const map = {
     profile: 'Manage your account and preferences',
+    soul: 'Define your agent\'s personality, identity, and values',
     agents: 'Configure AI specialists and orchestration',
     providers: 'Connect LLM providers and models',
     channels: 'Manage communication channels',
@@ -562,6 +567,7 @@ const activeTabIcon = computed(() => getTabIcon(activeTab.value))
 const activeTabComponent = computed(() => {
   const map = {
     profile: ProfileSettingsTab,
+    soul: SoulSettingsTab,
     agents: AgentSettingsTab,
     providers: ProvidersSettingsTab,
     channels: ChannelsSettingsTab,

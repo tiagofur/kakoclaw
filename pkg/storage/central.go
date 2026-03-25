@@ -93,6 +93,7 @@ func (cs *CentralStorage) migrate() error {
 			preferred_language TEXT,
 			avatar_url TEXT,
 			allowed_tools TEXT,
+			extended_thinking BOOLEAN NOT NULL DEFAULT 0,
 			blocked BOOLEAN NOT NULL DEFAULT 0,
 			blocked_reason TEXT,
 			blocked_by INTEGER,
@@ -111,6 +112,7 @@ func (cs *CentralStorage) migrate() error {
 		`ALTER TABLE users ADD COLUMN avatar_url TEXT;`,
 		// Add tool permissions column
 		`ALTER TABLE users ADD COLUMN allowed_tools TEXT;`,
+		`ALTER TABLE users ADD COLUMN extended_thinking BOOLEAN NOT NULL DEFAULT 0;`,
 		// Add onboarding tracking column
 		`ALTER TABLE users ADD COLUMN onboarding_completed BOOLEAN NOT NULL DEFAULT 0;`,
 		// Add token version for per-user JWT invalidation (incremented on password change)
@@ -358,6 +360,7 @@ func (cs *CentralStorage) scanUser(scanner interface {
 	var lang sql.NullString
 	var avatar sql.NullString
 	var allowedTools sql.NullString
+	var extendedThinking sql.NullBool
 	var tokenVersion sql.NullInt64
 	var onboardingCompleted sql.NullBool
 	var blocked sql.NullBool
@@ -366,7 +369,7 @@ func (cs *CentralStorage) scanUser(scanner interface {
 	var blockedAt sql.NullTime
 	err := scanner.Scan(&u.ID, &u.UUID, &u.Username, &email, &u.PasswordHash, &u.Role,
 		&fullName, &dob, &tz, &lang, &avatar,
-		&allowedTools, &tokenVersion, &onboardingCompleted,
+		&allowedTools, &extendedThinking, &tokenVersion, &onboardingCompleted,
 		&blocked, &blockedReason, &blockedBy, &blockedAt,
 		&u.CreatedAt, &u.UpdatedAt)
 	if err == sql.ErrNoRows {
@@ -396,6 +399,9 @@ func (cs *CentralStorage) scanUser(scanner interface {
 	if allowedTools.Valid && allowedTools.String != "" {
 		u.AllowedTools = &allowedTools.String
 	}
+	if extendedThinking.Valid {
+		u.ExtendedThinking = extendedThinking.Bool
+	}
 	if tokenVersion.Valid {
 		u.TokenVersion = tokenVersion.Int64
 	}
@@ -420,7 +426,7 @@ func (cs *CentralStorage) scanUser(scanner interface {
 
 const userSelectCols = `id, COALESCE(uuid, ''), username, COALESCE(email, ''), password_hash, role,
 	COALESCE(full_name, ''), date_of_birth, COALESCE(timezone, ''), COALESCE(preferred_language, ''), COALESCE(avatar_url, ''),
-	COALESCE(allowed_tools, ''), COALESCE(token_version, 0), COALESCE(onboarding_completed, 0),
+	COALESCE(allowed_tools, ''), COALESCE(extended_thinking, 0), COALESCE(token_version, 0), COALESCE(onboarding_completed, 0),
 	COALESCE(blocked, 0), COALESCE(blocked_reason, ''), blocked_by, blocked_at,
 	created_at, updated_at`
 
@@ -506,6 +512,14 @@ func (cs *CentralStorage) UpdateUserProfile(id int64, username, email, fullName 
 	if err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed") {
 		return ErrUserExists
 	}
+	return err
+}
+
+func (cs *CentralStorage) UpdateUserExtendedThinking(id int64, enabled bool) error {
+	_, err := cs.db.Exec(`
+		UPDATE users
+		SET extended_thinking = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?`, enabled, id)
 	return err
 }
 
@@ -788,33 +802,33 @@ func (cs *CentralStorage) UpdateUserTools(userID int64, tools []string) error {
 
 // SkillSubmission represents a skill submitted to the marketplace
 type SkillSubmission struct {
-	ID               int64     `json:"id"`
-	UserID           int64     `json:"user_id"`
-	SkillName        string    `json:"skill_name"`
-	SkillSlug        string    `json:"skill_slug"`
-	Version          string    `json:"version"`
-	Description      string    `json:"description"`
-	Content          string    `json:"content"`
-	Author           string    `json:"author"`
-	Tags             []string  `json:"tags"`
-	Category         string    `json:"category"`
-	RepositoryURL    string    `json:"repository_url,omitempty"`
-	SecurityScore    int       `json:"security_score"`
-	SecurityFindings string    `json:"security_findings"`
-	SecurityScanAt   *string   `json:"security_scan_at,omitempty"`
-	Status           string    `json:"status"`
-	Visibility       string    `json:"visibility"`
-	ReviewerID       *int64    `json:"reviewer_id,omitempty"`
-	ReviewerNotes    string    `json:"reviewer_notes,omitempty"`
-	ReviewedAt       *string   `json:"reviewed_at,omitempty"`
-	DownloadCount    int       `json:"download_count"`
-	InstallCount     int       `json:"install_count"`
-	CreatedAt        string    `json:"created_at"`
-	UpdatedAt        string    `json:"updated_at"`
-	PublishedAt      *string   `json:"published_at,omitempty"`
-	ForkCount        int       `json:"fork_count"`
-	ForkedFromID     *int64    `json:"forked_from_id,omitempty"`
-	Dependencies     []string  `json:"dependencies,omitempty"`
+	ID               int64    `json:"id"`
+	UserID           int64    `json:"user_id"`
+	SkillName        string   `json:"skill_name"`
+	SkillSlug        string   `json:"skill_slug"`
+	Version          string   `json:"version"`
+	Description      string   `json:"description"`
+	Content          string   `json:"content"`
+	Author           string   `json:"author"`
+	Tags             []string `json:"tags"`
+	Category         string   `json:"category"`
+	RepositoryURL    string   `json:"repository_url,omitempty"`
+	SecurityScore    int      `json:"security_score"`
+	SecurityFindings string   `json:"security_findings"`
+	SecurityScanAt   *string  `json:"security_scan_at,omitempty"`
+	Status           string   `json:"status"`
+	Visibility       string   `json:"visibility"`
+	ReviewerID       *int64   `json:"reviewer_id,omitempty"`
+	ReviewerNotes    string   `json:"reviewer_notes,omitempty"`
+	ReviewedAt       *string  `json:"reviewed_at,omitempty"`
+	DownloadCount    int      `json:"download_count"`
+	InstallCount     int      `json:"install_count"`
+	CreatedAt        string   `json:"created_at"`
+	UpdatedAt        string   `json:"updated_at"`
+	PublishedAt      *string  `json:"published_at,omitempty"`
+	ForkCount        int      `json:"fork_count"`
+	ForkedFromID     *int64   `json:"forked_from_id,omitempty"`
+	Dependencies     []string `json:"dependencies,omitempty"`
 }
 
 // SkillCategory represents a skill category

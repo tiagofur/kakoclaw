@@ -12,6 +12,39 @@ Modern, responsive web interface for MakoClaw built with Vue 3, Vite, and Tailwi
 - **State Management**: Pinia stores for auth, chat, tasks, and UI preferences
 - **Modern Stack**: Vue 3 Composition API, Vite, TailwindCSS, axios
 
+## Agent Visibility
+
+The chat UI now provides better visibility into agent execution without overwhelming the conversation history.
+
+- **Tool calls collapsed by default in history** to reduce visual noise
+- **Active tool calls auto-expand during streaming** so users can follow execution in real time
+- **Extended Thinking visualization** for supported Claude models when users opt in
+- **Multi-agent activity panels** now surface tool-call activity per agent
+
+### Tool Call Visibility
+
+Historical tool calls render collapsed by default, showing a compact summary with the tool name and status badge. During live streaming, active tool calls automatically expand so the user can inspect arguments and results as they happen.
+
+Tool call badges use semantic states for quick scanning:
+
+- **Yellow** — executing
+- **Green** — done
+- **Red** — error
+
+### Extended Thinking
+
+Extended Thinking is Claude API support for streamed reasoning blocks that can be visualized in the chat UI before the final answer appears.
+
+To enable it, go to **Settings → Extended Thinking**. This feature is **opt-in**, may consume additional tokens, and only works with Claude models that support thinking blocks.
+
+### Multi-Agent Visibility
+
+Multi-agent runs now expose tool activity more clearly across the UI:
+
+- **TeamActivityPanel** groups active tool calls by agent
+- **AgentActivityItem** shows in-flight tool calls for the selected agent
+- **AgentStatusIndicator** displays the active tool name beneath the agent name when a tool is running
+
 ## Development
 
 ### Prerequisites

@@ -13,6 +13,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PRD-NEW-FEATURES.md with 13 new feature proposals
 - Comprehensive security audit documentation
 - Competitor analysis (OpenClaw, NanoClaw, PicoClaw, ZeroClaw)
+- Real-time tool call visibility with smart collapse (expanded during streaming, collapsed in historical messages)
+- Extended Thinking visualization (Claude only) with opt-in toggle in Settings
+- Per-agent tool call visibility in TeamActivityPanel for multi-agent scenarios
+- AgentStatusIndicator now shows active tool name beneath the agent
+
+### Changed
+- ToolCallItem now uses computed state for expansion/collapse instead of direct mutation
+- TeamActivityPanel refactored from watcher-based to computed from store (eliminates sync issues)
+- AgentActivityItem displays in-flight tool calls per agent
+
+### Fixed
+- Historical tool calls now collapsed by default (reduces visual noise)
+
+### Technical Notes
+- Added `ThinkingDelta` field to `StreamChunk` for extended thinking support
+- Implemented `ChatStream()` in ClaudeProvider to emit thinking blocks
+- Added `OnThinking` callback to agent streaming loop
+- Added `ExtendedThinking` user preference with persistence to SQLite
+- Added WS event `thinking_delta` gated by user preference
+- Added API endpoints `GET/PUT /api/v1/user/config` for user preferences
 
 ### Security
 - Identified 7 critical/high security issues (see BUGS-KNOWN-ISSUES.md)

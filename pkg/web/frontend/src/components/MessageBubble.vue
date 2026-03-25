@@ -57,6 +57,18 @@
           />
         </div>
 
+        <div
+          v-if="msg.thinkingBlocks && msg.thinkingBlocks.length > 0"
+          class="mb-4 space-y-2"
+        >
+          <ThinkingBlock
+            v-for="block in msg.thinkingBlocks"
+            :key="block.id"
+            :thinking-block="block"
+            :is-streaming="msg.streaming"
+          />
+        </div>
+
         <!-- Main content always shown first -->
         <div v-if="msg.content">
           <!-- Streaming Content -->
@@ -255,6 +267,7 @@
 <script setup>
 import { ref } from 'vue'
 import MarkdownRenderer from './Chat/MarkdownRenderer.vue'
+import ThinkingBlock from './Chat/ThinkingBlock.vue'
 import ToolCallItem from './ToolCallItem.vue'
 import SpecialistBadge from './Chat/SpecialistBadge.vue'
 import AgentActivityItem from './Chat/AgentActivityItem.vue'

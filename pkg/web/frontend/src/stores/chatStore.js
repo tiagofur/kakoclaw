@@ -19,6 +19,7 @@ export const useChatStore = defineStore('chat', () => {
   const webSearchEnabled = ref(true)  // Whether web_search tool is available to LLM (legacy/shortcut)
   const availableTools = ref([])      // All tools available from backend
   const enabledTools = ref([])        // Tools currently enabled by user
+  const extendedThinkingEnabled = ref(null)
 
   const orchestratorStatus = ref('idle') // 'idle', 'analyzing', 'delegating', 'working', 'complete'
   const currentAgent = ref('main')       // Agente actualmente activo
@@ -35,6 +36,8 @@ export const useChatStore = defineStore('chat', () => {
   const activeSwarm = ref(null)          // Currently running swarm name
   const swarmProgress = ref({})          // Member status during swarm run
   const swarmResults = ref(null)         // Last swarm execution results
+
+  const generateId = (prefix = 'id') => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 
   function addMessage(message) {
     messages.value.push({
@@ -55,7 +58,8 @@ export const useChatStore = defineStore('chat', () => {
       streaming: true,
       agents: [], // Initialize empty agents array
       segments: [], // Initialize empty segments array
-      agentActivities: [] // Specialist agent activity blocks (like toolCalls)
+      agentActivities: [], // Specialist agent activity blocks (like toolCalls)
+      thinkingBlocks: []
     })
     streamingMessageId.value = id
     isStreaming.value = true
@@ -91,6 +95,14 @@ export const useChatStore = defineStore('chat', () => {
             if (act.status === 'working' || act.status === 'delegating') {
               act.status = 'complete'
               act.expanded = false
+            }
+          }
+        }
+        if (msg.thinkingBlocks) {
+          for (const block of msg.thinkingBlocks) {
+            block.finalized = true
+            if (!block.manuallyToggled) {
+              block.expanded = false
             }
           }
         }
@@ -332,13 +344,39 @@ export const useChatStore = defineStore('chat', () => {
       } else {
         msg.toolCalls.push({
           ...toolCall,
-          id: Date.now() + Math.random(),
+          id: generateId('tool'),
           timestamp: new Date().toISOString(),
           agentName,
           expanded
         })
       }
     }
+  }
+
+  function appendThinkingDelta(content) {
+    if (!content) return
+
+    const msg = streamingMessageId.value
+      ? messages.value.find(m => m.id === streamingMessageId.value)
+      : [...messages.value].reverse().find(m => m.role === 'assistant')
+    if (!msg) return
+
+    if (!msg.thinkingBlocks) msg.thinkingBlocks = []
+
+    const activeBlock = msg.thinkingBlocks[msg.thinkingBlocks.length - 1]
+    if (activeBlock && (!activeBlock.finalized || !msg.streaming)) {
+      activeBlock.content += content
+      return
+    }
+
+    msg.thinkingBlocks.push({
+      id: generateId('thinking'),
+      content,
+      agentName: currentAgent.value || 'main',
+      expanded: !!msg.streaming,
+      finalized: !msg.streaming,
+      manuallyToggled: false
+    })
   }
 
   function updateCurrentAgent(agentName) {
@@ -421,6 +459,10 @@ export const useChatStore = defineStore('chat', () => {
     } else if (!enabled) {
       enabledTools.value = enabledTools.value.filter(t => t !== 'web_search')
     }
+  }
+
+  function setExtendedThinkingEnabled(enabled) {
+    extendedThinkingEnabled.value = !!enabled
   }
 
   function setTools(tools) {
@@ -522,6 +564,7 @@ export const useChatStore = defineStore('chat', () => {
     availableProviders,
     allModels,
     webSearchEnabled,
+    extendedThinkingEnabled,
     orchestratorStatus,
     currentAgent,
     activeSpecialist,
@@ -540,6 +583,7 @@ export const useChatStore = defineStore('chat', () => {
     addAgentEvent,
     addContentSegment,
     addToolCall,
+    appendThinkingDelta,
     setMessages,
     clearMessages,
     sendMessage,
@@ -553,6 +597,7 @@ export const useChatStore = defineStore('chat', () => {
     setWebSocket,
     setSelectedModel,
     setWebSearchEnabled,
+    setExtendedThinkingEnabled,
     setAvailableTools: setTools,
     toggleTool,
     availableTools,

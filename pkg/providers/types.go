@@ -42,12 +42,13 @@ type LLMProvider interface {
 
 // StreamChunk represents a single token/chunk from a streaming response.
 type StreamChunk struct {
-	Content      string     `json:"content"` // Text delta (incremental token)
-	ToolCalls    []ToolCall `json:"tool_calls,omitempty"`
-	FinishReason string     `json:"finish_reason"`   // Empty until stream ends, then "stop"/"tool_calls"/"length"/"error"
-	Done         bool       `json:"done"`            // True when stream is complete
-	Usage        *UsageInfo `json:"usage,omitempty"` // Only set on final chunk
-	Error        string     `json:"error,omitempty"` // Set when stream terminates due to an error
+	Content       string     `json:"content"` // Text delta (incremental token)
+	ToolCalls     []ToolCall `json:"tool_calls,omitempty"`
+	ThinkingDelta string     `json:"thinking_delta,omitempty"`
+	FinishReason  string     `json:"finish_reason"`   // Empty until stream ends, then "stop"/"tool_calls"/"length"/"error"
+	Done          bool       `json:"done"`            // True when stream is complete
+	Usage         *UsageInfo `json:"usage,omitempty"` // Only set on final chunk
+	Error         string     `json:"error,omitempty"` // Set when stream terminates due to an error
 }
 
 // StreamingLLMProvider is an optional interface for providers that support token-by-token streaming.

@@ -110,6 +110,7 @@ type processOptions struct {
 	ModelOverride    string                 // If set, use this model instead of the default for LLM calls
 	ExcludeTools     []string               // Tool names to exclude from this request (e.g., "web_search")
 	OnToken          StreamCallback         // Optional callback for text tokens
+	OnThinking       func(string)           // Optional callback for thinking deltas
 	OnTool           ToolCallback           // Optional callback for tool call updates
 	OnAgentStatus    AgentStatusCallback    // Optional callback for agent status updates
 	OnContentSegment ContentSegmentCallback // Optional callback for content segments
@@ -627,7 +628,7 @@ type StreamCallback func(token string) error
 // If the provider doesn't support streaming, falls back to sending the full response at once.
 // The onToken callback is called for each token; the full accumulated response is still returned.
 // excludeTools optionally specifies tool names to exclude from this request.
-func (al *AgentLoop) ProcessDirectWithModelStream(ctx context.Context, content, sessionKey, modelOverride string, onToken StreamCallback, onTool ToolCallback, excludeTools ...string) (string, error) {
+func (al *AgentLoop) ProcessDirectWithModelStream(ctx context.Context, content, sessionKey, modelOverride string, onToken StreamCallback, onThinking func(string), onTool ToolCallback, excludeTools ...string) (string, error) {
 	msg := bus.InboundMessage{
 		Channel:    "cli",
 		SenderID:   "cron",
@@ -636,12 +637,12 @@ func (al *AgentLoop) ProcessDirectWithModelStream(ctx context.Context, content, 
 		SessionKey: sessionKey,
 	}
 
-	return al.processMessageWithModelStream(ctx, msg, modelOverride, onToken, onTool, excludeTools...)
+	return al.processMessageWithModelStream(ctx, msg, modelOverride, onToken, onThinking, onTool, excludeTools...)
 }
 
 // ProcessDirectWithUserAndModelStream processes a message for a specific user with streaming.
 // excludeTools optionally specifies tool names to exclude from this request.
-func (al *AgentLoop) ProcessDirectWithUserAndModelStream(ctx context.Context, userID int64, content, sessionKey, modelOverride string, onToken StreamCallback, onTool ToolCallback, excludeTools ...string) (string, error) {
+func (al *AgentLoop) ProcessDirectWithUserAndModelStream(ctx context.Context, userID int64, content, sessionKey, modelOverride string, onToken StreamCallback, onThinking func(string), onTool ToolCallback, excludeTools ...string) (string, error) {
 	msg := bus.InboundMessage{
 		Channel:    "cli",
 		SenderID:   fmt.Sprintf("user:%d", userID),
@@ -651,7 +652,7 @@ func (al *AgentLoop) ProcessDirectWithUserAndModelStream(ctx context.Context, us
 		UserID:     userID,
 	}
 
-	return al.processMessageWithModelStream(ctx, msg, modelOverride, onToken, onTool, excludeTools...)
+	return al.processMessageWithModelStream(ctx, msg, modelOverride, onToken, onThinking, onTool, excludeTools...)
 }
 
 // SupportsStreaming returns true if the current provider supports streaming.
@@ -715,7 +716,7 @@ func (al *AgentLoop) processMessageWithModel(ctx context.Context, msg bus.Inboun
 	})
 }
 
-func (al *AgentLoop) processMessageWithModelStream(ctx context.Context, msg bus.InboundMessage, modelOverride string, onToken StreamCallback, onTool ToolCallback, excludeTools ...string) (string, error) {
+func (al *AgentLoop) processMessageWithModelStream(ctx context.Context, msg bus.InboundMessage, modelOverride string, onToken StreamCallback, onThinking func(string), onTool ToolCallback, excludeTools ...string) (string, error) {
 	al.applyMessageUserContext(msg)
 
 	// Rate limiting
@@ -754,6 +755,7 @@ func (al *AgentLoop) processMessageWithModelStream(ctx context.Context, msg bus.
 		ModelOverride:    modelOverride,
 		ExcludeTools:     excludeTools,
 		OnToken:          onToken,
+		OnThinking:       onThinking,
 		OnTool:           onTool,
 		OnAgentStatus:    onAgentStatus,
 		OnContentSegment: onContentSegment,
@@ -1422,6 +1424,10 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 			"max_tokens":  8192,
 			"temperature": 0.7,
 		}
+		if opts.OnThinking != nil {
+			llmOpts["extended_thinking"] = true
+			llmOpts["thinking_budget_tokens"] = 1024
+		}
 
 		// Try streaming for this iteration
 		if canStream {
@@ -1446,6 +1452,10 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 			toolCallMeta := make(map[int]providers.ToolCall)
 
 			for chunk := range ch {
+				if chunk.ThinkingDelta != "" && opts.OnThinking != nil {
+					opts.OnThinking(chunk.ThinkingDelta)
+				}
+
 				// Stream text tokens to client
 				if chunk.Content != "" {
 					contentBuilder.WriteString(chunk.Content)

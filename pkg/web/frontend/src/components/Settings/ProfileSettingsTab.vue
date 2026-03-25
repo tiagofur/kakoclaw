@@ -90,6 +90,43 @@
             </div>
           </div>
 
+          <div
+            v-if="isClaudeModel"
+            class="rounded-2xl border border-makoclaw-border/40 bg-makoclaw-bg/20 p-4 md:p-5"
+          >
+            <div class="flex items-start justify-between gap-4">
+              <div class="space-y-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <h4 class="text-xs font-black uppercase tracking-widest text-makoclaw-text">
+                    Extended Thinking (Claude only)
+                  </h4>
+                  <span class="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20">
+                    {{ activeModelId }}
+                  </span>
+                </div>
+                <p class="text-xs text-makoclaw-text-secondary/70 leading-relaxed">
+                  Muestra el razonamiento interno del modelo. Aumenta el costo de tokens.
+                </p>
+              </div>
+
+              <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                <input
+                  v-model="extendedThinking"
+                  type="checkbox"
+                  class="sr-only peer"
+                  :disabled="thinkingConfigLoading || thinkingConfigSaving"
+                  @change="updateExtendedThinking"
+                >
+                <div class="w-12 h-7 rounded-full bg-makoclaw-border/70 peer-checked:bg-gradient-to-r peer-checked:from-makoclaw-accent peer-checked:to-blue-500 transition-all duration-300 after:content-[''] after:absolute after:top-1 after:left-1 after:w-5 after:h-5 after:bg-white after:rounded-full after:transition-all after:duration-300 peer-checked:after:translate-x-5 peer-disabled:opacity-50 shadow-inner" />
+              </label>
+            </div>
+
+            <div class="mt-2 min-h-[16px] text-[11px] text-makoclaw-text-secondary/60">
+              <span v-if="thinkingConfigLoading">Loading preference…</span>
+              <span v-else-if="thinkingConfigSaving">Saving preference…</span>
+            </div>
+          </div>
+
           <div class="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <button
               class="px-6 py-3 bg-makoclaw-accent hover:bg-makoclaw-accent-hover text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-xl shadow-makoclaw-accent/20 transition-all flex items-center justify-center disabled:opacity-50 active:scale-95 group"
@@ -221,7 +258,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { 
   UserIcon, 
   ArrowPathIcon, 
@@ -229,8 +266,11 @@ import {
   InformationCircleIcon 
 } from '@heroicons/vue/24/outline'
 import { useAuthStore } from '../../stores/authStore'
+import { useChatStore } from '../../stores/chatStore'
+import advancedService from '../../services/advancedService'
 
 const authStore = useAuthStore()
+const chatStore = useChatStore()
 
 const profile = ref({
   username: '',
@@ -243,6 +283,9 @@ const loading = ref(true)
 const saving = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
+const thinkingConfigLoading = ref(false)
+const thinkingConfigSaving = ref(false)
+const extendedThinking = ref(false)
 
 const showChangePassword = ref(false)
 const changingPassword = ref(false)
@@ -251,6 +294,15 @@ const passwordForm = ref({
   oldPassword: '',
   newPassword: '',
   confirmPassword: ''
+})
+
+const activeModelId = computed(() => chatStore.selectedModel || chatStore.currentModel || '')
+
+const activeModelMeta = computed(() => chatStore.allModels.find(model => model.id === activeModelId.value) || null)
+
+const isClaudeModel = computed(() => {
+  if (activeModelMeta.value?.provider === 'anthropic') return true
+  return /claude/i.test(activeModelId.value)
 })
 
 const formatDate = (dateString) => {
@@ -278,6 +330,66 @@ const loadProfile = async () => {
     errorMessage.value = err.message
   } finally {
     loading.value = false
+  }
+}
+
+const ensureModelsLoaded = async () => {
+  if (chatStore.allModels.length > 0 || chatStore.currentModel || chatStore.selectedModel) return
+
+  try {
+    const modelsData = await advancedService.fetchModels()
+    chatStore.setModelsData(modelsData)
+  } catch (err) {
+    console.error('Failed to fetch models for profile settings:', err)
+  }
+}
+
+const loadThinkingConfig = async () => {
+  thinkingConfigLoading.value = true
+  try {
+    const response = await fetch('/api/v1/user/config', {
+      headers: { 'Authorization': `Bearer ${authStore.token}` }
+    })
+    if (!response.ok) throw new Error('Extended Thinking Sync Failed')
+
+    const data = await response.json()
+    extendedThinking.value = !!data.extended_thinking
+    chatStore.setExtendedThinkingEnabled(extendedThinking.value)
+  } catch (err) {
+    errorMessage.value = err.message
+  } finally {
+    thinkingConfigLoading.value = false
+  }
+}
+
+const updateExtendedThinking = async () => {
+  const nextValue = extendedThinking.value
+  thinkingConfigSaving.value = true
+  errorMessage.value = ''
+  successMessage.value = ''
+
+  try {
+    const response = await fetch('/api/v1/user/config', {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${authStore.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ extended_thinking: nextValue })
+    })
+
+    if (!response.ok) throw new Error('Extended Thinking Update Failed')
+
+    const data = await response.json()
+    extendedThinking.value = !!data.extended_thinking
+    chatStore.setExtendedThinkingEnabled(extendedThinking.value)
+    successMessage.value = `Extended Thinking ${extendedThinking.value ? 'Enabled' : 'Disabled'}`
+  } catch (err) {
+    extendedThinking.value = !nextValue
+    chatStore.setExtendedThinkingEnabled(extendedThinking.value)
+    errorMessage.value = err.message
+  } finally {
+    thinkingConfigSaving.value = false
   }
 }
 
@@ -348,8 +460,9 @@ const changePassword = async () => {
   }
 }
 
-onMounted(() => {
-  loadProfile()
+onMounted(async () => {
+  await ensureModelsLoaded()
+  await Promise.all([loadProfile(), loadThinkingConfig()])
 })
 </script>
 

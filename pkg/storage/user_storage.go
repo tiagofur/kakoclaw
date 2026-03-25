@@ -18,6 +18,11 @@ type UserStorageManager struct {
 	mu       sync.RWMutex
 }
 
+// UserConfig stores lightweight per-user runtime preferences exposed by the web API.
+type UserConfig struct {
+	ExtendedThinking bool `json:"extended_thinking"`
+}
+
 // NewUserStorageManager creates a new manager for per-user databases.
 func NewUserStorageManager(central *CentralStorage, dataRoot string) *UserStorageManager {
 	return &UserStorageManager{

@@ -303,9 +303,11 @@
             <div class="flex items-center gap-2 pt-3 border-t border-makoclaw-border/30">
               <button
                 class="cron-action-btn text-cyan-400"
+                :disabled="busyJobIds.has(job.id)"
                 @click="runJob(job)"
               >
                 <svg
+                  v-if="!busyJobIds.has(job.id)"
                   class="w-3.5 h-3.5"
                   fill="none"
                   stroke="currentColor"
@@ -324,7 +326,16 @@
                     d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                   />
                 </svg>
-                Run Now
+                <svg
+                  v-else
+                  class="w-3.5 h-3.5 animate-spin"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                {{ busyJobIds.has(job.id) ? 'Running...' : 'Run Now' }}
               </button>
               <button
                 class="cron-action-btn"
@@ -348,6 +359,7 @@
               <button
                 class="cron-action-btn"
                 :class="job.enabled ? 'text-amber-400' : 'text-emerald-400'"
+                :disabled="busyJobIds.has(job.id)"
                 @click="toggleJob(job.id, !job.enabled)"
               >
                 <svg
@@ -791,11 +803,20 @@
               Cancel
             </button>
             <button
-              :disabled="!canSubmit"
+              :disabled="!canSubmit || submitting"
               class="btn-primary"
               @click="submitJob"
             >
-              {{ editingJobId ? 'Save' : 'Create' }}
+              <svg
+                v-if="submitting"
+                class="w-4 h-4 animate-spin mr-1.5 inline-block"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              {{ submitting ? 'Saving...' : (editingJobId ? 'Save' : 'Create') }}
             </button>
           </div>
         </div>
@@ -841,9 +862,19 @@
               </button>
               <button
                 class="btn-danger"
+                :disabled="deleting"
                 @click="executeDeleteJob"
               >
-                Delete
+                <svg
+                  v-if="deleting"
+                  class="w-4 h-4 animate-spin mr-1.5 inline-block"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                {{ deleting ? 'Deleting...' : 'Delete' }}
               </button>
             </div>
           </div>
@@ -1131,7 +1162,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import advancedService from '../services/advancedService'
 import { useToast } from '../composables/useToast'
 
@@ -1143,6 +1174,10 @@ const showModal = ref(false)
 const editingJobId = ref(null)
 const showDeleteConfirm = ref(false)
 const deletingJob = ref(null)
+
+const busyJobIds = reactive(new Set())  // track per-job loading state
+const submitting = ref(false)
+const deleting = ref(false)
 
 const showJsonModal = ref(false)
 const jsonEditContent = ref('')
@@ -1431,6 +1466,8 @@ const openEditModal = (job) => {
 }
 
 const submitJob = async () => {
+  if (submitting.value) return
+  submitting.value = true
   const payload = buildPayload()
   try {
     if (editingJobId.value) {
@@ -1445,20 +1482,28 @@ const submitJob = async () => {
   } catch (err) {
     const msg = err?.response?.data || err.message || 'Unknown error'
     toast.error(`Failed: ${msg}`)
+  } finally {
+    submitting.value = false
   }
 }
 
 const toggleJob = async (id, enabled) => {
+  if (busyJobIds.has(id)) return
+  busyJobIds.add(id)
   try {
     await advancedService.toggleCronJob(id, enabled)
     toast.success(enabled ? 'Job enabled' : 'Job disabled')
     await loadJobs()
   } catch {
     toast.error('Failed to toggle job')
+  } finally {
+    busyJobIds.delete(id)
   }
 }
 
 const runJob = async (job) => {
+  if (busyJobIds.has(job.id)) return
+  busyJobIds.add(job.id)
   try {
     await advancedService.runCronJob(job.id)
     toast.success(`Job '${job.name}' triggered`)
@@ -1466,6 +1511,8 @@ const runJob = async (job) => {
   } catch (err) {
     const msg = err?.response?.data || err.message
     toast.error(`Failed: ${msg}`)
+  } finally {
+    busyJobIds.delete(job.id)
   }
 }
 
@@ -1475,7 +1522,8 @@ const confirmDeleteJob = (job) => {
 }
 
 const executeDeleteJob = async () => {
-  if (!deletingJob.value) return
+  if (!deletingJob.value || deleting.value) return
+  deleting.value = true
   try {
     await advancedService.deleteCronJob(deletingJob.value.id)
     toast.success('Job deleted')
@@ -1484,6 +1532,8 @@ const executeDeleteJob = async () => {
     await loadJobs()
   } catch {
     toast.error('Failed to delete job')
+  } finally {
+    deleting.value = false
   }
 }
 
@@ -1705,7 +1755,8 @@ onMounted(() => loadJobs())
 
 .cron-action-btn {
   @apply px-3 py-1.5 text-xs font-medium text-makoclaw-text-secondary bg-makoclaw-bg/50 rounded-lg
-         hover:bg-makoclaw-bg transition-all flex items-center gap-1.5;
+         hover:bg-makoclaw-bg transition-all flex items-center gap-1.5 cursor-pointer
+         active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100;
 }
 
 /* Schedule Type Buttons */

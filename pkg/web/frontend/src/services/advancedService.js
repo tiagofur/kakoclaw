@@ -238,6 +238,12 @@ export default {
     return response.data
   },
 
+  // Generate soul/identity/user context with AI
+  generateSoul: async (description) => {
+    const response = await client.post('/soul/generate', { description })
+    return response.data
+  },
+
   // Rename file or folder
   renameFile: async (path, newName) => {
     const encodedPath = path.split('/').map(encodeURIComponent).join('/')

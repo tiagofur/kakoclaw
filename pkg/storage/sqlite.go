@@ -285,6 +285,7 @@ func (s *Storage) migrate() error {
 			username TEXT NOT NULL UNIQUE,
 			password_hash TEXT NOT NULL,
 			role TEXT NOT NULL DEFAULT 'user',
+			extended_thinking BOOLEAN NOT NULL DEFAULT 0,
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		);`,
@@ -303,6 +304,7 @@ func (s *Storage) migrate() error {
 		`ALTER TABLE users ADD COLUMN blocked_at DATETIME;`,
 		`CREATE INDEX IF NOT EXISTS idx_users_blocked ON users(blocked);`,
 		`ALTER TABLE users ADD COLUMN allowed_tools TEXT;`,
+		`ALTER TABLE users ADD COLUMN extended_thinking BOOLEAN NOT NULL DEFAULT 0;`,
 		`CREATE TABLE IF NOT EXISTS settings (
 			key TEXT PRIMARY KEY,
 			value TEXT NOT NULL

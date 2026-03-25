@@ -24,7 +24,8 @@ type User struct {
 	PreferredLanguage   string     `json:"preferred_language,omitempty"`
 	AvatarURL           string     `json:"avatar_url,omitempty"`
 	AllowedTools        *string    `json:"allowed_tools,omitempty"` // JSON array of tool names, null = use role defaults
-	TokenVersion        int64      `json:"-"`                       // Incremented on password change to invalidate tokens
+	ExtendedThinking    bool       `json:"extended_thinking"`
+	TokenVersion        int64      `json:"-"` // Incremented on password change to invalidate tokens
 	OnboardingCompleted bool       `json:"onboarding_completed"`
 	Blocked             bool       `json:"blocked"`
 	BlockedReason       string     `json:"blocked_reason,omitempty"`
@@ -141,7 +142,7 @@ func (s *Storage) CreateUserWithEmail(username, email, password, role string) (*
 // legacyUserSelectCols is the SELECT column list for the legacy (non-central) users table.
 const legacyUserSelectCols = `id, COALESCE(uuid, ''), username, COALESCE(email, ''), password_hash, role,
 	COALESCE(full_name, ''), date_of_birth, COALESCE(timezone, ''), COALESCE(preferred_language, ''), COALESCE(avatar_url, ''),
-	COALESCE(allowed_tools, ''), COALESCE(onboarding_completed, 0), COALESCE(blocked, 0), COALESCE(blocked_reason, ''), blocked_by, blocked_at,
+	COALESCE(allowed_tools, ''), COALESCE(extended_thinking, 0), COALESCE(onboarding_completed, 0), COALESCE(blocked, 0), COALESCE(blocked_reason, ''), blocked_by, blocked_at,
 	created_at, updated_at`
 
 func (s *Storage) scanUser(scanner interface {
@@ -155,6 +156,7 @@ func (s *Storage) scanUser(scanner interface {
 	var lang sql.NullString
 	var avatar sql.NullString
 	var allowedTools sql.NullString
+	var extendedThinking sql.NullBool
 	var onboardingCompleted sql.NullBool
 	var blocked sql.NullBool
 	var blockedReason sql.NullString
@@ -162,7 +164,7 @@ func (s *Storage) scanUser(scanner interface {
 	var blockedAt sql.NullTime
 	err := scanner.Scan(&u.ID, &u.UUID, &u.Username, &email, &u.PasswordHash, &u.Role,
 		&fullName, &dob, &tz, &lang, &avatar,
-		&allowedTools, &onboardingCompleted, &blocked, &blockedReason, &blockedBy, &blockedAt,
+		&allowedTools, &extendedThinking, &onboardingCompleted, &blocked, &blockedReason, &blockedBy, &blockedAt,
 		&u.CreatedAt, &u.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, ErrUserNotFound
@@ -190,6 +192,9 @@ func (s *Storage) scanUser(scanner interface {
 	}
 	if allowedTools.Valid && allowedTools.String != "" {
 		u.AllowedTools = &allowedTools.String
+	}
+	if extendedThinking.Valid {
+		u.ExtendedThinking = extendedThinking.Bool
 	}
 	if onboardingCompleted.Valid {
 		u.OnboardingCompleted = onboardingCompleted.Bool
@@ -285,6 +290,14 @@ func (s *Storage) UpdateUserProfile(id int64, username, email, fullName string, 
 	if err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed") {
 		return ErrUserExists
 	}
+	return err
+}
+
+func (s *Storage) UpdateUserExtendedThinking(id int64, enabled bool) error {
+	_, err := s.db.Exec(`
+		UPDATE users
+		SET extended_thinking = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?`, enabled, id)
 	return err
 }
 

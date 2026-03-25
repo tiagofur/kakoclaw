@@ -62,4 +62,48 @@ describe('chatStore', () => {
 
     expect(store.currentAgent).toBe('developer')
   })
+
+  it('appendThinkingDelta() accumulates content in the active thinking block', () => {
+    const store = useChatStore()
+    const messageId = store.startStreamingMessage()
+
+    store.appendThinkingDelta('thinking content 1')
+    store.appendThinkingDelta('thinking content 2')
+
+    const message = store.messages.find((msg) => msg.id === messageId)
+
+    expect(message.thinkingBlocks).toHaveLength(1)
+    expect(message.thinkingBlocks[0].content).toBe('thinking content 1thinking content 2')
+    expect(message.thinkingBlocks[0].expanded).toBe(true)
+  })
+
+  it('endStreamingMessage() collapses thinking blocks that were not manually toggled', () => {
+    const store = useChatStore()
+    const messageId = store.startStreamingMessage()
+    const message = store.messages.find((msg) => msg.id === messageId)
+
+    message.thinkingBlocks = [
+      {
+        id: 'block-1',
+        content: 'developer reasoning',
+        expanded: true,
+        finalized: false,
+        manuallyToggled: true
+      },
+      {
+        id: 'block-2',
+        content: 'main reasoning',
+        expanded: true,
+        finalized: false,
+        manuallyToggled: false
+      }
+    ]
+
+    store.endStreamingMessage('done')
+
+    expect(message.thinkingBlocks[0].expanded).toBe(true)
+    expect(message.thinkingBlocks[0].finalized).toBe(true)
+    expect(message.thinkingBlocks[1].expanded).toBe(false)
+    expect(message.thinkingBlocks[1].finalized).toBe(true)
+  })
 })
