@@ -2103,6 +2103,12 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		// Seed a clean config template for the new user (no secrets from global config).
 		if s.fullConfig != nil {
 			userTemplate := config.GetUserConfigTemplate(s.fullConfig)
+			// Replace {uuid} placeholder with actual user UUID for workspace/storage paths
+			userDir, _ := config.EnsureUserWorkspace(user.UUID)
+			if userDir != "" {
+				userTemplate.Agents.Defaults.Workspace = userDir
+				userTemplate.Storage.Path = filepath.Join(filepath.Dir(userDir), "user.db")
+			}
 			if err := config.SaveConfigForUser(user.UUID, userTemplate); err != nil {
 				logger.WarnCF("web", "Failed to seed user config.json on register", map[string]interface{}{
 					"user": user.Username, "error": err.Error(),
