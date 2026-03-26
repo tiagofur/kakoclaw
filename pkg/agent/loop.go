@@ -309,6 +309,31 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 		})
 	}
 
+	// Register image generation tool
+	var imageProvider tools.ImageProvider
+	if cfg.Tools.Image.APIKey != "" {
+		model := cfg.Tools.Image.Model
+		if model == "" {
+			model = "dall-e-3"
+		}
+		imageProvider = tools.NewOpenAIImageProvider(cfg.Tools.Image.APIKey, cfg.Tools.Image.APIBase, model)
+		logger.InfoC("agent", "Image generation provider: OpenAI-compatible")
+	} else {
+		logger.WarnC("agent", "No image provider configured — image_generate will return an error")
+	}
+	toolsRegistry.Register(tools.NewImageGenerateTool(imageProvider, workspace, restrict))
+
+	// Register social media tools
+	var socialProvider tools.SocialMediaProvider
+	if cfg.Tools.SocialMedia.APIKey != "" {
+		socialProvider = tools.NewAyrshareProvider(cfg.Tools.SocialMedia.APIKey)
+		logger.InfoC("agent", "Social media provider: Ayrshare")
+	} else {
+		logger.WarnC("agent", "No social media provider configured — social_post will return an error")
+	}
+	toolsRegistry.Register(tools.NewSocialPostTool(socialProvider))
+	toolsRegistry.Register(tools.NewSocialAnalyticsTool(socialProvider))
+
 	// Register message tool
 	messageTool := tools.NewMessageTool()
 	messageTool.SetSendCallback(func(channel, chatID, content string) error {

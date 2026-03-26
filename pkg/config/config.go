@@ -312,11 +312,25 @@ type WebToolsConfig struct {
 	Search WebSearchConfig `json:"search"`
 }
 
+type ImageToolsConfig struct {
+	Provider string `json:"provider" env:"MAKOCLAW_TOOLS_IMAGE_PROVIDER"`
+	APIKey   string `json:"api_key" env:"MAKOCLAW_TOOLS_IMAGE_API_KEY"`
+	APIBase  string `json:"api_base" env:"MAKOCLAW_TOOLS_IMAGE_API_BASE"`
+	Model    string `json:"model" env:"MAKOCLAW_TOOLS_IMAGE_MODEL"`
+}
+
+type SocialMediaConfig struct {
+	Provider string `json:"provider" env:"MAKOCLAW_TOOLS_SOCIAL_MEDIA_PROVIDER"`
+	APIKey   string `json:"api_key" env:"MAKOCLAW_TOOLS_SOCIAL_MEDIA_API_KEY"`
+}
+
 type ToolsConfig struct {
-	Web                 WebToolsConfig   `json:"web"`
-	Email               EmailToolsConfig `json:"email"`
-	MCP                 MCPConfig        `json:"mcp"`
-	RequireConfirmation *bool            `json:"require_confirmation,omitempty"`
+	Web                 WebToolsConfig    `json:"web"`
+	Email               EmailToolsConfig  `json:"email"`
+	Image               ImageToolsConfig  `json:"image"`
+	SocialMedia         SocialMediaConfig `json:"social_media"`
+	MCP                 MCPConfig         `json:"mcp"`
+	RequireConfirmation *bool             `json:"require_confirmation,omitempty"`
 }
 
 type MCPConfig struct {
@@ -475,6 +489,8 @@ func DefaultConfig() *Config {
 				From:     "",
 				To:       "",
 			},
+			Image: ImageToolsConfig{Provider: "openai", Model: "dall-e-3"},
+			SocialMedia: SocialMediaConfig{Provider: "ayrshare"},
 			MCP: MCPConfig{
 				Servers: map[string]MCPServerConfig{},
 			},
@@ -499,6 +515,10 @@ func DefaultConfig() *Config {
 					// Web access
 					"web_search",
 					"web_fetch",
+					// Marketing & creative
+					"image_generate",
+					"social_post",
+					"social_analytics",
 					// Communication
 					"message",
 					// Limited shell access via allowlist
@@ -706,6 +726,16 @@ func GetUserConfigTemplate(globalConfig *Config) *Config {
 				Password: "",
 				From:     "",
 				To:       "",
+			},
+			Image: ImageToolsConfig{
+				Provider: "openai",
+				APIKey:   "",
+				APIBase:  "",
+				Model:    "dall-e-3",
+			},
+			SocialMedia: SocialMediaConfig{
+				Provider: "ayrshare",
+				APIKey:   "",
 			},
 			MCP: MCPConfig{
 				Servers: make(map[string]MCPServerConfig),
@@ -1195,6 +1225,20 @@ func mergeToolsConfig(global, user *ToolsConfig) ToolsConfig {
 		merged.Email = user.Email
 	} else {
 		merged.Email = global.Email
+	}
+
+	// Merge Image tools
+	if user.Image.APIKey != "" {
+		merged.Image = user.Image
+	} else {
+		merged.Image = global.Image
+	}
+
+	// Merge Social Media tools
+	if user.SocialMedia.APIKey != "" {
+		merged.SocialMedia = user.SocialMedia
+	} else {
+		merged.SocialMedia = global.SocialMedia
 	}
 
 	// Merge MCP tools

@@ -106,6 +106,16 @@ var fieldWhitelist = map[string]FieldPolicy{
 	"tools.email.from":             {Type: TypeString, Readable: true, Writable: true, Validator: validateEmail},
 	"tools.email.to":               {Type: TypeString, Readable: true, Writable: true, Validator: validateEmail},
 
+	// Image generation
+	"tools.image.provider": {Type: TypeString, Readable: true, Writable: true},
+	"tools.image.api_key":  {Type: TypeString, Readable: false, Writable: true},
+	"tools.image.api_base": {Type: TypeString, Readable: true, Writable: true, Validator: validateURL},
+	"tools.image.model":    {Type: TypeString, Readable: true, Writable: true},
+
+	// Social media
+	"tools.social_media.provider": {Type: TypeString, Readable: true, Writable: true},
+	"tools.social_media.api_key":  {Type: TypeString, Readable: false, Writable: true},
+
 	// ============================================================
 	// EMAIL CHANNEL (IMAP polling + SMTP reply)
 	// ============================================================
