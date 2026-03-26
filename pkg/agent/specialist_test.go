@@ -633,8 +633,8 @@ func TestNewRequestColleagueTool(t *testing.T) {
 	if tool.maxNestingDepth != 2 {
 		t.Errorf("expected maxNestingDepth 2, got %d", tool.maxNestingDepth)
 	}
-	if tool.currentDepth != 0 {
-		t.Errorf("expected currentDepth 0, got %d", tool.currentDepth)
+	if tool.currentDepth.Load() != 0 {
+		t.Errorf("expected currentDepth 0, got %d", tool.currentDepth.Load())
 	}
 }
 

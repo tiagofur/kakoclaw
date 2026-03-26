@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -34,6 +35,49 @@ var webFetchHTTPClient = &http.Client{
 		}
 		return nil
 	},
+}
+
+var privateRanges []*net.IPNet
+
+func init() {
+	for _, cidr := range []string{
+		"127.0.0.0/8",
+		"10.0.0.0/8",
+		"172.16.0.0/12",
+		"192.168.0.0/16",
+		"169.254.0.0/16",
+		"::1/128",
+		"fc00::/7",
+		"fe80::/10",
+	} {
+		_, network, _ := net.ParseCIDR(cidr)
+		privateRanges = append(privateRanges, network)
+	}
+}
+
+func isPrivateIP(host string) bool {
+	hostname := host
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		hostname = h
+	}
+
+	ips, err := net.LookupHost(hostname)
+	if err != nil {
+		return true
+	}
+
+	for _, ipStr := range ips {
+		ip := net.ParseIP(ipStr)
+		if ip == nil {
+			continue
+		}
+		for _, network := range privateRanges {
+			if network.Contains(ip) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 type WebSearchTool struct {
@@ -175,6 +219,10 @@ func (t *WebFetchTool) Execute(ctx context.Context, args map[string]interface{})
 
 	if parsedURL.Host == "" {
 		return "", fmt.Errorf("missing domain in URL")
+	}
+
+	if isPrivateIP(parsedURL.Host) {
+		return "", fmt.Errorf("access to private/internal network addresses is not allowed")
 	}
 
 	maxChars := t.maxChars

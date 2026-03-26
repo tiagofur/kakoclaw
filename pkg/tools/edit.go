@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 )
 
 // EditFileTool edits a file by replacing old_text with new_text.
 // The old_text must exist exactly in the file.
 type EditFileTool struct {
+	mu         sync.RWMutex
 	allowedDir string
 	restrict   bool
 }
@@ -23,6 +25,8 @@ func NewEditFileTool(allowedDir string, restrict bool) *EditFileTool {
 }
 
 func (t *EditFileTool) SetWorkspace(workspace string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	t.allowedDir = workspace
 }
 
@@ -75,12 +79,17 @@ func (t *EditFileTool) Execute(ctx context.Context, args map[string]interface{})
 		return "", fmt.Errorf("new_text is required")
 	}
 
-	resolvedPath, err := validatePath(path, t.allowedDir, t.restrict)
+	t.mu.RLock()
+	allowedDir := t.allowedDir
+	restrict := t.restrict
+	t.mu.RUnlock()
+
+	resolvedPath, err := validatePath(path, allowedDir, restrict)
 	if err != nil {
 		return "", err
 	}
 
-	if IsSensitiveConfirmationRequired(ctx) && IsSensitiveWorkspacePath(resolvedPath, t.allowedDir) && !isConfirmed(args) {
+	if IsSensitiveConfirmationRequired(ctx) && IsSensitiveWorkspacePath(resolvedPath, allowedDir) && !isConfirmed(args) {
 		return "Confirmation required: edit_file targets a sensitive file. Re-run with confirmed=true after user approval.", nil
 	}
 
@@ -119,6 +128,7 @@ func (t *EditFileTool) Execute(ctx context.Context, args map[string]interface{})
 }
 
 type AppendFileTool struct {
+	mu        sync.RWMutex
 	workspace string
 	restrict  bool
 }
@@ -128,6 +138,8 @@ func NewAppendFileTool(workspace string, restrict bool) *AppendFileTool {
 }
 
 func (t *AppendFileTool) SetWorkspace(workspace string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	t.workspace = workspace
 }
 
@@ -171,12 +183,17 @@ func (t *AppendFileTool) Execute(ctx context.Context, args map[string]interface{
 		return "", fmt.Errorf("content is required")
 	}
 
-	resolvedPath, err := validatePath(path, t.workspace, t.restrict)
+	t.mu.RLock()
+	workspace := t.workspace
+	restrict := t.restrict
+	t.mu.RUnlock()
+
+	resolvedPath, err := validatePath(path, workspace, restrict)
 	if err != nil {
 		return "", err
 	}
 
-	if IsSensitiveConfirmationRequired(ctx) && IsSensitiveWorkspacePath(resolvedPath, t.workspace) && !isConfirmed(args) {
+	if IsSensitiveConfirmationRequired(ctx) && IsSensitiveWorkspacePath(resolvedPath, workspace) && !isConfirmed(args) {
 		return "Confirmation required: append_file targets a sensitive file. Re-run with confirmed=true after user approval.", nil
 	}
 

@@ -102,6 +102,7 @@ func (t *ReadEmailTool) Execute(ctx context.Context, args map[string]interface{}
 		return "", fmt.Errorf("IMAP connect failed (%s): %w", addr, err)
 	}
 	defer client.Close()
+	defer func() { _ = client.Logout().Wait() }()
 
 	if err := client.Login(t.cfg.Username, t.cfg.Password).Wait(); err != nil {
 		return "", fmt.Errorf("IMAP login failed: %w", err)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/sipeed/makoclaw/pkg/bus"
@@ -314,6 +315,11 @@ func (sa *SpecialistAgent) ProcessWithSpecialityForUser(ctx context.Context, use
 		"sa.userID_before":   sa.userID,
 	})
 
+	// Serialize access: lock MUST be acquired BEFORE mutating user state.
+	// Without this, two concurrent requests for different users corrupt each
+	// other's userUUID/userID/workspace/tools/sessions fields.
+	sa.processMu.Lock()
+
 	// CRITICAL: Set user context BEFORE any other processing
 	// This ensures the AgentLoop has the correct context from the START
 	sa.SetUserForAgent(userUUID, userID)
@@ -322,11 +328,6 @@ func (sa *SpecialistAgent) ProcessWithSpecialityForUser(ctx context.Context, use
 		"sa.userUUID_after": sa.userUUID,
 		"sa.userID_after":   sa.userID,
 	})
-
-	// Serialize access to tool-swap to prevent concurrent modifications.
-	// Lock is held for entire ProcessDirect duration to prevent race conditions
-	// where another goroutine could see inconsistent tool state.
-	sa.processMu.Lock()
 	originalTools := sa.tools
 	sa.tools = sa.ToolFilter()
 	defer func() {
@@ -355,7 +356,7 @@ type RequestColleagueTool struct {
 	registry        *SpecialistRegistry
 	currentAgent    *SpecialistAgent
 	maxNestingDepth int
-	currentDepth    int
+	currentDepth    atomic.Int32
 }
 
 // NewRequestColleagueTool creates a new colleague request tool for a specialist
@@ -364,7 +365,6 @@ func NewRequestColleagueTool(registry *SpecialistRegistry, current *SpecialistAg
 		registry:        registry,
 		currentAgent:    current,
 		maxNestingDepth: 2, // Prevent infinite recursion
-		currentDepth:    0,
 	}
 }
 
@@ -411,7 +411,7 @@ func (t *RequestColleagueTool) Execute(ctx context.Context, args map[string]inte
 	helpContext, _ := args["context"].(string)
 
 	// Prevent infinite recursion
-	if t.currentDepth >= t.maxNestingDepth {
+	if t.currentDepth.Load() >= int32(t.maxNestingDepth) {
 		return fmt.Sprintf("⚠️ Cannot request help from %s: maximum collaboration depth reached. "+
 			"Please report back to the orchestrator with partial results.", colleagueName), nil
 	}
@@ -470,14 +470,14 @@ func (t *RequestColleagueTool) Execute(ctx context.Context, args map[string]inte
 	}
 
 	// Execute with incremented depth to track nesting
-	t.currentDepth++
-	defer func() { t.currentDepth-- }()
+	t.currentDepth.Add(1)
+	defer func() { t.currentDepth.Add(-1) }()
 
 	logger.InfoCF("agent", "Specialist requesting colleague help", map[string]interface{}{
 		"from":     t.currentAgent.name,
 		"to":       colleagueName,
 		"question": truncateString(question, 100),
-		"depth":    t.currentDepth,
+		"depth":    t.currentDepth.Load(),
 	})
 
 	// Get response from colleague

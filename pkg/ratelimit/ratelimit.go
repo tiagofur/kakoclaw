@@ -3,6 +3,7 @@ package ratelimit
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 )
@@ -45,8 +46,14 @@ func (rl *RateLimiter) Allow(key string) bool {
 
 	limit, exists := rl.limits[key]
 	if !exists {
-		// No limit configured, allow all
-		return true
+		// Try prefix-based fallback: "user:123" → "user:global"
+		if idx := strings.LastIndex(key, ":"); idx > 0 {
+			prefix := key[:idx]
+			limit, exists = rl.limits[prefix+":global"]
+		}
+		if !exists {
+			return true
+		}
 	}
 
 	now := time.Now()

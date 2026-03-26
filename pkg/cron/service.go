@@ -97,6 +97,8 @@ func (cs *CronService) Start() error {
 		return nil
 	}
 
+	cs.stopChan = make(chan struct{})
+
 	if err := cs.loadStore(); err != nil {
 		return fmt.Errorf("failed to load store: %w", err)
 	}
@@ -760,7 +762,9 @@ func (cs *CronService) ListJobs(includeDisabled bool) []CronJob {
 	defer cs.mu.RUnlock()
 
 	if includeDisabled {
-		return cs.store.Jobs
+		result := make([]CronJob, len(cs.store.Jobs))
+		copy(result, cs.store.Jobs)
+		return result
 	}
 
 	var enabled []CronJob

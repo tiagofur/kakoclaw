@@ -622,9 +622,14 @@ func (t *ConfigureTool) setReflectValue(field reflect.Value, value interface{}, 
 		case bool:
 			field.SetBool(v)
 		case string:
-			// Accept string "true"/"false"
-			b := strings.EqualFold(v, "true")
-			field.SetBool(b)
+			lower := strings.ToLower(v)
+			if lower == "true" {
+				field.SetBool(true)
+			} else if lower == "false" {
+				field.SetBool(false)
+			} else {
+				return fmt.Errorf("expected 'true' or 'false' for boolean field, got %q", v)
+			}
 		default:
 			return fmt.Errorf("expected boolean for '%s', got %T", path, value)
 		}

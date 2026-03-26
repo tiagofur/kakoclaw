@@ -59,6 +59,10 @@ func (b *BraveSearchProvider) Search(ctx context.Context, query string, count in
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("search API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
 	var searchResp struct {
 		Web struct {
 			Results []struct {
@@ -118,6 +122,10 @@ func (s *SearXNGSearchProvider) Search(ctx context.Context, query string, count 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 5*1024*1024)) // 5 MB cap
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("search API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var searchResp struct {

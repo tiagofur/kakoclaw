@@ -1176,7 +1176,7 @@ func mergeToolsConfig(global, user *ToolsConfig) ToolsConfig {
 	merged := ToolsConfig{}
 
 	// Merge Web tools
-	if user.Web.Search.APIKey != "" {
+	if user.Web.Search.APIKey != "" || user.Web.Search.SearXNGURL != "" {
 		merged.Web.Search = user.Web.Search
 	} else {
 		merged.Web.Search = global.Web.Search

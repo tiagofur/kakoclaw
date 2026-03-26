@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 // validatePath ensures the given path is within the workspace if restrict is true.
@@ -61,6 +62,7 @@ func validatePath(path, workspace string, restrict bool) (string, error) {
 }
 
 type ReadFileTool struct {
+	mu        sync.RWMutex
 	workspace string
 	restrict  bool
 }
@@ -70,6 +72,8 @@ func NewReadFileTool(workspace string, restrict bool) *ReadFileTool {
 }
 
 func (t *ReadFileTool) SetWorkspace(workspace string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	t.workspace = workspace
 }
 
@@ -100,7 +104,12 @@ func (t *ReadFileTool) Execute(ctx context.Context, args map[string]interface{})
 		return "", fmt.Errorf("path is required")
 	}
 
-	resolvedPath, err := validatePath(path, t.workspace, t.restrict)
+	t.mu.RLock()
+	workspace := t.workspace
+	restrict := t.restrict
+	t.mu.RUnlock()
+
+	resolvedPath, err := validatePath(path, workspace, restrict)
 	if err != nil {
 		return "", err
 	}
@@ -114,6 +123,7 @@ func (t *ReadFileTool) Execute(ctx context.Context, args map[string]interface{})
 }
 
 type WriteFileTool struct {
+	mu        sync.RWMutex
 	workspace string
 	restrict  bool
 }
@@ -123,6 +133,8 @@ func NewWriteFileTool(workspace string, restrict bool) *WriteFileTool {
 }
 
 func (t *WriteFileTool) SetWorkspace(workspace string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	t.workspace = workspace
 }
 
@@ -166,12 +178,17 @@ func (t *WriteFileTool) Execute(ctx context.Context, args map[string]interface{}
 		return "", fmt.Errorf("content is required")
 	}
 
-	resolvedPath, err := validatePath(path, t.workspace, t.restrict)
+	t.mu.RLock()
+	workspace := t.workspace
+	restrict := t.restrict
+	t.mu.RUnlock()
+
+	resolvedPath, err := validatePath(path, workspace, restrict)
 	if err != nil {
 		return "", err
 	}
 
-	if IsSensitiveConfirmationRequired(ctx) && IsSensitiveWorkspacePath(resolvedPath, t.workspace) && !isConfirmed(args) {
+	if IsSensitiveConfirmationRequired(ctx) && IsSensitiveWorkspacePath(resolvedPath, workspace) && !isConfirmed(args) {
 		return "Confirmation required: write_file targets a sensitive file. Re-run with confirmed=true after user approval.", nil
 	}
 
@@ -188,6 +205,7 @@ func (t *WriteFileTool) Execute(ctx context.Context, args map[string]interface{}
 }
 
 type ListDirTool struct {
+	mu        sync.RWMutex
 	workspace string
 	restrict  bool
 }
@@ -197,6 +215,8 @@ func NewListDirTool(workspace string, restrict bool) *ListDirTool {
 }
 
 func (t *ListDirTool) SetWorkspace(workspace string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	t.workspace = workspace
 }
 
@@ -227,7 +247,12 @@ func (t *ListDirTool) Execute(ctx context.Context, args map[string]interface{}) 
 		path = "."
 	}
 
-	resolvedPath, err := validatePath(path, t.workspace, t.restrict)
+	t.mu.RLock()
+	workspace := t.workspace
+	restrict := t.restrict
+	t.mu.RUnlock()
+
+	resolvedPath, err := validatePath(path, workspace, restrict)
 	if err != nil {
 		return "", err
 	}
