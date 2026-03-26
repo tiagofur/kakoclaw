@@ -284,6 +284,15 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 		}
 	}
 
+	// Register email reader tool (IMAP inbox access) if email channel is configured
+	if cfg.Channels.Email.Enabled && cfg.Channels.Email.IMAPHost != "" && cfg.Channels.Email.Password != "" {
+		toolsRegistry.Register(tools.NewReadEmailTool(cfg.Channels.Email))
+		logger.InfoCF("agent", "Email reader tool registered", map[string]interface{}{
+			"imap_host": cfg.Channels.Email.IMAPHost,
+			"mailbox":   cfg.Channels.Email.Mailbox,
+		})
+	}
+
 	// Register message tool
 	messageTool := tools.NewMessageTool()
 	messageTool.SetSendCallback(func(channel, chatID, content string) error {

@@ -1,0 +1,340 @@
+package tools
+
+import (
+	"context"
+	"crypto/tls"
+	"encoding/json"
+	"fmt"
+	"io"
+	"strings"
+	"time"
+
+	"github.com/emersion/go-imap/v2"
+	"github.com/emersion/go-imap/v2/imapclient"
+	gomessage "github.com/emersion/go-message"
+	gomail "github.com/emersion/go-message/mail"
+	"golang.org/x/net/html"
+
+	"github.com/sipeed/makoclaw/pkg/config"
+	"github.com/sipeed/makoclaw/pkg/logger"
+)
+
+// ReadEmailTool allows the agent to read emails from the user's inbox.
+type ReadEmailTool struct {
+	cfg config.EmailChannelConfig
+}
+
+// NewReadEmailTool creates a new email reader tool.
+func NewReadEmailTool(cfg config.EmailChannelConfig) *ReadEmailTool {
+	return &ReadEmailTool{cfg: cfg}
+}
+
+func (t *ReadEmailTool) Name() string {
+	return "read_email"
+}
+
+func (t *ReadEmailTool) Description() string {
+	return "Read recent emails from the user's inbox. Can fetch unread emails or search by sender. Returns subject, sender, date, and body for each email."
+}
+
+func (t *ReadEmailTool) Parameters() map[string]interface{} {
+	return map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"count": map[string]interface{}{
+				"type":        "integer",
+				"description": "Number of recent emails to fetch (default: 5, max: 20)",
+			},
+			"unread_only": map[string]interface{}{
+				"type":        "boolean",
+				"description": "Only fetch unread/unseen emails (default: true)",
+			},
+			"from": map[string]interface{}{
+				"type":        "string",
+				"description": "Filter by sender email address (optional)",
+			},
+		},
+	}
+}
+
+func (t *ReadEmailTool) Execute(ctx context.Context, args map[string]interface{}) (string, error) {
+	if t.cfg.IMAPHost == "" {
+		return "", fmt.Errorf("email channel not configured: missing IMAP host")
+	}
+	if t.cfg.Password == "" {
+		return "", fmt.Errorf("email channel not configured: missing password")
+	}
+
+	count := 5
+	if c, ok := args["count"].(float64); ok && c > 0 {
+		count = int(c)
+	}
+	if count > 20 {
+		count = 20
+	}
+
+	unreadOnly := true
+	if u, ok := args["unread_only"].(bool); ok {
+		unreadOnly = u
+	}
+
+	fromFilter := ""
+	if f, ok := args["from"].(string); ok {
+		fromFilter = strings.TrimSpace(f)
+	}
+
+	// Connect to IMAP
+	imapPort := t.cfg.IMAPPort
+	if imapPort <= 0 {
+		imapPort = 993
+	}
+	addr := fmt.Sprintf("%s:%d", t.cfg.IMAPHost, imapPort)
+
+	options := &imapclient.Options{
+		TLSConfig: &tls.Config{
+			InsecureSkipVerify: t.cfg.InsecureSkipVerify,
+		},
+	}
+
+	client, err := imapclient.DialTLS(addr, options)
+	if err != nil {
+		return "", fmt.Errorf("IMAP connect failed (%s): %w", addr, err)
+	}
+	defer client.Close()
+
+	if err := client.Login(t.cfg.Username, t.cfg.Password).Wait(); err != nil {
+		return "", fmt.Errorf("IMAP login failed: %w", err)
+	}
+
+	mailbox := t.cfg.Mailbox
+	if mailbox == "" {
+		mailbox = "INBOX"
+	}
+
+	selectData, err := client.Select(mailbox, nil).Wait()
+	if err != nil {
+		return "", fmt.Errorf("IMAP SELECT %q failed: %w", mailbox, err)
+	}
+
+	// Build search criteria
+	criteria := &imap.SearchCriteria{}
+	if unreadOnly {
+		criteria.NotFlag = []imap.Flag{imap.FlagSeen}
+	}
+
+	searchData, err := client.UIDSearch(criteria, nil).Wait()
+	if err != nil {
+		return "", fmt.Errorf("IMAP SEARCH failed: %w", err)
+	}
+
+	allUIDs := searchData.AllUIDs()
+	if len(allUIDs) == 0 {
+		status := "unread"
+		if !unreadOnly {
+			status = ""
+		}
+		return fmt.Sprintf("No %s emails found in %s (total messages: %d)", status, mailbox, selectData.NumMessages), nil
+	}
+
+	// Take only the last N UIDs (most recent)
+	startIdx := 0
+	if len(allUIDs) > count {
+		startIdx = len(allUIDs) - count
+	}
+	recentUIDs := allUIDs[startIdx:]
+
+	// Fetch messages
+	uidSet := imap.UIDSetNum(recentUIDs...)
+	fetchOptions := &imap.FetchOptions{
+		Envelope: true,
+		UID:      true,
+		Flags:    true,
+		BodySection: []*imap.FetchItemBodySection{
+			{Peek: true},
+		},
+	}
+
+	fetchCmd := client.Fetch(uidSet, fetchOptions)
+	defer fetchCmd.Close()
+
+	type emailSummary struct {
+		UID     uint32 `json:"uid"`
+		From    string `json:"from"`
+		Subject string `json:"subject"`
+		Date    string `json:"date"`
+		Body    string `json:"body"`
+		Unread  bool   `json:"unread"`
+	}
+
+	var emails []emailSummary
+
+	for {
+		msgData := fetchCmd.Next()
+		if msgData == nil {
+			break
+		}
+
+		var uid imap.UID
+		var envelope *imap.Envelope
+		var bodyReader io.Reader
+		var flags []imap.Flag
+
+		for {
+			item := msgData.Next()
+			if item == nil {
+				break
+			}
+			switch data := item.(type) {
+			case imapclient.FetchItemDataUID:
+				uid = data.UID
+			case imapclient.FetchItemDataEnvelope:
+				envelope = data.Envelope
+			case imapclient.FetchItemDataBodySection:
+				bodyReader = data.Literal
+			case imapclient.FetchItemDataFlags:
+				flags = data.Flags
+			}
+		}
+
+		if envelope == nil {
+			continue
+		}
+
+		senderAddr := ""
+		if len(envelope.From) > 0 {
+			senderAddr = envelope.From[0].Addr()
+		}
+
+		// Apply sender filter
+		if fromFilter != "" && !strings.EqualFold(senderAddr, fromFilter) {
+			continue
+		}
+
+		// Extract body
+		body := ""
+		if bodyReader != nil {
+			limitedReader := io.LimitReader(bodyReader, 10*1024*1024)
+			body, _ = extractEmailPlainText(limitedReader)
+			// Truncate long bodies
+			if len(body) > 2000 {
+				body = body[:2000] + "\n...[truncated]"
+			}
+		}
+
+		isUnread := true
+		for _, f := range flags {
+			if f == imap.FlagSeen {
+				isUnread = false
+				break
+			}
+		}
+
+		dateStr := ""
+		if envelope.Date != (time.Time{}) {
+			dateStr = envelope.Date.Format("2006-01-02 15:04")
+		}
+
+		emails = append(emails, emailSummary{
+			UID:     uint32(uid),
+			From:    senderAddr,
+			Subject: envelope.Subject,
+			Date:    dateStr,
+			Body:    strings.TrimSpace(body),
+			Unread:  isUnread,
+		})
+	}
+
+	if len(emails) == 0 {
+		msg := "No emails found"
+		if fromFilter != "" {
+			msg += fmt.Sprintf(" from %s", fromFilter)
+		}
+		return msg, nil
+	}
+
+	result, _ := json.MarshalIndent(map[string]interface{}{
+		"emails":      emails,
+		"count":       len(emails),
+		"total_in_search": len(allUIDs),
+		"mailbox":     mailbox,
+	}, "", "  ")
+
+	logger.InfoCF("tool", "Read emails from inbox", map[string]interface{}{
+		"count":   len(emails),
+		"mailbox": mailbox,
+	})
+
+	return string(result), nil
+}
+
+// extractEmailPlainText extracts plain text from an email body (MIME parsing).
+func extractEmailPlainText(r io.Reader) (string, error) {
+	bodyBytes, err := io.ReadAll(r)
+	if err != nil {
+		return "", err
+	}
+
+	entity, err := gomessage.Read(strings.NewReader(string(bodyBytes)))
+	if err != nil {
+		// Not MIME, return raw text
+		return string(bodyBytes), nil
+	}
+
+	mediaType, _, _ := entity.Header.ContentType()
+
+	if strings.HasPrefix(mediaType, "multipart/") {
+		mr := gomail.NewReader(entity)
+		var plainText, htmlText string
+		for {
+			part, err := mr.NextPart()
+			if err != nil {
+				break
+			}
+			ct := part.Header.Get("Content-Type")
+			partBytes, _ := io.ReadAll(part.Body)
+			if strings.HasPrefix(ct, "text/plain") || (ct == "" && plainText == "") {
+				plainText = string(partBytes)
+			} else if strings.HasPrefix(ct, "text/html") && plainText == "" {
+				htmlText = string(partBytes)
+			}
+		}
+		if plainText != "" {
+			return plainText, nil
+		}
+		if htmlText != "" {
+			return emailHtmlToPlaintext(htmlText), nil
+		}
+		return string(bodyBytes), nil
+	}
+
+	partBytes, _ := io.ReadAll(entity.Body)
+	if strings.HasPrefix(mediaType, "text/html") {
+		return emailHtmlToPlaintext(string(partBytes)), nil
+	}
+	return string(partBytes), nil
+}
+
+// emailHtmlToPlaintext converts HTML to plaintext.
+func emailHtmlToPlaintext(htmlContent string) string {
+	tokenizer := html.NewTokenizer(strings.NewReader(htmlContent))
+	var sb strings.Builder
+	for {
+		tt := tokenizer.Next()
+		switch tt {
+		case html.ErrorToken:
+			return strings.TrimSpace(sb.String())
+		case html.TextToken:
+			text := strings.TrimSpace(tokenizer.Token().Data)
+			if text != "" {
+				sb.WriteString(text)
+				sb.WriteString(" ")
+			}
+		case html.StartTagToken:
+			tn, _ := tokenizer.TagName()
+			tag := string(tn)
+			if tag == "br" || tag == "p" || tag == "div" || tag == "li" || tag == "tr" {
+				sb.WriteString("\n")
+			}
+		}
+	}
+}
