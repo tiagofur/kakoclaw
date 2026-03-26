@@ -909,14 +909,16 @@ func (s *Server) handleCronAction(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "job id required", http.StatusBadRequest)
 			return
 		}
-		if err := cronService.RunJobForUser(userID, jobID); err != nil {
-			statusCode := http.StatusInternalServerError
-			if strings.Contains(err.Error(), "not found") {
-				statusCode = http.StatusNotFound
+		// Execute asynchronously to avoid 504 Gateway Timeout from nginx.
+		// Agent processing (LLM calls, tool execution) can take minutes.
+		go func() {
+			if err := cronService.RunJobForUser(userID, jobID); err != nil {
+				logger.ErrorCF("web", "Async cron job execution failed", map[string]interface{}{
+					"job_id": jobID,
+					"error":  err.Error(),
+				})
 			}
-			http.Error(w, err.Error(), statusCode)
-			return
-		}
+		}()
 		writeJSONResponse(w, map[string]string{"status": "triggered"})
 
 	default:
