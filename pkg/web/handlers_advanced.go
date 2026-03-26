@@ -936,6 +936,23 @@ func (s *Server) handleChannels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Try per-user channel manager first (multi-user mode)
+	if s.multiUserChannelManager != nil {
+		_, userUUID, ok := s.getUserStorage(r)
+		if ok && userUUID != "" {
+			if mgr, found := s.multiUserChannelManager.GetManagerForUser(userUUID); found {
+				status := mgr.GetStatus()
+				enabled := mgr.GetEnabledChannels()
+				writeJSONResponse(w, map[string]interface{}{
+					"channels": status,
+					"enabled":  enabled,
+				})
+				return
+			}
+		}
+	}
+
+	// Fallback to global channel manager
 	if s.channelManager == nil {
 		writeJSONResponse(w, map[string]interface{}{
 			"channels": map[string]interface{}{},

@@ -337,6 +337,11 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 	contextBuilder := NewContextBuilder(workspace)
 	contextBuilder.SetToolsRegistry(toolsRegistry)
 
+	// Expose user's email to system prompt so the agent knows who it's emailing
+	if cfg.Tools.Email.To != "" {
+		contextBuilder.WithUserEmail(cfg.Tools.Email.To)
+	}
+
 	// Initialize audit logger if storage is available
 	var auditLogger *tools.SQLiteAuditLogger
 	if store != nil {
