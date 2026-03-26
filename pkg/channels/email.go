@@ -1,6 +1,7 @@
 package channels
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -16,7 +17,6 @@ import (
 
 	"github.com/emersion/go-imap/v2"
 	"github.com/emersion/go-imap/v2/imapclient"
-	gomessage "github.com/emersion/go-message"
 	gomail "github.com/emersion/go-message/mail"
 	"github.com/google/uuid"
 	"golang.org/x/net/html"
@@ -363,9 +363,16 @@ func (c *EmailChannel) fetchNewEmails(ctx context.Context) error {
 
 		var uid imap.UID
 		var envelope *imap.Envelope
-		var bodyReader io.Reader
+		var bodyRaw []byte
 
-		// Iterate over fetch items
+		// Eagerly read the body literal inside the inner loop.
+		// data.Literal is a live TCP stream; once the inner for loop
+		// calls Next() again the stream is gone. Read it now.
+		maxSize := c.config.MaxEmailSizeMB
+		if maxSize <= 0 {
+			maxSize = 10
+		}
+
 		for {
 			item := msgData.Next()
 			if item == nil {
@@ -378,7 +385,7 @@ func (c *EmailChannel) fetchNewEmails(ctx context.Context) error {
 			case imapclient.FetchItemDataEnvelope:
 				envelope = data.Envelope
 			case imapclient.FetchItemDataBodySection:
-				bodyReader = data.Literal
+				bodyRaw, _ = io.ReadAll(io.LimitReader(data.Literal, int64(maxSize)*1024*1024))
 			}
 		}
 
@@ -386,21 +393,14 @@ func (c *EmailChannel) fetchNewEmails(ctx context.Context) error {
 			maxUID = uid
 		}
 
-		if envelope == nil || bodyReader == nil {
+		if envelope == nil || len(bodyRaw) == 0 {
 			logger.WarnCF("email", "Skipping email with missing data", map[string]interface{}{
 				"uid": uid,
 			})
 			continue
 		}
 
-		// Check size limit
-		maxSize := c.config.MaxEmailSizeMB
-		if maxSize <= 0 {
-			maxSize = 10
-		}
-		limitedReader := io.LimitReader(bodyReader, int64(maxSize)*1024*1024)
-
-		c.handleEmail(ctx, uid, envelope, limitedReader, client, uidSet)
+		c.handleEmail(ctx, uid, envelope, bytes.NewReader(bodyRaw), client)
 	}
 
 	// Update lastUID
@@ -413,7 +413,7 @@ func (c *EmailChannel) fetchNewEmails(ctx context.Context) error {
 }
 
 // handleEmail processes a single email message.
-func (c *EmailChannel) handleEmail(ctx context.Context, uid imap.UID, envelope *imap.Envelope, bodyReader io.Reader, client *imapclient.Client, uidSet imap.UIDSet) {
+func (c *EmailChannel) handleEmail(ctx context.Context, uid imap.UID, envelope *imap.Envelope, bodyReader io.Reader, client *imapclient.Client) {
 	// Extract sender
 	senderAddr := ""
 	if len(envelope.From) > 0 {
@@ -455,9 +455,6 @@ func (c *EmailChannel) handleEmail(ctx context.Context, uid imap.UID, envelope *
 		return
 	}
 
-	// Resolve thread root for session key
-	threadRoot := resolveThreadRoot(envelope.InReplyTo, envelope.MessageID)
-
 	// Update thread state
 	refs := make([]string, 0, len(envelope.InReplyTo)+1)
 	refs = append(refs, envelope.InReplyTo...)
@@ -470,14 +467,10 @@ func (c *EmailChannel) handleEmail(ctx context.Context, uid imap.UID, envelope *
 		Subject:       envelope.Subject,
 	})
 
-	// Build session key from thread root
-	sessionKey := fmt.Sprintf("email:%s", threadRoot)
-
 	logger.InfoCF("email", "Processing email", map[string]interface{}{
-		"uid":         uid,
-		"sender":      senderAddr,
-		"subject":     envelope.Subject,
-		"session_key": sessionKey,
+		"uid":     uid,
+		"sender":  senderAddr,
+		"subject": envelope.Subject,
 	})
 
 	// Mark as read if configured
@@ -504,111 +497,56 @@ func (c *EmailChannel) handleEmail(ctx context.Context, uid imap.UID, envelope *
 }
 
 // extractPlainText extracts plain text from an email body.
-// Prefers text/plain parts, falls back to HTML-to-plaintext conversion.
+// Uses gomail.CreateReader which automatically decodes Content-Transfer-Encoding
+// (quoted-printable, base64), so non-ASCII characters are returned correctly.
 func (c *EmailChannel) extractPlainText(r io.Reader) (string, error) {
-	// Read the entire body first
 	bodyBytes, err := io.ReadAll(r)
 	if err != nil {
 		return "", fmt.Errorf("reading email body: %w", err)
 	}
 
-	// Try to parse as a MIME message using go-message
-	entity, err := gomessage.Read(strings.NewReader(string(bodyBytes)))
+	mr, err := gomail.CreateReader(bytes.NewReader(bodyBytes))
 	if err != nil {
-		// If MIME parsing fails, treat the whole thing as plain text
+		// Not a valid MIME message — return raw bytes as plain text.
 		return string(bodyBytes), nil
 	}
 
-	// Check if it's multipart
-	if mr := entity.MultipartReader(); mr != nil {
-		return c.extractFromMultipart(mr)
-	}
-
-	// Single-part message
-	contentType, _, _ := entity.Header.ContentType()
-	bodyContent, err := io.ReadAll(entity.Body)
-	if err != nil {
-		return "", err
-	}
-
-	if strings.HasPrefix(contentType, "text/plain") {
-		return string(bodyContent), nil
-	}
-	if strings.HasPrefix(contentType, "text/html") {
-		return htmlToPlaintext(string(bodyContent)), nil
-	}
-
-	// Unknown content type, try as plain text
-	return string(bodyContent), nil
-}
-
-// extractFromMultipart walks multipart MIME parts looking for text content.
-func (c *EmailChannel) extractFromMultipart(mr gomessage.MultipartReader) (string, error) {
-	var plainText string
-	var htmlText string
-
+	var plainText, htmlText string
 	for {
-		part, err := mr.NextPart()
+		p, err := mr.NextPart()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			// Try to return what we have
 			break
 		}
 
-		contentType, _, _ := part.Header.ContentType()
-
-		// Recurse into nested multipart
-		if nestedMR := part.MultipartReader(); nestedMR != nil {
-			nested, err := c.extractFromMultipart(nestedMR)
-			if err == nil && nested != "" {
-				if plainText == "" {
-					plainText = nested
-				}
+		switch h := p.Header.(type) {
+		case *gomail.InlineHeader:
+			ct, _, _ := h.ContentType()
+			content, err := io.ReadAll(p.Body)
+			if err != nil {
+				continue
 			}
-			continue
-		}
-
-		content, err := io.ReadAll(part.Body)
-		if err != nil {
-			continue
-		}
-
-		switch {
-		case strings.HasPrefix(contentType, "text/plain"):
-			if plainText == "" {
+			switch {
+			case strings.HasPrefix(ct, "text/plain") && plainText == "":
 				plainText = string(content)
-			}
-		case strings.HasPrefix(contentType, "text/html"):
-			if htmlText == "" {
+			case strings.HasPrefix(ct, "text/html") && htmlText == "":
 				htmlText = string(content)
 			}
+		case *gomail.AttachmentHeader:
+			// Skip attachments.
+			_ = h
 		}
 	}
 
-	// Prefer plain text over HTML
 	if plainText != "" {
 		return plainText, nil
 	}
 	if htmlText != "" {
 		return htmlToPlaintext(htmlText), nil
 	}
-
-	return "", nil
-}
-
-// resolveThreadRoot determines the thread root Message-ID for session grouping.
-// Uses In-Reply-To references (first entry is the thread root), falling back to own Message-ID.
-func resolveThreadRoot(inReplyTo []string, messageID string) string {
-	if len(inReplyTo) > 0 && inReplyTo[0] != "" {
-		return inReplyTo[0]
-	}
-	if messageID != "" {
-		return messageID
-	}
-	// Fallback: generate a unique ID
-	return uuid.New().String()
+	return string(bodyBytes), nil
 }
 
 // htmlToPlaintext strips HTML tags and extracts visible text content.
@@ -746,6 +684,3 @@ func contains(slice []string, val string) bool {
 
 // Ensure EmailChannel satisfies the Channel interface at compile time.
 var _ Channel = (*EmailChannel)(nil)
-
-// Suppress unused import warnings.
-var _ = gomail.Header{}
