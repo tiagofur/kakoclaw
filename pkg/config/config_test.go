@@ -415,8 +415,8 @@ func TestIsAgentsConfigEmpty(t *testing.T) {
 			Workspace: "/custom/workspace",
 		},
 	}
-	if isAgentsConfigEmpty(withWorkspace) {
-		t.Error("Config with custom workspace should NOT be empty")
+	if !isAgentsConfigEmpty(withWorkspace) {
+		t.Error("Config with custom workspace only should be empty")
 	}
 
 	// Config with custom provider

@@ -1121,8 +1121,10 @@ func isAgentsConfigEmpty(a *AgentsConfig) bool {
 	hasOrchestratorEnabled := a.Orchestrator.Enabled
 	hasSpecialists := len(a.Specialists) > 0
 	hasRemovedSpecialists := len(a.RemovedSpecialists) > 0
-	hasCustomDefaults := a.Defaults.Workspace != "" ||
-		a.Defaults.Provider != "" ||
+	// Workspace alone does not indicate a semantic agent override.
+	// User templates always set workspace, and treating that as non-empty
+	// would accidentally shadow global provider/model configuration.
+	hasCustomDefaults := a.Defaults.Provider != "" ||
 		a.Defaults.Model != ""
 
 	return !(hasOrchestratorEnabled || hasSpecialists || hasRemovedSpecialists || hasCustomDefaults)
