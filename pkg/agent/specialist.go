@@ -450,6 +450,7 @@ func (t *RequestColleagueTool) Execute(ctx context.Context, args map[string]inte
 
 	// Record in team context if available
 	if teamCtx := TeamContextFromCtx(ctx); teamCtx != nil {
+		teamCtx.mu.Lock()
 		teamCtx.Communications = append(teamCtx.Communications, TeamComm{
 			From:      t.currentAgent.name,
 			To:        colleagueName,
@@ -457,6 +458,7 @@ func (t *RequestColleagueTool) Execute(ctx context.Context, args map[string]inte
 			Type:      "request",
 			Timestamp: time.Now(),
 		})
+		teamCtx.mu.Unlock()
 	}
 
 	// Build the help request with context
@@ -498,6 +500,7 @@ func (t *RequestColleagueTool) Execute(ctx context.Context, args map[string]inte
 
 	// Record response in team context
 	if teamCtx := TeamContextFromCtx(ctx); teamCtx != nil {
+		teamCtx.mu.Lock()
 		teamCtx.Communications = append(teamCtx.Communications, TeamComm{
 			From:      colleagueName,
 			To:        t.currentAgent.name,
@@ -505,6 +508,7 @@ func (t *RequestColleagueTool) Execute(ctx context.Context, args map[string]inte
 			Type:      "response",
 			Timestamp: time.Now(),
 		})
+		teamCtx.mu.Unlock()
 	}
 
 	return fmt.Sprintf("## Response from %s:\n\n%s", colleagueName, response), nil

@@ -52,6 +52,7 @@ type AgentLoop struct {
 	auditLogger       *tools.SQLiteAuditLogger // Audit logger for restricted tools
 	cfg               *config.Config           // Config for permission checks
 	metrics           *observability.Metrics
+	userMu            sync.Mutex        // Mutex for user context writes (SetUserForAgent, applyMessageUserContext)
 	involvedAgentsMu  sync.Mutex        // Mutex for thread-safe agent tracking
 	involvedAgents    []string          // Agents involved in current/last response
 	summarizeWg       sync.WaitGroup    // Tracks active summarization goroutines
@@ -412,6 +413,9 @@ func (al *AgentLoop) SetMetrics(m *observability.Metrics) {
 // SetUserForAgent configures the agent loop for a specific user (multiuser support).
 // Also applies tool permission filtering based on user role.
 func (al *AgentLoop) SetUserForAgent(userUUID string, userID int64) {
+	al.userMu.Lock()
+	defer al.userMu.Unlock()
+
 	al.userUUID = userUUID
 	al.userID = userID
 
@@ -511,7 +515,10 @@ func (al *AgentLoop) applyMessageUserContext(msg bus.InboundMessage) {
 		return
 	}
 	// If UUID is already set for this user (e.g., by swarm SetUserForAgent), preserve it
-	if al.userUUID != "" && al.userID == msg.UserID {
+	al.userMu.Lock()
+	alreadySet := al.userUUID != "" && al.userID == msg.UserID
+	al.userMu.Unlock()
+	if alreadySet {
 		return
 	}
 	if al.centralStorage == nil {

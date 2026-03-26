@@ -227,6 +227,7 @@ type SpecialistReport struct {
 
 // TeamContext holds shared state for multi-specialist collaboration
 type TeamContext struct {
+	mu             sync.Mutex        `json:"-"`
 	TaskID         string            `json:"task_id"`
 	OriginalTask   string            `json:"original_task"`
 	UserUUID       string            `json:"user_uuid,omitempty"`
@@ -712,7 +713,9 @@ func (tdt *TaskDecompositionTool) Execute(ctx context.Context, args map[string]i
 		for _, idx := range ready {
 			st := &subtasks[idx]
 			st.Status = "in_progress"
+			teamCtx.mu.Lock()
 			teamCtx.Progress[st.Specialist] = "working"
+			teamCtx.mu.Unlock()
 
 			// Build context from previous results
 			var contextParts []string
@@ -749,7 +752,9 @@ func (tdt *TaskDecompositionTool) Execute(ctx context.Context, args map[string]i
 			result, err := tdt.orchestrator.processSpecialistTask(ctx, st.Specialist, fullTask, sessionKeyFromCtx(ctx))
 			if err != nil {
 				st.Status = "failed"
+				teamCtx.mu.Lock()
 				teamCtx.Progress[st.Specialist] = "failed"
+				teamCtx.mu.Unlock()
 				logger.WarnCF("agent", "Subtask failed", map[string]interface{}{
 					"subtask":    idx,
 					"specialist": st.Specialist,
@@ -760,7 +765,9 @@ func (tdt *TaskDecompositionTool) Execute(ctx context.Context, args map[string]i
 			} else {
 				st.Status = "complete"
 				st.Result = result
+				teamCtx.mu.Lock()
 				teamCtx.Progress[st.Specialist] = "complete"
+				teamCtx.mu.Unlock()
 				results[idx] = result
 			}
 
@@ -803,9 +810,11 @@ func (oa *OrchestratorAgent) processSpecialistTask(ctx context.Context, speciali
 		return "", err
 	}
 
-	// Build delegation chain from parent context
+	// Build delegation chain from parent context (defensive copy to avoid slice aliasing)
 	parentChain := delegationChainFromCtx(ctx)
-	currentChain := append(parentChain, specialistName)
+	currentChain := make([]string, len(parentChain)+1)
+	copy(currentChain, parentChain)
+	currentChain[len(parentChain)] = specialistName
 	currentDepth := len(parentChain) // orchestrator=0, first specialist=1, colleague=2
 	parentAgent := "orchestrator"
 	if len(parentChain) > 0 {
@@ -1227,9 +1236,8 @@ func (oa *OrchestratorAgent) ProcessWithFeedbackLoop(ctx context.Context, userMe
 		if lastReport != nil {
 			lastReport.Iteration = iteration
 			reports = append(reports, *lastReport)
+			teamCtx.mu.Lock()
 			teamCtx.Progress[lastReport.SpecialistName] = lastReport.Status
-
-			// Record communication
 			teamCtx.Communications = append(teamCtx.Communications, TeamComm{
 				From:      lastReport.SpecialistName,
 				To:        "orchestrator",
@@ -1237,6 +1245,7 @@ func (oa *OrchestratorAgent) ProcessWithFeedbackLoop(ctx context.Context, userMe
 				Type:      "response",
 				Timestamp: time.Now(),
 			})
+			teamCtx.mu.Unlock()
 
 			// Check if we need to handle help request
 			if lastReport.RequestHelp != "" && lastReport.Status != "complete" {
@@ -1250,6 +1259,7 @@ func (oa *OrchestratorAgent) ProcessWithFeedbackLoop(ctx context.Context, userMe
 				})
 
 				// Record communication
+				teamCtx.mu.Lock()
 				teamCtx.Communications = append(teamCtx.Communications, TeamComm{
 					From:      lastReport.SpecialistName,
 					To:        lastReport.RequestHelp,
@@ -1257,6 +1267,7 @@ func (oa *OrchestratorAgent) ProcessWithFeedbackLoop(ctx context.Context, userMe
 					Type:      "request",
 					Timestamp: time.Now(),
 				})
+				teamCtx.mu.Unlock()
 				continue // Next iteration will handle the help request
 			}
 
@@ -1436,9 +1447,13 @@ func (oa *OrchestratorAgent) aggregateReports(reports []SpecialistReport, teamCt
 	result.WriteString("## Task Completion Summary\n\n")
 
 	// Add team activity summary
-	if len(teamCtx.Communications) > 0 {
+	teamCtx.mu.Lock()
+	comms := make([]TeamComm, len(teamCtx.Communications))
+	copy(comms, teamCtx.Communications)
+	teamCtx.mu.Unlock()
+	if len(comms) > 0 {
 		result.WriteString("### Team Collaboration\n")
-		for _, comm := range teamCtx.Communications {
+		for _, comm := range comms {
 			result.WriteString(fmt.Sprintf("- %s → %s: %s\n", comm.From, comm.To, truncate(comm.Message, 100)))
 		}
 		result.WriteString("\n")

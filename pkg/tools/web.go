@@ -37,6 +37,14 @@ var webFetchHTTPClient = &http.Client{
 	},
 }
 
+// Pre-compiled regexps for extractTextFallback (avoid re-compiling on every call).
+var (
+	reScript     = regexp.MustCompile(`<script[\s\S]*?</script>`)
+	reStyle      = regexp.MustCompile(`<style[\s\S]*?</style>`)
+	reHTMLTags   = regexp.MustCompile(`<[^>]+>`)
+	reWhitespace = regexp.MustCompile(`\s+`)
+)
+
 var privateRanges []*net.IPNet
 
 func init() {
@@ -305,17 +313,13 @@ func (t *WebFetchTool) extractText(htmlContent string, pageURL string) (string, 
 }
 
 func (t *WebFetchTool) extractTextFallback(htmlContent string) string {
-	re := regexp.MustCompile(`<script[\s\S]*?</script>`)
-	result := re.ReplaceAllLiteralString(htmlContent, "")
-	re = regexp.MustCompile(`<style[\s\S]*?</style>`)
-	result = re.ReplaceAllLiteralString(result, "")
-	re = regexp.MustCompile(`<[^>]+>`)
-	result = re.ReplaceAllLiteralString(result, "")
+	result := reScript.ReplaceAllLiteralString(htmlContent, "")
+	result = reStyle.ReplaceAllLiteralString(result, "")
+	result = reHTMLTags.ReplaceAllLiteralString(result, "")
 
 	result = strings.TrimSpace(result)
 
-	re = regexp.MustCompile(`\s+`)
-	result = re.ReplaceAllLiteralString(result, " ")
+	result = reWhitespace.ReplaceAllLiteralString(result, " ")
 
 	lines := strings.Split(result, "\n")
 	var cleanLines []string

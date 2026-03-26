@@ -543,9 +543,10 @@ func TestBraveSearchProvider(t *testing.T) {
 
 	// We can't easily redirect the hardcoded Brave URL, so we test the mock
 	// by temporarily swapping the HTTP client to route to our test server.
+	// NOTE: not safe for t.Parallel() due to global client swap.
 	originalClient := webSearchHTTPClient
 	webSearchHTTPClient = server.Client()
-	defer func() { webSearchHTTPClient = originalClient }()
+	t.Cleanup(func() { webSearchHTTPClient = originalClient })
 
 	// The Brave provider uses the hardcoded URL, so this will fail with a
 	// connection error to api.search.brave.com. Instead, let's test the
