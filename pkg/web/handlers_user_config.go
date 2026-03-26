@@ -541,6 +541,13 @@ func applyConfigUpdates(cfg *config.Config, updates map[string]interface{}) erro
 				if err := mergeStructFromMap(&cfg.Channels.Signal, channelPatch); err != nil {
 					return err
 				}
+			case "email":
+				if p, ok := channelPatch["password"].(string); ok && p == "" {
+					delete(channelPatch, "password")
+				}
+				if err := mergeStructFromMap(&cfg.Channels.Email, channelPatch); err != nil {
+					return err
+				}
 			}
 		}
 

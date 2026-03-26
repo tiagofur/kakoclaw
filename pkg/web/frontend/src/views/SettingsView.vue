@@ -267,6 +267,139 @@
                 </div>
               </div>
 
+              <!-- Email channel form -->
+              <div
+                v-else-if="selectedChannel?.id === 'email'"
+                class="space-y-4"
+              >
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">
+                      IMAP Host
+                    </label>
+                    <input
+                      v-model="channelForm.imap_host"
+                      type="text"
+                      placeholder="imap.gmail.com"
+                      class="w-full px-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent/50 transition-all min-h-[40px] backdrop-blur-sm"
+                    >
+                  </div>
+                  <div>
+                    <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">
+                      IMAP Port
+                    </label>
+                    <input
+                      v-model.number="channelForm.imap_port"
+                      type="number"
+                      placeholder="993"
+                      class="w-full px-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent/50 transition-all min-h-[40px] backdrop-blur-sm"
+                    >
+                  </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">
+                      SMTP Host
+                    </label>
+                    <input
+                      v-model="channelForm.smtp_host"
+                      type="text"
+                      placeholder="smtp.gmail.com"
+                      class="w-full px-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent/50 transition-all min-h-[40px] backdrop-blur-sm"
+                    >
+                  </div>
+                  <div>
+                    <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">
+                      SMTP Port
+                    </label>
+                    <input
+                      v-model.number="channelForm.smtp_port"
+                      type="number"
+                      placeholder="587"
+                      class="w-full px-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent/50 transition-all min-h-[40px] backdrop-blur-sm"
+                    >
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">
+                    Username
+                  </label>
+                  <input
+                    v-model="channelForm.username"
+                    type="text"
+                    placeholder="you@gmail.com"
+                    class="w-full px-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent/50 transition-all min-h-[40px] backdrop-blur-sm"
+                  >
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">
+                    Password
+                  </label>
+                  <input
+                    v-model="channelForm.password"
+                    type="password"
+                    :placeholder="channelForm._hasExistingToken ? '•••••••• (saved)' : 'App password...'"
+                    class="w-full px-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent/50 transition-all min-h-[40px] backdrop-blur-sm"
+                  >
+                  <p
+                    v-if="channelForm._hasExistingToken"
+                    class="text-xs text-makoclaw-success/70 mt-1.5 flex items-center gap-1"
+                  >
+                    Password configured — leave empty to keep current
+                  </p>
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">
+                    From Address
+                  </label>
+                  <input
+                    v-model="channelForm.from"
+                    type="email"
+                    placeholder="MakoClaw <you@gmail.com>"
+                    class="w-full px-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent/50 transition-all min-h-[40px] backdrop-blur-sm"
+                  >
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">
+                    Allowed Senders (your email)
+                  </label>
+                  <input
+                    v-model="channelForm.allow_from"
+                    type="text"
+                    placeholder="you@gmail.com"
+                    class="w-full px-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent/50 transition-all min-h-[40px] backdrop-blur-sm"
+                  >
+                  <p class="text-xs text-makoclaw-text-secondary/60 mt-1.5">
+                    Only emails from these addresses will be processed
+                  </p>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">
+                      Poll Interval (seconds)
+                    </label>
+                    <input
+                      v-model.number="channelForm.poll_interval_seconds"
+                      type="number"
+                      placeholder="60"
+                      class="w-full px-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent/50 transition-all min-h-[40px] backdrop-blur-sm"
+                    >
+                  </div>
+                  <div class="flex items-end pb-1">
+                    <label class="flex items-center gap-3 cursor-pointer">
+                      <input
+                        v-model="channelForm.mark_as_read"
+                        type="checkbox"
+                        class="w-4 h-4 rounded border-makoclaw-border accent-makoclaw-accent"
+                      >
+                      <span class="text-xs font-bold text-makoclaw-text-secondary uppercase tracking-wider">
+                        Mark as Read
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
               <!-- Slack specific form -->
               <div
                 v-else-if="selectedChannel?.id === 'slack'"
@@ -707,6 +840,10 @@ const saveChannelConfig = async () => {
   if (formData.app_token === '') {
     delete formData.app_token
   }
+  // For Email channel: don't send empty password if one already exists
+  if (formData.password === '' && formData._hasExistingToken) {
+    delete formData.password
+  }
   // Remove internal tracking field before sending to backend
   delete formData._hasExistingToken
   // Convert comma-separated allow_from string to array for backend
@@ -721,7 +858,22 @@ const saveChannelConfig = async () => {
 const openChannelConfig = (c) => {
   selectedChannel.value = c
   const existing = configData.value?.channels?.[c.id] || {}
-  if (c.id === 'slack') {
+  if (c.id === 'email') {
+    channelForm.value = {
+      imap_host: existing.imap_host || '',
+      imap_port: existing.imap_port || 993,
+      smtp_host: existing.smtp_host || '',
+      smtp_port: existing.smtp_port || 587,
+      username: existing.username || '',
+      password: '',
+      from: existing.from || '',
+      allow_from: existing.allow_from || '',
+      mailbox: existing.mailbox || 'INBOX',
+      poll_interval_seconds: existing.poll_interval_seconds || 60,
+      mark_as_read: existing.mark_as_read !== false,
+      _hasExistingToken: existing.configured || false
+    }
+  } else if (c.id === 'slack') {
     channelForm.value = {
       bot_token: '',
       app_token: '',
