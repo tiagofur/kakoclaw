@@ -28,6 +28,7 @@ type ContextBuilder struct {
 	userStore         *storage.Storage    // Per-user storage for skill analytics (optional)
 	centralStore      *storage.CentralStorage // Central storage for marketplace usage counts (optional)
 	sessionKey        string              // Session key for skill analytics events
+	userEmail         string              // User's email address for system prompt context
 }
 
 func getGlobalConfigDir() string {
@@ -52,6 +53,12 @@ func NewContextBuilder(workspace string) *ContextBuilder {
 		skillsLoader: skills.NewSkillsLoader(workspace, globalSkillsDir, builtinSkillsDir),
 		memory:       NewMemoryStore(workspace),
 	}
+}
+
+// WithUserEmail stores the user's email for inclusion in the system prompt.
+func (cb *ContextBuilder) WithUserEmail(email string) *ContextBuilder {
+	cb.userEmail = email
+	return cb
 }
 
 // WithUser sets the user UUID and ID for this context builder.
@@ -211,7 +218,11 @@ func (cb *ContextBuilder) buildToolsSection() string {
 
 	// Add contextual hints for specific capabilities
 	if _, hasEmail := cb.tools.Get("send_email_report"); hasEmail {
-		sb.WriteString("\n**Email**: You have email configured and ready to use. Use the `send_email_report` tool to send reports, summaries, data exports, and important notifications to the user. The recipient email is pre-configured — do not ask the user for their email address.\n")
+		if cb.userEmail != "" {
+			sb.WriteString(fmt.Sprintf("\n**Email**: You have email configured and ready to use. The user's email is `%s`. Use the `send_email_report` tool to send reports, summaries, data exports, and important notifications. The recipient email is pre-configured — do not ask the user for their email address.\n", cb.userEmail))
+		} else {
+			sb.WriteString("\n**Email**: You have email configured and ready to use. Use the `send_email_report` tool to send reports, summaries, data exports, and important notifications to the user. The recipient email is pre-configured — do not ask the user for their email address.\n")
+		}
 	}
 
 	return sb.String()
