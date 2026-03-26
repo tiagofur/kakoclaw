@@ -887,7 +887,7 @@ The user only sees text below the JSON block — include all findings there.
 	errChan := make(chan error, 1)
 
 	go func() {
-		result, err := specialist.ProcessWithSpecialityAndSession(ctxWithTimeout, taskWithFormat, effectiveSessionKey)
+		result, err := specialist.ProcessWithSpecialityForUser(ctxWithTimeout, oa.userUUID, oa.userID, taskWithFormat, effectiveSessionKey)
 		if err != nil {
 			errChan <- err
 			return

@@ -109,7 +109,7 @@ func (ss *SpecialistSpawner) runSpecialistTask(
 	task.Status = "running"
 
 	// Execute through specialist with full tool support
-	result, err := specialist.ProcessWithSpeciality(ctx, task.TaskContent)
+	result, err := specialist.ProcessWithSpecialityForUser(ctx, task.UserUUID, task.UserID, task.TaskContent, "")
 
 	ss.mu.Lock()
 	defer ss.mu.Unlock()

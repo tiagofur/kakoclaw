@@ -189,7 +189,7 @@ func (t *WriteFileTool) Execute(ctx context.Context, args map[string]interface{}
 	}
 
 	if IsSensitiveConfirmationRequired(ctx) && IsSensitiveWorkspacePath(resolvedPath, workspace) && !isConfirmed(args) {
-		return "Confirmation required: write_file targets a sensitive file. Re-run with confirmed=true after user approval.", nil
+		return ConfirmationMessage("write_file", "targets sensitive workspace file: "+resolvedPath), nil
 	}
 
 	dir := filepath.Dir(resolvedPath)

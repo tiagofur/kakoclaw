@@ -1390,7 +1390,11 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 			// Inject activeAgentLoop as agent tracker so that any orchestrator
 			// delegations register involved agents into this loop's tracking.
 			ctx = agent.ContextWithAgentTracker(ctx, activeAgentLoop)
-			ctx = tools.WithSensitiveConfirmationRequired(ctx, true)
+			requireConfirmation := true
+			if s.fullConfig != nil && s.fullConfig.Tools.RequireConfirmation != nil {
+				requireConfirmation = *s.fullConfig.Tools.RequireConfirmation
+			}
+			ctx = tools.WithSensitiveConfirmationRequired(ctx, requireConfirmation)
 			ctx = agent.ContextWithSessionKey(ctx, sessionID)
 			if strings.TrimSpace(req.Model) != "" {
 				ctx = agent.ContextWithModelOverride(ctx, strings.TrimSpace(req.Model))

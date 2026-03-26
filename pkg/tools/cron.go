@@ -420,7 +420,7 @@ func (t *CronTool) consolidateJobs(ctx context.Context, args map[string]interfac
 		removeOriginals = explicit
 	}
 	if removeOriginals && IsSensitiveConfirmationRequired(ctx) && !isConfirmed(args) {
-		return "Confirmation required: consolidate with remove_originals=true is destructive. Re-run with confirmed=true after user approval.", nil
+		return ConfirmationMessage("schedule", "consolidate with remove_originals=true is destructive"), nil
 	}
 
 	newJob, err := t.cronService.AddJob(
@@ -512,7 +512,7 @@ func (t *CronTool) removeJob(ctx context.Context, args map[string]interface{}) (
 	t.mu.RUnlock()
 
 	if IsSensitiveConfirmationRequired(ctx) && !isConfirmed(args) {
-		return "Confirmation required: remove is destructive. Re-run with confirmed=true after user approval.", nil
+		return ConfirmationMessage("schedule", "removing a scheduled job is destructive"), nil
 	}
 
 	jobID, ok := args["job_id"].(string)

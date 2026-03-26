@@ -2,9 +2,17 @@ package tools
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"strings"
 )
+
+// ConfirmationMessage generates a consistent confirmation prompt for sensitive tool actions.
+func ConfirmationMessage(toolName, reason string) string {
+	return fmt.Sprintf("⚠️ Confirmation required: %s — %s. "+
+		"To proceed, re-call this tool with the same arguments plus confirmed=true.",
+		toolName, reason)
+}
 
 type confirmationContextKey struct{}
 

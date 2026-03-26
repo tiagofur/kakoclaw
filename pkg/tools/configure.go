@@ -811,7 +811,7 @@ func (t *ConfigureTool) handleSet(ctx context.Context, args map[string]interface
 	if IsSensitiveConfirmationRequired(ctx) && (config.RedactConfigPath(path) || !policy.Readable) && !isConfirmed(args) {
 		return t.errorResponse(
 			"confirmation_required",
-			fmt.Sprintf("Sensitive change requires explicit confirmation. Re-run set on '%s' with confirmed=true after user approval.", path),
+			ConfirmationMessage("configure", "setting sensitive field: "+path),
 			path,
 		)
 	}
@@ -890,7 +890,7 @@ func (t *ConfigureTool) handleReset(ctx context.Context, args map[string]interfa
 	if IsSensitiveConfirmationRequired(ctx) && (config.RedactConfigPath(path) || !policy.Readable) && !isConfirmed(args) {
 		return t.errorResponse(
 			"confirmation_required",
-			fmt.Sprintf("Sensitive reset requires explicit confirmation. Re-run reset on '%s' with confirmed=true after user approval.", path),
+			ConfirmationMessage("configure", "resetting sensitive field: "+path),
 			path,
 		)
 	}

@@ -313,9 +313,10 @@ type WebToolsConfig struct {
 }
 
 type ToolsConfig struct {
-	Web   WebToolsConfig   `json:"web"`
-	Email EmailToolsConfig `json:"email"`
-	MCP   MCPConfig        `json:"mcp"`
+	Web                 WebToolsConfig   `json:"web"`
+	Email               EmailToolsConfig `json:"email"`
+	MCP                 MCPConfig        `json:"mcp"`
+	RequireConfirmation *bool            `json:"require_confirmation,omitempty"`
 }
 
 type MCPConfig struct {
@@ -1201,6 +1202,13 @@ func mergeToolsConfig(global, user *ToolsConfig) ToolsConfig {
 		merged.MCP = user.MCP
 	} else {
 		merged.MCP = global.MCP
+	}
+
+	// Merge RequireConfirmation (user overrides global)
+	if user.RequireConfirmation != nil {
+		merged.RequireConfirmation = user.RequireConfirmation
+	} else {
+		merged.RequireConfirmation = global.RequireConfirmation
 	}
 
 	return merged
