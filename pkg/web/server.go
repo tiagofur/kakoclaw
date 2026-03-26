@@ -1211,6 +1211,12 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 	}
 	agentMgr.InitializeSwarms(baseAgentLoop.Config())
 
+	// Propagate user context to orchestrator/specialists so they can load
+	// per-user SOUL.md and IDENTITY.md from the user's workspace
+	if orch := agentMgr.GetOrchestrator(); orch != nil {
+		orch.SetUserForAgent(userUUID, userID)
+	}
+
 	activeAgentLoop := agentMgr.GetActiveAgent()
 
 	cronRegistered := false
