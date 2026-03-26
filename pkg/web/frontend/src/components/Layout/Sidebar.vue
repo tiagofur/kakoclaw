@@ -71,38 +71,6 @@
       <!-- Navigation Items -->
       <nav class="p-3 space-y-1">
         <router-link
-          to="/dashboard"
-          class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative"
-          active-class="bg-makoclaw-accent/15 text-makoclaw-accent shadow-sm shadow-makoclaw-accent/5"
-          inactive-class="text-makoclaw-text-secondary hover:bg-makoclaw-accent/5 hover:text-makoclaw-text hover:translate-x-1"
-          @click="closeMobileSidebar"
-        >
-          <svg
-            class="w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
-            />
-          </svg>
-          <span
-            v-if="!uiStore.sidebarCollapsed"
-            class="font-medium whitespace-nowrap text-sm"
-          >Dashboard</span>
-          <div
-            v-if="uiStore.sidebarCollapsed"
-            class="tooltip"
-          >
-            Dashboard
-          </div>
-        </router-link>
-
-        <router-link
           to="/chat"
           class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative"
           active-class="bg-makoclaw-accent/15 text-makoclaw-accent shadow-sm shadow-makoclaw-accent/5"
@@ -181,50 +149,6 @@
             Tasks
           </div>
         </router-link>
-      </nav>
-
-      <div class="px-3 py-2">
-        <div class="h-px bg-makoclaw-border my-2" />
-      </div>
-
-      <!-- Tools Nav -->
-      <nav class="p-3 pt-0 space-y-1">
-        <div
-          v-if="!uiStore.sidebarCollapsed"
-          class="px-3 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-makoclaw-text-secondary/50"
-        >
-          Core Tools
-        </div>
-
-        <router-link
-          to="/skills"
-          class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative"
-          active-class="bg-makoclaw-accent/15 text-makoclaw-accent shadow-sm shadow-makoclaw-accent/5"
-          inactive-class="text-makoclaw-text-secondary hover:bg-makoclaw-accent/5 hover:text-makoclaw-text hover:translate-x-1"
-          @click="closeMobileSidebar"
-        >
-          <svg
-            class="w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          ><path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M13 10V3L4 14h7v7l9-11h-7z"
-          /></svg>
-          <span
-            v-if="!uiStore.sidebarCollapsed"
-            class="font-medium whitespace-nowrap text-sm"
-          >Skills</span>
-          <div
-            v-if="uiStore.sidebarCollapsed"
-            class="tooltip"
-          >
-            Skills
-          </div>
-        </router-link>
 
         <router-link
           to="/cron"
@@ -260,7 +184,82 @@
             Cron Jobs
           </div>
         </router-link>
+      </nav>
 
+      <div class="px-3 py-2">
+        <div class="h-px bg-makoclaw-border my-2" />
+      </div>
+
+      <!-- Tools Nav -->
+      <nav class="p-3 pt-0 space-y-1">
+        <div
+          v-if="!uiStore.sidebarCollapsed"
+          class="px-3 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-makoclaw-text-secondary/50"
+        >
+          Core Tools
+        </div>
+
+        <router-link
+          to="/dashboard"
+          class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative"
+          active-class="bg-makoclaw-accent/15 text-makoclaw-accent shadow-sm shadow-makoclaw-accent/5"
+          inactive-class="text-makoclaw-text-secondary hover:bg-makoclaw-accent/5 hover:text-makoclaw-text hover:translate-x-1"
+          @click="closeMobileSidebar"
+        >
+          <svg
+            class="w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
+            />
+          </svg>
+          <span
+            v-if="!uiStore.sidebarCollapsed"
+            class="font-medium whitespace-nowrap text-sm"
+          >Dashboard</span>
+          <div
+            v-if="uiStore.sidebarCollapsed"
+            class="tooltip"
+          >
+            Dashboard
+          </div>
+        </router-link>
+
+        <router-link
+          to="/skills"
+          class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative"
+          active-class="bg-makoclaw-accent/15 text-makoclaw-accent shadow-sm shadow-makoclaw-accent/5"
+          inactive-class="text-makoclaw-text-secondary hover:bg-makoclaw-accent/5 hover:text-makoclaw-text hover:translate-x-1"
+          @click="closeMobileSidebar"
+        >
+          <svg
+            class="w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          ><path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M13 10V3L4 14h7v7l9-11h-7z"
+          /></svg>
+          <span
+            v-if="!uiStore.sidebarCollapsed"
+            class="font-medium whitespace-nowrap text-sm"
+          >Skills</span>
+          <div
+            v-if="uiStore.sidebarCollapsed"
+            class="tooltip"
+          >
+            Skills
+          </div>
+        </router-link>
 
         <router-link
           to="/files"

@@ -737,6 +737,26 @@ func LoadConfig(path string) (*Config, error) {
 	return cfg, nil
 }
 
+// LoadMergedConfigForUser loads the user's config merged with global defaults.
+// This ensures the user sees their personal overrides on top of global settings
+// (providers, channels, tools, etc.). Use this when reading config for display
+// or tool access. Use LoadConfigForUser when you need the raw user config only.
+func LoadMergedConfigForUser(userUUID string) (*Config, error) {
+	baseDir := getDataDir()
+	globalConfigPath := filepath.Join(baseDir, "config.json")
+	globalCfg, _ := LoadConfig(globalConfigPath)
+	if globalCfg == nil {
+		globalCfg = DefaultConfig()
+	}
+
+	userCfg, err := LoadConfigForUser(userUUID)
+	if err != nil {
+		return globalCfg, nil
+	}
+
+	return MergeConfigs(globalCfg, userCfg), nil
+}
+
 // LoadConfigForUser loads configuration for a specific user.
 // It first tries to load from ~/.MakoClaw/users/<userUUID>/config.json
 // If that doesn't exist, it falls back to ~/.MakoClaw/config.json (global)
