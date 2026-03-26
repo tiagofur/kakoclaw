@@ -524,9 +524,15 @@ func (s *Server) staticHandler() http.Handler {
 
 			w.Header().Set("Content-Type", contentType)
 			w.Header().Set("Content-Length", fmt.Sprintf("%d", stat.Size()))
-			// Service worker must not be cached; manifest should be short-lived
-			if strings.HasSuffix(path, "sw.js") || strings.HasSuffix(path, ".webmanifest") {
+			// Cache strategy:
+			// - index.html, sw.js, manifest: never cache (must revalidate on every load)
+			// - Hashed assets (JS/CSS with content hash): cache indefinitely
+			// - Other assets: short cache
+			if path == "index.html" || strings.HasSuffix(path, "sw.js") || strings.HasSuffix(path, ".webmanifest") {
 				w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+			} else if strings.Contains(path, "assets/") {
+				// Vite-generated assets have content hashes in filenames — safe to cache long
+				w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 			} else {
 				w.Header().Set("Cache-Control", "public, max-age=3600")
 			}
