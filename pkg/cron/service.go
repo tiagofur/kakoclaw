@@ -67,13 +67,14 @@ type CronStore struct {
 type JobHandler func(job *CronJob) (string, error)
 
 type CronService struct {
-	storePath string
-	store     *CronStore
-	onJob     JobHandler
-	mu        sync.RWMutex
-	running   bool
-	stopChan  chan struct{}
-	gronx     *gronx.Gronx
+	storePath      string
+	store          *CronStore
+	onJob          JobHandler
+	mu             sync.RWMutex
+	running        bool
+	stopChan       chan struct{}
+	gronx          *gronx.Gronx
+	lastSavedMtime time.Time // mtime of jobs.json after our last write; used to detect external edits
 }
 
 func NewCronService(storePath string, onJob JobHandler) *CronService {
@@ -95,6 +96,8 @@ func (cs *CronService) Start() error {
 	if cs.running {
 		return nil
 	}
+
+	cs.stopChan = make(chan struct{})
 
 	if err := cs.loadStore(); err != nil {
 		return fmt.Errorf("failed to load store: %w", err)
@@ -144,6 +147,10 @@ func (cs *CronService) checkJobs() {
 		cs.mu.Unlock()
 		return
 	}
+
+	// Detect and merge any external edits to jobs.json (e.g. manual file edits,
+	// or an agent that used write_file before Phase 3 protection was in place).
+	cs.mergeExternalChanges()
 
 	now := time.Now().UnixMilli()
 	var dueJobs []*CronJob
@@ -373,7 +380,62 @@ func (cs *CronService) loadStore() error {
 		return err
 	}
 
-	return json.Unmarshal(data, cs.store)
+	if err := json.Unmarshal(data, cs.store); err != nil {
+		return err
+	}
+
+	// Record baseline mtime so we can detect external edits later.
+	if info, statErr := os.Stat(cs.storePath); statErr == nil {
+		cs.lastSavedMtime = info.ModTime()
+	}
+
+	return nil
+}
+
+// mergeExternalChanges detects if jobs.json was modified externally and merges
+// new jobs from disk into the in-memory state. Must be called with cs.mu held.
+// Strategy: memory is authoritative for existing jobs; disk can only ADD new ones.
+func (cs *CronService) mergeExternalChanges() {
+	info, err := os.Stat(cs.storePath)
+	if err != nil {
+		return // file gone or unreadable — nothing to merge
+	}
+
+	if info.ModTime().Equal(cs.lastSavedMtime) {
+		return // file unchanged since our last write
+	}
+
+	data, err := os.ReadFile(cs.storePath)
+	if err != nil {
+		return
+	}
+
+	var diskStore CronStore
+	if err := json.Unmarshal(data, &diskStore); err != nil {
+		log.Printf("[cron] external jobs.json has invalid JSON, skipping merge: %v", err)
+		return
+	}
+
+	// Index in-memory jobs for O(1) lookup
+	memIDs := make(map[string]struct{}, len(cs.store.Jobs))
+	for _, job := range cs.store.Jobs {
+		memIDs[job.ID] = struct{}{}
+	}
+
+	added := 0
+	for _, diskJob := range diskStore.Jobs {
+		if _, exists := memIDs[diskJob.ID]; !exists {
+			cs.store.Jobs = append(cs.store.Jobs, diskJob)
+			added++
+		}
+	}
+
+	if added > 0 {
+		log.Printf("[cron] merged %d external job(s) from disk", added)
+	}
+
+	// Update baseline so we don't re-merge the same changes on the next tick.
+	cs.lastSavedMtime = info.ModTime()
 }
 
 func (cs *CronService) saveStoreUnsafe() error {
@@ -392,11 +454,21 @@ func (cs *CronService) saveStoreUnsafe() error {
 	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
 		return err
 	}
-	return os.Rename(tmpPath, cs.storePath)
+	if err := os.Rename(tmpPath, cs.storePath); err != nil {
+		return err
+	}
+
+	// Record our own mtime so mergeExternalChanges can detect third-party writes.
+	if info, statErr := os.Stat(cs.storePath); statErr == nil {
+		cs.lastSavedMtime = info.ModTime()
+	}
+
+	return nil
 }
 
 // ValidateSchedule checks that a CronSchedule is well-formed.
 // Returns an error describing the problem, or nil if valid.
+// Safe for concurrent use — gronx.IsValid is stateless.
 func (cs *CronService) ValidateSchedule(schedule *CronSchedule) error {
 	switch schedule.Kind {
 	case "at":
@@ -691,7 +763,9 @@ func (cs *CronService) ListJobs(includeDisabled bool) []CronJob {
 	defer cs.mu.RUnlock()
 
 	if includeDisabled {
-		return cs.store.Jobs
+		result := make([]CronJob, len(cs.store.Jobs))
+		copy(result, cs.store.Jobs)
+		return result
 	}
 
 	var enabled []CronJob

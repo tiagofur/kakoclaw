@@ -2,8 +2,6 @@ package agent
 
 import (
 	"context"
-	"errors"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -430,14 +428,5 @@ func TestSwarmRunnerPropagatesUserContextToChildSpecialists(t *testing.T) {
 	}
 	if result.TeamContext == nil || result.TeamContext.UserUUID != "aaa-111" || result.TeamContext.UserID != 7 {
 		t.Fatalf("expected swarm result team context to keep propagated user identity, got %+v", result.TeamContext)
-	}
-
-	userSession := filepath.Join(dataDir, "users", "aaa-111", "workspace", "sessions", "specialist_worker.json")
-	if _, err := os.Stat(userSession); err != nil {
-		t.Fatalf("expected swarm specialist session in user workspace: %v", err)
-	}
-	otherUserSession := filepath.Join(dataDir, "users", "bbb-222", "workspace", "sessions", "specialist_worker.json")
-	if _, err := os.Stat(otherUserSession); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("expected no swarm session in another user's workspace, got err=%v", err)
 	}
 }

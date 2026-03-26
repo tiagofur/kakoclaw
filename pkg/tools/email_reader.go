@@ -102,6 +102,7 @@ func (t *ReadEmailTool) Execute(ctx context.Context, args map[string]interface{}
 		return "", fmt.Errorf("IMAP connect failed (%s): %w", addr, err)
 	}
 	defer client.Close()
+	defer func() { _ = client.Logout().Wait() }()
 
 	if err := client.Login(t.cfg.Username, t.cfg.Password).Wait(); err != nil {
 		return "", fmt.Errorf("IMAP login failed: %w", err)
@@ -258,12 +259,15 @@ func (t *ReadEmailTool) Execute(ctx context.Context, args map[string]interface{}
 		return msg, nil
 	}
 
-	result, _ := json.MarshalIndent(map[string]interface{}{
+	result, err := json.MarshalIndent(map[string]interface{}{
 		"emails":      emails,
 		"count":       len(emails),
 		"total_in_search": len(allUIDs),
 		"mailbox":     mailbox,
 	}, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal result: %w", err)
+	}
 
 	logger.InfoCF("tool", "Read emails from inbox", map[string]interface{}{
 		"count":   len(emails),

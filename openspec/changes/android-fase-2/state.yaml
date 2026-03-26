@@ -1,7 +1,7 @@
 id: android-fase-2
 title: Android Fase 2 - Feature Parity
 description: Completar 11 features esqueletales de la app Android para lograr paridad funcional con la app web
-status: proposed
+status: in_progress
 created_at: '2026-03-26'
 updated_at: '2026-03-26'
 
@@ -37,9 +37,9 @@ artifacts:
 
   apply_progress:
     file: apply-progress.md
-status: completed
-completed_at: '2026-03-26'
-topic_key: sdd/android-fase-2/apply-progress
+    status: in_progress
+    created_at: '2026-03-26'
+    topic_key: sdd/android-fase-2/apply-progress
 
   verify_report:
     file: verify-report.md
@@ -59,13 +59,19 @@ milestones:
     title: Core + Prioridad ALTA (Part 1)
     description: Completar core modules + feature-knowledge
     estimated_weeks: 1-2
-    status: pending
+    status: completed
+    completed_at: '2026-03-26'
 
   - id: milestone-2
     title: Prioridad ALTA (Part 2)
     description: Implementar feature-workflows, feature-metrics, feature-cron
     estimated_weeks: 2-3
-    status: pending
+    status: in_progress
+    started_at: '2026-03-26'
+    progress: BATCH 3A (workflows) completado, BATCH 3B (metrics) pendiente
+    completed_batches:
+      - BATCH 3A: Feature Workflows (5/5 tareas, 13 archivos)
+    current_focus: BATCH 3B: Feature Metrics
 
   - id: milestone-3
     title: Prioridad MEDIA

@@ -3,6 +3,7 @@ package ratelimit
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 )
@@ -45,8 +46,14 @@ func (rl *RateLimiter) Allow(key string) bool {
 
 	limit, exists := rl.limits[key]
 	if !exists {
-		// No limit configured, allow all
-		return true
+		// Try prefix-based fallback: "user:123" → "user:global"
+		if idx := strings.LastIndex(key, ":"); idx > 0 {
+			prefix := key[:idx]
+			limit, exists = rl.limits[prefix+":global"]
+		}
+		if !exists {
+			return true
+		}
 	}
 
 	now := time.Now()
@@ -205,8 +212,7 @@ func GetGlobalLimiter() *RateLimiter {
 		globalLimiter.SetLimit("api:openrouter", 100, time.Minute) // OpenRouter limit
 
 		// Tool limits
-		globalLimiter.SetLimit("tool:web_search", 30, time.Hour) // Brave Search free tier
-		globalLimiter.SetLimit("tool:shell", 20, time.Hour)      // Shell execution
+		globalLimiter.SetLimit("tool:shell", 20, time.Hour) // Shell execution
 	})
 
 	return globalLimiter

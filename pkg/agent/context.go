@@ -248,6 +248,12 @@ func (cb *ContextBuilder) BuildSystemPrompt() string {
 		if bootstrapContent != "" {
 			parts = append(parts, bootstrapContent)
 		}
+	} else {
+		// In lightweight mode, still load personality files (SOUL.md, IDENTITY.md)
+		personalityContent := cb.LoadPersonalityFiles()
+		if personalityContent != "" {
+			parts = append(parts, personalityContent)
+		}
 	}
 
 	// Skills - filtered by skillFilter setting
@@ -316,6 +322,21 @@ func (cb *ContextBuilder) LoadBootstrapFiles() string {
 		}
 	}
 
+	return result
+}
+
+// LoadPersonalityFiles loads only SOUL.md and IDENTITY.md from the workspace.
+// Used in lightweight mode so that orchestrator and specialists retain personality
+// even when the full bootstrap files are skipped.
+func (cb *ContextBuilder) LoadPersonalityFiles() string {
+	personalityFiles := []string{"SOUL.md", "IDENTITY.md"}
+	var result string
+	for _, filename := range personalityFiles {
+		filePath := filepath.Join(cb.getUserWorkspacePath(), filename)
+		if data, err := os.ReadFile(filePath); err == nil {
+			result += fmt.Sprintf("## %s\n\n%s\n\n", filename, string(data))
+		}
+	}
 	return result
 }
 

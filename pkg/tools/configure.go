@@ -150,37 +150,6 @@ var channelNames = []string{
 	"email",
 }
 
-// sensitiveFieldPatterns lists field name patterns that contain secrets
-// Fields matching these patterns are write-only (cannot be read)
-var sensitiveFieldPatterns = []string{
-	"api_key",
-	"apikey",
-	"token",
-	"bot_token",
-	"app_token",
-	"access_token",
-	"refresh_token",
-	"password",
-	"secret",
-	"app_secret",
-	"client_secret",
-	"signing_secret",
-	"private_key",
-	"encrypt_key",
-	"verification_token",
-}
-
-// isSensitiveField checks if a field name matches sensitive patterns
-func isSensitiveField(fieldName string) bool {
-	lower := strings.ToLower(fieldName)
-	for _, pattern := range sensitiveFieldPatterns {
-		if strings.Contains(lower, pattern) {
-			return true
-		}
-	}
-	return false
-}
-
 // ConfigureTool allows the agent to modify user configuration
 type ConfigureTool struct {
 	userID   int64
@@ -622,9 +591,14 @@ func (t *ConfigureTool) setReflectValue(field reflect.Value, value interface{}, 
 		case bool:
 			field.SetBool(v)
 		case string:
-			// Accept string "true"/"false"
-			b := strings.EqualFold(v, "true")
-			field.SetBool(b)
+			lower := strings.ToLower(v)
+			if lower == "true" {
+				field.SetBool(true)
+			} else if lower == "false" {
+				field.SetBool(false)
+			} else {
+				return fmt.Errorf("expected 'true' or 'false' for boolean field, got %q", v)
+			}
 		default:
 			return fmt.Errorf("expected boolean for '%s', got %T", path, value)
 		}

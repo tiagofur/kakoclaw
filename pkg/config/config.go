@@ -304,6 +304,7 @@ type WebConfig struct {
 
 type WebSearchConfig struct {
 	APIKey     string `json:"api_key" env:"MAKOCLAW_TOOLS_WEB_SEARCH_API_KEY"`
+	SearXNGURL string `json:"searxng_url" env:"MAKOCLAW_TOOLS_WEB_SEARCH_SEARXNG_URL"`
 	MaxResults int    `json:"max_results" env:"MAKOCLAW_TOOLS_WEB_SEARCH_MAX_RESULTS"`
 }
 
@@ -460,6 +461,7 @@ func DefaultConfig() *Config {
 			Web: WebToolsConfig{
 				Search: WebSearchConfig{
 					APIKey:     "",
+					SearXNGURL: "",
 					MaxResults: 5,
 				},
 			},
@@ -691,6 +693,7 @@ func GetUserConfigTemplate(globalConfig *Config) *Config {
 			Web: WebToolsConfig{
 				Search: WebSearchConfig{
 					APIKey:     "",                                       // User must provide
+					SearXNGURL: globalConfig.Tools.Web.Search.SearXNGURL, // Inherit
 					MaxResults: globalConfig.Tools.Web.Search.MaxResults, // Inherit
 				},
 			},
@@ -1098,6 +1101,13 @@ func MergeConfigs(global, user *Config) *Config {
 		merged.ToolPermissions = global.ToolPermissions
 	}
 
+	// Merge TTS section
+	if user.TTS.Provider != "" || user.TTS.APIKey != "" || user.TTS.Enabled {
+		merged.TTS = user.TTS
+	} else {
+		merged.TTS = global.TTS
+	}
+
 	// Preserve DegradedMode flag
 	merged.DegradedMode = global.DegradedMode || user.DegradedMode
 
@@ -1173,7 +1183,7 @@ func mergeToolsConfig(global, user *ToolsConfig) ToolsConfig {
 	merged := ToolsConfig{}
 
 	// Merge Web tools
-	if user.Web.Search.APIKey != "" {
+	if user.Web.Search.APIKey != "" || user.Web.Search.SearXNGURL != "" {
 		merged.Web.Search = user.Web.Search
 	} else {
 		merged.Web.Search = global.Web.Search

@@ -181,6 +181,22 @@ func RedactConfig(cfg *Config) *Config {
 			Port:      cfg.Channels.MaixCam.Port,
 			AllowFrom: cfg.Channels.MaixCam.AllowFrom,
 		},
+		Email: EmailChannelConfig{
+			Enabled:            cfg.Channels.Email.Enabled,
+			IMAPHost:           cfg.Channels.Email.IMAPHost,
+			IMAPPort:           cfg.Channels.Email.IMAPPort,
+			SMTPHost:           cfg.Channels.Email.SMTPHost,
+			SMTPPort:           cfg.Channels.Email.SMTPPort,
+			Username:           cfg.Channels.Email.Username,
+			Password:           redactIfSet(cfg.Channels.Email.Password),
+			From:               cfg.Channels.Email.From,
+			AllowFrom:          cfg.Channels.Email.AllowFrom,
+			Mailbox:            cfg.Channels.Email.Mailbox,
+			PollIntervalSecs:   cfg.Channels.Email.PollIntervalSecs,
+			MarkAsRead:         cfg.Channels.Email.MarkAsRead,
+			MaxEmailSizeMB:     cfg.Channels.Email.MaxEmailSizeMB,
+			InsecureSkipVerify: cfg.Channels.Email.InsecureSkipVerify,
+		},
 	}
 
 	// Redact web config password
@@ -198,6 +214,7 @@ func RedactConfig(cfg *Config) *Config {
 		Web: WebToolsConfig{
 			Search: WebSearchConfig{
 				APIKey:     redactIfSet(cfg.Tools.Web.Search.APIKey),
+				SearXNGURL: cfg.Tools.Web.Search.SearXNGURL,
 				MaxResults: cfg.Tools.Web.Search.MaxResults,
 			},
 		},

@@ -1,4 +1,25 @@
 services:
+  searxng:
+    image: searxng/searxng:latest
+    container_name: makoclaw_searxng
+    volumes:
+      - searxng_data:/etc/searxng
+      - ./docker/searxng/settings.yml:/etc/searxng/settings.yml:ro
+    networks:
+      - makoclaw_network
+    restart: unless-stopped
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
   makoclaw:
     image: makoclaw:latest
     build:
@@ -60,6 +81,9 @@ services:
       MAKOCLAW_TOOLS_EMAIL_PASSWORD: "${MAKOCLAW_TOOLS_EMAIL_PASSWORD:-}"
       MAKOCLAW_TOOLS_EMAIL_FROM: "${MAKOCLAW_TOOLS_EMAIL_FROM:-}"
       MAKOCLAW_TOOLS_EMAIL_TO: "${MAKOCLAW_TOOLS_EMAIL_TO:-}"
+
+      # === Web Search (SearXNG) ===
+      MAKOCLAW_TOOLS_WEB_SEARCH_SEARXNG_URL: "http://searxng:8080"
     volumes:
       # MakoClaw-data/ contains:
       #   MakoClaw.db     - legacy shared database (backward compat)
@@ -73,6 +97,8 @@ services:
     restart: unless-stopped
     networks:
       - makoclaw_network
+    depends_on:
+      - searxng
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:18880/health"]
       interval: 30s
@@ -87,6 +113,8 @@ services:
 
 volumes:
   makoclaw_data:
+    driver: local
+  searxng_data:
     driver: local
 
 networks:

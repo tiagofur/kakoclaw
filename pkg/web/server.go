@@ -811,6 +811,7 @@ func (s *Server) getUserStorage(r *http.Request) (*storage.Storage, string, bool
 
 	// Fallback: return legacy shared store
 	if s.store != nil {
+		logger.WarnC("web", "Falling back to legacy shared storage — multi-user isolation NOT active")
 		return s.store, "", true
 	}
 	return nil, "", false
@@ -1204,29 +1205,61 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 
 	activeAgentLoop := agentMgr.GetActiveAgent()
 
+	cronRegistered := false
 	if s.multiUserChannelManager != nil {
 		if _, err := s.multiUserChannelManager.GetOrCreateManagerForUser(userUUID); err != nil {
 			logger.WarnCF("web", "Failed to initialize per-user channel manager for chat cron access", map[string]interface{}{
 				"user_uuid": userUUID,
 				"error":     err.Error(),
 			})
-		} else if cronService, exists := s.multiUserChannelManager.GetCronServiceForUser(userUUID); exists {
-			if err := cronService.Start(); err != nil {
+		} else if cronSvc, exists := s.multiUserChannelManager.GetCronServiceForUser(userUUID); exists {
+			if err := cronSvc.Start(); err != nil {
 				logger.WarnCF("web", "Failed to start per-user cron service for chat", map[string]interface{}{
 					"user_uuid": userUUID,
 					"error":     err.Error(),
 				})
 			} else {
-				activeAgentLoop.RegisterTool(tools.NewCronTool(cronService, activeAgentLoop, s.msgBus))
+				activeAgentLoop.RegisterTool(tools.NewCronTool(cronSvc, activeAgentLoop, s.msgBus))
+				cronRegistered = true
 			}
 		}
-	} else if s.cronService != nil {
+	}
+	if !cronRegistered && s.cronService != nil {
 		if err := s.cronService.Start(); err != nil {
 			logger.WarnCF("web", "Failed to start shared cron service for chat", map[string]interface{}{
 				"error": err.Error(),
 			})
 		} else {
 			activeAgentLoop.RegisterTool(tools.NewCronTool(s.cronService, activeAgentLoop, s.msgBus))
+			cronRegistered = true
+		}
+	}
+	if !cronRegistered {
+		// Fallback: create a standalone CronService so the agent can manage cron jobs
+		// via the CronTool API instead of falling back to write_file on jobs.json.
+		if workspace, wsErr := config.EnsureUserWorkspace(userUUID); wsErr == nil {
+			cronStorePath := filepath.Join(workspace, "cron", "jobs.json")
+			fallbackCron := cron.NewCronService(cronStorePath, nil)
+			cronTool := tools.NewCronTool(fallbackCron, activeAgentLoop, s.msgBus)
+			fallbackCron.SetOnJob(func(job *cron.CronJob) (string, error) {
+				return cronTool.ExecuteJob(context.Background(), job), nil
+			})
+			if err := fallbackCron.Start(); err != nil {
+				logger.WarnCF("web", "Failed to start fallback cron service for chat", map[string]interface{}{
+					"user_uuid": userUUID,
+					"error":     err.Error(),
+				})
+			} else {
+				activeAgentLoop.RegisterTool(cronTool)
+				logger.InfoCF("web", "Registered fallback CronTool for web chat session", map[string]interface{}{
+					"user_uuid": userUUID,
+				})
+			}
+		} else {
+			logger.WarnCF("web", "CronTool unavailable for web chat session: could not resolve user workspace", map[string]interface{}{
+				"user_uuid": userUUID,
+				"error":     wsErr.Error(),
+			})
 		}
 	}
 

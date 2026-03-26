@@ -3,8 +3,10 @@ package agent
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/sipeed/makoclaw/pkg/bus"
@@ -314,6 +316,11 @@ func (sa *SpecialistAgent) ProcessWithSpecialityForUser(ctx context.Context, use
 		"sa.userID_before":   sa.userID,
 	})
 
+	// Serialize access: lock MUST be acquired BEFORE mutating user state.
+	// Without this, two concurrent requests for different users corrupt each
+	// other's userUUID/userID/workspace/tools/sessions fields.
+	sa.processMu.Lock()
+
 	// CRITICAL: Set user context BEFORE any other processing
 	// This ensures the AgentLoop has the correct context from the START
 	sa.SetUserForAgent(userUUID, userID)
@@ -322,11 +329,6 @@ func (sa *SpecialistAgent) ProcessWithSpecialityForUser(ctx context.Context, use
 		"sa.userUUID_after": sa.userUUID,
 		"sa.userID_after":   sa.userID,
 	})
-
-	// Serialize access to tool-swap to prevent concurrent modifications.
-	// Lock is held for entire ProcessDirect duration to prevent race conditions
-	// where another goroutine could see inconsistent tool state.
-	sa.processMu.Lock()
 	originalTools := sa.tools
 	sa.tools = sa.ToolFilter()
 	defer func() {
@@ -355,7 +357,7 @@ type RequestColleagueTool struct {
 	registry        *SpecialistRegistry
 	currentAgent    *SpecialistAgent
 	maxNestingDepth int
-	currentDepth    int
+	currentDepth    atomic.Int32
 }
 
 // NewRequestColleagueTool creates a new colleague request tool for a specialist
@@ -364,7 +366,6 @@ func NewRequestColleagueTool(registry *SpecialistRegistry, current *SpecialistAg
 		registry:        registry,
 		currentAgent:    current,
 		maxNestingDepth: 2, // Prevent infinite recursion
-		currentDepth:    0,
 	}
 }
 
@@ -411,7 +412,7 @@ func (t *RequestColleagueTool) Execute(ctx context.Context, args map[string]inte
 	helpContext, _ := args["context"].(string)
 
 	// Prevent infinite recursion
-	if t.currentDepth >= t.maxNestingDepth {
+	if t.currentDepth.Load() >= int32(t.maxNestingDepth) {
 		return fmt.Sprintf("⚠️ Cannot request help from %s: maximum collaboration depth reached. "+
 			"Please report back to the orchestrator with partial results.", colleagueName), nil
 	}
@@ -450,6 +451,7 @@ func (t *RequestColleagueTool) Execute(ctx context.Context, args map[string]inte
 
 	// Record in team context if available
 	if teamCtx := TeamContextFromCtx(ctx); teamCtx != nil {
+		teamCtx.mu.Lock()
 		teamCtx.Communications = append(teamCtx.Communications, TeamComm{
 			From:      t.currentAgent.name,
 			To:        colleagueName,
@@ -457,6 +459,7 @@ func (t *RequestColleagueTool) Execute(ctx context.Context, args map[string]inte
 			Type:      "request",
 			Timestamp: time.Now(),
 		})
+		teamCtx.mu.Unlock()
 	}
 
 	// Build the help request with context
@@ -470,14 +473,14 @@ func (t *RequestColleagueTool) Execute(ctx context.Context, args map[string]inte
 	}
 
 	// Execute with incremented depth to track nesting
-	t.currentDepth++
-	defer func() { t.currentDepth-- }()
+	t.currentDepth.Add(1)
+	defer func() { t.currentDepth.Add(-1) }()
 
 	logger.InfoCF("agent", "Specialist requesting colleague help", map[string]interface{}{
 		"from":     t.currentAgent.name,
 		"to":       colleagueName,
 		"question": truncateString(question, 100),
-		"depth":    t.currentDepth,
+		"depth":    t.currentDepth.Load(),
 	})
 
 	// Get response from colleague
@@ -498,6 +501,7 @@ func (t *RequestColleagueTool) Execute(ctx context.Context, args map[string]inte
 
 	// Record response in team context
 	if teamCtx := TeamContextFromCtx(ctx); teamCtx != nil {
+		teamCtx.mu.Lock()
 		teamCtx.Communications = append(teamCtx.Communications, TeamComm{
 			From:      colleagueName,
 			To:        t.currentAgent.name,
@@ -505,6 +509,7 @@ func (t *RequestColleagueTool) Execute(ctx context.Context, args map[string]inte
 			Type:      "response",
 			Timestamp: time.Now(),
 		})
+		teamCtx.mu.Unlock()
 	}
 
 	return fmt.Sprintf("## Response from %s:\n\n%s", colleagueName, response), nil
@@ -557,7 +562,7 @@ func LoadSpecialistsFromConfig(
 	}
 
 	logger.InfoCF("agent", "Specialists loaded", map[string]interface{}{
-		"count": len(registry.specialists),
+		"count": len(registry.ListSpecialists()),
 	})
 
 	// Wire up RequestColleagueTool to all specialists for inter-agent collaboration
@@ -608,7 +613,7 @@ func (ss *SpecialistSelector) SelectByKeywords(keywords []string) []*SpecialistA
 	for _, specialist := range ss.registry.ListSpecialists() {
 		for _, keyword := range keywords {
 			// Check if keyword is in specialist's description or keywords
-			if contains(specialist.GetSpecialistKeywords(), keyword) {
+			if slices.Contains(specialist.GetSpecialistKeywords(), keyword) {
 				matches = append(matches, specialist)
 				break
 			}
@@ -640,16 +645,6 @@ func (sa *SpecialistAgent) GetAllowedTools() []string {
 		tools = append(tools, tool)
 	}
 	return tools
-}
-
-// contains checks if a string is in a slice
-func contains(slice []string, item string) bool {
-	for _, v := range slice {
-		if v == item {
-			return true
-		}
-	}
-	return false
 }
 
 // SelectByName returns a single specialist by name

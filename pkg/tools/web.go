@@ -5,11 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
 	"time"
+
+	readability "github.com/go-shiori/go-readability"
 )
 
 const (
@@ -34,17 +37,68 @@ var webFetchHTTPClient = &http.Client{
 	},
 }
 
+// Pre-compiled regexps for extractTextFallback (avoid re-compiling on every call).
+var (
+	reScript     = regexp.MustCompile(`<script[\s\S]*?</script>`)
+	reStyle      = regexp.MustCompile(`<style[\s\S]*?</style>`)
+	reHTMLTags   = regexp.MustCompile(`<[^>]+>`)
+	reWhitespace = regexp.MustCompile(`\s+`)
+)
+
+var privateRanges []*net.IPNet
+
+func init() {
+	for _, cidr := range []string{
+		"127.0.0.0/8",
+		"10.0.0.0/8",
+		"172.16.0.0/12",
+		"192.168.0.0/16",
+		"169.254.0.0/16",
+		"::1/128",
+		"fc00::/7",
+		"fe80::/10",
+	} {
+		_, network, _ := net.ParseCIDR(cidr)
+		privateRanges = append(privateRanges, network)
+	}
+}
+
+func isPrivateIP(host string) bool {
+	hostname := host
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		hostname = h
+	}
+
+	ips, err := net.LookupHost(hostname)
+	if err != nil {
+		return true
+	}
+
+	for _, ipStr := range ips {
+		ip := net.ParseIP(ipStr)
+		if ip == nil {
+			continue
+		}
+		for _, network := range privateRanges {
+			if network.Contains(ip) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 type WebSearchTool struct {
-	apiKey     string
+	provider   SearchProvider
 	maxResults int
 }
 
-func NewWebSearchTool(apiKey string, maxResults int) *WebSearchTool {
+func NewWebSearchTool(provider SearchProvider, maxResults int) *WebSearchTool {
 	if maxResults <= 0 || maxResults > 10 {
 		maxResults = 5
 	}
 	return &WebSearchTool{
-		apiKey:     apiKey,
+		provider:   provider,
 		maxResults: maxResults,
 	}
 }
@@ -77,8 +131,8 @@ func (t *WebSearchTool) Parameters() map[string]interface{} {
 }
 
 func (t *WebSearchTool) Execute(ctx context.Context, args map[string]interface{}) (string, error) {
-	if t.apiKey == "" {
-		return "Error: BRAVE_API_KEY not configured", nil
+	if t.provider == nil {
+		return "Error: No search provider configured. Set MAKOCLAW_TOOLS_WEB_SEARCH_SEARXNG_URL or MAKOCLAW_TOOLS_WEB_SEARCH_API_KEY.", nil
 	}
 
 	query, ok := args["query"].(string)
@@ -93,43 +147,11 @@ func (t *WebSearchTool) Execute(ctx context.Context, args map[string]interface{}
 		}
 	}
 
-	searchURL := fmt.Sprintf("https://api.search.brave.com/res/v1/web/search?q=%s&count=%d",
-		url.QueryEscape(query), count)
-
-	req, err := http.NewRequestWithContext(ctx, "GET", searchURL, nil)
+	results, err := t.provider.Search(ctx, query, count)
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
+		return "", fmt.Errorf("search failed: %w", err)
 	}
 
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("X-Subscription-Token", t.apiKey)
-
-	resp, err := webSearchHTTPClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 5*1024*1024)) // 5 MB cap
-	if err != nil {
-		return "", fmt.Errorf("failed to read response: %w", err)
-	}
-
-	var searchResp struct {
-		Web struct {
-			Results []struct {
-				Title       string `json:"title"`
-				URL         string `json:"url"`
-				Description string `json:"description"`
-			} `json:"results"`
-		} `json:"web"`
-	}
-
-	if err := json.Unmarshal(body, &searchResp); err != nil {
-		return "", fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	results := searchResp.Web.Results
 	if len(results) == 0 {
 		return fmt.Sprintf("No results for: %s", query), nil
 	}
@@ -207,6 +229,10 @@ func (t *WebFetchTool) Execute(ctx context.Context, args map[string]interface{})
 		return "", fmt.Errorf("missing domain in URL")
 	}
 
+	if isPrivateIP(parsedURL.Host) {
+		return "", fmt.Errorf("access to private/internal network addresses is not allowed")
+	}
+
 	maxChars := t.maxChars
 	if mc, ok := args["maxChars"].(float64); ok {
 		if int(mc) > 100 {
@@ -241,7 +267,10 @@ func (t *WebFetchTool) Execute(ctx context.Context, args map[string]interface{})
 	if strings.Contains(contentType, "application/json") {
 		var jsonData interface{}
 		if err := json.Unmarshal(body, &jsonData); err == nil {
-			formatted, _ := json.MarshalIndent(jsonData, "", "  ")
+			formatted, err := json.MarshalIndent(jsonData, "", "  ")
+			if err != nil {
+				return "", fmt.Errorf("failed to marshal JSON: %w", err)
+			}
 			text = string(formatted)
 			extractor = "json"
 		} else {
@@ -250,8 +279,7 @@ func (t *WebFetchTool) Execute(ctx context.Context, args map[string]interface{})
 		}
 	} else if strings.Contains(contentType, "text/html") || len(body) > 0 &&
 		(strings.HasPrefix(string(body), "<!DOCTYPE") || strings.HasPrefix(strings.ToLower(string(body)), "<html")) {
-		text = t.extractText(string(body))
-		extractor = "text"
+		text, extractor = t.extractText(string(body), urlStr)
 	} else {
 		text = string(body)
 		extractor = "raw"
@@ -271,22 +299,33 @@ func (t *WebFetchTool) Execute(ctx context.Context, args map[string]interface{})
 		"text":      text,
 	}
 
-	resultJSON, _ := json.MarshalIndent(result, "", "  ")
+	resultJSON, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal result: %w", err)
+	}
 	return string(resultJSON), nil
 }
 
-func (t *WebFetchTool) extractText(htmlContent string) string {
-	re := regexp.MustCompile(`<script[\s\S]*?</script>`)
-	result := re.ReplaceAllLiteralString(htmlContent, "")
-	re = regexp.MustCompile(`<style[\s\S]*?</style>`)
-	result = re.ReplaceAllLiteralString(result, "")
-	re = regexp.MustCompile(`<[^>]+>`)
-	result = re.ReplaceAllLiteralString(result, "")
+func (t *WebFetchTool) extractText(htmlContent string, pageURL string) (string, string) {
+	parsedURL, err := url.Parse(pageURL)
+	if err == nil {
+		article, err := readability.FromReader(strings.NewReader(htmlContent), parsedURL)
+		if err == nil && strings.TrimSpace(article.TextContent) != "" {
+			return strings.TrimSpace(article.TextContent), "readability"
+		}
+	}
+
+	return t.extractTextFallback(htmlContent), "regex-fallback"
+}
+
+func (t *WebFetchTool) extractTextFallback(htmlContent string) string {
+	result := reScript.ReplaceAllLiteralString(htmlContent, "")
+	result = reStyle.ReplaceAllLiteralString(result, "")
+	result = reHTMLTags.ReplaceAllLiteralString(result, "")
 
 	result = strings.TrimSpace(result)
 
-	re = regexp.MustCompile(`\s+`)
-	result = re.ReplaceAllLiteralString(result, " ")
+	result = reWhitespace.ReplaceAllLiteralString(result, " ")
 
 	lines := strings.Split(result, "\n")
 	var cleanLines []string
