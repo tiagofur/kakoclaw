@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"sync"
 
@@ -145,6 +147,7 @@ var channelNames = []string{
 	"dingtalk",
 	"feishu",
 	"maixcam",
+	"email",
 }
 
 // sensitiveFieldPatterns lists field name patterns that contain secrets
@@ -201,7 +204,7 @@ func (t *ConfigureTool) Name() string {
 // Description returns the tool description
 func (t *ConfigureTool) Description() string {
 	return `Manage user configuration for providers, channels, and agent settings.
-Actions: get, set, enable, disable, list_providers, list_channels.
+Actions: get, set, reset, enable, disable, list_providers, list_channels, list_paths.
 Sensitive fields (API keys, tokens) are write-only and never displayed.
 
 IMPORTANT: Paths use dot-notation with the full section prefix. Examples:
@@ -219,6 +222,7 @@ IMPORTANT: Paths use dot-notation with the full section prefix. Examples:
 
 Note: Telegram uses 'token' (not 'bot_token'). Slack uses 'bot_token' and 'app_token'.
 Use 'list_channels' or 'list_providers' to see current status before modifying.
+Use 'list_paths' to see the exact config paths that can be managed safely.
 For enable/disable, use path like 'channels.telegram' or 'agents.orchestrator'.`
 }
 
@@ -229,19 +233,28 @@ func (t *ConfigureTool) Parameters() map[string]interface{} {
 		"properties": map[string]interface{}{
 			"action": map[string]interface{}{
 				"type":        "string",
-				"enum":        []string{"get", "set", "enable", "disable", "list_providers", "list_channels"},
+				"enum":        []string{"get", "set", "reset", "enable", "disable", "list_providers", "list_channels", "list_paths"},
 				"description": "The configuration action to perform",
 			},
 			"path": map[string]interface{}{
 				"type":        "string",
-				"description": "Dot-notation path to the config field (e.g., 'providers.openai.api_key'). Required for get/set/enable/disable.",
+				"description": "Dot-notation path to the config field (e.g., 'providers.openai.api_key'). Required for get/set/reset/enable/disable.",
 			},
 			"value": map[string]interface{}{
 				"description": "The value to set. Required for 'set' action. Type depends on field.",
 			},
+			"confirmed": map[string]interface{}{
+				"type":        "boolean",
+				"description": "Set to true only after explicit user confirmation for sensitive changes.",
+			},
 		},
 		"required": []string{"action"},
 	}
+}
+
+func isConfirmed(args map[string]interface{}) bool {
+	confirmed, ok := args["confirmed"].(bool)
+	return ok && confirmed
 }
 
 // SetUserContext sets the user context for config file access
@@ -270,6 +283,8 @@ func (t *ConfigureTool) Execute(ctx context.Context, args map[string]interface{}
 		return t.handleGet(ctx, args, userUUID)
 	case "set":
 		return t.handleSet(ctx, args, userUUID, userID)
+	case "reset":
+		return t.handleReset(ctx, args, userUUID, userID)
 	case "enable":
 		return t.handleEnable(ctx, args, userUUID, userID)
 	case "disable":
@@ -278,9 +293,67 @@ func (t *ConfigureTool) Execute(ctx context.Context, args map[string]interface{}
 		return t.handleListProviders(ctx, userUUID)
 	case "list_channels":
 		return t.handleListChannels(ctx, userUUID)
+	case "list_paths":
+		return t.handleListPaths(ctx)
 	default:
-		return "Error: unknown action '" + action + "'. Valid actions: get, set, enable, disable, list_providers, list_channels", nil
+		return "Error: unknown action '" + action + "'. Valid actions: get, set, reset, enable, disable, list_providers, list_channels, list_paths", nil
 	}
+}
+
+func (t *ConfigureTool) loadGlobalConfig() *config.Config {
+	globalConfigPath := filepath.Join(config.GetDataDir(), "config.json")
+	globalCfg, err := config.LoadConfig(globalConfigPath)
+	if err != nil || globalCfg == nil {
+		return config.DefaultConfig()
+	}
+	return globalCfg
+}
+
+func (t *ConfigureTool) expandedConfigPaths() []map[string]interface{} {
+	seen := make(map[string]bool)
+	paths := make([]map[string]interface{}, 0, len(fieldWhitelist))
+
+	appendPath := func(path string, policy FieldPolicy) {
+		if seen[path] {
+			return
+		}
+		seen[path] = true
+		paths = append(paths, map[string]interface{}{
+			"path":      path,
+			"type":      t.fieldTypeName(policy.Type),
+			"readable":  policy.Readable,
+			"writable":  policy.Writable,
+			"sensitive": config.RedactConfigPath(path),
+		})
+	}
+
+	keys := make([]string, 0, len(fieldWhitelist))
+	for key := range fieldWhitelist {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		policy := fieldWhitelist[key]
+		switch {
+		case strings.HasPrefix(key, "providers.*."):
+			for _, provider := range providerNames {
+				appendPath(strings.Replace(key, "providers.*.", "providers."+provider+".", 1), policy)
+			}
+		case strings.HasPrefix(key, "channels.*."):
+			for _, channel := range channelNames {
+				appendPath(strings.Replace(key, "channels.*.", "channels."+channel+".", 1), policy)
+			}
+		default:
+			appendPath(key, policy)
+		}
+	}
+
+	sort.Slice(paths, func(i, j int) bool {
+		return paths[i]["path"].(string) < paths[j]["path"].(string)
+	})
+
+	return paths
 }
 
 // =============================================================================
@@ -761,6 +834,14 @@ func (t *ConfigureTool) handleSet(ctx context.Context, args map[string]interface
 		return t.errorResponse("field_read_only", fmt.Sprintf("field '%s' is read-only", path), path)
 	}
 
+	if IsSensitiveConfirmationRequired(ctx) && (config.RedactConfigPath(path) || !policy.Readable) && !isConfirmed(args) {
+		return t.errorResponse(
+			"confirmation_required",
+			fmt.Sprintf("Sensitive change requires explicit confirmation. Re-run set on '%s' with confirmed=true after user approval.", path),
+			path,
+		)
+	}
+
 	// Validate value type
 	if err := t.validateValueType(value, policy.Type); err != nil {
 		return t.errorResponse("invalid_value_type", err.Error(), path)
@@ -810,6 +891,82 @@ func (t *ConfigureTool) handleSet(ctx context.Context, args map[string]interface
 		"path":             path,
 		"message":          fmt.Sprintf("Successfully updated %s", path),
 		"restart_required": restartRequired,
+	}
+	if restartRequired {
+		response["hint"] = "Restart the gateway for changes to take effect"
+	}
+
+	return t.successResponse(response)
+}
+
+// handleReset resets a configurable field to the global/default value.
+// Sensitive fields are cleared instead of copying global secrets into the user config.
+func (t *ConfigureTool) handleReset(ctx context.Context, args map[string]interface{}, userUUID string, userID int64) (string, error) {
+	path, _ := args["path"].(string)
+	if path == "" {
+		return t.errorResponse("missing_path", "path is required for reset action", "")
+	}
+
+	path = t.normalizePath(path)
+	policy, err := t.resolveFieldPolicy(path)
+	if err != nil {
+		return t.errorResponse("path_not_allowed", err.Error(), path)
+	}
+
+	if IsSensitiveConfirmationRequired(ctx) && (config.RedactConfigPath(path) || !policy.Readable) && !isConfirmed(args) {
+		return t.errorResponse(
+			"confirmation_required",
+			fmt.Sprintf("Sensitive reset requires explicit confirmation. Re-run reset on '%s' with confirmed=true after user approval.", path),
+			path,
+		)
+	}
+
+	userCfg, err := config.LoadConfigForUser(userUUID)
+	if err != nil {
+		return t.errorResponse("config_load_error", fmt.Sprintf("failed to load config: %v", err), path)
+	}
+
+	var resetValue interface{}
+	if config.RedactConfigPath(path) || !policy.Readable {
+		resetValue = ""
+	} else {
+		globalCfg := t.loadGlobalConfig()
+		resetValue, err = t.getFieldValue(globalCfg, path)
+		if err != nil {
+			return t.errorResponse("field_access_error", err.Error(), path)
+		}
+	}
+
+	if err := t.setFieldValue(userCfg, path, resetValue); err != nil {
+		return t.errorResponse("field_set_error", err.Error(), path)
+	}
+
+	if err := config.SaveConfigForUser(userUUID, userCfg); err != nil {
+		return t.errorResponse("config_save_error", fmt.Sprintf("failed to save config: %v", err), path)
+	}
+
+	if _, err := config.LoadConfigForUser(userUUID); err != nil {
+		return t.errorResponse("config_invalid", fmt.Sprintf("config validation failed after save: %v", err), path)
+	}
+
+	logger.InfoCF("configure", "Configuration reset", map[string]interface{}{
+		"user_id":   userID,
+		"user_uuid": userUUID,
+		"path":      path,
+		"sensitive": config.RedactConfigPath(path),
+	})
+
+	restartRequired := strings.HasPrefix(path, "channels.")
+	response := map[string]interface{}{
+		"path":             path,
+		"message":          fmt.Sprintf("Successfully reset %s", path),
+		"restart_required": restartRequired,
+	}
+	if config.RedactConfigPath(path) || !policy.Readable {
+		response["reset_to"] = "cleared"
+	} else {
+		response["reset_to"] = "global"
+		response["value"] = resetValue
 	}
 	if restartRequired {
 		response["hint"] = "Restart the gateway for changes to take effect"
@@ -1153,6 +1310,17 @@ func (t *ConfigureTool) handleListChannels(ctx context.Context, userUUID string)
 		"channels":     channels,
 		"active_count": activeCount,
 		"total_count":  len(channels),
+	})
+}
+
+// handleListPaths lists all concrete config paths the tool can manage.
+func (t *ConfigureTool) handleListPaths(ctx context.Context) (string, error) {
+	paths := t.expandedConfigPaths()
+
+	return t.successResponse(map[string]interface{}{
+		"paths":       paths,
+		"total_count": len(paths),
+		"hint":        "Use these exact paths with get, set, or reset. For enable/disable use channels.{name} or agents.orchestrator.",
 	})
 }
 

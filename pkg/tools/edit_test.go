@@ -188,6 +188,50 @@ func TestEditFileTool_Execute(t *testing.T) {
 		}
 	})
 
+	t.Run("requires confirmation for sensitive targets when enabled", func(t *testing.T) {
+		workspace := t.TempDir()
+		filePath := filepath.Join(workspace, "SOUL.md")
+		if err := os.WriteFile(filePath, []byte("old soul"), 0644); err != nil {
+			t.Fatalf("failed to write test file: %v", err)
+		}
+
+		tool := NewEditFileTool(workspace, true)
+		ctx := WithSensitiveConfirmationRequired(context.Background(), true)
+
+		result, err := tool.Execute(ctx, map[string]interface{}{
+			"path":     "SOUL.md",
+			"old_text": "old soul",
+			"new_text": "new soul",
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !strings.Contains(result, "Confirmation required") {
+			t.Fatalf("expected confirmation required message, got: %s", result)
+		}
+
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			t.Fatalf("failed to read file after denied edit: %v", err)
+		}
+		if string(data) != "old soul" {
+			t.Fatalf("expected unchanged content before confirmation, got %q", string(data))
+		}
+
+		result, err = tool.Execute(ctx, map[string]interface{}{
+			"path":      "SOUL.md",
+			"old_text":  "old soul",
+			"new_text":  "new soul",
+			"confirmed": true,
+		})
+		if err != nil {
+			t.Fatalf("unexpected confirmed error: %v", err)
+		}
+		if !strings.Contains(result, "Successfully edited") {
+			t.Fatalf("expected successful edit after confirmation, got: %s", result)
+		}
+	})
+
 	t.Run("name and description", func(t *testing.T) {
 		tool := NewEditFileTool("", false)
 		if tool.Name() != "edit_file" {
@@ -316,6 +360,44 @@ func TestAppendFileTool_Execute(t *testing.T) {
 		}
 		if !strings.Contains(err.Error(), "access denied") {
 			t.Errorf("expected 'access denied' in error, got: %v", err)
+		}
+	})
+
+	t.Run("requires confirmation for sensitive targets when enabled", func(t *testing.T) {
+		workspace := t.TempDir()
+		if err := os.MkdirAll(filepath.Join(workspace, "memory"), 0755); err != nil {
+			t.Fatalf("failed to create memory dir: %v", err)
+		}
+
+		tool := NewAppendFileTool(workspace, true)
+		ctx := WithSensitiveConfirmationRequired(context.Background(), true)
+
+		result, err := tool.Execute(ctx, map[string]interface{}{
+			"path":    "memory/MEMORY.md",
+			"content": "new memory line",
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !strings.Contains(result, "Confirmation required") {
+			t.Fatalf("expected confirmation required message, got: %s", result)
+		}
+
+		_, err = os.Stat(filepath.Join(workspace, "memory", "MEMORY.md"))
+		if !os.IsNotExist(err) {
+			t.Fatalf("expected MEMORY.md to remain unchanged before confirmation")
+		}
+
+		result, err = tool.Execute(ctx, map[string]interface{}{
+			"path":      "memory/MEMORY.md",
+			"content":   "new memory line",
+			"confirmed": true,
+		})
+		if err != nil {
+			t.Fatalf("unexpected confirmed error: %v", err)
+		}
+		if !strings.Contains(result, "Successfully appended") {
+			t.Fatalf("expected successful append after confirmation, got: %s", result)
 		}
 	})
 

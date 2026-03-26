@@ -33,6 +33,7 @@ import (
 	"github.com/sipeed/makoclaw/pkg/ratelimit"
 	"github.com/sipeed/makoclaw/pkg/skills"
 	"github.com/sipeed/makoclaw/pkg/storage"
+	"github.com/sipeed/makoclaw/pkg/tools"
 	"github.com/sipeed/makoclaw/pkg/voice"
 	"github.com/sipeed/makoclaw/pkg/workflow"
 )
@@ -1203,6 +1204,32 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 
 	activeAgentLoop := agentMgr.GetActiveAgent()
 
+	if s.multiUserChannelManager != nil {
+		if _, err := s.multiUserChannelManager.GetOrCreateManagerForUser(userUUID); err != nil {
+			logger.WarnCF("web", "Failed to initialize per-user channel manager for chat cron access", map[string]interface{}{
+				"user_uuid": userUUID,
+				"error":     err.Error(),
+			})
+		} else if cronService, exists := s.multiUserChannelManager.GetCronServiceForUser(userUUID); exists {
+			if err := cronService.Start(); err != nil {
+				logger.WarnCF("web", "Failed to start per-user cron service for chat", map[string]interface{}{
+					"user_uuid": userUUID,
+					"error":     err.Error(),
+				})
+			} else {
+				activeAgentLoop.RegisterTool(tools.NewCronTool(cronService, activeAgentLoop, s.msgBus))
+			}
+		}
+	} else if s.cronService != nil {
+		if err := s.cronService.Start(); err != nil {
+			logger.WarnCF("web", "Failed to start shared cron service for chat", map[string]interface{}{
+				"error": err.Error(),
+			})
+		} else {
+			activeAgentLoop.RegisterTool(tools.NewCronTool(s.cronService, activeAgentLoop, s.msgBus))
+		}
+	}
+
 	upgrader := websocket.Upgrader{CheckOrigin: s.checkOrigin}
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -1316,6 +1343,7 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 			// Inject activeAgentLoop as agent tracker so that any orchestrator
 			// delegations register involved agents into this loop's tracking.
 			ctx = agent.ContextWithAgentTracker(ctx, activeAgentLoop)
+			ctx = tools.WithSensitiveConfirmationRequired(ctx, true)
 			ctx = agent.ContextWithSessionKey(ctx, sessionID)
 			execID := fmt.Sprintf("%s:%d", sessionID, time.Now().UnixNano())
 

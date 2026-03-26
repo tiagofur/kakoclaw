@@ -50,6 +50,10 @@ func (t *EditFileTool) Parameters() map[string]interface{} {
 				"type":        "string",
 				"description": "The text to replace with",
 			},
+			"confirmed": map[string]interface{}{
+				"type":        "boolean",
+				"description": "Set to true only after explicit user confirmation for sensitive targets.",
+			},
 		},
 		"required": []string{"path", "old_text", "new_text"},
 	}
@@ -74,6 +78,10 @@ func (t *EditFileTool) Execute(ctx context.Context, args map[string]interface{})
 	resolvedPath, err := validatePath(path, t.allowedDir, t.restrict)
 	if err != nil {
 		return "", err
+	}
+
+	if IsSensitiveConfirmationRequired(ctx) && IsSensitiveWorkspacePath(resolvedPath, t.allowedDir) && !isConfirmed(args) {
+		return "Confirmation required: edit_file targets a sensitive file. Re-run with confirmed=true after user approval.", nil
 	}
 
 	info, err := os.Stat(resolvedPath)
@@ -143,6 +151,10 @@ func (t *AppendFileTool) Parameters() map[string]interface{} {
 				"type":        "string",
 				"description": "The content to append",
 			},
+			"confirmed": map[string]interface{}{
+				"type":        "boolean",
+				"description": "Set to true only after explicit user confirmation for sensitive targets.",
+			},
 		},
 		"required": []string{"path", "content"},
 	}
@@ -162,6 +174,10 @@ func (t *AppendFileTool) Execute(ctx context.Context, args map[string]interface{
 	resolvedPath, err := validatePath(path, t.workspace, t.restrict)
 	if err != nil {
 		return "", err
+	}
+
+	if IsSensitiveConfirmationRequired(ctx) && IsSensitiveWorkspacePath(resolvedPath, t.workspace) && !isConfirmed(args) {
+		return "Confirmation required: append_file targets a sensitive file. Re-run with confirmed=true after user approval.", nil
 	}
 
 	f, err := os.OpenFile(resolvedPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)

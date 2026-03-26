@@ -911,10 +911,10 @@ func TestConfigureTool_ListChannels(t *testing.T) {
 		t.Fatalf("list_channels failed: %s", result)
 	}
 
-	// Verify all 9 channels are listed
+	// Verify all 10 channels are listed
 	channels, _ := response["channels"].([]interface{})
-	if len(channels) != 9 {
-		t.Errorf("Expected 9 channels, got %d", len(channels))
+	if len(channels) != 10 {
+		t.Errorf("Expected 10 channels, got %d", len(channels))
 	}
 
 	// Check channel names
@@ -928,6 +928,7 @@ func TestConfigureTool_ListChannels(t *testing.T) {
 		"dingtalk": false,
 		"feishu":   false,
 		"maixcam":  false,
+		"email":    false,
 	}
 
 	for _, ch := range channels {
@@ -1441,6 +1442,11 @@ func TestConfigureTool_MissingParameters(t *testing.T) {
 			args:      map[string]interface{}{"action": "disable"},
 			wantError: "path is required",
 		},
+		{
+			name:      "reset missing path",
+			args:      map[string]interface{}{"action": "reset"},
+			wantError: "path is required",
+		},
 	}
 
 	for _, tt := range tests {
@@ -1460,6 +1466,198 @@ func TestConfigureTool_MissingParameters(t *testing.T) {
 				t.Errorf("Expected error containing %q, got: %s", tt.wantError, msg)
 			}
 		})
+	}
+}
+
+func TestConfigureTool_ResetRestoresGlobalValue(t *testing.T) {
+	userUUID := "test-user-reset"
+	_, cleanup := setupTestConfig(t, userUUID)
+	defer cleanup()
+
+	globalCfg := config.DefaultConfig()
+	globalCfg.Agents.Defaults.Model = "global-model"
+	if err := config.SaveConfig(filepath.Join(config.GetDataDir(), "config.json"), globalCfg); err != nil {
+		t.Fatalf("failed to save global config: %v", err)
+	}
+
+	tool := NewConfigureTool()
+	tool.SetUserContext(1, userUUID)
+	ctx := context.Background()
+
+	_, err := tool.Execute(ctx, map[string]interface{}{
+		"action": "set",
+		"path":   "agents.defaults.model",
+		"value":  "broken-model",
+	})
+	if err != nil {
+		t.Fatalf("set returned error: %v", err)
+	}
+
+	result, err := tool.Execute(ctx, map[string]interface{}{
+		"action": "reset",
+		"path":   "agents.defaults.model",
+	})
+	if err != nil {
+		t.Fatalf("reset returned error: %v", err)
+	}
+
+	response := parseResponse(t, result)
+	if success, _ := response["success"].(bool); !success {
+		t.Fatalf("reset failed: %s", result)
+	}
+	if value, _ := response["value"].(string); value != "global-model" {
+		t.Fatalf("expected reset value to be global-model, got %q", value)
+	}
+
+	getResult, err := tool.Execute(ctx, map[string]interface{}{
+		"action": "get",
+		"path":   "agents.defaults.model",
+	})
+	if err != nil {
+		t.Fatalf("get returned error: %v", err)
+	}
+	getResponse := parseResponse(t, getResult)
+	if value, _ := getResponse["value"].(string); value != "global-model" {
+		t.Fatalf("expected merged config to expose global-model after reset, got %q", value)
+	}
+}
+
+func TestConfigureTool_ResetClearsSensitiveField(t *testing.T) {
+	userUUID := "test-user-reset-sensitive"
+	_, cleanup := setupTestConfig(t, userUUID)
+	defer cleanup()
+
+	tool := NewConfigureTool()
+	tool.SetUserContext(1, userUUID)
+	ctx := WithSensitiveConfirmationRequired(context.Background(), true)
+
+	_, err := tool.Execute(ctx, map[string]interface{}{
+		"action": "set",
+		"path":   "channels.telegram.token",
+		"value":  "telegram-secret",
+	})
+	if err != nil {
+		t.Fatalf("set returned error: %v", err)
+	}
+
+	result, err := tool.Execute(ctx, map[string]interface{}{
+		"action": "reset",
+		"path":   "channels.telegram.token",
+	})
+	if err != nil {
+		t.Fatalf("reset returned error: %v", err)
+	}
+
+	response := parseResponse(t, result)
+	if success, _ := response["success"].(bool); success {
+		t.Fatalf("expected reset without confirmation to fail, got: %s", result)
+	}
+	if code, _ := response["error"].(string); code != "confirmation_required" {
+		t.Fatalf("expected confirmation_required, got %q", code)
+	}
+
+	confirmedResult, err := tool.Execute(ctx, map[string]interface{}{
+		"action":    "reset",
+		"path":      "channels.telegram.token",
+		"confirmed": true,
+	})
+	if err != nil {
+		t.Fatalf("confirmed reset returned error: %v", err)
+	}
+
+	confirmedResponse := parseResponse(t, confirmedResult)
+	if resetTo, _ := confirmedResponse["reset_to"].(string); resetTo != "cleared" {
+		t.Fatalf("expected sensitive reset_to=cleared, got %q", resetTo)
+	}
+
+	cfg, err := config.LoadConfigForUser(userUUID)
+	if err != nil {
+		t.Fatalf("failed to load config: %v", err)
+	}
+	if cfg.Channels.Telegram.Token != "" {
+		t.Fatalf("expected telegram token to be cleared, got %q", cfg.Channels.Telegram.Token)
+	}
+}
+
+func TestConfigureTool_SetSensitiveRequiresConfirmation(t *testing.T) {
+	userUUID := "test-user-sensitive-confirm"
+	_, cleanup := setupTestConfig(t, userUUID)
+	defer cleanup()
+
+	tool := NewConfigureTool()
+	tool.SetUserContext(1, userUUID)
+	ctx := WithSensitiveConfirmationRequired(context.Background(), true)
+
+	result, err := tool.Execute(ctx, map[string]interface{}{
+		"action": "set",
+		"path":   "providers.openai.api_key",
+		"value":  "sk-sensitive",
+	})
+	if err != nil {
+		t.Fatalf("set returned error: %v", err)
+	}
+
+	response := parseResponse(t, result)
+	if success, _ := response["success"].(bool); success {
+		t.Fatalf("expected sensitive set without confirmation to fail, got: %s", result)
+	}
+	if code, _ := response["error"].(string); code != "confirmation_required" {
+		t.Fatalf("expected confirmation_required, got %q", code)
+	}
+
+	confirmedResult, err := tool.Execute(ctx, map[string]interface{}{
+		"action":    "set",
+		"path":      "providers.openai.api_key",
+		"value":     "sk-sensitive",
+		"confirmed": true,
+	})
+	if err != nil {
+		t.Fatalf("confirmed set returned error: %v", err)
+	}
+
+	confirmedResponse := parseResponse(t, confirmedResult)
+	if success, _ := confirmedResponse["success"].(bool); !success {
+		t.Fatalf("expected confirmed sensitive set to succeed, got: %s", confirmedResult)
+	}
+}
+
+func TestConfigureTool_ListPaths(t *testing.T) {
+	userUUID := "test-user-list-paths"
+	_, cleanup := setupTestConfig(t, userUUID)
+	defer cleanup()
+
+	tool := NewConfigureTool()
+	tool.SetUserContext(1, userUUID)
+	ctx := context.Background()
+
+	result, err := tool.Execute(ctx, map[string]interface{}{
+		"action": "list_paths",
+	})
+	if err != nil {
+		t.Fatalf("list_paths returned error: %v", err)
+	}
+
+	response := parseResponse(t, result)
+	if success, _ := response["success"].(bool); !success {
+		t.Fatalf("list_paths failed: %s", result)
+	}
+
+	paths, _ := response["paths"].([]interface{})
+	if len(paths) == 0 {
+		t.Fatal("expected non-empty path list")
+	}
+
+	seen := map[string]bool{}
+	for _, entry := range paths {
+		item, _ := entry.(map[string]interface{})
+		path, _ := item["path"].(string)
+		seen[path] = true
+	}
+
+	for _, required := range []string{"agents.defaults.model", "channels.email.enabled", "providers.openai.api_key"} {
+		if !seen[required] {
+			t.Fatalf("expected list_paths to include %s", required)
+		}
 	}
 }
 

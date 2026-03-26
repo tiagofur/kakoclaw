@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -64,12 +65,16 @@ func (t *CronTool) Parameters() map[string]interface{} {
 		"properties": map[string]interface{}{
 			"action": map[string]interface{}{
 				"type":        "string",
-				"enum":        []string{"add", "list", "remove", "enable", "disable"},
+				"enum":        []string{"add", "update", "edit", "consolidate", "list", "remove", "enable", "disable"},
 				"description": "Action to perform. Use 'add' when user wants to schedule a reminder or task.",
+			},
+			"name": map[string]interface{}{
+				"type":        "string",
+				"description": "Optional job name override. For update/edit, defaults to the existing name unless a new message is provided.",
 			},
 			"message": map[string]interface{}{
 				"type":        "string",
-				"description": "The reminder/task message to display when triggered (required for add)",
+				"description": "The reminder/task message to display when triggered (required for add, optional for update/edit)",
 			},
 			"at_seconds": map[string]interface{}{
 				"type":        "integer",
@@ -85,7 +90,21 @@ func (t *CronTool) Parameters() map[string]interface{} {
 			},
 			"job_id": map[string]interface{}{
 				"type":        "string",
-				"description": "Job ID (for remove/enable/disable)",
+				"description": "Job ID (for update/edit/remove/enable/disable)",
+			},
+			"job_ids": map[string]interface{}{
+				"type":        "array",
+				"items":       map[string]interface{}{"type": "string"},
+				"description": "List of source job IDs to consolidate (for consolidate action).",
+			},
+			"remove_originals": map[string]interface{}{
+				"type":        "boolean",
+				"default":     true,
+				"description": "Whether to remove source jobs after creating the consolidated job.",
+			},
+			"confirmed": map[string]interface{}{
+				"type":        "boolean",
+				"description": "Set to true only after explicit user confirmation for destructive operations.",
 			},
 			"job_type": map[string]interface{}{
 				"type":        "string",
@@ -116,10 +135,14 @@ func (t *CronTool) Execute(ctx context.Context, args map[string]interface{}) (st
 	switch action {
 	case "add":
 		return t.addJob(ctx, args)
+	case "update", "edit":
+		return t.updateJob(ctx, args)
+	case "consolidate":
+		return t.consolidateJobs(ctx, args)
 	case "list":
 		return t.listJobs()
 	case "remove":
-		return t.removeJob(args)
+		return t.removeJob(ctx, args)
 	case "enable":
 		return t.enableJob(args, true)
 	case "disable":
@@ -127,6 +150,84 @@ func (t *CronTool) Execute(ctx context.Context, args map[string]interface{}) (st
 	default:
 		return "", fmt.Errorf("unknown action: %s", action)
 	}
+}
+
+func getStringSliceArg(args map[string]interface{}, key string) ([]string, bool) {
+	value, ok := args[key]
+	if !ok {
+		return nil, false
+	}
+
+	if values, ok := value.([]string); ok {
+		if len(values) == 0 {
+			return nil, false
+		}
+		return values, true
+	}
+
+	rawValues, ok := value.([]interface{})
+	if !ok || len(rawValues) == 0 {
+		return nil, false
+	}
+
+	result := make([]string, 0, len(rawValues))
+	for _, item := range rawValues {
+		asString, ok := item.(string)
+		if !ok {
+			return nil, false
+		}
+		asString = strings.TrimSpace(asString)
+		if asString == "" {
+			return nil, false
+		}
+		result = append(result, asString)
+	}
+
+	return result, true
+}
+
+func getSecondsArg(args map[string]interface{}, key string) (int64, bool) {
+	value, ok := args[key]
+	if !ok {
+		return 0, false
+	}
+
+	switch numeric := value.(type) {
+	case float64:
+		return int64(numeric), true
+	case int:
+		return int64(numeric), true
+	case int64:
+		return numeric, true
+	default:
+		return 0, false
+	}
+}
+
+func buildScheduleFromArgs(args map[string]interface{}, existing *cron.CronSchedule) (*cron.CronSchedule, error) {
+	if atSeconds, ok := getSecondsArg(args, "at_seconds"); ok {
+		atMS := time.Now().UnixMilli() + atSeconds*1000
+		schedule := cron.CronSchedule{Kind: "at", AtMS: &atMS}
+		return &schedule, nil
+	}
+
+	if everySeconds, ok := getSecondsArg(args, "every_seconds"); ok {
+		everyMS := everySeconds * 1000
+		schedule := cron.CronSchedule{Kind: "every", EveryMS: &everyMS}
+		return &schedule, nil
+	}
+
+	if cronExpr, ok := args["cron_expr"].(string); ok && strings.TrimSpace(cronExpr) != "" {
+		schedule := cron.CronSchedule{Kind: "cron", Expr: strings.TrimSpace(cronExpr)}
+		return &schedule, nil
+	}
+
+	if existing != nil {
+		schedule := *existing
+		return &schedule, nil
+	}
+
+	return nil, fmt.Errorf("one of at_seconds, every_seconds, or cron_expr is required")
 }
 
 func (t *CronTool) addJob(ctx context.Context, args map[string]interface{}) (string, error) {
@@ -145,32 +246,8 @@ func (t *CronTool) addJob(ctx context.Context, args map[string]interface{}) (str
 		return "Error: message is required for add", nil
 	}
 
-	var schedule cron.CronSchedule
-
-	// Check for at_seconds (one-time), every_seconds (recurring), or cron_expr
-	atSeconds, hasAt := args["at_seconds"].(float64)
-	everySeconds, hasEvery := args["every_seconds"].(float64)
-	cronExpr, hasCron := args["cron_expr"].(string)
-
-	// Priority: at_seconds > every_seconds > cron_expr
-	if hasAt {
-		atMS := time.Now().UnixMilli() + int64(atSeconds)*1000
-		schedule = cron.CronSchedule{
-			Kind: "at",
-			AtMS: &atMS,
-		}
-	} else if hasEvery {
-		everyMS := int64(everySeconds) * 1000
-		schedule = cron.CronSchedule{
-			Kind:    "every",
-			EveryMS: &everyMS,
-		}
-	} else if hasCron {
-		schedule = cron.CronSchedule{
-			Kind: "cron",
-			Expr: cronExpr,
-		}
-	} else {
+	schedule, err := buildScheduleFromArgs(args, nil)
+	if err != nil {
 		return "Error: one of at_seconds, every_seconds, or cron_expr is required", nil
 	}
 
@@ -196,7 +273,7 @@ func (t *CronTool) addJob(ctx context.Context, args map[string]interface{}) (str
 	job, err := t.cronService.AddJob(
 		userID,
 		messagePreview,
-		schedule,
+		*schedule,
 		message,
 		jobType,
 		channel,
@@ -208,6 +285,196 @@ func (t *CronTool) addJob(ctx context.Context, args map[string]interface{}) (str
 	}
 
 	return fmt.Sprintf("Created job '%s' (id: %s)", job.Name, job.ID), nil
+}
+
+func (t *CronTool) updateJob(ctx context.Context, args map[string]interface{}) (string, error) {
+	t.mu.RLock()
+	userID := t.userID
+	t.mu.RUnlock()
+
+	jobID, ok := args["job_id"].(string)
+	if !ok || strings.TrimSpace(jobID) == "" {
+		return "Error: job_id is required for update/edit", nil
+	}
+
+	jobs := t.cronService.ListJobsForUser(userID, true)
+	var existing *cron.CronJob
+	for index := range jobs {
+		if jobs[index].ID == jobID {
+			existing = &jobs[index]
+			break
+		}
+	}
+	if existing == nil {
+		return fmt.Sprintf("Job %s not found", jobID), nil
+	}
+
+	schedule, err := buildScheduleFromArgs(args, &existing.Schedule)
+	if err != nil {
+		return fmt.Sprintf("Error updating job: %v", err), nil
+	}
+
+	message := existing.Payload.Message
+	if updatedMessage, ok := args["message"].(string); ok && strings.TrimSpace(updatedMessage) != "" {
+		message = updatedMessage
+	}
+
+	name := existing.Name
+	if updatedName, ok := args["name"].(string); ok && strings.TrimSpace(updatedName) != "" {
+		name = strings.TrimSpace(updatedName)
+	} else if message != existing.Payload.Message {
+		name = utils.Truncate(message, 30)
+	}
+
+	jobType := existing.Payload.JobType
+	if updatedType, ok := args["job_type"].(string); ok && updatedType != "" {
+		jobType = updatedType
+	}
+	if jobType == "" {
+		jobType = "task"
+	}
+
+	updatedJob, err := t.cronService.UpdateJobForUser(
+		userID,
+		jobID,
+		name,
+		*schedule,
+		message,
+		jobType,
+		existing.Payload.Channel,
+		existing.Payload.To,
+		existing.Payload.Agent,
+	)
+	if err != nil {
+		return fmt.Sprintf("Error updating job: %v", err), nil
+	}
+	if updatedJob == nil {
+		return fmt.Sprintf("Job %s not found", jobID), nil
+	}
+
+	return fmt.Sprintf("Updated job '%s' (id: %s)", updatedJob.Name, updatedJob.ID), nil
+}
+
+func (t *CronTool) consolidateJobs(ctx context.Context, args map[string]interface{}) (string, error) {
+	t.mu.RLock()
+	channel := t.channel
+	chatID := t.chatID
+	userID := t.userID
+	t.mu.RUnlock()
+
+	jobIDs, ok := getStringSliceArg(args, "job_ids")
+	if !ok || len(jobIDs) < 2 {
+		return "Error: job_ids must include at least two job IDs for consolidate", nil
+	}
+
+	jobs := t.cronService.ListJobsForUser(userID, true)
+	jobsByID := make(map[string]cron.CronJob, len(jobs))
+	for _, job := range jobs {
+		jobsByID[job.ID] = job
+	}
+
+	sourceJobs := make([]cron.CronJob, 0, len(jobIDs))
+	for _, jobID := range jobIDs {
+		source, exists := jobsByID[jobID]
+		if !exists {
+			return fmt.Sprintf("Error: source job %s not found", jobID), nil
+		}
+		sourceJobs = append(sourceJobs, source)
+	}
+
+	first := sourceJobs[0]
+	schedule, err := buildScheduleFromArgs(args, &first.Schedule)
+	if err != nil {
+		return fmt.Sprintf("Error consolidating jobs: %v", err), nil
+	}
+
+	message := first.Payload.Message
+	if updatedMessage, ok := args["message"].(string); ok && strings.TrimSpace(updatedMessage) != "" {
+		message = strings.TrimSpace(updatedMessage)
+	}
+
+	name := utils.Truncate(message, 30)
+	if customName, ok := args["name"].(string); ok && strings.TrimSpace(customName) != "" {
+		name = strings.TrimSpace(customName)
+	}
+
+	jobType := first.Payload.JobType
+	if updatedType, ok := args["job_type"].(string); ok && strings.TrimSpace(updatedType) != "" {
+		jobType = strings.TrimSpace(updatedType)
+	}
+	if jobType == "" {
+		jobType = "task"
+	}
+
+	jobChannel := first.Payload.Channel
+	if jobChannel == "" {
+		jobChannel = channel
+	}
+	jobTo := first.Payload.To
+	if jobTo == "" {
+		jobTo = chatID
+	}
+
+	newJob, err := t.cronService.AddJob(
+		userID,
+		name,
+		*schedule,
+		message,
+		jobType,
+		jobChannel,
+		jobTo,
+		utils.AgentNameFrom(ctx),
+	)
+	if err != nil {
+		return fmt.Sprintf("Error consolidating jobs: %v", err), nil
+	}
+
+	removeOriginals := true
+	if explicit, ok := args["remove_originals"].(bool); ok {
+		removeOriginals = explicit
+	}
+	if IsSensitiveConfirmationRequired(ctx) && removeOriginals && !isConfirmed(args) {
+		return "Confirmation required: consolidate with remove_originals=true is destructive. Re-run with confirmed=true after user approval.", nil
+	}
+
+	removed := 0
+	failedRemovals := make([]string, 0)
+	if removeOriginals {
+		for _, source := range sourceJobs {
+			if t.cronService.RemoveJobForUser(userID, source.ID) {
+				removed++
+			} else {
+				failedRemovals = append(failedRemovals, source.ID)
+			}
+		}
+	}
+
+	if len(failedRemovals) > 0 {
+		return fmt.Sprintf(
+			"Consolidated into job '%s' (id: %s). Removed %d/%d originals, failed removals: %s",
+			newJob.Name,
+			newJob.ID,
+			removed,
+			len(sourceJobs),
+			strings.Join(failedRemovals, ", "),
+		), nil
+	}
+
+	if !removeOriginals {
+		return fmt.Sprintf(
+			"Consolidated into job '%s' (id: %s). Original jobs kept (%d source jobs).",
+			newJob.Name,
+			newJob.ID,
+			len(sourceJobs),
+		), nil
+	}
+
+	return fmt.Sprintf(
+		"Consolidated %d jobs into '%s' (id: %s) and removed all originals.",
+		len(sourceJobs),
+		newJob.Name,
+		newJob.ID,
+	), nil
 }
 
 func (t *CronTool) listJobs() (string, error) {
@@ -239,10 +506,14 @@ func (t *CronTool) listJobs() (string, error) {
 	return result, nil
 }
 
-func (t *CronTool) removeJob(args map[string]interface{}) (string, error) {
+func (t *CronTool) removeJob(ctx context.Context, args map[string]interface{}) (string, error) {
 	t.mu.RLock()
 	userID := t.userID
 	t.mu.RUnlock()
+
+	if IsSensitiveConfirmationRequired(ctx) && !isConfirmed(args) {
+		return "Confirmation required: remove is destructive. Re-run with confirmed=true after user approval.", nil
+	}
 
 	jobID, ok := args["job_id"].(string)
 	if !ok || jobID == "" {

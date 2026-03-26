@@ -149,6 +149,40 @@ func TestWriteFileTool_Execute(t *testing.T) {
 		}
 	})
 
+	t.Run("requires confirmation for sensitive targets when enabled", func(t *testing.T) {
+		workspace := t.TempDir()
+		tool := NewWriteFileTool(workspace, true)
+		ctx := WithSensitiveConfirmationRequired(context.Background(), true)
+
+		result, err := tool.Execute(ctx, map[string]interface{}{
+			"path":    "SOUL.md",
+			"content": "updated soul",
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !strings.Contains(result, "Confirmation required") {
+			t.Fatalf("expected confirmation required message, got: %s", result)
+		}
+
+		_, err = os.Stat(filepath.Join(workspace, "SOUL.md"))
+		if !os.IsNotExist(err) {
+			t.Fatalf("expected SOUL.md to remain unchanged before confirmation")
+		}
+
+		result, err = tool.Execute(ctx, map[string]interface{}{
+			"path":      "SOUL.md",
+			"content":   "updated soul",
+			"confirmed": true,
+		})
+		if err != nil {
+			t.Fatalf("unexpected confirmed error: %v", err)
+		}
+		if !strings.Contains(result, "File written successfully") {
+			t.Fatalf("expected successful write after confirmation, got: %s", result)
+		}
+	})
+
 	t.Run("creates subdirectories", func(t *testing.T) {
 		workspace := t.TempDir()
 		tool := NewWriteFileTool(workspace, true)

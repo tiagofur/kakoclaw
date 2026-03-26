@@ -146,6 +146,10 @@ func (t *WriteFileTool) Parameters() map[string]interface{} {
 				"type":        "string",
 				"description": "Content to write to the file",
 			},
+			"confirmed": map[string]interface{}{
+				"type":        "boolean",
+				"description": "Set to true only after explicit user confirmation for sensitive targets.",
+			},
 		},
 		"required": []string{"path", "content"},
 	}
@@ -165,6 +169,10 @@ func (t *WriteFileTool) Execute(ctx context.Context, args map[string]interface{}
 	resolvedPath, err := validatePath(path, t.workspace, t.restrict)
 	if err != nil {
 		return "", err
+	}
+
+	if IsSensitiveConfirmationRequired(ctx) && IsSensitiveWorkspacePath(resolvedPath, t.workspace) && !isConfirmed(args) {
+		return "Confirmation required: write_file targets a sensitive file. Re-run with confirmed=true after user approval.", nil
 	}
 
 	dir := filepath.Dir(resolvedPath)
