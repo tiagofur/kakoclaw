@@ -263,6 +263,12 @@ func (sa *SpecialistAgent) ToolFilter() *tools.ToolRegistry {
 // and tools are filtered to only allowed ones.
 // Uses a mutex to serialize concurrent calls that swap tools tool registry.
 func (sa *SpecialistAgent) ProcessWithSpeciality(ctx context.Context, userMessage string) (string, error) {
+	return sa.ProcessWithSpecialityAndSession(ctx, userMessage, "")
+}
+
+// ProcessWithSpecialityAndSession processes a message using this specialist's configuration
+// while preserving the provided session when available.
+func (sa *SpecialistAgent) ProcessWithSpecialityAndSession(ctx context.Context, userMessage, sessionKey string) (string, error) {
 	// Specialist prompt is now in the system prompt via SetAgentSystemPrompt,
 	// no need to prepend it to the user message.
 	fullMessage := userMessage
@@ -282,7 +288,10 @@ func (sa *SpecialistAgent) ProcessWithSpeciality(ctx context.Context, userMessag
 	agentCtx := kakoclawContext.WithAgentName(ctx, sa.name)
 
 	// Processs message using ProcessDirect
-	return sa.ProcessDirect(agentCtx, fullMessage, fmt.Sprintf("specialist_%s", sa.name))
+	if sessionKey == "" {
+		sessionKey = fmt.Sprintf("specialist_%s", sa.name)
+	}
+	return sa.ProcessDirect(agentCtx, fullMessage, sessionKey)
 }
 
 // ProcessWithSpecialityForUser processes a message using this specialist's configuration
@@ -455,7 +464,7 @@ func (t *RequestColleagueTool) Execute(ctx context.Context, args map[string]inte
 	})
 
 	// Get response from colleague
-	response, err := colleague.ProcessWithSpeciality(ctx, fullQuestion)
+	response, err := colleague.ProcessWithSpecialityAndSession(ctx, fullQuestion, sessionKeyFromCtx(ctx))
 	if err != nil {
 		return fmt.Sprintf("⚠️ Colleague %s encountered an error: %s", colleagueName, err.Error()), nil
 	}

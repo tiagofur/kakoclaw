@@ -940,6 +940,47 @@ func TestChat_ListSessions(t *testing.T) {
 	}
 }
 
+func TestChat_ListSessionsForUser_ExcludesSpecialistSessions(t *testing.T) {
+	s := newTestStorage(t)
+	var userID int64 = 1
+
+	_ = s.SaveMessageForUser(userID, "web:chat:alpha", "user", "hello alpha", "")
+	_ = s.SaveMessageForUser(userID, "specialist_developer", "assistant", "internal specialist result", "")
+
+	sessions, err := s.ListSessionsForUser(userID, nil, 50, 0)
+	if err != nil {
+		t.Fatalf("ListSessionsForUser: %v", err)
+	}
+
+	if len(sessions) != 1 {
+		t.Fatalf("expected 1 visible session, got %d", len(sessions))
+	}
+
+	if sessions[0].SessionID != "web:chat:alpha" {
+		t.Fatalf("expected only web session, got %q", sessions[0].SessionID)
+	}
+}
+
+func TestListSessions_UserDB_ExcludesSpecialistSessions(t *testing.T) {
+	s := newTestUserStorage(t)
+
+	_ = s.SaveMessage("web:chat:alpha", "user", "hello alpha")
+	_ = s.SaveMessage("specialist_developer", "assistant", "internal specialist result")
+
+	sessions, err := s.ListSessionsForUser(0, nil, 50, 0)
+	if err != nil {
+		t.Fatalf("ListSessionsForUser: %v", err)
+	}
+
+	if len(sessions) != 1 {
+		t.Fatalf("expected 1 visible session, got %d", len(sessions))
+	}
+
+	if sessions[0].SessionID != "web:chat:alpha" {
+		t.Fatalf("expected only web session, got %q", sessions[0].SessionID)
+	}
+}
+
 // --- Prompts tests ---
 
 func TestPrompts_CRUD(t *testing.T) {

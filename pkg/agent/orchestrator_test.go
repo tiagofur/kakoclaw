@@ -5,7 +5,61 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/sipeed/makoclaw/pkg/bus"
+	"github.com/sipeed/makoclaw/pkg/providers"
 )
+
+type sequenceProvider struct {
+	responses []*providers.LLMResponse
+	idx       int
+}
+
+func (p *sequenceProvider) Chat(ctx context.Context, messages []providers.Message, tools []providers.ToolDefinition, model string, options map[string]interface{}) (*providers.LLMResponse, error) {
+	if p.idx >= len(p.responses) {
+		return &providers.LLMResponse{Content: "done", FinishReason: "stop"}, nil
+	}
+	resp := p.responses[p.idx]
+	p.idx++
+	return resp, nil
+}
+
+func (p *sequenceProvider) GetDefaultModel() string {
+	return "sequence-test-model"
+}
+
+type sessionRecordingTool struct {
+	lastSessionKey string
+}
+
+func (t *sessionRecordingTool) Name() string { return "session_recorder" }
+
+func (t *sessionRecordingTool) Description() string { return "records propagated session key" }
+
+func (t *sessionRecordingTool) Parameters() map[string]interface{} {
+	return map[string]interface{}{
+		"type":       "object",
+		"properties": map[string]interface{}{},
+	}
+}
+
+func (t *sessionRecordingTool) Execute(ctx context.Context, args map[string]interface{}) (string, error) {
+	t.lastSessionKey = sessionKeyFromCtx(ctx)
+	return "recorded", nil
+}
+
+func newTestSpecialistAgent(t *testing.T, name string, provider providers.LLMProvider) *SpecialistAgent {
+	t.Helper()
+
+	cfg := newAgentTestConfig(t.TempDir())
+	loop := NewAgentLoop(cfg, bus.NewMessageBus(), provider)
+	return &SpecialistAgent{
+		AgentLoop:    loop,
+		name:         name,
+		description:  name + " specialist",
+		allowedTools: map[string]bool{},
+	}
+}
 
 // ---------------------------------------------------------------------------
 // truncate
@@ -567,6 +621,18 @@ func TestAgentTrackerFromCtx_Missing(t *testing.T) {
 	}
 }
 
+func TestContextWithSessionKeyRoundTrip(t *testing.T) {
+	ctx := context.Background()
+	if got := sessionKeyFromCtx(ctx); got != "" {
+		t.Fatalf("expected empty session key from empty context, got %q", got)
+	}
+
+	ctx = ContextWithSessionKey(ctx, "web:chat:abc123")
+	if got := sessionKeyFromCtx(ctx); got != "web:chat:abc123" {
+		t.Fatalf("expected session key to round-trip, got %q", got)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // ContextWithAgentStatusCallback / agentStatusCallbackFromCtx / emitAgentStatus
 // ---------------------------------------------------------------------------
@@ -622,6 +688,151 @@ func TestEmitAgentStatus_WithoutCallback(t *testing.T) {
 	// Should not panic when no callback is set
 	ctx := context.Background()
 	emitAgentStatus(ctx, AgentStatusEvent{Agent: "test", Status: "working"})
+}
+
+func TestAggregateReportsWithStatus_EmitsSynthesisEvents(t *testing.T) {
+	oa := newTestOrchestratorAgent()
+	teamCtx := &TeamContext{}
+	reports := []SpecialistReport{{SpecialistName: "developer", Status: "complete", Result: "done", Confidence: 1}}
+
+	var events []AgentStatusEvent
+	ctx := ContextWithAgentStatusCallback(context.Background(), func(ev AgentStatusEvent) error {
+		events = append(events, ev)
+		return nil
+	})
+
+	result := oa.aggregateReportsWithStatus(ctx, reports, teamCtx)
+
+	if !strings.Contains(result, "developer") {
+		t.Fatalf("expected aggregated result to include specialist content, got %q", result)
+	}
+	if len(events) != 2 {
+		t.Fatalf("expected 2 synthesis events, got %d", len(events))
+	}
+	if events[0].Status != "synthesis_start" {
+		t.Fatalf("expected first event synthesis_start, got %q", events[0].Status)
+	}
+	if events[1].Status != "synthesis_end" {
+		t.Fatalf("expected second event synthesis_end, got %q", events[1].Status)
+	}
+	if events[0].Agent != "orchestrator" || events[1].Agent != "orchestrator" {
+		t.Fatal("expected orchestrator synthesis events")
+	}
+}
+
+func TestAggregateReportsWithStatus_SkipsSynthesisEventsWithoutReports(t *testing.T) {
+	oa := newTestOrchestratorAgent()
+	teamCtx := &TeamContext{}
+
+	called := false
+	ctx := ContextWithAgentStatusCallback(context.Background(), func(ev AgentStatusEvent) error {
+		called = true
+		return nil
+	})
+
+	result := oa.aggregateReportsWithStatus(ctx, nil, teamCtx)
+
+	if result != "No specialist reports to aggregate." {
+		t.Fatalf("unexpected aggregate result: %q", result)
+	}
+	if called {
+		t.Fatal("expected no synthesis events when there are no specialist reports")
+	}
+}
+
+func TestProcessSpecialistTask_PropagatesSessionKeyToSpecialist(t *testing.T) {
+	recorder := &sessionRecordingTool{}
+	provider := &sequenceProvider{responses: []*providers.LLMResponse{{
+		ToolCalls: []providers.ToolCall{{
+			ID:        "tool-1",
+			Name:      recorder.Name(),
+			Arguments: map[string]interface{}{},
+		}},
+		FinishReason: "tool_calls",
+	}, {
+		Content:      "specialist complete",
+		FinishReason: "stop",
+	}}}
+
+	specialist := newTestSpecialistAgent(t, "developer", provider)
+	specialist.tools.Register(recorder)
+
+	registry := NewSpecialistRegistry()
+	if err := registry.RegisterSpecialist(specialist); err != nil {
+		t.Fatalf("failed to register specialist: %v", err)
+	}
+
+	oa := &OrchestratorAgent{
+		SpecialistAgent: &SpecialistAgent{AgentLoop: &AgentLoop{}},
+		registry:        registry,
+	}
+	ctx := ContextWithSessionKey(context.Background(), "web:chat:abc123")
+
+	result, err := oa.processSpecialistTask(ctx, "developer", "review this", sessionKeyFromCtx(ctx))
+	if err != nil {
+		t.Fatalf("processSpecialistTask returned error: %v", err)
+	}
+	if !strings.Contains(result, "specialist complete") {
+		t.Fatalf("expected specialist response, got %q", result)
+	}
+	if recorder.lastSessionKey != "web:chat:abc123" {
+		t.Fatalf("expected propagated session key, got %q", recorder.lastSessionKey)
+	}
+}
+
+func TestRunAgentLoop_AggregatesSpecialistReportsInStandardFlow(t *testing.T) {
+	provider := &sequenceProvider{responses: []*providers.LLMResponse{{
+		ToolCalls: []providers.ToolCall{{
+			ID:   "del-1",
+			Name: "delegate_to_specialist",
+			Arguments: map[string]interface{}{
+				"specialist_name": "developer",
+				"task":            "implement feature",
+			},
+		}},
+		FinishReason: "tool_calls",
+	}, {
+		Content:      "orchestrator raw summary",
+		FinishReason: "stop",
+	}}}
+
+	specialistProvider := &staticProvider{response: "```json\n{\"status\":\"complete\",\"confidence\":0.9,\"request_help\":\"\",\"suggestion\":\"\"}\n```\nImplemented feature cleanly."}
+	specialist := newTestSpecialistAgent(t, "developer", specialistProvider)
+
+	registry := NewSpecialistRegistry()
+	if err := registry.RegisterSpecialist(specialist); err != nil {
+		t.Fatalf("failed to register specialist: %v", err)
+	}
+
+	cfg := newAgentTestConfig(t.TempDir())
+	loop := NewAgentLoop(cfg, bus.NewMessageBus(), provider)
+	orchestratorSpecialist := &SpecialistAgent{
+		AgentLoop:    loop,
+		name:         "orchestrator",
+		description:  "test orchestrator",
+		allowedTools: map[string]bool{},
+	}
+
+	oa := &OrchestratorAgent{
+		SpecialistAgent: orchestratorSpecialist,
+		registry:        registry,
+	}
+	loop.orchestratorOwner = oa
+	oa.registerDelegationTool()
+
+	result, err := loop.ProcessDirect(context.Background(), "help me", "web:chat:abc123")
+	if err != nil {
+		t.Fatalf("ProcessDirect returned error: %v", err)
+	}
+	if strings.Contains(result, "orchestrator raw summary") {
+		t.Fatalf("expected aggregated specialist summary instead of raw orchestrator content, got %q", result)
+	}
+	if !strings.Contains(result, "Task Completion Summary") {
+		t.Fatalf("expected aggregated report header, got %q", result)
+	}
+	if !strings.Contains(result, "developer") || !strings.Contains(result, "Implemented feature cleanly.") {
+		t.Fatalf("expected aggregated specialist contribution, got %q", result)
+	}
 }
 
 // ---------------------------------------------------------------------------

@@ -174,6 +174,15 @@ func (m *Manager) initChannels() error {
 		}
 	}
 
+	if m.config.Channels.Email.Enabled && m.config.Channels.Email.IMAPHost != "" {
+		logger.DebugC("channels", "Attempting to initialize Email channel")
+		workspace := m.config.Agents.Defaults.Workspace
+		emailCh := NewEmailChannel(m.config.Channels.Email, m.bus, workspace)
+		m.applyUserResolver("email", emailCh)
+		m.channels["email"] = emailCh
+		logger.InfoC("channels", "Email channel enabled successfully")
+	}
+
 	logger.InfoCF("channels", "Channel initialization completed", map[string]interface{}{
 		"enabled_channels": len(m.channels),
 	})
@@ -304,6 +313,11 @@ func (m *Manager) RestartChannel(ctx context.Context, name string) error {
 	case "maixcam":
 		if m.config.Channels.MaixCam.Enabled {
 			newChan, err = NewMaixCamChannel(m.config.Channels.MaixCam, m.bus)
+		}
+	case "email":
+		if m.config.Channels.Email.Enabled && m.config.Channels.Email.IMAPHost != "" {
+			workspace := m.config.Agents.Defaults.Workspace
+			newChan = NewEmailChannel(m.config.Channels.Email, m.bus, workspace)
 		}
 	default:
 		return fmt.Errorf("unknown channel type: %s", name)

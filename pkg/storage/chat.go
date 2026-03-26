@@ -301,6 +301,7 @@ func (s *Storage) ListSessionsForUser(userKey interface{}, archived *bool, limit
 			) user_counts ON sess.session_id = user_counts.session_id
 			LEFT JOIN chats c ON c.session_id = user_counts.session_id AND c.id = user_counts.last_user_msg_id
 			WHERE sess.archived = ?
+			  AND sess.session_id NOT LIKE 'specialist_%'
 			ORDER BY sess.updated_at DESC
 			LIMIT ? OFFSET ?
 		`
@@ -330,10 +331,11 @@ func (s *Storage) ListSessionsForUser(userKey interface{}, archived *bool, limit
 			) user_counts ON sess.session_id = user_counts.session_id
 			LEFT JOIN chats c ON c.session_id = user_counts.session_id AND c.id = user_counts.last_user_msg_id
 			WHERE sess.user_id = ? AND sess.archived = ?
+			  AND sess.session_id NOT LIKE 'specialist_%'
 			ORDER BY sess.updated_at DESC
 			LIMIT ? OFFSET ?
 		`
-		args = []interface{}{uid, uid, archivedFilter, limit, offset}
+		args = []interface{}{uid, uid, uid, archivedFilter, limit, offset}
 	}
 
 	rows, err := s.db.Query(query, args...)
@@ -368,6 +370,7 @@ func (s *Storage) ListSessionsForUser(userKey interface{}, archived *bool, limit
 					GROUP BY session_id
 				) user_counts ON counts.session_id = user_counts.session_id
 				LEFT JOIN chats c ON c.session_id = user_counts.session_id AND c.id = user_counts.last_user_msg_id
+				WHERE counts.session_id NOT LIKE 'specialist_%'
 				ORDER BY counts.last_created_at DESC
 				LIMIT ? OFFSET ?
 			`
@@ -395,10 +398,11 @@ func (s *Storage) ListSessionsForUser(userKey interface{}, archived *bool, limit
 					GROUP BY session_id
 				) user_counts ON counts.session_id = user_counts.session_id
 				LEFT JOIN chats c ON c.session_id = user_counts.session_id AND c.id = user_counts.last_user_msg_id
+				WHERE counts.session_id NOT LIKE 'specialist_%'
 				ORDER BY counts.last_created_at DESC
 				LIMIT ? OFFSET ?
 			`
-			legacyArgs = []interface{}{uid, limit, offset}
+			legacyArgs = []interface{}{uid, uid, limit, offset}
 		}
 		rows, err = s.db.Query(legacyQuery, legacyArgs...)
 		if err != nil {

@@ -176,15 +176,33 @@ type SpecialistConfig struct {
 }
 
 type ChannelsConfig struct {
-	WhatsApp WhatsAppConfig `json:"whatsapp"`
-	Telegram TelegramConfig `json:"telegram"`
-	Feishu   FeishuConfig   `json:"feishu"`
-	Discord  DiscordConfig  `json:"discord"`
-	MaixCam  MaixCamConfig  `json:"maixcam"`
-	QQ       QQConfig       `json:"qq"`
-	DingTalk DingTalkConfig `json:"dingtalk"`
-	Slack    SlackConfig    `json:"slack"`
-	Signal   SignalConfig   `json:"signal"`
+	WhatsApp WhatsAppConfig     `json:"whatsapp"`
+	Telegram TelegramConfig     `json:"telegram"`
+	Feishu   FeishuConfig       `json:"feishu"`
+	Discord  DiscordConfig      `json:"discord"`
+	MaixCam  MaixCamConfig      `json:"maixcam"`
+	QQ       QQConfig           `json:"qq"`
+	DingTalk DingTalkConfig     `json:"dingtalk"`
+	Slack    SlackConfig        `json:"slack"`
+	Signal   SignalConfig       `json:"signal"`
+	Email    EmailChannelConfig `json:"email"`
+}
+
+type EmailChannelConfig struct {
+	Enabled            bool                `json:"enabled" env:"MAKOCLAW_CHANNELS_EMAIL_ENABLED"`
+	IMAPHost           string              `json:"imap_host" env:"MAKOCLAW_CHANNELS_EMAIL_IMAP_HOST"`
+	IMAPPort           int                 `json:"imap_port" env:"MAKOCLAW_CHANNELS_EMAIL_IMAP_PORT"`
+	SMTPHost           string              `json:"smtp_host" env:"MAKOCLAW_CHANNELS_EMAIL_SMTP_HOST"`
+	SMTPPort           int                 `json:"smtp_port" env:"MAKOCLAW_CHANNELS_EMAIL_SMTP_PORT"`
+	Username           string              `json:"username" env:"MAKOCLAW_CHANNELS_EMAIL_USERNAME"`
+	Password           string              `json:"password" env:"MAKOCLAW_CHANNELS_EMAIL_PASSWORD"`
+	From               string              `json:"from" env:"MAKOCLAW_CHANNELS_EMAIL_FROM"`
+	AllowFrom          FlexibleStringSlice `json:"allow_from"`
+	Mailbox            string              `json:"mailbox" env:"MAKOCLAW_CHANNELS_EMAIL_MAILBOX"`
+	PollIntervalSecs   int                 `json:"poll_interval_seconds" env:"MAKOCLAW_CHANNELS_EMAIL_POLL_INTERVAL_SECONDS"`
+	MarkAsRead         bool                `json:"mark_as_read" env:"MAKOCLAW_CHANNELS_EMAIL_MARK_AS_READ"`
+	MaxEmailSizeMB     int                 `json:"max_email_size_mb" env:"MAKOCLAW_CHANNELS_EMAIL_MAX_SIZE_MB"`
+	InsecureSkipVerify bool                `json:"insecure_skip_verify" env:"MAKOCLAW_CHANNELS_EMAIL_INSECURE_SKIP_VERIFY"`
 }
 
 type WhatsAppConfig struct {
@@ -549,6 +567,16 @@ func getEmptyChannelsConfig() ChannelsConfig {
 			Enabled:     false,
 			PhoneNumber: "",
 			AllowFrom:   FlexibleStringSlice{},
+		},
+		Email: EmailChannelConfig{
+			Enabled:          false,
+			IMAPPort:         993,
+			SMTPPort:         587,
+			Mailbox:          "INBOX",
+			PollIntervalSecs: 60,
+			MarkAsRead:       true,
+			MaxEmailSizeMB:   10,
+			AllowFrom:        FlexibleStringSlice{},
 		},
 	}
 }
@@ -1080,7 +1108,7 @@ func isAgentsConfigEmpty(a *AgentsConfig) bool {
 func isChannelsConfigEmpty(c *ChannelsConfig) bool {
 	return c == nil || (!c.WhatsApp.Enabled && !c.Telegram.Enabled && !c.Feishu.Enabled &&
 		!c.Discord.Enabled && !c.MaixCam.Enabled && !c.QQ.Enabled && !c.DingTalk.Enabled &&
-		!c.Slack.Enabled && !c.Signal.Enabled)
+		!c.Slack.Enabled && !c.Signal.Enabled && !c.Email.Enabled)
 }
 
 func isGatewayConfigEmpty(g *GatewayConfig) bool {
@@ -1256,6 +1284,9 @@ func (c *Config) GetActiveChannels() []string {
 	}
 	if c.Channels.MaixCam.Enabled {
 		active = append(active, "maixcam")
+	}
+	if c.Channels.Email.Enabled && c.Channels.Email.IMAPHost != "" {
+		active = append(active, "email")
 	}
 
 	return active

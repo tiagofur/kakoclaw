@@ -440,6 +440,14 @@
           <AgentStatusIndicator />
         </div>
 
+        <div class="px-2.5 md:px-4">
+          <SynthesisIndicator
+            v-if="isSynthesizing"
+            :is-synthesizing="isSynthesizing"
+            agent="orchestrator"
+          />
+        </div>
+
         <!-- Team Activity Panel -->
         <div class="px-2.5 md:px-4">
           <TeamActivityPanel
@@ -876,13 +884,14 @@ import { storeToRefs } from 'pinia'
 import MessageBubble from '../components/MessageBubble.vue'
 import AgentStatusIndicator from '../components/Chat/AgentStatusIndicator.vue'
 import SessionContextMenu from '../components/Chat/SessionContextMenu.vue'
+import SynthesisIndicator from '../components/Chat/SynthesisIndicator.vue'
 import TeamActivityPanel from '../components/Chat/TeamActivityPanel.vue'
 import PromptLibrary from '../components/PromptModal.vue'
 import { useChatStore } from '../stores/chatStore'
 import { getChatWebSocket } from '../services/websocketService'
 import taskService from '../services/taskService'
 import advancedService from '../services/advancedService'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useToast } from '../composables/useToast'
 
 const route = useRoute()
@@ -907,6 +916,8 @@ const renameInput = ref('')
 const showToolsPopover = ref(false)
 const showPromptLibrary = ref(false)
 const searchQuery = ref('')
+const isSynthesizing = ref(false)
+const lastActiveSessionId = ref(null)
 
 // Team activity state
 const teamAgentStatus = ref(null)
@@ -1047,10 +1058,27 @@ const normalizeSessionId = (value) => {
   return typeof value === 'string' ? value : ''
 }
 
+function clearAgentStatus(onlyIfDifferentSession = false) {
+  if (onlyIfDifferentSession && currentSessionId.value === lastActiveSessionId.value) {
+    return
+  }
+
+  chatStore.clearAgentStatus()
+  isSynthesizing.value = false
+  teamAgentStatus.value = null
+  teamCommunications.value = []
+  involvedAgentsList.value = []
+}
+
 const loadSession = async (sessionId, options = { updateRoute: true }) => {
   const normalizedSessionId = normalizeSessionId(sessionId)
   if (!normalizedSessionId || currentSessionId.value === normalizedSessionId) return
+  const previousSessionId = currentSessionId.value
+  if (previousSessionId && previousSessionId !== normalizedSessionId) {
+    lastActiveSessionId.value = previousSessionId
+  }
   currentSessionId.value = normalizedSessionId
+  clearAgentStatus(true)
   if (options.updateRoute) {
     router.replace({ query: { id: normalizedSessionId } })
   }
@@ -1113,6 +1141,8 @@ const loadSession = async (sessionId, options = { updateRoute: true }) => {
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined
       }
     }))
+    lastActiveSessionId.value = normalizedSessionId
+    chatStore.setActiveSessionId(normalizedSessionId)
     // Close sidebar on mobile
     showSidebar.value = false
   } catch (error) {
@@ -1121,11 +1151,15 @@ const loadSession = async (sessionId, options = { updateRoute: true }) => {
 }
 
 const startNewChat = () => {
+  lastActiveSessionId.value = currentSessionId.value
   currentSessionId.value = null
+  clearAgentStatus(true)
   if (route.query.id) {
     router.replace({ query: {} })
   }
   chatStore.clearMessages()
+  chatStore.setActiveSessionId(null)
+  lastActiveSessionId.value = null
   showSidebar.value = false
   // Reset team activity for new chat
   teamAgentStatus.value = null
@@ -1230,7 +1264,6 @@ const handleMessage = (message) => {
   }
   if (message.type === 'stream_start') {
     chatStore.startStreamingMessage()
-    chatStore.clearAgentStatus() // Resetear para nuevo mensaje
     // Reset team activity for new message
     teamAgentStatus.value = null
     teamCommunications.value = []
@@ -1249,10 +1282,16 @@ const handleMessage = (message) => {
     if (message.delegation_summary) {
       chatStore.setDelegationSummary(message.delegation_summary)
     }
-    chatStore.clearAgentStatus() // Limpiar cuando termina
     fetchSessions()
   }
   if (message.type === 'agent_status') {
+    if (message.status === 'synthesis_start') {
+      isSynthesizing.value = true
+    }
+    if (message.status === 'synthesis_end') {
+      isSynthesizing.value = false
+    }
+
     chatStore.setAgentStatus(
       message.agent,
       message.status,
@@ -1454,6 +1493,17 @@ onBeforeUnmount(() => {
   window.__makoclaw_setChatViewActive?.(false)
 })
 
+onBeforeRouteLeave((to, from) => {
+  const nextSessionId = normalizeSessionId(to.query?.id)
+  const previousSessionId = normalizeSessionId(from.query?.id)
+
+  if (nextSessionId !== previousSessionId) {
+    lastActiveSessionId.value = previousSessionId
+    currentSessionId.value = nextSessionId || null
+    clearAgentStatus(true)
+  }
+})
+
 // Auto-scroll to bottom
 watch(messages, async () => {
   await nextTick()
@@ -1482,6 +1532,9 @@ const sendMessage = async () => {
     currentSessionId.value = generateSessionId()
     router.replace({ query: { id: currentSessionId.value } })
   }
+
+  clearAgentStatus(true)
+  lastActiveSessionId.value = currentSessionId.value
 
   // Parse @specialist_name mentions for direct invocation
   // Syntax: @specialist_name message content

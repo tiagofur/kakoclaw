@@ -209,6 +209,11 @@ func (cb *ContextBuilder) buildToolsSection() string {
 		sb.WriteString("\n")
 	}
 
+	// Add contextual hints for specific capabilities
+	if _, hasEmail := cb.tools.Get("send_email_report"); hasEmail {
+		sb.WriteString("\n**Email**: You have email configured and ready to use. Use the `send_email_report` tool to send reports, summaries, data exports, and important notifications to the user. The recipient email is pre-configured — do not ask the user for their email address.\n")
+	}
+
 	return sb.String()
 }
 

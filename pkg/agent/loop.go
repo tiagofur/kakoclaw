@@ -31,31 +31,32 @@ import (
 )
 
 type AgentLoop struct {
-	bus              *bus.MessageBus
-	provider         providers.LLMProvider
-	workspace        string
-	defaultWorkspace string // Base workspace when no user is set
-	userUUID         string // User UUID for multiuser support
-	userID           int64  // User ID for multiuser support
-	userRole         string // User role for permission checks
-	model            string
-	contextWindow    int // Maximum context window size in tokens
-	maxIterations    int
-	sessions         *session.SessionManager
-	contextBuilder   *ContextBuilder
-	tools            *tools.ToolRegistry
-	baseTools        *tools.ToolRegistry // Unfiltered tools (before permission filtering)
-	running          atomic.Bool
-	summarizing      sync.Map // Tracks which sessions are currently being summarized
-	storage          *storage.Storage
-	centralStorage   *storage.CentralStorage  // Central DB for user identity and permissions lookups
-	auditLogger      *tools.SQLiteAuditLogger // Audit logger for restricted tools
-	cfg              *config.Config           // Config for permission checks
-	metrics          *observability.Metrics
-	involvedAgentsMu sync.Mutex        // Mutex for thread-safe agent tracking
-	involvedAgents   []string          // Agents involved in current/last response
-	summarizeWg      sync.WaitGroup    // Tracks active summarization goroutines
-	costTracker      *AgentCostTracker // Tracks token usage and estimated costs
+	bus               *bus.MessageBus
+	provider          providers.LLMProvider
+	workspace         string
+	defaultWorkspace  string // Base workspace when no user is set
+	userUUID          string // User UUID for multiuser support
+	userID            int64  // User ID for multiuser support
+	userRole          string // User role for permission checks
+	model             string
+	contextWindow     int // Maximum context window size in tokens
+	maxIterations     int
+	sessions          *session.SessionManager
+	contextBuilder    *ContextBuilder
+	tools             *tools.ToolRegistry
+	baseTools         *tools.ToolRegistry // Unfiltered tools (before permission filtering)
+	running           atomic.Bool
+	summarizing       sync.Map // Tracks which sessions are currently being summarized
+	storage           *storage.Storage
+	centralStorage    *storage.CentralStorage  // Central DB for user identity and permissions lookups
+	auditLogger       *tools.SQLiteAuditLogger // Audit logger for restricted tools
+	cfg               *config.Config           // Config for permission checks
+	metrics           *observability.Metrics
+	involvedAgentsMu  sync.Mutex        // Mutex for thread-safe agent tracking
+	involvedAgents    []string          // Agents involved in current/last response
+	summarizeWg       sync.WaitGroup    // Tracks active summarization goroutines
+	costTracker       *AgentCostTracker // Tracks token usage and estimated costs
+	orchestratorOwner *OrchestratorAgent
 }
 
 // ToolRegistry returns the agent loop's tool registry so external
@@ -127,10 +128,18 @@ type ToolEvent struct {
 // ToolCallback is called when a tool is about to be executed or starts/finishes.
 type ToolCallback func(ev ToolEvent) error
 
-// AgentStatusEvent represents agent status changes during execution
+// AgentStatusEvent represents agent status changes during execution.
+//
+// Synthesis lifecycle statuses are emitted around the orchestrator's final
+// summary pass after specialist responses have been collected:
+//   - synthesis_start: emitted before runLLMIteration() or
+//     runLLMIterationStream() begins the final synthesis step for specialist
+//     responses.
+//   - synthesis_end: emitted after that synthesis step completes and the
+//     unified orchestrator summary is ready.
 type AgentStatusEvent struct {
 	Agent           string    `json:"agent"`
-	Status          string    `json:"status"` // "analyzing", "delegating", "working", "complete", "synthesizing", "timeout"
+	Status          string    `json:"status"` // "analyzing", "delegating", "working", "complete", "synthesizing", "synthesis_start", "synthesis_end", "timeout"
 	SpecialistName  string    `json:"specialist_name,omitempty"`
 	Reason          string    `json:"reason,omitempty"`
 	Timestamp       time.Time `json:"timestamp"`
@@ -261,9 +270,17 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 
 	if cfg.Tools.Email.Enabled {
 		if strings.TrimSpace(cfg.Tools.Email.Host) == "" || cfg.Tools.Email.Port <= 0 {
-			logger.WarnC("agent", "Email tool enabled but SMTP host/port are missing")
+			logger.WarnCF("agent", "Email tool enabled but SMTP host/port are missing — tool will NOT be available", map[string]interface{}{
+				"host": cfg.Tools.Email.Host,
+				"port": cfg.Tools.Email.Port,
+			})
 		} else {
 			toolsRegistry.Register(tools.NewEmailTool(cfg.Tools.Email))
+			logger.InfoCF("agent", "Email tool registered", map[string]interface{}{
+				"host": cfg.Tools.Email.Host,
+				"port": cfg.Tools.Email.Port,
+				"to":   cfg.Tools.Email.To,
+			})
 		}
 	}
 
@@ -803,6 +820,12 @@ func (al *AgentLoop) processSystemMessage(ctx context.Context, msg bus.InboundMe
 // runAgentLoop is the core message processing logic.
 // It handles context building, LLM calls, tool execution, and response handling.
 func (al *AgentLoop) runAgentLoop(ctx context.Context, opts processOptions) (string, error) {
+	var teamCtx *TeamContext
+	if al.orchestratorOwner != nil {
+		teamCtx = al.orchestratorOwner.resetCurrentExecutionState(opts.UserMessage, al.userUUID, al.userID)
+		ctx = ContextWithTeamContext(ctx, teamCtx)
+	}
+
 	// Clear previous involved agents before processing
 	al.ClearInvolvedAgents()
 	// Register this agent loop as primary responder
@@ -864,6 +887,15 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, opts processOptions) (str
 		finalContent = opts.DefaultResponse
 	}
 
+	var specialistReports []SpecialistReport
+	if al.orchestratorOwner != nil {
+		var aggregatedContent string
+		specialistReports, aggregatedContent = al.orchestratorOwner.aggregateCurrentExecutionReports(teamCtx)
+		if aggregatedContent != "" {
+			finalContent = aggregatedContent
+		}
+	}
+
 	// 6. Save final assistant message to session
 	al.sessions.AddMessageForUser(al.userID, opts.SessionKey, "assistant", finalContent)
 	al.sessions.SaveForUser(al.userID, al.sessions.GetOrCreateForUser(al.userID, opts.SessionKey))
@@ -892,6 +924,9 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, opts processOptions) (str
 
 		if len(trailing) > 0 {
 			metadataObj["messages"] = trailing
+		}
+		if len(specialistReports) > 0 {
+			metadataObj["segments"] = specialistSegmentsFromReports(specialistReports)
 		}
 
 		var metadata string
@@ -935,6 +970,12 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, opts processOptions) (str
 // runAgentLoopStream is like runAgentLoop but streams the final text response token-by-token.
 // Tool call iterations are handled non-streaming. Only the final text answer is streamed.
 func (al *AgentLoop) runAgentLoopStream(ctx context.Context, opts processOptions, onToken StreamCallback) (string, error) {
+	var teamCtx *TeamContext
+	if al.orchestratorOwner != nil {
+		teamCtx = al.orchestratorOwner.resetCurrentExecutionState(opts.UserMessage, al.userUUID, al.userID)
+		ctx = ContextWithTeamContext(ctx, teamCtx)
+	}
+
 	// Clear previous involved agents before processing
 	al.ClearInvolvedAgents()
 	// Register this agent loop as primary responder
@@ -996,6 +1037,15 @@ func (al *AgentLoop) runAgentLoopStream(ctx context.Context, opts processOptions
 		finalContent = opts.DefaultResponse
 	}
 
+	var specialistReports []SpecialistReport
+	if al.orchestratorOwner != nil {
+		var aggregatedContent string
+		specialistReports, aggregatedContent = al.orchestratorOwner.aggregateCurrentExecutionReports(teamCtx)
+		if aggregatedContent != "" {
+			finalContent = aggregatedContent
+		}
+	}
+
 	// 6. Save final assistant message to session
 	al.sessions.AddMessageForUser(al.userID, opts.SessionKey, "assistant", finalContent)
 	al.sessions.SaveForUser(al.userID, al.sessions.GetOrCreateForUser(al.userID, opts.SessionKey))
@@ -1024,6 +1074,9 @@ func (al *AgentLoop) runAgentLoopStream(ctx context.Context, opts processOptions
 
 		if len(trailing) > 0 {
 			metadataObj["messages"] = trailing
+		}
+		if len(specialistReports) > 0 {
+			metadataObj["segments"] = specialistSegmentsFromReports(specialistReports)
 		}
 
 		var metadata string
@@ -1069,6 +1122,8 @@ func (al *AgentLoop) runAgentLoopStream(ctx context.Context, opts processOptions
 func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.Message, opts processOptions) (string, int, error) {
 	iteration := 0
 	var finalContent string
+	pendingSynthesis := false
+	synthesisActive := false
 
 	// Determine which model to use (override or default)
 	model := al.model
@@ -1078,6 +1133,18 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 
 	for iteration < al.maxIterations {
 		iteration++
+
+		// synthesis_start is emitted before the orchestrator begins the final
+		// synthesis step that consolidates specialist responses into one summary.
+		if pendingSynthesis && !synthesisActive {
+			emitAgentStatus(ctx, AgentStatusEvent{
+				Agent:     "orchestrator",
+				Status:    "synthesis_start",
+				Timestamp: time.Now(),
+			})
+			synthesisActive = true
+			pendingSynthesis = false
+		}
 
 		logger.DebugCF("agent", "LLM iteration",
 			map[string]interface{}{
@@ -1192,6 +1259,16 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 
 		// Check if no tool calls - we're done
 		if len(response.ToolCalls) == 0 {
+			// synthesis_end is emitted after the final synthesis step completes and
+			// the unified orchestrator summary is ready to return.
+			if synthesisActive {
+				emitAgentStatus(ctx, AgentStatusEvent{
+					Agent:     "orchestrator",
+					Status:    "synthesis_end",
+					Timestamp: time.Now(),
+				})
+				synthesisActive = false
+			}
 			finalContent = response.Content
 			logger.InfoCF("agent", "LLM response without tool calls (direct answer)",
 				map[string]interface{}{
@@ -1238,6 +1315,7 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 		// Save assistant message with tool calls to session
 		al.sessions.AddFullMessageForUser(al.userID, opts.SessionKey, assistantMsg)
 
+		specialistResponses := 0
 		// Execute tool calls
 		for _, tc := range response.ToolCalls {
 			// Log tool call with arguments preview
@@ -1295,6 +1373,9 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 			if err != nil {
 				result = fmt.Sprintf("Error: %v", err)
 			}
+			if tc.Name == "delegate_to_specialist" && err == nil && strings.TrimSpace(result) != "" {
+				specialistResponses++
+			}
 
 			// Notify end of tool call
 			if opts.OnTool != nil {
@@ -1314,6 +1395,9 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 
 			// Save tool result message to session
 			al.sessions.AddFullMessageForUser(al.userID, opts.SessionKey, toolResultMsg)
+		}
+		if specialistResponses > 0 {
+			pendingSynthesis = true
 		}
 	}
 
@@ -1341,6 +1425,16 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 			logger.ErrorCF("agent", "Concluding LLM call failed", map[string]interface{}{"error": err.Error()})
 			return "", iteration, fmt.Errorf("concluding LLM call failed: %w", err)
 		}
+		// synthesis_end is emitted after the forced concluding synthesis step
+		// completes and the unified orchestrator summary is ready.
+		if synthesisActive {
+			emitAgentStatus(ctx, AgentStatusEvent{
+				Agent:     "orchestrator",
+				Status:    "synthesis_end",
+				Timestamp: time.Now(),
+			})
+			synthesisActive = false
+		}
 		finalContent = concludeResp.Content
 		iteration++
 	}
@@ -1354,6 +1448,8 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []providers.Message, opts processOptions, onToken StreamCallback) (string, int, error) {
 	iteration := 0
 	var finalContent string
+	pendingSynthesis := false
+	synthesisActive := false
 
 	model := al.model
 	if opts.ModelOverride != "" {
@@ -1364,6 +1460,18 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 
 	for iteration < al.maxIterations {
 		iteration++
+
+		// synthesis_start is emitted before the orchestrator begins the final
+		// synthesis step that consolidates specialist responses into one summary.
+		if pendingSynthesis && !synthesisActive {
+			emitAgentStatus(ctx, AgentStatusEvent{
+				Agent:     "orchestrator",
+				Status:    "synthesis_start",
+				Timestamp: time.Now(),
+			})
+			synthesisActive = true
+			pendingSynthesis = false
+		}
 
 		logger.DebugCF("agent", "LLM streaming iteration",
 			map[string]interface{}{
@@ -1508,6 +1616,16 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 
 			// If no tool calls — we're done
 			if len(toolCalls) == 0 {
+				// synthesis_end is emitted after the final synthesis step completes
+				// and the unified orchestrator summary is ready to return.
+				if synthesisActive {
+					emitAgentStatus(ctx, AgentStatusEvent{
+						Agent:     "orchestrator",
+						Status:    "synthesis_end",
+						Timestamp: time.Now(),
+					})
+					synthesisActive = false
+				}
 				finalContent = streamContent
 				break
 			}
@@ -1543,6 +1661,7 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 			messages = append(messages, assistantMsg)
 			al.sessions.AddFullMessageForUser(al.userID, opts.SessionKey, assistantMsg)
 
+			specialistResponses := 0
 			// Execute tool calls
 			for _, tc := range toolCalls {
 				argsJSON, err := json.Marshal(tc.Arguments)
@@ -1568,6 +1687,9 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 				if err != nil {
 					result = fmt.Sprintf("Error: %v", err)
 				}
+				if tc.Name == "delegate_to_specialist" && err == nil && strings.TrimSpace(result) != "" {
+					specialistResponses++
+				}
 
 				// Notify end of tool call
 				if opts.OnTool != nil {
@@ -1585,6 +1707,9 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 				}
 				messages = append(messages, toolResultMsg)
 				al.sessions.AddFullMessageForUser(al.userID, opts.SessionKey, toolResultMsg)
+			}
+			if specialistResponses > 0 {
+				pendingSynthesis = true
 			}
 
 			continue // Next iteration
@@ -1616,6 +1741,16 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 		}
 
 		if len(response.ToolCalls) == 0 {
+			// synthesis_end is emitted after the fallback synthesis step completes
+			// and the unified orchestrator summary is ready to return.
+			if synthesisActive {
+				emitAgentStatus(ctx, AgentStatusEvent{
+					Agent:     "orchestrator",
+					Status:    "synthesis_end",
+					Timestamp: time.Now(),
+				})
+				synthesisActive = false
+			}
 			finalContent = response.Content
 			// Send the full content as a single token for non-streaming providers
 			if onToken != nil && finalContent != "" {
@@ -1629,6 +1764,7 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 			Role:    "assistant",
 			Content: response.Content,
 		}
+		specialistResponses := 0
 		for _, tc := range response.ToolCalls {
 			argumentsJSON, err := json.Marshal(tc.Arguments)
 			if err != nil {
@@ -1666,6 +1802,9 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 			if err != nil {
 				result = fmt.Sprintf("Error: %v", err)
 			}
+			if tc.Name == "delegate_to_specialist" && err == nil && strings.TrimSpace(result) != "" {
+				specialistResponses++
+			}
 
 			toolResultMsg := providers.Message{
 				Role:       "tool",
@@ -1674,6 +1813,9 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 			}
 			messages = append(messages, toolResultMsg)
 			al.sessions.AddFullMessageForUser(al.userID, opts.SessionKey, toolResultMsg)
+		}
+		if specialistResponses > 0 {
+			pendingSynthesis = true
 		}
 	}
 
@@ -1700,6 +1842,16 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 		if err != nil {
 			logger.ErrorCF("agent", "Concluding streaming LLM call failed", map[string]interface{}{"error": err.Error()})
 			return "", iteration, fmt.Errorf("concluding LLM call failed: %w", err)
+		}
+		// synthesis_end is emitted after the forced concluding synthesis step
+		// completes and the unified orchestrator summary is ready.
+		if synthesisActive {
+			emitAgentStatus(ctx, AgentStatusEvent{
+				Agent:     "orchestrator",
+				Status:    "synthesis_end",
+				Timestamp: time.Now(),
+			})
+			synthesisActive = false
 		}
 		finalContent = concludeResp.Content
 		// Stream the concluding content to the client

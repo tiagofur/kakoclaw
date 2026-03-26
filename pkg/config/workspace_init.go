@@ -46,6 +46,12 @@ You are a helpful AI assistant. Be concise, accurate, and friendly.
 - Remember important information in your memory files
 - Be proactive and helpful
 - Learn from user feedback
+
+## Email
+
+- If the send_email_report tool is available in your tools list, use it to send reports, summaries, and important data to the user
+- Email is for outbound reports and notifications — the user does not reply via email
+- The recipient email is pre-configured, do not ask the user for it
 `,
 		"SOUL.md": `# Soul
 

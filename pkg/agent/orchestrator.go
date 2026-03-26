@@ -16,6 +16,7 @@ import (
 )
 
 type agentTrackerKey struct{}
+type sessionKeyCtxKey struct{}
 
 // ContextWithAgentTracker embeds an AgentLoop into the context so that specialist
 // delegations register agent names into the caller's tracker (e.g. the web chat AgentLoop)
@@ -29,6 +30,22 @@ func agentTrackerFromCtx(ctx context.Context) *AgentLoop {
 		return v
 	}
 	return nil
+}
+
+func contextWithSessionKey(ctx context.Context, key string) context.Context {
+	return context.WithValue(ctx, sessionKeyCtxKey{}, key)
+}
+
+// ContextWithSessionKey embeds the user's session key into the context.
+func ContextWithSessionKey(ctx context.Context, key string) context.Context {
+	return contextWithSessionKey(ctx, key)
+}
+
+func sessionKeyFromCtx(ctx context.Context) string {
+	if v, ok := ctx.Value(sessionKeyCtxKey{}).(string); ok {
+		return v
+	}
+	return ""
 }
 
 // Context keys for callbacks
@@ -141,8 +158,12 @@ type OrchestratorAgent struct {
 	fallbackToDefault bool
 
 	// Specialist report tracking for feedback loop
-	lastReport   *SpecialistReport
-	lastReportMu sync.RWMutex
+	lastReport       *SpecialistReport
+	lastReportMu     sync.RWMutex
+	currentReports   []SpecialistReport
+	currentReportsMu sync.RWMutex
+	currentTeamCtx   *TeamContext
+	currentTeamCtxMu sync.RWMutex
 
 	// Delegation limit tracking (per message)
 	delegationCount   int
@@ -315,6 +336,7 @@ func NewOrchestratorAgent(
 	orchestrator.contextBuilder.SetSkillFilter([]string{"skill-creator"})
 	// Lean context: skip bootstrap files and memory
 	orchestrator.contextBuilder.SetLightweightMode(true)
+	orchestrator.AgentLoop.orchestratorOwner = orchestrator
 
 	logger.InfoCF("agent", "Orchestrator agent created", map[string]interface{}{
 		"provider":    cfg.Agents.Orchestrator.Provider,
@@ -477,7 +499,7 @@ func (dt *DelegationTool) Execute(ctx context.Context, args map[string]interface
 		"task":       truncate(task, 100),
 	})
 
-	result, err := dt.orchestrator.processSpecialistTask(ctx, specialistName, fullTask)
+	result, err := dt.orchestrator.processSpecialistTask(ctx, specialistName, fullTask, sessionKeyFromCtx(ctx))
 	if err != nil {
 		logger.WarnCF("agent", "Specialist execution failed", map[string]interface{}{
 			"specialist": specialistName,
@@ -706,7 +728,7 @@ func (tdt *TaskDecompositionTool) Execute(ctx context.Context, args map[string]i
 				Timestamp: time.Now(),
 			})
 
-			result, err := tdt.orchestrator.processSpecialistTask(ctx, st.Specialist, fullTask)
+			result, err := tdt.orchestrator.processSpecialistTask(ctx, st.Specialist, fullTask, sessionKeyFromCtx(ctx))
 			if err != nil {
 				st.Status = "failed"
 				teamCtx.Progress[st.Specialist] = "failed"
@@ -755,8 +777,9 @@ func (tdt *TaskDecompositionTool) Execute(ctx context.Context, args map[string]i
 	return resultBuilder.String(), nil
 }
 
-// processSpecialistTask executes a task through a specialist agent
-func (oa *OrchestratorAgent) processSpecialistTask(ctx context.Context, specialistName, task string) (string, error) {
+// processSpecialistTask executes a task through a specialist agent.
+// sessionKey preserves the caller's chat session when available.
+func (oa *OrchestratorAgent) processSpecialistTask(ctx context.Context, specialistName, task, sessionKey string) (string, error) {
 	specialist, err := oa.registry.GetSpecialist(specialistName)
 	if err != nil {
 		return "", err
@@ -804,6 +827,10 @@ The user only sees text below the JSON block — include all findings there.
 	timeout := 5 * time.Minute
 	ctxWithTimeout, cancel := context.WithTimeout(specialistCtx, timeout)
 	defer cancel()
+	effectiveSessionKey := sessionKey
+	if effectiveSessionKey == "" {
+		effectiveSessionKey = sessionKeyFromCtx(ctxWithTimeout)
+	}
 
 	// Emit delegation start with chain info (including active skills)
 	emitAgentStatus(ctx, AgentStatusEvent{
@@ -833,7 +860,7 @@ The user only sees text below the JSON block — include all findings there.
 	errChan := make(chan error, 1)
 
 	go func() {
-		result, err := specialist.ProcessWithSpeciality(ctxWithTimeout, taskWithFormat)
+		result, err := specialist.ProcessWithSpecialityAndSession(ctxWithTimeout, taskWithFormat, effectiveSessionKey)
 		if err != nil {
 			errChan <- err
 			return
@@ -849,9 +876,12 @@ The user only sees text below the JSON block — include all findings there.
 
 		// Parse structured report from specialist response
 		report := oa.parseSpecialistReport(specialistName, result)
+		cleanResult := oa.cleanSpecialistResult(result)
+		report.Result = cleanResult
 		// Enrich report with chain metadata
 		report.DelegationChain = currentChain
 		report.DelegationDepth = currentDepth
+		oa.appendCurrentReport(*report)
 		oa.storeLastReport(report)
 
 		// Emit specialist report event for frontend visibility
@@ -866,9 +896,6 @@ The user only sees text below the JSON block — include all findings there.
 			"chain":      currentChain,
 			"depth":      currentDepth,
 		})
-
-		// Clean result (remove JSON header) for content segment
-		cleanResult := oa.cleanSpecialistResult(result)
 
 		// Emit content segment with clean result
 		emitContentSegment(ctx, ContentSegment{
@@ -949,6 +976,69 @@ The user only sees text below the JSON block — include all findings there.
 	return result, nil
 }
 
+func (oa *OrchestratorAgent) aggregateCurrentExecutionReports(teamCtx *TeamContext) ([]SpecialistReport, string) {
+	reports := oa.currentExecutionReports()
+	if len(reports) == 0 {
+		return nil, ""
+	}
+
+	return reports, oa.aggregateReports(reports, teamCtx)
+}
+
+func (oa *OrchestratorAgent) resetCurrentExecutionState(task, userUUID string, userID int64) *TeamContext {
+	teamCtx := &TeamContext{
+		TaskID:         fmt.Sprintf("task_%d", time.Now().UnixNano()),
+		OriginalTask:   task,
+		UserUUID:       userUUID,
+		UserID:         userID,
+		Progress:       make(map[string]string),
+		SharedNotes:    []TeamNote{},
+		Artifacts:      []string{},
+		Decisions:      []TeamDecision{},
+		Communications: []TeamComm{},
+	}
+
+	oa.currentReportsMu.Lock()
+	oa.currentReports = nil
+	oa.currentReportsMu.Unlock()
+
+	oa.currentTeamCtxMu.Lock()
+	oa.currentTeamCtx = teamCtx
+	oa.currentTeamCtxMu.Unlock()
+
+	return teamCtx
+}
+
+func (oa *OrchestratorAgent) appendCurrentReport(report SpecialistReport) {
+	oa.currentReportsMu.Lock()
+	defer oa.currentReportsMu.Unlock()
+	oa.currentReports = append(oa.currentReports, report)
+}
+
+func (oa *OrchestratorAgent) currentExecutionReports() []SpecialistReport {
+	oa.currentReportsMu.RLock()
+	defer oa.currentReportsMu.RUnlock()
+	result := make([]SpecialistReport, len(oa.currentReports))
+	copy(result, oa.currentReports)
+	return result
+}
+
+func specialistSegmentsFromReports(reports []SpecialistReport) []map[string]interface{} {
+	segments := make([]map[string]interface{}, 0, len(reports))
+	for _, report := range reports {
+		if strings.TrimSpace(report.Result) == "" {
+			continue
+		}
+		segments = append(segments, map[string]interface{}{
+			"specialist": report.SpecialistName,
+			"status":     report.Status,
+			"content":    report.Result,
+			"confidence": report.Confidence,
+		})
+	}
+	return segments
+}
+
 // GetSpecialistsSummary returns a summary of available specialists for the orchestrator's context
 func (oa *OrchestratorAgent) GetSpecialistsSummary() string {
 	specialists := oa.registry.ListSpecialists()
@@ -1002,7 +1092,9 @@ func (oa *OrchestratorAgent) BuildOrchestratorContext() string {
 	context.WriteString("- Start with a brief summary of what was done and by whom\n")
 	context.WriteString("- Present the specialist's work directly - do not rewrite it significantly\n")
 	context.WriteString("- If multiple specialists contributed, label each section with **[specialist_name]:**\n")
-	context.WriteString("- Keep your own commentary brief - the specialist's work is the main content\n\n")
+	context.WriteString("- Keep your own commentary brief - the specialist's work is the main content\n")
+	context.WriteString("- NEVER list or display the available specialists to the user. The specialist catalog is for your internal decision-making only.\n")
+	context.WriteString("- Do not echo specialist names, descriptions, or tools in your responses unless referencing who handled a specific task.\n\n")
 
 	context.WriteString(oa.GetSpecialistsSummary())
 
@@ -1031,15 +1123,9 @@ func generateDelegationReason(specialistName, task string) string {
 // ProcessOrchestratorMessage processes a user message through the orchestrator
 // The orchestrator analyzes the message and delegates to appropriate specialists
 func (oa *OrchestratorAgent) ProcessOrchestratorMessage(ctx context.Context, userMessage string) (string, error) {
-	// Build orchestrator-specific context
-	orchestratorContext := oa.BuildOrchestratorContext()
-
-	// Prepend context to user message
-	fullMessage := orchestratorContext + "\n\nUser Request:\n" + userMessage
-
-	// Use orchestrator's agent loop to process
-	// This will handle delegations via the delegation tool
-	result, err := oa.ProcessDirect(ctx, fullMessage, "orchestrator_session")
+	// Orchestrator context is already injected via SetAgentSystemPrompt (at init time).
+	// Pass the user message directly to avoid the LLM echoing the specialist catalog.
+	result, err := oa.ProcessDirect(ctx, userMessage, "orchestrator_session")
 	if err != nil {
 		return "", fmt.Errorf("orchestrator processing failed: %w", err)
 	}
@@ -1076,10 +1162,9 @@ func (oa *OrchestratorAgent) ProcessWithFeedbackLoop(ctx context.Context, userMe
 	})
 
 	for iteration := 0; iteration < maxIterations; iteration++ {
-		// Build context including previous reports for re-analysis
+		// Orchestrator context is already in the system prompt (SetAgentSystemPrompt at init).
+		// Only include user request and previous reports here.
 		var contextBuilder strings.Builder
-		contextBuilder.WriteString(oa.BuildOrchestratorContext())
-		contextBuilder.WriteString("\n\n## User Request:\n")
 		contextBuilder.WriteString(userMessage)
 
 		if len(reports) > 0 {
@@ -1173,7 +1258,29 @@ func (oa *OrchestratorAgent) ProcessWithFeedbackLoop(ctx context.Context, userMe
 	}
 
 	// Aggregate results from all reports
-	return oa.aggregateReports(reports, teamCtx), nil
+	return oa.aggregateReportsWithStatus(ctx, reports, teamCtx), nil
+}
+
+func (oa *OrchestratorAgent) aggregateReportsWithStatus(ctx context.Context, reports []SpecialistReport, teamCtx *TeamContext) string {
+	if len(reports) == 0 {
+		return oa.aggregateReports(reports, teamCtx)
+	}
+
+	emitAgentStatus(ctx, AgentStatusEvent{
+		Agent:     "orchestrator",
+		Status:    "synthesis_start",
+		Timestamp: time.Now(),
+	})
+
+	aggregated := oa.aggregateReports(reports, teamCtx)
+
+	emitAgentStatus(ctx, AgentStatusEvent{
+		Agent:     "orchestrator",
+		Status:    "synthesis_end",
+		Timestamp: time.Now(),
+	})
+
+	return aggregated
 }
 
 // getLastSpecialistReport retrieves the last specialist report if available

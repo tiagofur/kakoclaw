@@ -69,7 +69,19 @@
           />
         </div>
 
-        <!-- Main content always shown first -->
+        <!-- Specialist segments render before main content -->
+        <div
+          v-if="msg.segments && msg.segments.length > 0"
+          class="mb-4 space-y-3"
+        >
+          <SpecialistSegment
+            v-for="(segment, index) in msg.segments"
+            :key="segment.segmentId || `${segment.agent || segment.specialist || 'segment'}-${index}`"
+            :segment="segment"
+            :is-streaming="chatStore.isStreaming"
+          />
+        </div>
+
         <div v-if="msg.content">
           <!-- Streaming Content -->
           <p
@@ -86,57 +98,8 @@
           />
         </div>
 
-        <!-- Collapsible specialist segments (when both content and segments exist) -->
-        <div v-if="msg.segments && msg.segments.length > 0 && msg.content">
-          <button
-            class="flex items-center gap-1.5 mt-3 text-xs text-makoclaw-text-secondary hover:text-makoclaw-text transition-colors"
-            @click="showSegments = !showSegments"
-          >
-            <svg
-              class="w-3 h-3 transition-transform duration-200"
-              :class="{ 'rotate-90': showSegments }"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-            </svg>
-            {{ msg.segments.length }} specialist{{ msg.segments.length > 1 ? 's' : '' }} contributed
-          </button>
-          <div
-            v-if="showSegments"
-            class="mt-2 pl-3 border-l-2 border-makoclaw-border/30 space-y-3"
-          >
-            <div
-              v-for="segment in msg.segments"
-              :key="segment.segmentId"
-              class="pb-3 border-b border-makoclaw-border/20 last:border-b-0"
-            >
-              <div class="flex items-center gap-2 mb-1.5">
-                <SpecialistBadge :name="segment.agent" class="text-xs" />
-              </div>
-              <MarkdownRenderer :content="segment.content" class="text-sm md:text-base pl-5" />
-            </div>
-          </div>
-        </div>
-
-        <!-- Segments as primary content when no main content -->
-        <div v-else-if="msg.segments && msg.segments.length > 0">
-          <div
-            v-for="segment in msg.segments"
-            :key="segment.segmentId"
-            class="content-segment mb-3 pb-3 border-b border-makoclaw-border/30 last:border-b-0"
-          >
-            <div class="flex items-center gap-2 mb-2">
-              <SpecialistBadge :name="segment.agent" class="text-xs" />
-              <span class="text-xs text-makoclaw-text-secondary">contributed:</span>
-            </div>
-            <MarkdownRenderer :content="segment.content" class="text-sm md:text-base pl-6" />
-          </div>
-        </div>
-
         <!-- Fallback: no content and no segments (shouldn't happen but safety) -->
-        <div v-else-if="!msg.content">
+        <div v-else-if="!msg.segments || msg.segments.length === 0">
           <p class="text-sm text-makoclaw-text-secondary italic">No content</p>
         </div>
 
@@ -271,11 +234,13 @@ import ThinkingBlock from './Chat/ThinkingBlock.vue'
 import ToolCallItem from './ToolCallItem.vue'
 import SpecialistBadge from './Chat/SpecialistBadge.vue'
 import AgentActivityItem from './Chat/AgentActivityItem.vue'
+import SpecialistSegment from './Chat/SpecialistSegment.vue'
 import { useAuthStore } from '../stores/authStore'
+import { useChatStore } from '../stores/chatStore'
 
-const showSegments = ref(false)
 const isSynthesizing = ref(false)
 const authStore = useAuthStore()
+const chatStore = useChatStore()
 
 defineProps({
   msg: {
