@@ -286,6 +286,7 @@ func (c *EmailChannel) fetchNewEmails(ctx context.Context) error {
 		return fmt.Errorf("IMAP connect failed (%s): %w", addr, err)
 	}
 	defer func() {
+		_ = client.Logout().Wait()
 		_ = client.Close()
 	}()
 
@@ -385,7 +386,13 @@ func (c *EmailChannel) fetchNewEmails(ctx context.Context) error {
 			case imapclient.FetchItemDataEnvelope:
 				envelope = data.Envelope
 			case imapclient.FetchItemDataBodySection:
-				bodyRaw, _ = io.ReadAll(io.LimitReader(data.Literal, int64(maxSize)*1024*1024))
+				var readErr error
+				bodyRaw, readErr = io.ReadAll(io.LimitReader(data.Literal, int64(maxSize)*1024*1024))
+				if readErr != nil {
+					logger.WarnCF("email", "Failed to read email body", map[string]interface{}{
+						"uid": uid, "error": readErr.Error(),
+					})
+				}
 			}
 		}
 
@@ -393,10 +400,12 @@ func (c *EmailChannel) fetchNewEmails(ctx context.Context) error {
 			maxUID = uid
 		}
 
-		if envelope == nil || len(bodyRaw) == 0 {
-			logger.WarnCF("email", "Skipping email with missing data", map[string]interface{}{
-				"uid": uid,
-			})
+		if envelope == nil {
+			logger.WarnCF("email", "Skipping email with missing envelope", map[string]interface{}{"uid": uid})
+			continue
+		}
+		if len(bodyRaw) == 0 {
+			logger.WarnCF("email", "Skipping email with empty body", map[string]interface{}{"uid": uid})
 			continue
 		}
 

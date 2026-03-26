@@ -811,6 +811,7 @@ func (s *Server) getUserStorage(r *http.Request) (*storage.Storage, string, bool
 
 	// Fallback: return legacy shared store
 	if s.store != nil {
+		logger.WarnC("web", "Falling back to legacy shared storage — multi-user isolation NOT active")
 		return s.store, "", true
 	}
 	return nil, "", false

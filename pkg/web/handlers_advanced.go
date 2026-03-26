@@ -1823,6 +1823,7 @@ func (s *Server) handleKnowledgeAction(w http.ResponseWriter, r *http.Request) {
 		writeJSONResponse(w, map[string]string{"error": "unauthorized"})
 		return
 	}
+	userID, _ := s.getUserIDFromClaims(r)
 
 	// Extract ID from path: /api/v1/knowledge/{id}
 	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/v1/knowledge/"), "/")
@@ -1840,7 +1841,7 @@ func (s *Server) handleKnowledgeAction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodDelete {
-		if err := store.DeleteKnowledgeDocument(0, docID); err != nil {
+		if err := store.DeleteKnowledgeDocument(userID, docID); err != nil {
 			w.WriteHeader(http.StatusNotFound)
 			writeJSONResponse(w, map[string]string{"error": "document not found"})
 			return
@@ -1850,7 +1851,7 @@ func (s *Server) handleKnowledgeAction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(pathParts) > 1 && pathParts[1] == "chunks" && r.Method == http.MethodGet {
-		chunks, err := store.GetKnowledgeDocumentChunks(0, docID)
+		chunks, err := store.GetKnowledgeDocumentChunks(userID, docID)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			writeJSONResponse(w, map[string]string{"error": "failed to get chunks: " + err.Error()})
@@ -1922,6 +1923,7 @@ func (s *Server) handleKnowledgeSearch(w http.ResponseWriter, r *http.Request) {
 		writeJSONResponse(w, map[string]string{"error": "unauthorized"})
 		return
 	}
+	userID, _ := s.getUserIDFromClaims(r)
 
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
 	if query == "" {
@@ -1930,7 +1932,7 @@ func (s *Server) handleKnowledgeSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	results, err := store.SearchKnowledge(0, query, 10)
+	results, err := store.SearchKnowledge(userID, query, 10)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		writeJSONResponse(w, map[string]string{"error": err.Error()})
@@ -1951,8 +1953,9 @@ func (s *Server) handleKnowledgeList(w http.ResponseWriter, r *http.Request) {
 		writeJSONResponse(w, map[string]string{"error": "unauthorized"})
 		return
 	}
+	userID, _ := s.getUserIDFromClaims(r)
 
-	docs, err := store.ListKnowledgeDocuments(0)
+	docs, err := store.ListKnowledgeDocuments(userID)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		writeJSONResponse(w, map[string]string{"error": err.Error()})
@@ -1971,6 +1974,7 @@ func (s *Server) handleKnowledgeUpload(w http.ResponseWriter, r *http.Request) {
 		writeJSONResponse(w, map[string]string{"error": "unauthorized"})
 		return
 	}
+	userID, _ := s.getUserIDFromClaims(r)
 
 	// Limit upload to 25MB
 	r.Body = http.MaxBytesReader(w, r.Body, 25<<20)
@@ -2028,7 +2032,7 @@ func (s *Server) handleKnowledgeUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	doc, err := store.SaveKnowledgeDocument(0, header.Filename, mimeType, header.Size, chunks)
+	doc, err := store.SaveKnowledgeDocument(userID, header.Filename, mimeType, header.Size, chunks)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		writeJSONResponse(w, map[string]string{"error": "failed to save document: " + err.Error()})

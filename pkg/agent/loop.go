@@ -510,6 +510,10 @@ func (al *AgentLoop) applyMessageUserContext(msg bus.InboundMessage) {
 		al.SetUserForAgent("", 0)
 		return
 	}
+	// If UUID is already set for this user (e.g., by swarm SetUserForAgent), preserve it
+	if al.userUUID != "" && al.userID == msg.UserID {
+		return
+	}
 	if al.centralStorage == nil {
 		al.SetUserForAgent("", msg.UserID)
 		return

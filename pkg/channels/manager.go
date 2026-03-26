@@ -175,7 +175,13 @@ func (m *Manager) initChannels() error {
 		}
 	}
 
-	if m.config.Channels.Email.Enabled && m.config.Channels.Email.IMAPHost != "" {
+	if m.config.Channels.Email.Enabled && m.config.Channels.Email.IMAPHost != "" &&
+		(m.config.Channels.Email.Username == "" || m.config.Channels.Email.Password == "") {
+		logger.WarnC("channels", "Email channel enabled but IMAP credentials missing — skipping")
+	}
+
+	if m.config.Channels.Email.Enabled && m.config.Channels.Email.IMAPHost != "" &&
+		m.config.Channels.Email.Username != "" && m.config.Channels.Email.Password != "" {
 		logger.DebugC("channels", "Attempting to initialize Email channel")
 		workspace := m.config.Agents.Defaults.Workspace
 		emailCh := NewEmailChannel(m.config.Channels.Email, m.bus, workspace)
