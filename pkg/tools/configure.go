@@ -103,6 +103,21 @@ var fieldWhitelist = map[string]FieldPolicy{
 	"tools.email.password":         {Type: TypeString, Readable: false, Writable: true},
 	"tools.email.from":             {Type: TypeString, Readable: true, Writable: true, Validator: validateEmail},
 	"tools.email.to":               {Type: TypeString, Readable: true, Writable: true, Validator: validateEmail},
+
+	// ============================================================
+	// EMAIL CHANNEL (IMAP polling + SMTP reply)
+	// ============================================================
+	"channels.email.enabled":              {Type: TypeBool, Readable: true, Writable: true},
+	"channels.email.imap_host":            {Type: TypeString, Readable: true, Writable: true},
+	"channels.email.imap_port":            {Type: TypeInt, Readable: true, Writable: true, Validator: validatePort},
+	"channels.email.smtp_host":            {Type: TypeString, Readable: true, Writable: true},
+	"channels.email.smtp_port":            {Type: TypeInt, Readable: true, Writable: true, Validator: validatePort},
+	"channels.email.username":             {Type: TypeString, Readable: true, Writable: true},
+	"channels.email.password":             {Type: TypeString, Readable: false, Writable: true},
+	"channels.email.from":                 {Type: TypeString, Readable: true, Writable: true},
+	"channels.email.mailbox":              {Type: TypeString, Readable: true, Writable: true},
+	"channels.email.poll_interval_seconds": {Type: TypeInt, Readable: true, Writable: true},
+	"channels.email.mark_as_read":         {Type: TypeBool, Readable: true, Writable: true},
 }
 
 // providerNames lists all known LLM provider names
@@ -196,6 +211,8 @@ IMPORTANT: Paths use dot-notation with the full section prefix. Examples:
              channels.whatsapp.bridge_url, channels.signal.phone_number
              channels.feishu.app_id, channels.feishu.app_secret
              channels.qq.app_id, channels.dingtalk.client_id
+             channels.email.enabled, channels.email.imap_host, channels.email.smtp_host
+             channels.email.username, channels.email.from, channels.email.poll_interval_seconds
   Agents:    agents.defaults.provider, agents.defaults.model, agents.defaults.temperature
              agents.orchestrator.enabled, agents.orchestrator.model
   Tools:     tools.web.search.api_key, tools.email.enabled, tools.email.host
@@ -657,7 +674,7 @@ func (t *ConfigureTool) handleGet(ctx context.Context, args map[string]interface
 	// Check if field is readable (sensitive fields are write-only)
 	if !policy.Readable {
 		// For write-only fields, return [SET] or [NOT SET] status
-		cfg, err := config.LoadConfigForUser(userUUID)
+		cfg, err := config.LoadMergedConfigForUser(userUUID)
 		if err != nil {
 			return t.errorResponse("config_load_error", fmt.Sprintf("failed to load config: %v", err), path)
 		}
@@ -684,8 +701,8 @@ func (t *ConfigureTool) handleGet(ctx context.Context, args map[string]interface
 		})
 	}
 
-	// Load config and get value
-	cfg, err := config.LoadConfigForUser(userUUID)
+	// Load merged config (user + global) for reading
+	cfg, err := config.LoadMergedConfigForUser(userUUID)
 	if err != nil {
 		return t.errorResponse("config_load_error", fmt.Sprintf("failed to load config: %v", err), path)
 	}
@@ -923,7 +940,7 @@ func (t *ConfigureTool) handleDisable(ctx context.Context, args map[string]inter
 
 // handleListProviders lists all providers with their configuration status
 func (t *ConfigureTool) handleListProviders(ctx context.Context, userUUID string) (string, error) {
-	cfg, err := config.LoadConfigForUser(userUUID)
+	cfg, err := config.LoadMergedConfigForUser(userUUID)
 	if err != nil {
 		return t.errorResponse("config_load_error", fmt.Sprintf("failed to load config: %v", err), "")
 	}
@@ -996,7 +1013,7 @@ func (t *ConfigureTool) handleListProviders(ctx context.Context, userUUID string
 
 // handleListChannels lists all channels with their configuration status
 func (t *ConfigureTool) handleListChannels(ctx context.Context, userUUID string) (string, error) {
-	cfg, err := config.LoadConfigForUser(userUUID)
+	cfg, err := config.LoadMergedConfigForUser(userUUID)
 	if err != nil {
 		return t.errorResponse("config_load_error", fmt.Sprintf("failed to load config: %v", err), "")
 	}
@@ -1098,6 +1115,31 @@ func (t *ConfigureTool) handleListChannels(ctx context.Context, userUUID string)
 		maixcamStatus["note"] = "Channel is disabled"
 	}
 	channels = append(channels, maixcamStatus)
+
+	// Email (IMAP polling + SMTP reply)
+	emailStatus := map[string]interface{}{
+		"name":               "email",
+		"enabled":            cfg.Channels.Email.Enabled,
+		"imap_host":          cfg.Channels.Email.IMAPHost,
+		"smtp_host":          cfg.Channels.Email.SMTPHost,
+		"username":           cfg.Channels.Email.Username,
+		"from":               cfg.Channels.Email.From,
+		"mailbox":            cfg.Channels.Email.Mailbox,
+		"poll_interval_secs": cfg.Channels.Email.PollIntervalSecs,
+		"mark_as_read":       cfg.Channels.Email.MarkAsRead,
+		"credentials_set":    cfg.Channels.Email.Username != "" && cfg.Channels.Email.Password != "",
+		"credential_fields":  []string{"username", "password"},
+		"allow_from":         []string(cfg.Channels.Email.AllowFrom),
+		"usable":             cfg.Channels.Email.Enabled && cfg.Channels.Email.IMAPHost != "" && cfg.Channels.Email.Password != "",
+	}
+	if !cfg.Channels.Email.Enabled {
+		emailStatus["note"] = "Channel is disabled"
+	} else if cfg.Channels.Email.IMAPHost == "" {
+		emailStatus["note"] = "Missing imap_host"
+	} else if cfg.Channels.Email.Password == "" {
+		emailStatus["note"] = "Missing password"
+	}
+	channels = append(channels, emailStatus)
 
 	// Count active channels
 	activeCount := 0
