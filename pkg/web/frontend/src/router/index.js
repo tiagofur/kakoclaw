@@ -3,6 +3,9 @@ import { useAuthStore } from '../stores/authStore'
 import { useConfigStore } from '../stores/configStore'
 import { useOnboardingStore } from '../stores/onboardingStore'
 import LandingPage from '../views/LandingPage.vue'
+import HelpLayout from '../views/help/HelpLayout.vue'
+import HelpIndexView from '../views/help/HelpIndexView.vue'
+import HelpMarketingView from '../views/help/HelpMarketingView.vue'
 import LoginPage from '../views/LoginPage.vue'
 import SignupPage from '../views/SignupPage.vue'
 import OnboardingView from '../views/OnboardingView.vue'
@@ -42,6 +45,23 @@ const routes = [
     name: 'signup',
     component: SignupPage,
     meta: { requiresAuth: false }
+  },
+  {
+    path: '/help',
+    component: HelpLayout,
+    meta: { requiresAuth: false },
+    children: [
+      {
+        path: '',
+        name: 'help',
+        component: HelpIndexView
+      },
+      {
+        path: 'marketing',
+        name: 'help-marketing',
+        component: HelpMarketingView
+      }
+    ]
   },
   {
     path: '/onboarding',
