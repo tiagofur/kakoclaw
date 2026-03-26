@@ -308,8 +308,8 @@ func checkDirectories() CheckResult {
 	}
 
 	dirs := []string{
-		filepath.Join(homeDir, ".makoclaw"),
-		filepath.Join(homeDir, ".makoclaw", "workspace"),
+		filepath.Join(homeDir, ".MakoClaw"),
+		filepath.Join(homeDir, ".MakoClaw", "workspace"),
 	}
 
 	for _, dir := range dirs {
@@ -332,7 +332,7 @@ func checkDirectories() CheckResult {
 
 func getDefaultConfigPath() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".makoclaw", "config.json")
+	return filepath.Join(home, ".MakoClaw", "config.json")
 }
 
 // PrintResults prints the check results in a formatted way

@@ -318,7 +318,7 @@ func convertKeysToSnake(data interface{}) interface{} {
 }
 
 func rewriteWorkspacePath(path string) string {
-	path = strings.Replace(path, ".openclaw", ".makoclaw", 1)
+	path = strings.Replace(path, ".openclaw", ".MakoClaw", 1)
 	return path
 }
 

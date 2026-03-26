@@ -36,7 +36,7 @@ func getGlobalConfigDir() string {
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(home, ".makoclaw")
+	return filepath.Join(home, ".MakoClaw")
 }
 
 func NewContextBuilder(workspace string) *ContextBuilder {
@@ -86,7 +86,7 @@ func (cb *ContextBuilder) WithUser(userUUID string, userID int64) *ContextBuilde
 			})
 		return cb
 	}
-	userSkillsPath := filepath.Join(home, ".makoclaw", "users", userUUID, "skills")
+	userSkillsPath := filepath.Join(home, ".MakoClaw", "users", userUUID, "skills")
 	cb.skillsLoader.SetUserSkillsPath(userSkillsPath)
 
 	return cb
@@ -102,7 +102,7 @@ func (cb *ContextBuilder) getUserWorkspacePath() string {
 	if err != nil {
 		return cb.workspace
 	}
-	return filepath.Join(home, ".makoclaw", "users", cb.userUUID, "workspace")
+	return filepath.Join(home, ".MakoClaw", "users", cb.userUUID, "workspace")
 }
 
 // SetToolsRegistry sets the tools registry for dynamic tool summary generation.

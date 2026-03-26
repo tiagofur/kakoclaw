@@ -12,7 +12,6 @@ import (
 	"github.com/emersion/go-imap/v2"
 	"github.com/emersion/go-imap/v2/imapclient"
 	gomessage "github.com/emersion/go-message"
-	gomail "github.com/emersion/go-message/mail"
 	"golang.org/x/net/html"
 
 	"github.com/sipeed/makoclaw/pkg/config"
@@ -274,44 +273,85 @@ func extractEmailPlainText(r io.Reader) (string, error) {
 		return "", err
 	}
 
+	if len(bodyBytes) == 0 {
+		return "", nil
+	}
+
 	entity, err := gomessage.Read(strings.NewReader(string(bodyBytes)))
 	if err != nil {
 		// Not MIME, return raw text
 		return string(bodyBytes), nil
 	}
 
-	mediaType, _, _ := entity.Header.ContentType()
+	// Check if it's multipart
+	if mr := entity.MultipartReader(); mr != nil {
+		return extractFromEmailMultipart(mr)
+	}
 
-	if strings.HasPrefix(mediaType, "multipart/") {
-		mr := gomail.NewReader(entity)
-		var plainText, htmlText string
-		for {
-			part, err := mr.NextPart()
-			if err != nil {
-				break
-			}
-			ct := part.Header.Get("Content-Type")
-			partBytes, _ := io.ReadAll(part.Body)
-			if strings.HasPrefix(ct, "text/plain") || (ct == "" && plainText == "") {
-				plainText = string(partBytes)
-			} else if strings.HasPrefix(ct, "text/html") && plainText == "" {
-				htmlText = string(partBytes)
-			}
-		}
-		if plainText != "" {
-			return plainText, nil
-		}
-		if htmlText != "" {
-			return emailHtmlToPlaintext(htmlText), nil
-		}
+	// Single-part message
+	contentType, _, _ := entity.Header.ContentType()
+	bodyContent, err := io.ReadAll(entity.Body)
+	if err != nil {
 		return string(bodyBytes), nil
 	}
 
-	partBytes, _ := io.ReadAll(entity.Body)
-	if strings.HasPrefix(mediaType, "text/html") {
-		return emailHtmlToPlaintext(string(partBytes)), nil
+	if strings.HasPrefix(contentType, "text/html") {
+		return emailHtmlToPlaintext(string(bodyContent)), nil
 	}
-	return string(partBytes), nil
+	return string(bodyContent), nil
+}
+
+// extractFromEmailMultipart walks multipart MIME parts looking for text content.
+// Handles nested multipart structures (multipart/mixed > multipart/alternative > text/plain).
+func extractFromEmailMultipart(mr gomessage.MultipartReader) (string, error) {
+	var plainText, htmlText string
+
+	for {
+		part, err := mr.NextPart()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			break
+		}
+
+		contentType, _, _ := part.Header.ContentType()
+
+		// Recurse into nested multipart
+		if nestedMR := part.MultipartReader(); nestedMR != nil {
+			nested, err := extractFromEmailMultipart(nestedMR)
+			if err == nil && nested != "" {
+				if plainText == "" {
+					plainText = nested
+				}
+			}
+			continue
+		}
+
+		content, err := io.ReadAll(part.Body)
+		if err != nil {
+			continue
+		}
+
+		switch {
+		case strings.HasPrefix(contentType, "text/plain"):
+			if plainText == "" {
+				plainText = string(content)
+			}
+		case strings.HasPrefix(contentType, "text/html"):
+			if htmlText == "" {
+				htmlText = string(content)
+			}
+		}
+	}
+
+	if plainText != "" {
+		return plainText, nil
+	}
+	if htmlText != "" {
+		return emailHtmlToPlaintext(htmlText), nil
+	}
+	return "", nil
 }
 
 // emailHtmlToPlaintext converts HTML to plaintext.
