@@ -4,6 +4,7 @@ import kotlinx.serialization.Serializable
 
 sealed interface Route {
     // Auth graph
+    @Serializable data object ServerConfig : Route
     @Serializable data object Landing : Route
     @Serializable data object Login : Route
     @Serializable data object Signup : Route

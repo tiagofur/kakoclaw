@@ -11,6 +11,7 @@ import com.makoclaw.android.ui.MainScaffold
 import com.makoclaw.feature.agents.presentation.screen.AgentsScreen
 import com.makoclaw.feature.auth.presentation.screen.LoginScreen
 import com.makoclaw.feature.auth.presentation.screen.OnboardingScreen
+import com.makoclaw.feature.auth.presentation.screen.ServerConfigScreen
 import com.makoclaw.feature.auth.presentation.screen.SignupScreen
 import com.makoclaw.feature.chat.presentation.screen.ChatScreen
 import com.makoclaw.feature.cron.presentation.screen.CronScreen
@@ -32,13 +33,30 @@ fun MakoClawNavHost() {
     val navController = rememberNavController()
     val authViewModel: AuthNavigationViewModel = hiltViewModel()
     val isAuthenticated by authViewModel.isAuthenticated.collectAsState()
+    val hasServerUrl by authViewModel.hasServerUrl.collectAsState()
 
-    val startDestination: Any = if (isAuthenticated) Route.Chat else Route.Login
+    val startDestination: Any = when {
+        !hasServerUrl -> Route.ServerConfig
+        isAuthenticated -> Route.Chat
+        else -> Route.Login
+    }
 
     NavHost(
         navController = navController,
         startDestination = startDestination
     ) {
+        // Server configuration (first launch)
+        composable<Route.ServerConfig> {
+            ServerConfigScreen(
+                onConfirm = { url ->
+                    authViewModel.saveServerUrl(url)
+                    navController.navigate(Route.Login) {
+                        popUpTo(Route.ServerConfig) { inclusive = true }
+                    }
+                }
+            )
+        }
+
         // Auth flow
         composable<Route.Login> {
             LoginScreen(
@@ -49,6 +67,9 @@ fun MakoClawNavHost() {
                 },
                 onNavigateToSignup = {
                     navController.navigate(Route.Signup)
+                },
+                onConfigureServer = {
+                    navController.navigate(Route.ServerConfig)
                 }
             )
         }
@@ -161,7 +182,13 @@ fun MakoClawNavHost() {
 
         composable<Route.Settings> {
             MainScaffold(navController = navController, currentRoute = Route.Settings) {
-                SettingsScreen()
+                SettingsScreen(
+                    onLogout = {
+                        navController.navigate(Route.Login) {
+                            popUpTo(Route.Chat) { inclusive = true }
+                        }
+                    }
+                )
             }
         }
     }

@@ -46,7 +46,7 @@ fun WorkflowsScreen(viewModel: WorkflowsViewModel = hiltViewModel()) {
         topBar = { TopAppBar(title = { Text("Workflows") }) },
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                onClick = { /* TODO: create workflow */ },
+                onClick = { /* Open workflow creation - requires visual editor */ },
                 icon = { Icon(Icons.Filled.Add, contentDescription = null) },
                 text = { Text("New Workflow") }
             )

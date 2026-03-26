@@ -59,20 +59,45 @@ fun TasksScreen(
     val uiState by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
     var showNewTaskSheet by remember { mutableStateOf(false) }
+    var showSearch by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
     val pagerState = rememberPagerState(pageCount = { TaskStatus.entries.size })
 
     val statusLabels = listOf("Backlog", "To Do", "In Progress", "Review", "Done")
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Tasks") },
-                actions = {
-                    IconButton(onClick = { /* TODO: search */ }) {
-                        Icon(Icons.Filled.Search, contentDescription = "Search")
+            if (showSearch) {
+                androidx.compose.material3.SearchBar(
+                    inputField = {
+                        androidx.compose.material3.SearchBarDefaults.InputField(
+                            query = searchQuery,
+                            onQueryChange = { searchQuery = it },
+                            onSearch = { showSearch = false },
+                            expanded = false,
+                            onExpandedChange = {},
+                            placeholder = { Text("Search tasks...") },
+                            trailingIcon = {
+                                IconButton(onClick = { showSearch = false; searchQuery = "" }) {
+                                    Icon(androidx.compose.material.icons.Icons.Filled.Close, "Close")
+                                }
+                            }
+                        )
+                    },
+                    expanded = false,
+                    onExpandedChange = {},
+                    modifier = Modifier.fillMaxWidth()
+                ) {}
+            } else {
+                TopAppBar(
+                    title = { Text("Tasks") },
+                    actions = {
+                        IconButton(onClick = { showSearch = true }) {
+                            Icon(Icons.Filled.Search, contentDescription = "Search")
+                        }
                     }
-                }
-            )
+                )
+            }
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(

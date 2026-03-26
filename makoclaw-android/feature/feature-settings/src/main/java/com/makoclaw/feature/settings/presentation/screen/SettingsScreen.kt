@@ -43,8 +43,17 @@ import com.makoclaw.feature.settings.presentation.viewmodel.SettingsViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
+    onLogout: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        viewModel.effects.collect { effect ->
+            when (effect) {
+                is com.makoclaw.feature.settings.presentation.viewmodel.SettingsEffect.Logout -> onLogout()
+                is com.makoclaw.feature.settings.presentation.viewmodel.SettingsEffect.ShowMessage -> {}
+            }
+        }
+    }
     val uiState by viewModel.uiState.collectAsState()
     val tabs = listOf("Profile", "Providers", "Agents", "Channels", "Tools", "Audit", "System", "Soul")
 

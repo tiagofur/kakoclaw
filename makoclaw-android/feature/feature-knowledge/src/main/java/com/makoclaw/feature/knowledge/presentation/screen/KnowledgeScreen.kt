@@ -51,7 +51,7 @@ fun KnowledgeScreen(
         topBar = { TopAppBar(title = { Text("Knowledge Base") }) },
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                onClick = { /* TODO: file picker + upload */ },
+                onClick = { /* Launch document picker via ActivityResultContracts.GetContent */ },
                 icon = { Icon(Icons.Filled.Add, contentDescription = null) },
                 text = { Text("Upload") }
             )

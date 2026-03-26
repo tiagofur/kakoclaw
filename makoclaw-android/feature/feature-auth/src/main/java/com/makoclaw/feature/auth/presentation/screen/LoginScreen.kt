@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -49,6 +50,7 @@ import com.makoclaw.feature.auth.presentation.viewmodel.LoginViewModel
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
     onNavigateToSignup: () -> Unit,
+    onConfigureServer: () -> Unit = {},
     viewModel: LoginViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -64,9 +66,7 @@ fun LoginScreen(
         }
     }
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { padding ->
+    Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -83,64 +83,35 @@ fun LoginScreen(
                 modifier = Modifier.size(80.dp),
                 tint = MaterialTheme.colorScheme.primary
             )
-
             Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = "MakoClaw",
-                style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            Text(
-                text = "AI Agent Framework",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Text("MakoClaw", style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.primary)
+            Text("AI Agent Framework", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
             Spacer(modifier = Modifier.height(48.dp))
 
             OutlinedTextField(
-                value = uiState.username,
-                onValueChange = viewModel::onUsernameChanged,
-                label = { Text("Username") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
+                value = uiState.username, onValueChange = viewModel::onUsernameChanged,
+                label = { Text("Username") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
             )
-
             Spacer(modifier = Modifier.height(12.dp))
 
             OutlinedTextField(
-                value = uiState.password,
-                onValueChange = viewModel::onPasswordChanged,
-                label = { Text("Password") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                visualTransformation = if (passwordVisible) VisualTransformation.None
-                    else PasswordVisualTransformation(),
+                value = uiState.password, onValueChange = viewModel::onPasswordChanged,
+                label = { Text("Password") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 trailingIcon = {
                     IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(
-                            imageVector = if (passwordVisible) Icons.Filled.VisibilityOff
-                                else Icons.Filled.Visibility,
-                            contentDescription = "Toggle password"
-                        )
+                        Icon(if (passwordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility, "Toggle password")
                     }
                 },
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Password,
-                    imeAction = ImeAction.Done
-                ),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { viewModel.onLogin() })
             )
 
             Spacer(modifier = Modifier.height(8.dp))
-
-            TextButton(onClick = {
-                viewModel.onServerUrlChanged(uiState.serverUrl)
-            }) {
-                Text("Configure Server", style = MaterialTheme.typography.labelMedium)
+            TextButton(onClick = onConfigureServer) {
+                Text("Change Server", style = MaterialTheme.typography.labelMedium)
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -151,16 +122,11 @@ fun LoginScreen(
                 enabled = !uiState.isLoading
             ) {
                 if (uiState.isLoading) {
-                    androidx.compose.material3.CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
                 } else {
                     Text("Sign In")
                 }
             }
-
             Spacer(modifier = Modifier.height(16.dp))
 
             TextButton(onClick = onNavigateToSignup) {
