@@ -224,6 +224,9 @@ func (cb *ContextBuilder) buildToolsSection() string {
 			sb.WriteString("\n**Email**: You have email configured and ready to use. Use the `send_email_report` tool to send reports, summaries, data exports, and important notifications to the user. The recipient email is pre-configured — do not ask the user for their email address.\n")
 		}
 	}
+	if _, hasReadEmail := cb.tools.Get("read_email"); hasReadEmail {
+		sb.WriteString("\n**Email Inbox**: You can read the user's inbox using the `read_email` tool. Use it to check for new emails, read specific messages, or search by sender.\n")
+	}
 
 	return sb.String()
 }
