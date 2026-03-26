@@ -52,5 +52,10 @@ func IsSensitiveWorkspacePath(path, workspace string) bool {
 		}
 	}
 
+	// Protect cron store — agents should use the CronTool API, not write_file.
+	if strings.EqualFold(rel, "cron/jobs.json") {
+		return true
+	}
+
 	return strings.HasPrefix(strings.ToLower(rel), "memory/")
 }

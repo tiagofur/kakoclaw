@@ -601,6 +601,16 @@ func agentCmd() {
 	msgBus := bus.NewMessageBus()
 	agentLoop := agent.NewAgentLoop(cfg, msgBus, provider)
 
+	// Register CronTool so the CLI agent can manage cron jobs via API
+	// instead of falling back to write_file on jobs.json.
+	cronService := setupCronTool(agentLoop, msgBus, cfg.WorkspacePath())
+	if err := cronService.Start(); err != nil {
+		logger.WarnCF("agent", "Failed to start cron service", map[string]interface{}{
+			"error": err.Error(),
+		})
+	}
+	defer cronService.Stop()
+
 	var channelStore *storage.Storage
 	if cfg.Storage.Path != "" {
 		if store, err := storage.New(cfg.Storage); err == nil {
