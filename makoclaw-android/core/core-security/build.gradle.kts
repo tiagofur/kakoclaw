@@ -11,6 +11,13 @@ android {
 
     defaultConfig { minSdk = 26 }
 
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+        unitTests.all {
+            it.useJUnitPlatform()
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -20,9 +27,17 @@ android {
 }
 
 dependencies {
+    implementation(project(":core:core-common"))
+
     implementation(libs.security.crypto)
     implementation(libs.biometric)
+    implementation(libs.okhttp)
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
+
+    testImplementation(libs.junit.jupiter)
+    testImplementation(libs.mockk)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.robolectric)
 }

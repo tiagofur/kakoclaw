@@ -7,7 +7,7 @@ import com.makoclaw.core.network.api.ChatApi
 import com.makoclaw.core.network.api.ConfigApi
 import com.makoclaw.core.network.api.TaskApi
 import com.makoclaw.core.network.interceptor.AuthInterceptor
-import com.makoclaw.core.security.TokenManager
+import com.makoclaw.core.security.interceptor.JwtInterceptor
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -85,6 +85,6 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideAuthInterceptor(tokenManager: TokenManager): AuthInterceptor =
-        AuthInterceptor(tokenManager)
+    fun provideAuthInterceptor(jwtInterceptor: JwtInterceptor): AuthInterceptor =
+        AuthInterceptor(jwtInterceptor)
 }

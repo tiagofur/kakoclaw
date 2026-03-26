@@ -2,6 +2,7 @@ package com.makoclaw.core.security.di
 
 import android.content.Context
 import com.makoclaw.core.security.TokenManager
+import com.makoclaw.core.security.storage.JwtStorage
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -15,7 +16,11 @@ object SecurityModule {
 
     @Provides
     @Singleton
-    fun provideTokenManager(
+    fun provideJwtStorage(
         @ApplicationContext context: Context
-    ): TokenManager = TokenManager(context)
+    ): JwtStorage = JwtStorage(context)
+
+    @Provides
+    @Singleton
+    fun provideTokenManager(jwtStorage: JwtStorage): TokenManager = TokenManager(jwtStorage)
 }

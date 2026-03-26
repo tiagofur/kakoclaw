@@ -29,30 +29,42 @@ data class KnowledgeListResponse(val documents: List<KnowledgeDocument> = emptyL
 data class KnowledgeSearchResponse(val results: List<KnowledgeChunk> = emptyList())
 
 @Serializable
+data class KnowledgeSearchRequest(val query: String)
+
+@Serializable
 data class KnowledgeDetailResponse(
-    val document: KnowledgeDocument = KnowledgeDocument(filename = ""),
+    val document: KnowledgeDocument = KnowledgeDocument(),
     val chunks: List<KnowledgeChunk> = emptyList()
 )
 
+@Serializable
+data class EditKnowledgeChunkRequest(
+    val chunkId: String,
+    val content: String
+)
+
 interface KnowledgeApi {
-    @GET("knowledge")
-    suspend fun listDocuments(): KnowledgeListResponse
+    @GET("knowledge/documents")
+    suspend fun getDocuments(): KnowledgeListResponse
 
     @Multipart
-    @POST("knowledge")
+    @POST("knowledge/upload")
     suspend fun uploadDocument(@Part file: MultipartBody.Part): KnowledgeDocument
 
-    @GET("knowledge/search")
-    suspend fun search(@Query("q") query: String): KnowledgeSearchResponse
+    @POST("knowledge/search")
+    suspend fun searchDocuments(@Body request: KnowledgeSearchRequest): KnowledgeSearchResponse
 
-    @GET("knowledge/{id}")
-    suspend fun getDocument(@Path("id") id: Long): KnowledgeDetailResponse
+    @GET("knowledge/document/{id}")
+    suspend fun getDocument(@Path("id") id: String): KnowledgeDetailResponse
 
-    @DELETE("knowledge/{id}")
-    suspend fun deleteDocument(@Path("id") id: Long)
+    @DELETE("knowledge/document/{id}")
+    suspend fun deleteDocument(@Path("id") id: String)
 
-    @POST("knowledge/chunks/{chunkId}")
-    suspend fun updateChunk(@Path("chunkId") chunkId: Long, @Body content: Map<String, String>)
+    @retrofit2.http.PATCH("knowledge/document/{id}/chunk")
+    suspend fun editChunk(
+        @Path("id") id: String,
+        @Body request: EditKnowledgeChunkRequest
+    ): KnowledgeDetailResponse
 }
 
 // ─── Skills ───

@@ -116,26 +116,26 @@ Este documento contiene el breakdown detallado de tareas para implementar los 11
 **Dependencies**: TASK-CORE-001, TASK-CORE-002
 
 **Subtasks**:
-- [ ] Crear `KnowledgeUiState` data class
-- [ ] Crear `KnowledgeEvent` sealed class
-- [ ] Crear `KnowledgeEffect` sealed class
-- [ ] Crear `KnowledgeViewModel` con @HiltViewModel
-- [ ] Implementar _uiState MutableStateFlow
-- [ ] Implementar _effects MutableSharedFlow
-- [ ] Implementar event handler onEvent()
-- [ ] Implementar loadDocuments()
-- [ ] Implementar uploadDocument()
-- [ ] Implementar searchDocuments()
-- [ ] Implementar deleteDocument()
-- [ ] Implementar editChunk()
-- [ ] Tests unitarios pasan
+- [x] Crear `KnowledgeUiState` data class
+- [x] Crear `KnowledgeEvent` sealed class
+- [x] Crear `KnowledgeEffect` sealed class
+- [x] Crear `KnowledgeViewModel` con @HiltViewModel
+- [x] Implementar _uiState MutableStateFlow
+- [x] Implementar _effects MutableSharedFlow
+- [x] Implementar event handler onEvent()
+- [x] Implementar loadDocuments()
+- [x] Implementar uploadDocument()
+- [x] Implementar searchDocuments()
+- [x] Implementar deleteDocument()
+- [x] Implementar editChunk()
+- [x] Tests unitarios pasan
 
 **Acceptance Criteria**:
-- [ ] ViewModel compila sin errores
-- [ ] StateFlow expone KnowledgeUiState
-- [ ] Eventos manejan correctamente
-- [ ] Efectos emiten correctamente
-- [ ] Tests coverage >70%
+- [x] ViewModel compila sin errores
+- [x] StateFlow expone KnowledgeUiState
+- [x] Eventos manejan correctamente
+- [x] Efectos emiten correctamente
+- [x] Tests coverage >70%
 
 **Definition of Done**:
 - KnowledgeViewModel completa
@@ -151,25 +151,25 @@ Este documento contiene el breakdown detallado de tareas para implementar los 11
 **Dependencies**: TASK-CORE-001
 
 **Subtasks**:
-- [ ] Crear `KnowledgeRepository` interface
-- [ ] Crear `KnowledgeRepositoryImpl` con @Inject
-- [ ] Implementar getDocuments(): Flow<List<KnowledgeDocument>>
-- [ ] Implementar uploadDocument(file: File): Flow<UploadProgress>
-- [ ] Implementar searchDocuments(query: String): Flow<List<KnowledgeDocument>>
-- [ ] Implementar deleteDocument(id: String): Flow<Unit>
-- [ ] Implementar editChunk(...): Flow<Unit>
-- [ ] Crear KnowledgeDocumentDao
-- [ ] Implementar caching en Room
-- [ ] Integrar con KnowledgeApi
-- [ ] Tests unitarios pasan
+- [x] Crear `KnowledgeRepository` interface
+- [x] Crear `KnowledgeRepositoryImpl` con @Inject
+- [x] Implementar getDocuments(): Flow<List<KnowledgeDocument>>
+- [x] Implementar uploadDocument(file: File): Flow<UploadProgress>
+- [x] Implementar searchDocuments(query: String): Flow<List<KnowledgeDocument>>
+- [x] Implementar deleteDocument(id: String): Flow<Unit>
+- [x] Implementar editChunk(...): Flow<Unit>
+- [x] Crear KnowledgeDocumentDao
+- [x] Implementar caching en Room
+- [x] Integrar con KnowledgeApi
+- [x] Tests unitarios pasan
 
 **Acceptance Criteria**:
-- [ ] Repository implementa interface
-- [ ] getDocuments() usa cache local
-- [ ] uploadDocument() muestra progreso
-- [ ] searchDocuments() llama API
-- [ ] deleteDocument() llama API y cache
-- [ ] Tests coverage >70%
+- [x] Repository implementa interface
+- [x] getDocuments() usa cache local
+- [x] uploadDocument() muestra progreso
+- [x] searchDocuments() llama API
+- [x] deleteDocument() llama API y cache
+- [x] Tests coverage >70%
 
 **Definition of Done**:
 - KnowledgeRepository completa
@@ -186,26 +186,26 @@ Este documento contiene el breakdown detallado de tareas para implementar los 11
 **Dependencies**: TASK-KNOWLEDGE-001
 
 **Subtasks**:
-- [ ] Crear `KnowledgeScreen` @Composable
-- [ ] Implementar loading state con LoadingScreen
-- [ ] Implementar success state con LazyColumn de documentos
-- [ ] Implementar empty state con EmptyState
-- [ ] Implementar error state con ErrorScreen
-- [ ] Implementar SearchBar
-- [ ] Implementar UploadFileButton
-- [ ] Implementar navegación a detalles
-- [ ] Implementar pull-to-refresh
-- [ ] Tests UI pasan
+- [x] Crear `KnowledgeScreen` @Composable
+- [x] Implementar loading state con LoadingScreen
+- [x] Implementar success state con LazyColumn de documentos
+- [x] Implementar empty state con EmptyState
+- [x] Implementar error state con ErrorScreen
+- [x] Implementar SearchBar
+- [x] Implementar UploadFileButton
+- [x] Implementar navegación a detalles
+- [x] Implementar pull-to-refresh
+- [x] Tests UI pasan
 
 **Acceptance Criteria**:
-- [ ] Screen compila sin errores
-- [ ] Loading state funciona
-- [ ] Success state muestra documentos
-- [ ] Empty state muestra mensaje
-- [ ] SearchBar filtra documentos
-- [ ] UploadFileButton abre file picker
-- [ ] Pull-to-refresh recarga
-- [ ] Tests UI pasan
+- [x] Screen compila sin errores
+- [x] Loading state funciona
+- [x] Success state muestra documentos
+- [x] Empty state muestra mensaje
+- [x] SearchBar filtra documentos
+- [x] UploadFileButton abre file picker
+- [x] Pull-to-refresh recarga
+- [x] Tests UI pasan
 
 **Definition of Done**:
 - KnowledgeScreen completa
@@ -221,22 +221,22 @@ Este documento contiene el breakdown detallado de tareas para implementar los 11
 **Dependencies**: TASK-KNOWLEDGE-001
 
 **Subtasks**:
-- [ ] Crear `KnowledgeDocumentCard` @Composable
-- [ ] Implementar diseño con Card de Material3
-- [ ] Mostrar título del documento
-- [ ] Mostrar chunk count
-- [ ] Mostrar fecha de creación
-- [ ] Implementar onClick
-- [ ] Implementar onLongClick (menú contextual)
-- [ ] Implementar icono de tipo de archivo
-- [ ] Tests UI pasan
+- [x] Crear `KnowledgeDocumentCard` @Composable
+- [x] Implementar diseño con Card de Material3
+- [x] Mostrar título del documento
+- [x] Mostrar chunk count
+- [x] Mostrar fecha de creación
+- [x] Implementar onClick
+- [x] Implementar onLongClick (menú contextual)
+- [x] Implementar icono de tipo de archivo
+- [x] Tests UI pasan
 
 **Acceptance Criteria**:
-- [ ] Card muestra datos correctamente
-- [ ] onClick funciona
-- [ ] onLongClick muestra menú
-- [ ] Iconos correctos por tipo
-- [ ] Tests UI pasan
+- [x] Card muestra datos correctamente
+- [x] onClick funciona
+- [x] onLongClick muestra menú
+- [x] Iconos correctos por tipo
+- [x] Tests UI pasan
 
 **Definition of Done**:
 - KnowledgeDocumentCard completa
@@ -251,25 +251,25 @@ Este documento contiene el breakdown detallado de tareas para implementar los 11
 **Dependencies**: TASK-KNOWLEDGE-002
 
 **Subtasks**:
-- [ ] Crear `UploadFileButton` @Composable
-- [ ] Integrar ActivityResultContracts.GetContent()
-- [ ] Mostrar progreso de upload
-- [ ] Validar tipo de archivo
-- [ ] Validar tamaño máximo (10MB)
-- [ ] Crear `DocumentPreviewModal` @Composable
-- [ ] Integrar Markwon para preview de MD/TXT
-- [ ] Implementar preview de PDF (usar librería externa)
-- [ ] Implementar botón de cerrar
-- [ ] Tests UI pasan
+- [x] Crear `UploadFileButton` @Composable
+- [x] Integrar ActivityResultContracts.GetContent()
+- [x] Mostrar progreso de upload
+- [x] Validar tipo de archivo
+- [x] Validar tamaño máximo (10MB)
+- [x] Crear `DocumentPreviewModal` @Composable
+- [x] Integrar Markwon para preview de MD/TXT
+- [x] Implementar preview de PDF (usar librería externa)
+- [x] Implementar botón de cerrar
+- [x] Tests UI pasan
 
 **Acceptance Criteria**:
-- [ ] Upload abre file picker
-- [ ] Progreso visible
-- [ ] Validación funciona
-- [ ] Preview funciona para MD/TXT
-- [ ] Preview funciona para PDF
-- [ ] Modal se cierra
-- [ ] Tests UI pasan
+- [x] Upload abre file picker
+- [x] Progreso visible
+- [x] Validación funciona
+- [x] Preview funciona para MD/TXT
+- [x] Preview funciona para PDF
+- [x] Modal se cierra
+- [x] Tests UI pasan
 
 **Definition of Done**:
 - UploadFileButton completa
@@ -285,23 +285,23 @@ Este documento contiene el breakdown detallado de tareas para implementar los 11
 **Dependencies**: TASK-KNOWLEDGE-001
 
 **Subtasks**:
-- [ ] Crear `ChunkEditorSheet` @Composable
-- [ ] Implementar BottomSheetScaffold
-- [ ] Mostrar lista de chunks
-- [ ] Implementar edit de chunk (OutlinedTextField)
-- [ ] Implementar save button
-- [ ] Implementar cancel button
-- [ ] Implementar auto-save
-- [ ] Mostrar indicador de guardado
-- [ ] Tests UI pasan
+- [x] Crear `ChunkEditorSheet` @Composable
+- [x] Implementar BottomSheetScaffold
+- [x] Mostrar lista de chunks
+- [x] Implementar edit de chunk (OutlinedTextField)
+- [x] Implementar save button
+- [x] Implementar cancel button
+- [x] Implementar auto-save
+- [x] Mostrar indicador de guardado
+- [x] Tests UI pasan
 
 **Acceptance Criteria**:
-- [ ] Sheet muestra chunks
-- [ ] Edit funciona
-- [ ] Save persiste cambios
-- [ ] Auto-save funciona
-- [ ] Indicador visible
-- [ ] Tests UI pasan
+- [x] Sheet muestra chunks
+- [x] Edit funciona
+- [x] Save persiste cambios
+- [x] Auto-save funciona
+- [x] Indicador visible
+- [x] Tests UI pasan
 
 **Definition of Done**:
 - ChunkEditorSheet completa

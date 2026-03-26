@@ -1,26 +1,14 @@
 package com.makoclaw.core.security
 
-import android.content.Context
-import android.content.SharedPreferences
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKeys
-import dagger.hilt.android.qualifiers.ApplicationContext
+import com.makoclaw.core.security.storage.JwtStorage
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class TokenManager @Inject constructor(
-    @ApplicationContext context: Context
+    private val jwtStorage: JwtStorage
 ) {
-    private val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
-
-    private val prefs: SharedPreferences = EncryptedSharedPreferences.create(
-        "makoclaw_secure_prefs",
-        masterKeyAlias,
-        context,
-        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-    )
+    private val prefs get() = jwtStorage.sharedPreferences
 
     companion object {
         private const val KEY_TOKEN = "jwt_token"
@@ -30,15 +18,15 @@ class TokenManager @Inject constructor(
     }
 
     fun saveToken(token: String, username: String, role: String, expiresInMs: Long) {
+        jwtStorage.saveJwt(token)
         prefs.edit()
-            .putString(KEY_TOKEN, token)
             .putString(KEY_USERNAME, username)
             .putString(KEY_ROLE, role)
             .putLong(KEY_EXPIRY, System.currentTimeMillis() + expiresInMs)
             .apply()
     }
 
-    fun getToken(): String? = prefs.getString(KEY_TOKEN, null)
+    fun getToken(): String? = jwtStorage.getJwt()
 
     fun getUsername(): String? = prefs.getString(KEY_USERNAME, null)
 
@@ -56,6 +44,7 @@ class TokenManager @Inject constructor(
     }
 
     fun clearToken() {
+        jwtStorage.clearTokens()
         prefs.edit()
             .remove(KEY_TOKEN)
             .remove(KEY_USERNAME)
