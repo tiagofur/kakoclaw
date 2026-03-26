@@ -62,7 +62,7 @@ const routes = [
     children: [
       {
         path: '',
-        redirect: '/dashboard'
+        redirect: '/chat'
       },
       {
         path: 'dashboard',
