@@ -468,6 +468,7 @@ func (cs *CronService) saveStoreUnsafe() error {
 
 // ValidateSchedule checks that a CronSchedule is well-formed.
 // Returns an error describing the problem, or nil if valid.
+// Safe for concurrent use — gronx.IsValid is stateless.
 func (cs *CronService) ValidateSchedule(schedule *CronSchedule) error {
 	switch schedule.Kind {
 	case "at":

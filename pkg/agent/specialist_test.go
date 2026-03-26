@@ -17,8 +17,8 @@ func TestNewSpecialistRegistry(t *testing.T) {
 	if sr == nil {
 		t.Fatal("expected non-nil SpecialistRegistry")
 	}
-	if len(sr.specialists) != 0 {
-		t.Errorf("expected empty specialists map, got %d entries", len(sr.specialists))
+	if len(sr.ListSpecialists()) != 0 {
+		t.Errorf("expected empty specialists map, got %d entries", len(sr.ListSpecialists()))
 	}
 }
 

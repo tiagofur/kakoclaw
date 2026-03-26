@@ -562,7 +562,7 @@ func LoadSpecialistsFromConfig(
 	}
 
 	logger.InfoCF("agent", "Specialists loaded", map[string]interface{}{
-		"count": len(registry.specialists),
+		"count": len(registry.ListSpecialists()),
 	})
 
 	// Wire up RequestColleagueTool to all specialists for inter-agent collaboration

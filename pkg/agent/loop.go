@@ -31,33 +31,35 @@ import (
 )
 
 type AgentLoop struct {
-	bus               *bus.MessageBus
-	provider          providers.LLMProvider
-	workspace         string
-	defaultWorkspace  string // Base workspace when no user is set
-	userUUID          string // User UUID for multiuser support
-	userID            int64  // User ID for multiuser support
-	userRole          string // User role for permission checks
-	model             string
-	contextWindow     int // Maximum context window size in tokens
-	maxIterations     int
-	sessions          *session.SessionManager
-	contextBuilder    *ContextBuilder
-	tools             *tools.ToolRegistry
-	baseTools         *tools.ToolRegistry // Unfiltered tools (before permission filtering)
-	running           atomic.Bool
-	summarizing       sync.Map // Tracks which sessions are currently being summarized
-	storage           *storage.Storage
-	centralStorage    *storage.CentralStorage  // Central DB for user identity and permissions lookups
-	auditLogger       *tools.SQLiteAuditLogger // Audit logger for restricted tools
-	cfg               *config.Config           // Config for permission checks
-	metrics           *observability.Metrics
-	userMu            sync.Mutex        // Mutex for user context writes (SetUserForAgent, applyMessageUserContext)
-	involvedAgentsMu  sync.Mutex        // Mutex for thread-safe agent tracking
-	involvedAgents    []string          // Agents involved in current/last response
-	summarizeWg       sync.WaitGroup    // Tracks active summarization goroutines
-	costTracker       *AgentCostTracker // Tracks token usage and estimated costs
-	orchestratorOwner *OrchestratorAgent
+	bus                *bus.MessageBus
+	provider           providers.LLMProvider
+	workspace          string
+	defaultWorkspace   string // Base workspace when no user is set
+	userUUID           string // User UUID for multiuser support
+	userID             int64  // User ID for multiuser support
+	userRole           string // User role for permission checks
+	model              string
+	contextWindow      int // Maximum context window size in tokens
+	maxIterations      int
+	sessions           *session.SessionManager
+	contextBuilder     *ContextBuilder
+	tools              *tools.ToolRegistry
+	baseTools          *tools.ToolRegistry // Unfiltered tools (before permission filtering)
+	running            atomic.Bool
+	summarizing        sync.Map                  // Tracks which sessions are currently being summarized
+	storage            *storage.Storage
+	autoCreatedStorage bool                      // True if storage was created by NewAgentLoop (not injected)
+	centralStorage     *storage.CentralStorage   // Central DB for user identity and permissions lookups
+	mcpManager         *mcp.Manager              // MCP manager for cleanup on shutdown
+	auditLogger        *tools.SQLiteAuditLogger  // Audit logger for restricted tools
+	cfg                *config.Config            // Config for permission checks
+	metrics            *observability.Metrics
+	userMu             sync.Mutex        // Mutex for user context writes (SetUserForAgent, applyMessageUserContext)
+	involvedAgentsMu   sync.Mutex        // Mutex for thread-safe agent tracking
+	involvedAgents     []string          // Agents involved in current/last response
+	summarizeWg        sync.WaitGroup    // Tracks active summarization goroutines
+	costTracker        *AgentCostTracker // Tracks token usage and estimated costs
+	orchestratorOwner  *OrchestratorAgent
 }
 
 // ToolRegistry returns the agent loop's tool registry so external
@@ -250,11 +252,14 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 
 	// Initialize Storage
 	var store *storage.Storage
+	var autoCreatedStorage bool
 	if cfg.Storage.Path != "" {
 		var err error
 		store, err = storage.New(cfg.Storage)
 		if err != nil {
 			logger.ErrorCF("agent", "Failed to initialize storage", map[string]interface{}{"error": err.Error()})
+		} else {
+			autoCreatedStorage = true
 		}
 	}
 
@@ -338,8 +343,9 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 	}
 
 	// Register MCP tools from configured servers
+	var mcpMgr *mcp.Manager
 	if len(cfg.Tools.MCP.Servers) > 0 {
-		mcpMgr := mcp.NewManager(cfg.Tools.MCP)
+		mcpMgr = mcp.NewManager(cfg.Tools.MCP)
 		mcpMgr.Start(context.Background())
 		for _, mcpTool := range mcpMgr.GetTools() {
 			toolsRegistry.Register(mcpTool)
@@ -373,27 +379,29 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 	}
 
 	return &AgentLoop{
-		bus:              msgBus,
-		provider:         provider,
-		workspace:        workspace,
-		defaultWorkspace: workspace,
-		userUUID:         "",      // Will be set via SetUserForAgent if needed
-		userID:           0,       // Default for backward compatibility
-		userRole:         "admin", // Default to admin for backward compatibility
-		model:            cfg.Agents.Defaults.Model,
-		contextWindow:    cfg.Agents.Defaults.MaxTokens, // Restore context window for summarization
-		maxIterations:    cfg.Agents.Defaults.MaxToolIterations,
-		sessions:         sessionsManager,
-		contextBuilder:   contextBuilder,
-		tools:            toolsRegistry,
-		baseTools:        toolsRegistry, // Keep reference to unfiltered tools
-		summarizing:      sync.Map{},
-		storage:          store,
-		centralStorage:   nil, // Set via SetCentralStorage in multi-user mode
-		auditLogger:      auditLogger,
-		cfg:              cfg,
-		metrics:          observability.Global(),
-		costTracker:      NewAgentCostTracker(),
+		bus:                msgBus,
+		provider:           provider,
+		workspace:          workspace,
+		defaultWorkspace:   workspace,
+		userUUID:           "",      // Will be set via SetUserForAgent if needed
+		userID:             0,       // Default for backward compatibility
+		userRole:           "admin", // Default to admin for backward compatibility
+		model:              cfg.Agents.Defaults.Model,
+		contextWindow:      cfg.Agents.Defaults.MaxTokens, // Restore context window for summarization
+		maxIterations:      cfg.Agents.Defaults.MaxToolIterations,
+		sessions:           sessionsManager,
+		contextBuilder:     contextBuilder,
+		tools:              toolsRegistry,
+		baseTools:          toolsRegistry, // Keep reference to unfiltered tools
+		summarizing:        sync.Map{},
+		storage:            store,
+		autoCreatedStorage: autoCreatedStorage,
+		centralStorage:     nil, // Set via SetCentralStorage in multi-user mode
+		mcpManager:         mcpMgr,
+		auditLogger:        auditLogger,
+		cfg:                cfg,
+		metrics:            observability.Global(),
+		costTracker:        NewAgentCostTracker(),
 	}
 }
 
@@ -573,6 +581,9 @@ func (al *AgentLoop) Run(ctx context.Context) error {
 func (al *AgentLoop) Stop() {
 	al.running.Store(false)
 	al.summarizeWg.Wait()
+	if al.mcpManager != nil {
+		al.mcpManager.Stop()
+	}
 }
 
 func (al *AgentLoop) RegisterTool(tool tools.Tool) {
@@ -600,6 +611,12 @@ func (al *AgentLoop) RegisterTool(tool tools.Tool) {
 func (al *AgentLoop) SetStorage(store *storage.Storage) {
 	if store == nil {
 		return
+	}
+
+	// Close the auto-created storage to avoid leaking the DB connection
+	if al.storage != nil && al.autoCreatedStorage {
+		al.storage.Close()
+		al.autoCreatedStorage = false
 	}
 
 	al.storage = store
