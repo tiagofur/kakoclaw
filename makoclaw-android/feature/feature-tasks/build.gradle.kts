@@ -48,5 +48,11 @@ dependencies {
 
     implementation(libs.kotlinx.serialization.json)
 
+    // Database for offline cache
+    implementation(project(":core:core-database"))
+
+    // Compose foundation for pager
+    implementation(libs.compose.foundation)
+
     testImplementation(libs.junit.jupiter)
 }
