@@ -2100,10 +2100,10 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 				"user": user.Username, "error": err.Error(),
 			})
 		}
-		// Seed a default config.json for the new user so they start with a
-		// proper isolated configuration instead of falling back to the global one.
+		// Seed a clean config template for the new user (no secrets from global config).
 		if s.fullConfig != nil {
-			if err := config.SaveConfigForUser(user.UUID, s.fullConfig); err != nil {
+			userTemplate := config.GetUserConfigTemplate(s.fullConfig)
+			if err := config.SaveConfigForUser(user.UUID, userTemplate); err != nil {
 				logger.WarnCF("web", "Failed to seed user config.json on register", map[string]interface{}{
 					"user": user.Username, "error": err.Error(),
 				})
@@ -5045,7 +5045,89 @@ func (s *Server) handleConfigProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update config
+	// Save to user's personal config (not global) when in multi-user mode
+	_, userUUID, hasUser := s.getUserStorage(r)
+	if hasUser && userUUID != "" {
+		userCfg, _ := config.LoadConfigForUser(userUUID)
+		if userCfg == nil {
+			userCfg = config.GetUserConfigTemplate(s.fullConfig)
+		}
+		userCfg.Agents.Defaults.Provider = payload.Provider
+		userCfg.Agents.Defaults.Model = payload.Model
+		switch payload.Provider {
+		case "anthropic":
+			userCfg.Providers.Anthropic.APIKey = payload.APIKey
+			if payload.APIBase != "" {
+				userCfg.Providers.Anthropic.APIBase = payload.APIBase
+			}
+		case "openai":
+			userCfg.Providers.OpenAI.APIKey = payload.APIKey
+			if payload.APIBase != "" {
+				userCfg.Providers.OpenAI.APIBase = payload.APIBase
+			}
+		case "openrouter":
+			userCfg.Providers.OpenRouter.APIKey = payload.APIKey
+			if payload.APIBase != "" {
+				userCfg.Providers.OpenRouter.APIBase = payload.APIBase
+			}
+		case "groq":
+			userCfg.Providers.Groq.APIKey = payload.APIKey
+			if payload.APIBase != "" {
+				userCfg.Providers.Groq.APIBase = payload.APIBase
+			}
+		case "zhipu":
+			userCfg.Providers.Zhipu.APIKey = payload.APIKey
+			if payload.APIBase != "" {
+				userCfg.Providers.Zhipu.APIBase = payload.APIBase
+			}
+		case "gemini":
+			userCfg.Providers.Gemini.APIKey = payload.APIKey
+			if payload.APIBase != "" {
+				userCfg.Providers.Gemini.APIBase = payload.APIBase
+			}
+		case "moonshot":
+			userCfg.Providers.Moonshot.APIKey = payload.APIKey
+			if payload.APIBase != "" {
+				userCfg.Providers.Moonshot.APIBase = payload.APIBase
+			}
+		case "nvidia":
+			userCfg.Providers.Nvidia.APIKey = payload.APIKey
+			if payload.APIBase != "" {
+				userCfg.Providers.Nvidia.APIBase = payload.APIBase
+			}
+		case "ollama":
+			if payload.APIBase != "" {
+				userCfg.Providers.Ollama.APIBase = payload.APIBase
+			} else {
+				userCfg.Providers.Ollama.APIBase = "http://localhost:11434/v1"
+			}
+		case "vllm":
+			if payload.APIKey != "" {
+				userCfg.Providers.VLLM.APIKey = payload.APIKey
+			}
+			if payload.APIBase != "" {
+				userCfg.Providers.VLLM.APIBase = payload.APIBase
+			}
+		}
+		userCfg.DegradedMode = false
+		if err := config.SaveConfigForUser(userUUID, userCfg); err != nil {
+			http.Error(w, "failed to save user config: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		logger.InfoCF("web", "Provider configuration saved to user config", map[string]interface{}{
+			"provider":  payload.Provider,
+			"model":     payload.Model,
+			"user_uuid": userUUID,
+		})
+		w.Header().Set("Content-Type", "application/json")
+		writeJSONResponse(w, map[string]interface{}{
+			"success": true,
+			"message": "Provider configuration saved to your personal config.",
+		})
+		return
+	}
+
+	// Fallback: save to global config (no user context, e.g. initial setup)
 	s.fullConfig.Lock()
 	s.fullConfig.Agents.Defaults.Provider = payload.Provider
 	s.fullConfig.Agents.Defaults.Model = payload.Model
