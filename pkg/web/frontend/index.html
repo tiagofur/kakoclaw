@@ -18,6 +18,12 @@
       var t = localStorage.getItem('ui.theme');
       if (t === 'light') document.documentElement.classList.remove('dark');
     })();
+    // Kill any ghost service workers from previous PWA builds
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        registrations.forEach(function(reg) { reg.unregister(); });
+      });
+    }
   </script>
 </head>
 <body class="bg-makoclaw-bg text-makoclaw-text">
