@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test
 class WorkflowDaoTest : BaseDaoTest() {
     @Test
     fun `insert and getAll returns workflows`() = runTest {
-        val entity = WorkflowEntity("wf-1", "Workflow", "desc", "[]", "[]", 1L, 2L)
+        val entity = WorkflowEntity("wf-1", "Workflow", "desc", "[]", "[]", "draft", 1L, 2L, null)
 
         database.workflowDao().insert(entity)
 

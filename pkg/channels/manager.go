@@ -18,12 +18,13 @@ import (
 )
 
 type Manager struct {
-	channels     map[string]Channel
-	bus          *bus.MessageBus
-	config       *config.Config
-	storage      *storage.Storage
-	dispatchTask *asyncTask
-	mu           sync.RWMutex
+	channels         map[string]Channel
+	bus              *bus.MessageBus
+	config           *config.Config
+	storage          *storage.Storage
+	dispatchTask     *asyncTask
+	externalDispatch bool // When true, skip starting per-manager outbound dispatcher (managed externally)
+	mu               sync.RWMutex
 }
 
 type asyncTask struct {
@@ -201,10 +202,11 @@ func (m *Manager) StartAll(ctx context.Context) error {
 
 	logger.InfoC("channels", "Starting all channels")
 
-	dispatchCtx, cancel := context.WithCancel(ctx)
-	m.dispatchTask = &asyncTask{cancel: cancel}
-
-	go m.dispatchOutbound(dispatchCtx)
+	if !m.externalDispatch {
+		dispatchCtx, cancel := context.WithCancel(ctx)
+		m.dispatchTask = &asyncTask{cancel: cancel}
+		go m.dispatchOutbound(dispatchCtx)
+	}
 
 	for name, channel := range m.channels {
 		logger.InfoCF("channels", "Starting channel", map[string]interface{}{
@@ -220,6 +222,27 @@ func (m *Manager) StartAll(ctx context.Context) error {
 
 	logger.InfoC("channels", "All channels started")
 	return nil
+}
+
+// SetExternalDispatch marks this manager as externally dispatched.
+// When set, StartAll will not start its own outbound dispatcher goroutine,
+// expecting a parent (e.g. MultiUserChannelManager) to handle outbound routing.
+func (m *Manager) SetExternalDispatch() {
+	m.externalDispatch = true
+}
+
+// DispatchMessage sends an outbound message to the appropriate channel in this manager.
+// Returns an error if the channel is not found or sending fails.
+func (m *Manager) DispatchMessage(ctx context.Context, msg bus.OutboundMessage) error {
+	m.mu.RLock()
+	channel, exists := m.channels[msg.Channel]
+	m.mu.RUnlock()
+
+	if !exists {
+		return fmt.Errorf("channel %q not found in manager", msg.Channel)
+	}
+
+	return channel.Send(ctx, msg)
 }
 
 func (m *Manager) applyUserResolver(channelName string, channel Channel) {

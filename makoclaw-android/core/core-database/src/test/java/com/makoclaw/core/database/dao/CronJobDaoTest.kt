@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test
 class CronJobDaoTest : BaseDaoTest() {
     @Test
     fun `toggle updates cron job enabled state`() = runTest {
-        val entity = CronJobEntity("cron-1", "Nightly", "0 0 * * *", "desc", true, null, null)
+        val entity = CronJobEntity("cron-1", "Nightly", "desc", "0 0 * * *", "workflow-1", true, 1L, 2L)
         val dao = database.cronJobDao()
 
         dao.insert(entity)

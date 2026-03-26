@@ -40,24 +40,6 @@ data class Skill(
 )
 
 @Serializable
-data class CronJob(
-    val id: String = "",
-    val name: String = "",
-    val schedule: String = "",
-    val message: String = "",
-    val enabled: Boolean = true,
-    val nextRun: String = ""
-)
-
-@Serializable
-data class Workflow(
-    val name: String,
-    val description: String = "",
-    val nodes: List<String> = emptyList(),
-    val createdAt: String = ""
-)
-
-@Serializable
 data class FileEntry(
     val name: String,
     val path: String = "",

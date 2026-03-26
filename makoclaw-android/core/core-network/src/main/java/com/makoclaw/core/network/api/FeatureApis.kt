@@ -7,8 +7,13 @@ import com.makoclaw.core.model.KnowledgeChunk
 import com.makoclaw.core.model.KnowledgeDocument
 import com.makoclaw.core.model.McpServer
 import com.makoclaw.core.model.MemoryContent
+import com.makoclaw.core.model.MetricsData
 import com.makoclaw.core.model.Skill
 import com.makoclaw.core.model.Workflow
+import com.makoclaw.core.model.WorkflowEdge
+import com.makoclaw.core.model.WorkflowExecutionLog
+import com.makoclaw.core.model.WorkflowNode
+import com.makoclaw.core.model.TimeRange
 import kotlinx.serialization.Serializable
 import okhttp3.MultipartBody
 import retrofit2.http.Body
@@ -18,7 +23,14 @@ import retrofit2.http.Multipart
 import retrofit2.http.POST
 import retrofit2.http.Part
 import retrofit2.http.Path
+import retrofit2.http.PUT
 import retrofit2.http.Query
+
+@Serializable
+data class ApiResponse(
+    val success: Boolean = true,
+    val message: String = ""
+)
 
 // ─── Knowledge ───
 
@@ -120,34 +132,64 @@ interface SkillsApi {
 data class CronListResponse(val jobs: List<CronJob> = emptyList())
 
 @Serializable
-data class CreateCronRequest(
+data class CronJobsResponse(val jobs: List<CronJob> = emptyList())
+
+@Serializable
+data class CreateCronJobRequest(
     val name: String,
-    val schedule: String,
-    val message: String,
-    val enabled: Boolean = true
+    val description: String,
+    val cronExpression: String,
+    val workflowId: String
 )
 
 @Serializable
-data class AiCronRequest(val prompt: String)
+data class UpdateCronJobRequest(
+    val name: String,
+    val description: String,
+    val cronExpression: String,
+    val workflowId: String
+)
 
 @Serializable
-data class AiCronResponse(val schedule: String = "", val description: String = "")
+data class GenerateCronRequest(
+    val schedule: String,
+    val workflowId: String
+)
+
+@Serializable
+data class GenerateCronResponse(val expression: String = "")
+
+@Serializable
+data class TestCronResponse(
+    val valid: Boolean = true,
+    val nextRuns: List<String> = emptyList(),
+    val error: String? = null
+)
 
 interface CronApi {
-    @GET("cron")
-    suspend fun listJobs(@Query("include_disabled") includeDisabled: Boolean = true): CronListResponse
+    @GET("cron/jobs")
+    suspend fun getJobs(): CronJobsResponse
 
-    @POST("cron")
-    suspend fun createJob(@Body request: CreateCronRequest): CronJob
+    @POST("cron/jobs")
+    suspend fun createJob(@Body request: CreateCronJobRequest): ApiResponse
 
-    @DELETE("cron/{id}")
-    suspend fun deleteJob(@Path("id") id: String)
+    @PUT("cron/jobs/{id}")
+    suspend fun updateJob(
+        @Path("id") id: String,
+        @Body request: UpdateCronJobRequest
+    ): ApiResponse
 
-    @POST("cron/{id}")
-    suspend fun toggleJob(@Path("id") id: String, @Body enabled: Map<String, Boolean>)
+    @DELETE("cron/jobs/{id}")
+    suspend fun deleteJob(@Path("id") id: String): ApiResponse
 
-    @POST("ai/create-cron")
-    suspend fun generateCron(@Body request: AiCronRequest): AiCronResponse
+    @POST("cron/jobs/{id}/toggle")
+    suspend fun toggleJob(@Path("id") id: String, @Body enabled: Boolean): ApiResponse
+
+    @POST("cron/generate")
+    suspend fun generateCron(@Body request: GenerateCronRequest): GenerateCronResponse
+
+    @POST("cron/test")
+    suspend fun testRun(@Body expression: String): TestCronResponse
 }
 
 // ─── Files ───
@@ -208,46 +250,81 @@ interface McpApi {
 // ─── Workflows ───
 
 @Serializable
-data class WorkflowsListResponse(val workflows: List<Workflow> = emptyList())
+data class WorkflowsResponse(val workflows: List<Workflow> = emptyList())
 
 @Serializable
-data class RunWorkflowRequest(val parameters: Map<String, String> = emptyMap())
+data class WorkflowResponse(val workflow: Workflow? = null)
+
+@Serializable
+data class ExecutionLogsResponse(val logs: List<WorkflowExecutionLog> = emptyList())
+
+@Serializable
+data class CreateWorkflowRequest(
+    val name: String,
+    val description: String,
+    val nodes: List<WorkflowNode>,
+    val edges: List<WorkflowEdge>
+)
+
+@Serializable
+data class UpdateWorkflowRequest(
+    val name: String,
+    val description: String,
+    val nodes: List<WorkflowNode>,
+    val edges: List<WorkflowEdge>
+)
 
 interface WorkflowsApi {
     @GET("workflows")
-    suspend fun listWorkflows(): WorkflowsListResponse
+    suspend fun getWorkflows(): WorkflowsResponse
 
     @POST("workflows")
-    suspend fun createWorkflow(@Body workflow: Workflow): Workflow
+    suspend fun createWorkflow(@Body request: CreateWorkflowRequest): WorkflowResponse
 
-    @GET("workflows/{name}")
-    suspend fun getWorkflow(@Path("name") name: String): Workflow
+    @PUT("workflows/{id}")
+    suspend fun updateWorkflow(
+        @Path("id") id: String,
+        @Body request: UpdateWorkflowRequest
+    ): WorkflowResponse
 
-    @DELETE("workflows/{name}")
-    suspend fun deleteWorkflow(@Path("name") name: String)
+    @DELETE("workflows/{id}")
+    suspend fun deleteWorkflow(@Path("id") id: String): ApiResponse
 
-    @POST("workflows/{name}/run")
-    suspend fun runWorkflow(
-        @Path("name") name: String,
-        @Body request: RunWorkflowRequest = RunWorkflowRequest()
-    )
+    @POST("workflows/{id}/execute")
+    suspend fun executeWorkflow(@Path("id") id: String): WorkflowExecutionLog
+
+    @GET("workflows/{id}/logs")
+    suspend fun getExecutionLogs(@Path("id") id: String): ExecutionLogsResponse
 }
 
 // ─── Metrics ───
 
 @Serializable
-data class MetricsResponse(
-    val llmCalls: Int = 0,
-    val totalTokens: Long = 0,
-    val totalCost: Double = 0.0,
-    val toolInvocations: Int = 0,
-    val agentBreakdown: Map<String, Int> = emptyMap(),
-    val toolBreakdown: Map<String, Int> = emptyMap()
+data class MetricsResponse(val metrics: MetricsData? = null)
+
+@Serializable
+data class ExportRequest(
+    val timeRange: String,
+    val agentId: String?,
+    val format: String = "csv"
+)
+
+@Serializable
+data class ExportResult(
+    val filePath: String = "",
+    val fileSize: Long = 0L,
+    val format: String = "csv"
 )
 
 interface MetricsApi {
     @GET("metrics")
-    suspend fun getMetrics(): MetricsResponse
+    suspend fun getMetrics(
+        @Query("timeRange") timeRange: TimeRange,
+        @Query("agentId") agentId: String?
+    ): MetricsResponse
+
+    @POST("metrics/export")
+    suspend fun exportMetrics(@Body request: ExportRequest): ExportResult
 }
 
 // ─── Voice ───
