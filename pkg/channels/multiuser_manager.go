@@ -199,6 +199,21 @@ func (m *MultiUserChannelManager) GetCronServiceForUser(userUUID string) (*cron.
 	return cs, exists
 }
 
+// StartCronServices starts only the cron services for all initialized users,
+// without starting channels or agent loops. Used by web mode.
+func (m *MultiUserChannelManager) StartCronServices() error {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	for userUUID, cronService := range m.cronJobs {
+		if err := cronService.Start(); err != nil {
+			logger.WarnCF("multiuser", "Failed to start cron for user", map[string]interface{}{
+				"user_uuid": userUUID, "error": err.Error(),
+			})
+		}
+	}
+	return nil
+}
+
 // StartAll starts all channel managers for all initialized users
 func (m *MultiUserChannelManager) StartAll(ctx context.Context) error {
 	m.mu.RLock()

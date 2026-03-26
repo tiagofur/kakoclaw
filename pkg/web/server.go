@@ -757,11 +757,19 @@ func (s *Server) getCronServiceForRequest(r *http.Request) (*cron.CronService, i
 	}
 
 	if s.multiUserChannelManager != nil && userUUID != "" {
-		if cronService, exists := s.multiUserChannelManager.GetCronServiceForUser(userUUID); exists {
+		cronService, exists := s.multiUserChannelManager.GetCronServiceForUser(userUUID)
+		if !exists {
+			var err error
+			cronService, err = s.multiUserChannelManager.GetOrCreateCronServiceForUser(userUUID)
+			if err != nil {
+				return nil, userID, cron.ErrCronNotInitialized
+			}
+			exists = cronService != nil
+		}
+		if exists {
 			_ = cronService.Start()
 			return cronService, userID, nil
 		}
-
 		return nil, userID, cron.ErrCronNotInitialized
 	}
 
