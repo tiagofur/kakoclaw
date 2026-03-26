@@ -48,5 +48,12 @@ dependencies {
 
     implementation(libs.kotlinx.serialization.json)
 
+    // Markdown rendering
+    implementation(libs.markwon.core)
+    implementation(libs.markwon.html)
+
+    // Database for offline cache
+    implementation(project(":core:core-database"))
+
     testImplementation(libs.junit.jupiter)
 }

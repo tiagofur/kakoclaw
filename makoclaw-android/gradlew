@@ -1,0 +1,5 @@
+#!/bin/sh
+# Gradle wrapper stub - download actual gradlew from gradle.org
+echo "Please download the Gradle wrapper: gradle wrapper --gradle-version=8.9"
+echo "Or use Android Studio which auto-generates the wrapper files."
+exit 1
