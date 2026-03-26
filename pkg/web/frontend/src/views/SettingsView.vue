@@ -203,9 +203,9 @@
           <!-- Channel Config Modal -->
           <div
             v-if="showChannelModal"
-            class="bg-makoclaw-surface/95 backdrop-blur-2xl border border-makoclaw-border/50 rounded-2xl shadow-2xl ring-1 ring-white/10 w-full max-w-lg overflow-hidden animate-scaleIn"
+            class="bg-makoclaw-surface/95 backdrop-blur-2xl border border-makoclaw-border/50 rounded-2xl shadow-2xl ring-1 ring-white/10 w-full max-w-lg max-h-[90vh] flex flex-col animate-scaleIn"
           >
-            <div class="p-5 border-b border-makoclaw-border/30 bg-gradient-to-r from-makoclaw-surface/50 to-transparent">
+            <div class="p-5 border-b border-makoclaw-border/30 bg-gradient-to-r from-makoclaw-surface/50 to-transparent shrink-0">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
                   <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-makoclaw-accent/20 to-blue-500/20 flex items-center justify-center ring-1 ring-white/10 text-2xl">
@@ -229,7 +229,7 @@
               </div>
             </div>
 
-            <div class="p-5 space-y-4">
+            <div class="p-5 space-y-4 overflow-y-auto min-h-0">
               <div
                 v-if="['telegram', 'discord'].includes(selectedChannel?.id)"
                 class="space-y-4"
@@ -450,7 +450,7 @@
               </div>
             </div>
 
-            <div class="p-5 border-t border-makoclaw-border/30 flex items-center justify-end gap-3 bg-makoclaw-bg/30">
+            <div class="p-5 border-t border-makoclaw-border/30 flex items-center justify-end gap-3 bg-makoclaw-bg/30 shrink-0">
               <button
                 class="px-4 py-2.5 text-sm text-makoclaw-text-secondary hover:text-makoclaw-text transition-colors min-h-[40px]"
                 @click="showChannelModal = false"

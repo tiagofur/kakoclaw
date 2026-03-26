@@ -1063,44 +1063,55 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Use per-user merged config when possible, fall back to global
+	effectiveCfg := s.fullConfig
+	_, userUUID, ok := s.getUserStorage(r)
+	if ok && userUUID != "" {
+		if userCfg, err := config.LoadConfigForUser(userUUID); err == nil {
+			effectiveCfg = config.MergeConfigs(s.fullConfig, userCfg)
+		}
+	}
+
 	// Build a redacted view of the config
 	redacted := map[string]interface{}{
 		"agents": map[string]interface{}{
 			"defaults": map[string]interface{}{
-				"workspace":             s.fullConfig.Agents.Defaults.Workspace,
-				"restrict_to_workspace": s.fullConfig.Agents.Defaults.RestrictToWorkspace,
-				"provider":              s.fullConfig.Agents.Defaults.Provider,
-				"model":                 s.fullConfig.Agents.Defaults.Model,
-				"max_tokens":            s.fullConfig.Agents.Defaults.MaxTokens,
-				"temperature":           s.fullConfig.Agents.Defaults.Temperature,
-				"max_tool_iterations":   s.fullConfig.Agents.Defaults.MaxToolIterations,
+				"workspace":             effectiveCfg.Agents.Defaults.Workspace,
+				"restrict_to_workspace": effectiveCfg.Agents.Defaults.RestrictToWorkspace,
+				"provider":              effectiveCfg.Agents.Defaults.Provider,
+				"model":                 effectiveCfg.Agents.Defaults.Model,
+				"max_tokens":            effectiveCfg.Agents.Defaults.MaxTokens,
+				"temperature":           effectiveCfg.Agents.Defaults.Temperature,
+				"max_tool_iterations":   effectiveCfg.Agents.Defaults.MaxToolIterations,
 			},
 		},
 		"web": map[string]interface{}{
-			"enabled": s.fullConfig.Web.Enabled,
-			"host":    s.fullConfig.Web.Host,
-			"port":    s.fullConfig.Web.Port,
+			"enabled": effectiveCfg.Web.Enabled,
+			"host":    effectiveCfg.Web.Host,
+			"port":    effectiveCfg.Web.Port,
 		},
 		"gateway": map[string]interface{}{
-			"host": s.fullConfig.Gateway.Host,
-			"port": s.fullConfig.Gateway.Port,
+			"host": effectiveCfg.Gateway.Host,
+			"port": effectiveCfg.Gateway.Port,
 		},
 		"storage": map[string]interface{}{
-			"path": s.fullConfig.Storage.Path,
+			"path": effectiveCfg.Storage.Path,
 		},
-		"providers": redactProviders(s.fullConfig),
-		"channels":  redactChannels(s.fullConfig),
+		"providers": redactProviders(effectiveCfg),
+		"channels":  redactChannels(effectiveCfg),
 		"tools": map[string]interface{}{
 			"web": map[string]interface{}{
 				"search": map[string]interface{}{
-					"api_key":     redactKey(s.fullConfig.Tools.Web.Search.APIKey),
-					"max_results": s.fullConfig.Tools.Web.Search.MaxResults,
+					"api_key":     redactKey(effectiveCfg.Tools.Web.Search.APIKey),
+					"max_results": effectiveCfg.Tools.Web.Search.MaxResults,
 				},
 			},
 			"email": map[string]interface{}{
-				"enabled": s.fullConfig.Tools.Email.Enabled,
-				"host":    s.fullConfig.Tools.Email.Host,
-				"port":    s.fullConfig.Tools.Email.Port,
+				"enabled": effectiveCfg.Tools.Email.Enabled,
+				"host":    effectiveCfg.Tools.Email.Host,
+				"port":    effectiveCfg.Tools.Email.Port,
+				"to":      effectiveCfg.Tools.Email.To,
+				"from":    effectiveCfg.Tools.Email.From,
 			},
 		},
 	}
