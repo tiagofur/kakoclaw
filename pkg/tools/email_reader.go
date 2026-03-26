@@ -177,7 +177,7 @@ func (t *ReadEmailTool) Execute(ctx context.Context, args map[string]interface{}
 
 		var uid imap.UID
 		var envelope *imap.Envelope
-		var bodyReader io.Reader
+		var bodyBytes []byte
 		var flags []imap.Flag
 
 		for {
@@ -191,7 +191,13 @@ func (t *ReadEmailTool) Execute(ctx context.Context, args map[string]interface{}
 			case imapclient.FetchItemDataEnvelope:
 				envelope = data.Envelope
 			case imapclient.FetchItemDataBodySection:
-				bodyReader = data.Literal
+				// MUST read the literal immediately: data.Literal is backed by
+				// the live IMAP TCP stream and will be discarded when Next() is
+				// called for the following fetch item.
+				rawBody, readErr := io.ReadAll(io.LimitReader(data.Literal, 10*1024*1024))
+				if readErr == nil {
+					bodyBytes = rawBody
+				}
 			case imapclient.FetchItemDataFlags:
 				flags = data.Flags
 			}
@@ -213,9 +219,8 @@ func (t *ReadEmailTool) Execute(ctx context.Context, args map[string]interface{}
 
 		// Extract body
 		body := ""
-		if bodyReader != nil {
-			limitedReader := io.LimitReader(bodyReader, 10*1024*1024)
-			body, _ = extractEmailPlainText(limitedReader)
+		if len(bodyBytes) > 0 {
+			body, _ = extractEmailPlainText(bytes.NewReader(bodyBytes))
 			// Truncate long bodies
 			if len(body) > 2000 {
 				body = body[:2000] + "\n...[truncated]"
