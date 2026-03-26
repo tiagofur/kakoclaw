@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -612,7 +613,7 @@ func (ss *SpecialistSelector) SelectByKeywords(keywords []string) []*SpecialistA
 	for _, specialist := range ss.registry.ListSpecialists() {
 		for _, keyword := range keywords {
 			// Check if keyword is in specialist's description or keywords
-			if contains(specialist.GetSpecialistKeywords(), keyword) {
+			if slices.Contains(specialist.GetSpecialistKeywords(), keyword) {
 				matches = append(matches, specialist)
 				break
 			}
@@ -644,16 +645,6 @@ func (sa *SpecialistAgent) GetAllowedTools() []string {
 		tools = append(tools, tool)
 	}
 	return tools
-}
-
-// contains checks if a string is in a slice
-func contains(slice []string, item string) bool {
-	for _, v := range slice {
-		if v == item {
-			return true
-		}
-	}
-	return false
 }
 
 // SelectByName returns a single specialist by name

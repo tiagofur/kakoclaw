@@ -259,12 +259,15 @@ func (t *ReadEmailTool) Execute(ctx context.Context, args map[string]interface{}
 		return msg, nil
 	}
 
-	result, _ := json.MarshalIndent(map[string]interface{}{
+	result, err := json.MarshalIndent(map[string]interface{}{
 		"emails":      emails,
 		"count":       len(emails),
 		"total_in_search": len(allUIDs),
 		"mailbox":     mailbox,
 	}, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal result: %w", err)
+	}
 
 	logger.InfoCF("tool", "Read emails from inbox", map[string]interface{}{
 		"count":   len(emails),

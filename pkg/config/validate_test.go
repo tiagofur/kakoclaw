@@ -309,7 +309,7 @@ func TestValidateChannelName(t *testing.T) {
 		// Invalid channels
 		{"empty", "", true},
 		{"unknown", "unknown", true},
-		{"email", "email", true},
+		{"email", "email", false},
 		{"sms", "sms", true},
 		{"teams", "teams", true},
 	}

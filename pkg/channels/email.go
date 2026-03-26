@@ -11,6 +11,7 @@ import (
 	"net/smtp"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -188,7 +189,7 @@ func (c *EmailChannel) Send(ctx context.Context, msg bus.OutboundMessage) error 
 		state := ts.(*threadState)
 		inReplyTo = state.LastMessageID
 		references = append([]string{}, state.References...)
-		if state.LastMessageID != "" && !contains(references, state.LastMessageID) {
+		if state.LastMessageID != "" && !slices.Contains(references, state.LastMessageID) {
 			references = append(references, state.LastMessageID)
 		}
 		if state.Subject != "" {
@@ -679,16 +680,6 @@ func parseFromAddr(from, fallback string) (envelope, header string, err error) {
 		return "", "", fmt.Errorf("invalid from address %q", from)
 	}
 	return trimmed, trimmed, nil
-}
-
-// contains checks if a string slice contains a value.
-func contains(slice []string, val string) bool {
-	for _, s := range slice {
-		if s == val {
-			return true
-		}
-	}
-	return false
 }
 
 // Ensure EmailChannel satisfies the Channel interface at compile time.

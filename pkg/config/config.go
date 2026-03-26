@@ -1101,6 +1101,13 @@ func MergeConfigs(global, user *Config) *Config {
 		merged.ToolPermissions = global.ToolPermissions
 	}
 
+	// Merge TTS section
+	if user.TTS.Provider != "" || user.TTS.APIKey != "" || user.TTS.Enabled {
+		merged.TTS = user.TTS
+	} else {
+		merged.TTS = global.TTS
+	}
+
 	// Preserve DegradedMode flag
 	merged.DegradedMode = global.DegradedMode || user.DegradedMode
 

@@ -267,7 +267,10 @@ func (t *WebFetchTool) Execute(ctx context.Context, args map[string]interface{})
 	if strings.Contains(contentType, "application/json") {
 		var jsonData interface{}
 		if err := json.Unmarshal(body, &jsonData); err == nil {
-			formatted, _ := json.MarshalIndent(jsonData, "", "  ")
+			formatted, err := json.MarshalIndent(jsonData, "", "  ")
+			if err != nil {
+				return "", fmt.Errorf("failed to marshal JSON: %w", err)
+			}
 			text = string(formatted)
 			extractor = "json"
 		} else {
@@ -296,7 +299,10 @@ func (t *WebFetchTool) Execute(ctx context.Context, args map[string]interface{})
 		"text":      text,
 	}
 
-	resultJSON, _ := json.MarshalIndent(result, "", "  ")
+	resultJSON, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal result: %w", err)
+	}
 	return string(resultJSON), nil
 }
 

@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/sipeed/makoclaw/pkg/bus"
@@ -508,31 +509,32 @@ func TestSelectByKeywords_NilKeywords(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestContains_Found(t *testing.T) {
-	if !contains([]string{"a", "b", "c"}, "b") {
+	if !slices.Contains([]string{"a", "b", "c"}, "b") {
 		t.Error("expected true for item in slice")
 	}
 }
 
 func TestContains_NotFound(t *testing.T) {
-	if contains([]string{"a", "b", "c"}, "d") {
+	if slices.Contains([]string{"a", "b", "c"}, "d") {
 		t.Error("expected false for item not in slice")
 	}
 }
 
 func TestContains_EmptySlice(t *testing.T) {
-	if contains([]string{}, "a") {
+	if slices.Contains([]string{}, "a") {
 		t.Error("expected false for empty slice")
 	}
 }
 
 func TestContains_NilSlice(t *testing.T) {
-	if contains(nil, "a") {
+	var nilSlice []string
+	if slices.Contains(nilSlice, "a") {
 		t.Error("expected false for nil slice")
 	}
 }
 
 func TestContains_EmptyItem(t *testing.T) {
-	if !contains([]string{"", "a"}, "") {
+	if !slices.Contains([]string{"", "a"}, "") {
 		t.Error("expected true for empty string in slice containing empty string")
 	}
 }
