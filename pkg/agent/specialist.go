@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -187,6 +188,9 @@ func NewSpecialistAgent(
 
 	// Create base agent loop for specialist
 	al := NewAgentLoop(globalCfg, msgBus, provider)
+	if strings.TrimSpace(cfg.Model) != "" {
+		al.model = strings.TrimSpace(cfg.Model)
+	}
 
 	// Apply specialist-specific MaxToolIterations if configured.
 	// NewAgentLoop uses globalCfg defaults, so we override here.
@@ -286,10 +290,14 @@ func (sa *SpecialistAgent) ProcessWithSpecialityAndSession(ctx context.Context, 
 
 	// Injects specialist's name into the context so tools know who is calling them
 	agentCtx := kakoclawContext.WithAgentName(ctx, sa.name)
+	modelOverride := strings.TrimSpace(modelOverrideFromCtx(agentCtx))
 
 	// Processs message using ProcessDirect
 	if sessionKey == "" {
 		sessionKey = fmt.Sprintf("specialist_%s", sa.name)
+	}
+	if modelOverride != "" {
+		return sa.ProcessDirectWithModel(agentCtx, fullMessage, sessionKey, modelOverride)
 	}
 	return sa.ProcessDirect(agentCtx, fullMessage, sessionKey)
 }
@@ -328,12 +336,16 @@ func (sa *SpecialistAgent) ProcessWithSpecialityForUser(ctx context.Context, use
 
 	// Injects specialist's name into the context so tools know who is calling them
 	agentCtx := kakoclawContext.WithAgentName(ctx, sa.name)
+	modelOverride := strings.TrimSpace(modelOverrideFromCtx(agentCtx))
 
 	// Use the provided session key to keep messages in the original chat session.
 	// Only fall back to a specialist-specific key for standalone (non-orchestrated) usage.
 	effectiveKey := sessionKey
 	if effectiveKey == "" {
 		effectiveKey = fmt.Sprintf("specialist_%s", sa.name)
+	}
+	if modelOverride != "" {
+		return sa.ProcessDirectWithUserAndModel(agentCtx, userID, userMessage, effectiveKey, modelOverride)
 	}
 	return sa.ProcessDirectWithUser(agentCtx, userID, userMessage, effectiveKey)
 }

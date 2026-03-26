@@ -17,6 +17,7 @@ import (
 
 type agentTrackerKey struct{}
 type sessionKeyCtxKey struct{}
+type modelOverrideCtxKey struct{}
 
 // ContextWithAgentTracker embeds an AgentLoop into the context so that specialist
 // delegations register agent names into the caller's tracker (e.g. the web chat AgentLoop)
@@ -43,6 +44,23 @@ func ContextWithSessionKey(ctx context.Context, key string) context.Context {
 
 func sessionKeyFromCtx(ctx context.Context) string {
 	if v, ok := ctx.Value(sessionKeyCtxKey{}).(string); ok {
+		return v
+	}
+	return ""
+}
+
+func contextWithModelOverride(ctx context.Context, model string) context.Context {
+	return context.WithValue(ctx, modelOverrideCtxKey{}, model)
+}
+
+// ContextWithModelOverride embeds a per-request model override into context so
+// orchestrator delegations and direct specialist invocations can reuse it.
+func ContextWithModelOverride(ctx context.Context, model string) context.Context {
+	return contextWithModelOverride(ctx, model)
+}
+
+func modelOverrideFromCtx(ctx context.Context) string {
+	if v, ok := ctx.Value(modelOverrideCtxKey{}).(string); ok {
 		return v
 	}
 	return ""

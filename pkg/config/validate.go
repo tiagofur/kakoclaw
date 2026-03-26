@@ -202,6 +202,7 @@ var ValidChannelNames = []string{
 	"dingtalk",
 	"feishu",
 	"maixcam",
+	"email",
 }
 
 // ValidateChannelName ensures the channel name is known.

@@ -1,0 +1,100 @@
+id: android-fase-2
+title: Android Fase 2 - Feature Parity
+description: Completar 11 features esqueletales de la app Android para lograr paridad funcional con la app web
+status: proposed
+created_at: '2026-03-26'
+updated_at: '2026-03-26'
+
+artifacts:
+  exploration:
+    file: exploration.md
+    status: completed
+    created_at: '2026-03-26'
+    topic_key: sdd/android-fase-2/explore
+
+  proposal:
+    file: proposal.md
+    status: completed
+    created_at: '2026-03-26'
+    topic_key: sdd/android-fase-2/proposal
+
+  spec:
+    file: spec.md
+    status: pending
+    topic_key: sdd/android-fase-2/spec
+
+  design:
+    file: design.md
+    status: completed
+    created_at: '2026-03-26'
+    topic_key: sdd/android-fase-2/design
+
+  tasks:
+    file: tasks.md
+    status: completed
+    created_at: '2026-03-26'
+    topic_key: sdd/android-fase-2/tasks
+
+  apply_progress:
+    file: apply-progress.md
+status: completed
+completed_at: '2026-03-26'
+topic_key: sdd/android-fase-2/apply-progress
+
+  verify_report:
+    file: verify-report.md
+    status: pending
+    topic_key: sdd/android-fase-2/verify-report
+
+  archive_report:
+    file: archive-report.md
+    status: pending
+    topic_key: sdd/android-fase-2/archive-report
+
+dependencies:
+  - android-fase-1
+
+milestones:
+  - id: milestone-1
+    title: Core + Prioridad ALTA (Part 1)
+    description: Completar core modules + feature-knowledge
+    estimated_weeks: 1-2
+    status: pending
+
+  - id: milestone-2
+    title: Prioridad ALTA (Part 2)
+    description: Implementar feature-workflows, feature-metrics, feature-cron
+    estimated_weeks: 2-3
+    status: pending
+
+  - id: milestone-3
+    title: Prioridad MEDIA
+    description: Implementar feature-skills, feature-agents, feature-memory
+    estimated_weeks: 3-4
+    status: pending
+
+  - id: milestone-4
+    title: Prioridad BAJA
+    description: Implementar feature-files, feature-mcp, feature-history, feature-reports
+    estimated_weeks: 4-5
+    status: pending
+
+  - id: milestone-5
+    title: Polish & QA
+    description: Tests completos, UI polish, bug fixes, performance optimization
+    estimated_weeks: 5-6
+    status: pending
+
+resources:
+  developers: 2-3
+  designers: 1
+  qa: 1
+  estimated_weeks: 4-6
+
+risks:
+  - workflows_editor_complexity: HIGH
+  - vico_library_bugs: MEDIUM
+  - core_modules_dependency: MEDIUM
+  - merge_conflicts: MEDIUM
+  - performance_regression: LOW
+  - cron_selector_ux: LOW

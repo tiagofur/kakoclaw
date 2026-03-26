@@ -486,6 +486,9 @@ func DefaultConfig() *Config {
 					"edit_file",
 					"append_file",
 					"list_dir",
+					// User-scoped configuration and scheduling
+					"configure",
+					"cron",
 					// Task and knowledge management
 					"task_manager",
 					"query_knowledge",

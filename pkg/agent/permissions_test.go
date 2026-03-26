@@ -1,9 +1,11 @@
 package agent
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/sipeed/makoclaw/pkg/config"
+	"github.com/sipeed/makoclaw/pkg/cron"
 	"github.com/sipeed/makoclaw/pkg/tools"
 )
 
@@ -168,6 +170,8 @@ func TestFilterToolsByPermissions_DefaultUser(t *testing.T) {
 	baseRegistry.Register(tools.NewWriteFileTool("/tmp", false))
 	baseRegistry.Register(tools.NewWebSearchTool("", 10))
 	baseRegistry.Register(tools.NewWebFetchTool(50000))
+	baseRegistry.Register(tools.NewConfigureTool())
+	baseRegistry.Register(tools.NewCronTool(cron.NewCronService(filepath.Join(t.TempDir(), "cron", "jobs.json"), nil), nil, nil))
 
 	// Use default config
 	cfg := config.DefaultConfig()
@@ -175,7 +179,7 @@ func TestFilterToolsByPermissions_DefaultUser(t *testing.T) {
 	filtered := filterToolsByPermissions(baseRegistry, "user", 2, cfg, nil)
 
 	// Default user should have safe tools
-	safeTools := []string{"read_file", "write_file", "web_search", "web_fetch"}
+	safeTools := []string{"read_file", "write_file", "web_search", "web_fetch", "configure", "cron"}
 	for _, toolName := range safeTools {
 		if tool, _ := filtered.Get(toolName); tool == nil {
 			t.Errorf("Default user should have %s tool", toolName)
@@ -193,6 +197,31 @@ func TestFilterToolsByPermissions_DefaultUser(t *testing.T) {
 		if tool, _ := filtered.Get(toolName); tool != nil {
 			t.Errorf("Default user should NOT have %s tool", toolName)
 		}
+	}
+}
+
+func TestAgentLoopRegisterToolRespectsPermissions(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.ToolPermissions.RoleDefaults["user"] = []string{"read_file"}
+
+	al := &AgentLoop{
+		workspace:      t.TempDir(),
+		userID:         42,
+		userRole:       "user",
+		cfg:            cfg,
+		contextBuilder: NewContextBuilder(t.TempDir()),
+		tools:          tools.NewToolRegistry(),
+		baseTools:      tools.NewToolRegistry(),
+	}
+
+	cronTool := tools.NewCronTool(cron.NewCronService(filepath.Join(t.TempDir(), "cron", "jobs.json"), nil), nil, nil)
+	al.RegisterTool(cronTool)
+
+	if tool, _ := al.baseTools.Get("cron"); tool == nil {
+		t.Fatal("registering a tool should always add it to the base registry")
+	}
+	if tool, _ := al.tools.Get("cron"); tool != nil {
+		t.Fatal("registered tool should still respect filtered user permissions")
 	}
 }
 

@@ -491,16 +491,12 @@ export const useChatStore = defineStore('chat', () => {
     const normalized = normalizeModelsData(data)
     currentModel.value = normalized.currentModel
     availableProviders.value = normalized.providers
-    // If no model selected yet, use the server default
-    if (!selectedModel.value && normalized.currentModel) {
-      selectedModel.value = normalized.currentModel
-    }
     if (selectedModel.value) {
       const stillAvailable = normalized.providers.some(provider =>
         provider.models.some(model => model.id === selectedModel.value)
       )
       if (!stillAvailable) {
-        selectedModel.value = normalized.currentModel || ''
+        selectedModel.value = ''
       }
     }
   }

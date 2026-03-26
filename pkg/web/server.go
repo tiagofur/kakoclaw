@@ -1345,6 +1345,9 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 			ctx = agent.ContextWithAgentTracker(ctx, activeAgentLoop)
 			ctx = tools.WithSensitiveConfirmationRequired(ctx, true)
 			ctx = agent.ContextWithSessionKey(ctx, sessionID)
+			if strings.TrimSpace(req.Model) != "" {
+				ctx = agent.ContextWithModelOverride(ctx, strings.TrimSpace(req.Model))
+			}
 			execID := fmt.Sprintf("%s:%d", sessionID, time.Now().UnixNano())
 
 			// Track active execution

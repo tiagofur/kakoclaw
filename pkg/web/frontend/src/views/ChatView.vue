@@ -101,12 +101,17 @@
             </div>
             <select
               v-model="chatStore.selectedModel"
-              :disabled="chatStore.allModels.length === 0"
               class="bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-xl px-3 py-1.5 text-xs text-makoclaw-text focus:ring-2 focus:ring-emerald-400/30 focus:border-emerald-400 transition-all cursor-pointer max-w-[160px] md:max-w-[280px]"
             >
               <option
-                v-if="chatStore.allModels.length === 0"
                 value=""
+              >
+                Auto (usar configuracion por especialista/orchestrator)
+              </option>
+              <option
+                v-if="chatStore.allModels.length === 0"
+                disabled
+                value="__no_models__"
               >
                 No models available
               </option>

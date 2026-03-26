@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -12,6 +13,7 @@ import (
 	"github.com/emersion/go-imap/v2"
 	"github.com/emersion/go-imap/v2/imapclient"
 	gomessage "github.com/emersion/go-message"
+	gomail "github.com/emersion/go-message/mail"
 	"golang.org/x/net/html"
 
 	"github.com/sipeed/makoclaw/pkg/config"
@@ -277,10 +279,14 @@ func extractEmailPlainText(r io.Reader) (string, error) {
 		return "", nil
 	}
 
+	// First pass: mail-aware parser handles real-world MIME trees and transfer encodings.
+	if plain, ok := extractEmailWithMailReader(bodyBytes); ok {
+		return plain, nil
+	}
+
 	entity, err := gomessage.Read(strings.NewReader(string(bodyBytes)))
 	if err != nil {
-		// Not MIME, return raw text
-		return string(bodyBytes), nil
+		return extractBodyFromRawRFC822(bodyBytes), nil
 	}
 
 	// Check if it's multipart
@@ -292,13 +298,62 @@ func extractEmailPlainText(r io.Reader) (string, error) {
 	contentType, _, _ := entity.Header.ContentType()
 	bodyContent, err := io.ReadAll(entity.Body)
 	if err != nil {
-		return string(bodyBytes), nil
+		return extractBodyFromRawRFC822(bodyBytes), nil
 	}
 
 	if strings.HasPrefix(contentType, "text/html") {
 		return emailHtmlToPlaintext(string(bodyContent)), nil
 	}
-	return string(bodyContent), nil
+	plain := strings.TrimSpace(string(bodyContent))
+	if plain == "" {
+		return extractBodyFromRawRFC822(bodyBytes), nil
+	}
+	return plain, nil
+}
+
+func extractEmailWithMailReader(bodyBytes []byte) (string, bool) {
+	mr, err := gomail.CreateReader(bytes.NewReader(bodyBytes))
+	if err != nil {
+		return "", false
+	}
+
+	var plainText, htmlText string
+	for {
+		part, err := mr.NextPart()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			break
+		}
+
+		switch h := part.Header.(type) {
+		case *gomail.InlineHeader:
+			contentType, _, _ := h.ContentType()
+			contentType = strings.ToLower(strings.TrimSpace(contentType))
+			content, readErr := io.ReadAll(part.Body)
+			if readErr != nil {
+				continue
+			}
+			if strings.HasPrefix(contentType, "text/plain") && plainText == "" {
+				plainText = strings.TrimSpace(string(content))
+			}
+			if strings.HasPrefix(contentType, "text/html") && htmlText == "" {
+				htmlText = strings.TrimSpace(string(content))
+			}
+		}
+	}
+
+	if plainText != "" {
+		return plainText, true
+	}
+	if htmlText != "" {
+		plain := strings.TrimSpace(emailHtmlToPlaintext(htmlText))
+		if plain != "" {
+			return plain, true
+		}
+	}
+	return "", false
 }
 
 // extractFromEmailMultipart walks multipart MIME parts looking for text content.
@@ -316,6 +371,7 @@ func extractFromEmailMultipart(mr gomessage.MultipartReader) (string, error) {
 		}
 
 		contentType, _, _ := part.Header.ContentType()
+		contentType = strings.ToLower(strings.TrimSpace(contentType))
 
 		// Recurse into nested multipart
 		if nestedMR := part.MultipartReader(); nestedMR != nil {
@@ -352,6 +408,16 @@ func extractFromEmailMultipart(mr gomessage.MultipartReader) (string, error) {
 		return emailHtmlToPlaintext(htmlText), nil
 	}
 	return "", nil
+}
+
+func extractBodyFromRawRFC822(bodyBytes []byte) string {
+	raw := string(bodyBytes)
+	raw = strings.ReplaceAll(raw, "\r\n", "\n")
+	parts := strings.SplitN(raw, "\n\n", 2)
+	if len(parts) == 2 {
+		return strings.TrimSpace(parts[1])
+	}
+	return strings.TrimSpace(raw)
 }
 
 // emailHtmlToPlaintext converts HTML to plaintext.

@@ -20,14 +20,19 @@ Este directorio concentra la informacion de producto y arquitectura necesaria pa
 
 ## Estructura
 
-- `01-product-vision.md`
-- `02-current-capabilities.md`
-- `03-ux-ui-system.md`
-- `04-multiuser-architecture-and-isolation.md`
-- `05-technology-stack-and-standards.md`
-- `06-roadmap-and-execution-phases.md`
-- `07-delivery-and-delegation-playbook.md`
-- `08-kpis-quality-and-release-gates.md`
+### Core Platform
+- `01-product-vision.md` - Visión, misión, principios, personas, objetivos estratégicos
+- `02-current-capabilities.md` - Capacidades actuales del sistema
+- `03-ux-ui-system.md` - Sistema de diseño UI/UX
+- `04-multiuser-architecture-and-isolation.md` - Arquitectura multiusuario y aislamiento
+- `05-technology-stack-and-standards.md` - Stack tecnológico y estándares de ingeniería
+- `06-roadmap-and-execution-phases.md` - Roadmap y fases de ejecución
+- `07-delivery-and-delegation-playbook.md` - Playbook para entrega y delegación
+- `08-kpis-quality-and-release-gates.md` - KPIs, calidad y gates de release
+
+### Mobile Apps
+- `09-android-native-app.md` - App nativa Android (Kotlin, Jetpack Compose, Material3)
+- `10-ios-native-app.md` - App nativa iOS (Swift, SwiftUI, Human Interface Guidelines)
 
 ## Fuentes consolidadas
 

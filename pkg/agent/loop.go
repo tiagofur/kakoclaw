@@ -437,6 +437,8 @@ func (al *AgentLoop) SetUserForAgent(userUUID string, userID int64) {
 		al.workspace = al.defaultWorkspace
 		al.sessions.SetStorage(filepath.Join(al.workspace, "sessions"))
 		al.updateToolsWorkspace(al.workspace)
+		al.updateToolsUser(userID)
+		al.updateToolsUserConfig(userID, userUUID)
 		al.contextBuilder.WithUser(userUUID, userID)
 		return
 	}
@@ -553,7 +555,23 @@ func (al *AgentLoop) Stop() {
 }
 
 func (al *AgentLoop) RegisterTool(tool tools.Tool) {
-	al.tools.Register(tool)
+	if al.baseTools != nil {
+		al.baseTools.Register(tool)
+	} else if al.tools != nil {
+		al.tools.Register(tool)
+	}
+
+	if al.baseTools == nil {
+		return
+	}
+
+	al.tools = filterToolsByPermissions(al.baseTools, al.userRole, al.userID, al.cfg, al.centralStorage)
+	if al.contextBuilder != nil {
+		al.contextBuilder.SetToolsRegistry(al.tools)
+	}
+	al.updateToolsWorkspace(al.workspace)
+	al.updateToolsUser(al.userID)
+	al.updateToolsUserConfig(al.userID, al.userUUID)
 }
 
 // SetStorage replaces the active data storage used by stateful tools and message persistence.
@@ -697,6 +715,10 @@ func (al *AgentLoop) processMessage(ctx context.Context, msg bus.InboundMessage)
 }
 
 func (al *AgentLoop) processMessageWithModel(ctx context.Context, msg bus.InboundMessage, modelOverride string, excludeTools ...string) (string, error) {
+	if strings.TrimSpace(modelOverride) != "" {
+		ctx = ContextWithModelOverride(ctx, strings.TrimSpace(modelOverride))
+	}
+
 	al.applyMessageUserContext(msg)
 
 	// Issue #9: Rate limiting
@@ -748,6 +770,10 @@ func (al *AgentLoop) processMessageWithModel(ctx context.Context, msg bus.Inboun
 }
 
 func (al *AgentLoop) processMessageWithModelStream(ctx context.Context, msg bus.InboundMessage, modelOverride string, onToken StreamCallback, onThinking func(string), onTool ToolCallback, excludeTools ...string) (string, error) {
+	if strings.TrimSpace(modelOverride) != "" {
+		ctx = ContextWithModelOverride(ctx, strings.TrimSpace(modelOverride))
+	}
+
 	al.applyMessageUserContext(msg)
 
 	// Rate limiting

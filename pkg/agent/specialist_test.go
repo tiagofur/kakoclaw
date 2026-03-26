@@ -2,6 +2,9 @@ package agent
 
 import (
 	"testing"
+
+	"github.com/sipeed/makoclaw/pkg/bus"
+	"github.com/sipeed/makoclaw/pkg/config"
 )
 
 // ---------------------------------------------------------------------------
@@ -278,6 +281,37 @@ func TestSpecialistAgent_GetAllowedTools_Empty(t *testing.T) {
 	tools := sa.GetAllowedTools()
 	if len(tools) != 0 {
 		t.Errorf("expected 0 tools, got %d", len(tools))
+	}
+}
+
+func TestNewSpecialistAgent_UsesSpecialistModel(t *testing.T) {
+	globalCfg := newAgentTestConfig(t.TempDir())
+	globalCfg.Agents.Defaults.Model = "global-default-model"
+
+	specCfg := &config.SpecialistConfig{
+		Name:        "developer",
+		Description: "code specialist",
+		Model:       "specialist-model",
+		Tools:       []string{"read_file"},
+	}
+
+	specialist, err := NewSpecialistAgent(
+		"developer",
+		specCfg,
+		globalCfg,
+		bus.NewMessageBus(),
+		&staticProvider{response: "ok"},
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("unexpected error creating specialist: %v", err)
+	}
+
+	if specialist.AgentLoop == nil {
+		t.Fatal("expected specialist agent loop to be initialized")
+	}
+	if got := specialist.AgentLoop.model; got != "specialist-model" {
+		t.Fatalf("expected specialist model override, got %q", got)
 	}
 }
 

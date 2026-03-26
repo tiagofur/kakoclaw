@@ -28,6 +28,23 @@ func (p *sequenceProvider) GetDefaultModel() string {
 	return "sequence-test-model"
 }
 
+type modelRecordingProvider struct {
+	response  *providers.LLMResponse
+	lastModel string
+}
+
+func (p *modelRecordingProvider) Chat(ctx context.Context, messages []providers.Message, tools []providers.ToolDefinition, model string, options map[string]interface{}) (*providers.LLMResponse, error) {
+	p.lastModel = model
+	if p.response != nil {
+		return p.response, nil
+	}
+	return &providers.LLMResponse{Content: "ok", FinishReason: "stop"}, nil
+}
+
+func (p *modelRecordingProvider) GetDefaultModel() string {
+	return "recording-default"
+}
+
 type sessionRecordingTool struct {
 	lastSessionKey string
 }
@@ -633,6 +650,18 @@ func TestContextWithSessionKeyRoundTrip(t *testing.T) {
 	}
 }
 
+func TestContextWithModelOverrideRoundTrip(t *testing.T) {
+	ctx := context.Background()
+	if got := modelOverrideFromCtx(ctx); got != "" {
+		t.Fatalf("expected empty model override from empty context, got %q", got)
+	}
+
+	ctx = ContextWithModelOverride(ctx, "gpt-4o-mini")
+	if got := modelOverrideFromCtx(ctx); got != "gpt-4o-mini" {
+		t.Fatalf("expected model override to round-trip, got %q", got)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // ContextWithAgentStatusCallback / agentStatusCallbackFromCtx / emitAgentStatus
 // ---------------------------------------------------------------------------
@@ -777,6 +806,33 @@ func TestProcessSpecialistTask_PropagatesSessionKeyToSpecialist(t *testing.T) {
 	}
 	if recorder.lastSessionKey != "web:chat:abc123" {
 		t.Fatalf("expected propagated session key, got %q", recorder.lastSessionKey)
+	}
+}
+
+func TestProcessSpecialistTask_PropagatesModelOverrideToSpecialist(t *testing.T) {
+	recorderProvider := &modelRecordingProvider{response: &providers.LLMResponse{Content: "specialist complete", FinishReason: "stop"}}
+	specialist := newTestSpecialistAgent(t, "developer", recorderProvider)
+
+	registry := NewSpecialistRegistry()
+	if err := registry.RegisterSpecialist(specialist); err != nil {
+		t.Fatalf("failed to register specialist: %v", err)
+	}
+
+	oa := &OrchestratorAgent{
+		SpecialistAgent: &SpecialistAgent{AgentLoop: &AgentLoop{}},
+		registry:        registry,
+	}
+	ctx := ContextWithModelOverride(context.Background(), "gpt-4o-mini")
+
+	result, err := oa.processSpecialistTask(ctx, "developer", "review this", "web:chat:abc123")
+	if err != nil {
+		t.Fatalf("processSpecialistTask returned error: %v", err)
+	}
+	if !strings.Contains(result, "specialist complete") {
+		t.Fatalf("expected specialist response, got %q", result)
+	}
+	if recorderProvider.lastModel != "gpt-4o-mini" {
+		t.Fatalf("expected model override to propagate, got %q", recorderProvider.lastModel)
 	}
 }
 
