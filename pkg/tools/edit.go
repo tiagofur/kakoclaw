@@ -90,7 +90,7 @@ func (t *EditFileTool) Execute(ctx context.Context, args map[string]interface{})
 	}
 
 	if IsSensitiveConfirmationRequired(ctx) && IsSensitiveWorkspacePath(resolvedPath, allowedDir) && !isConfirmed(args) {
-		return "Confirmation required: edit_file targets a sensitive file. Re-run with confirmed=true after user approval.", nil
+		return ConfirmationMessage("edit_file", "targets sensitive workspace file: "+resolvedPath), nil
 	}
 
 	info, err := os.Stat(resolvedPath)
@@ -194,7 +194,7 @@ func (t *AppendFileTool) Execute(ctx context.Context, args map[string]interface{
 	}
 
 	if IsSensitiveConfirmationRequired(ctx) && IsSensitiveWorkspacePath(resolvedPath, workspace) && !isConfirmed(args) {
-		return "Confirmation required: append_file targets a sensitive file. Re-run with confirmed=true after user approval.", nil
+		return ConfirmationMessage("append_file", "targets sensitive workspace file: "+resolvedPath), nil
 	}
 
 	f, err := os.OpenFile(resolvedPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)

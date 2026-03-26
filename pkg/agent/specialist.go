@@ -484,7 +484,7 @@ func (t *RequestColleagueTool) Execute(ctx context.Context, args map[string]inte
 	})
 
 	// Get response from colleague
-	response, err := colleague.ProcessWithSpecialityAndSession(ctx, fullQuestion, sessionKeyFromCtx(ctx))
+	response, err := colleague.ProcessWithSpecialityForUser(ctx, t.currentAgent.userUUID, t.currentAgent.userID, fullQuestion, sessionKeyFromCtx(ctx))
 	if err != nil {
 		return fmt.Sprintf("⚠️ Colleague %s encountered an error: %s", colleagueName, err.Error()), nil
 	}
