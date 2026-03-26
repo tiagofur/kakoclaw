@@ -37,9 +37,8 @@ artifacts:
 
   apply_progress:
     file: apply-progress.md
-    status: completed
+    status: in_progress
     created_at: '2026-03-26'
-    completed_at: '2026-03-26'
     topic_key: sdd/android-fase-2/apply-progress
 
   verify_report:
@@ -69,6 +68,10 @@ milestones:
     estimated_weeks: 2-3
     status: in_progress
     started_at: '2026-03-26'
+    progress: BATCH 3A (workflows) completado, BATCH 3B (metrics) pendiente
+    completed_batches:
+      - BATCH 3A: Feature Workflows (5/5 tareas, 13 archivos)
+    current_focus: BATCH 3B: Feature Metrics
 
   - id: milestone-3
     title: Prioridad MEDIA

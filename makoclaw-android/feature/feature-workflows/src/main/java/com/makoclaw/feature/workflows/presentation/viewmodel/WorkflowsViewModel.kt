@@ -8,7 +8,6 @@ import com.makoclaw.feature.workflows.presentation.state.WorkflowsEffect
 import com.makoclaw.feature.workflows.presentation.state.WorkflowsEvent
 import com.makoclaw.feature.workflows.presentation.state.WorkflowsUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -17,6 +16,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @HiltViewModel
 class WorkflowsViewModel @Inject constructor(
@@ -35,16 +35,16 @@ class WorkflowsViewModel @Inject constructor(
 
     fun onEvent(event: WorkflowsEvent) {
         when (event) {
-            WorkflowsEvent.LoadWorkflows,
-            WorkflowsEvent.Refresh -> loadWorkflows()
+            is WorkflowsEvent.LoadWorkflows -> loadWorkflows()
+            is WorkflowsEvent.Refresh -> loadWorkflows()
             is WorkflowsEvent.CreateWorkflow -> createWorkflow(event.name, event.description)
             is WorkflowsEvent.UpdateWorkflow -> updateWorkflow(event.workflow)
             is WorkflowsEvent.DeleteWorkflow -> deleteWorkflow(event.id)
             is WorkflowsEvent.ExecuteWorkflow -> executeWorkflow(event.id)
             is WorkflowsEvent.SelectWorkflow -> selectWorkflow(event.id)
             is WorkflowsEvent.ViewLogs -> viewLogs(event.workflowId)
-            WorkflowsEvent.OpenEditor -> openEditor()
-            WorkflowsEvent.CloseEditor -> closeEditor()
+            is WorkflowsEvent.OpenEditor -> openEditor()
+            is WorkflowsEvent.CloseEditor -> closeEditor()
             is WorkflowsEvent.SaveEditor -> saveEditor(event.workflow)
         }
     }
@@ -52,20 +52,24 @@ class WorkflowsViewModel @Inject constructor(
     private fun loadWorkflows() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-            runCatching {
+
+            try {
                 repository.getWorkflows().collect { workflows ->
-                    _uiState.update {
-                        it.copy(
+                    _uiState.update { currentState ->
+                        currentState.copy(
                             isLoading = false,
                             workflows = workflows,
                             isEmpty = workflows.isEmpty(),
-                            selectedWorkflow = syncSelection(it.selectedWorkflow, workflows)
+                            selectedWorkflow = syncSelection(currentState.selectedWorkflow, workflows)
                         )
                     }
                 }
-            }.onFailure { error ->
+            } catch (e: Exception) {
                 _uiState.update {
-                    it.copy(isLoading = false, error = "Failed to load workflows: ${error.message}")
+                    it.copy(
+                        isLoading = false,
+                        error = "Failed to load workflows: ${e.message}"
+                    )
                 }
                 _effects.emit(WorkflowsEffect.ShowSnackbar("Error loading workflows"))
             }
@@ -73,31 +77,45 @@ class WorkflowsViewModel @Inject constructor(
     }
 
     private fun createWorkflow(name: String, description: String) {
-        val workflow = Workflow(
-            id = "",
-            name = name,
-            description = description,
-            createdAt = System.currentTimeMillis(),
-            updatedAt = System.currentTimeMillis()
+        saveWorkflow(
+            Workflow(
+                id = "",
+                name = name,
+                description = description,
+                nodes = emptyList(),
+                edges = emptyList(),
+                status = "draft",
+                createdAt = System.currentTimeMillis(),
+                updatedAt = System.currentTimeMillis(),
+                lastExecutionAt = null
+            )
         )
-        saveWorkflow(flowWorkflow = workflow)
     }
 
     private fun updateWorkflow(workflow: Workflow) = saveWorkflow(workflow)
 
-    private fun saveWorkflow(flowWorkflow: Workflow) {
+    private fun saveWorkflow(workflow: Workflow) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-            runCatching {
-                val target = flowWorkflow.copy(updatedAt = System.currentTimeMillis())
-                if (target.id.isBlank()) repository.createWorkflow(target) else repository.updateWorkflow(target)
-            }.onFailure {
-                _uiState.update { state -> state.copy(isLoading = false, error = it.message) }
-                _effects.emit(WorkflowsEffect.ShowSnackbar("Error saving workflow"))
-            }?.getOrNull()?.collect {
+
+            try {
+                val targetWorkflow = workflow.copy(updatedAt = System.currentTimeMillis())
+
+                if (targetWorkflow.id.isBlank()) {
+                    repository.createWorkflow(targetWorkflow).collect()
+                    _effects.emit(WorkflowsEffect.ShowSnackbar("Workflow created"))
+                } else {
+                    repository.updateWorkflow(targetWorkflow).collect()
+                    _effects.emit(WorkflowsEffect.ShowSnackbar("Workflow updated"))
+                }
+
                 closeEditor()
-                _effects.emit(WorkflowsEffect.ShowSnackbar(it.message.ifBlank { "Workflow saved" }))
                 loadWorkflows()
+            } catch (e: Exception) {
+                _uiState.update { currentState ->
+                    currentState.copy(isLoading = false, error = e.message)
+                }
+                _effects.emit(WorkflowsEffect.ShowSnackbar("Error saving workflow"))
             }
         }
     }
@@ -105,37 +123,41 @@ class WorkflowsViewModel @Inject constructor(
     private fun deleteWorkflow(id: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-            runCatching { repository.deleteWorkflow(id).collect() }
-                .onSuccess {
-                    _effects.emit(WorkflowsEffect.ShowSnackbar("Workflow deleted"))
-                    loadWorkflows()
+
+            try {
+                repository.deleteWorkflow(id).collect()
+                _effects.emit(WorkflowsEffect.ShowSnackbar("Workflow deleted"))
+                loadWorkflows()
+            } catch (e: Exception) {
+                _uiState.update { currentState ->
+                    currentState.copy(isLoading = false, error = e.message)
                 }
-                .onFailure {
-                    _uiState.update { state -> state.copy(isLoading = false, error = it.message) }
-                    _effects.emit(WorkflowsEffect.ShowSnackbar("Error deleting workflow"))
-                }
+                _effects.emit(WorkflowsEffect.ShowSnackbar("Error deleting workflow"))
+            }
         }
     }
 
     private fun executeWorkflow(id: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isExecuting = true, error = null) }
-            _effects.emit(WorkflowsEffect.ExecutionStarted(id))
-            runCatching {
+
+            try {
+                _effects.emit(WorkflowsEffect.ExecutionStarted(id))
                 repository.executeWorkflow(id).collect { log ->
-                    _uiState.update { state ->
-                        state.copy(
-                            isExecuting = false,
-                            executionLogs = state.executionLogs + log
-                        )
+                    _uiState.update { currentState ->
+                        currentState.copy(executionLogs = currentState.executionLogs + log)
                     }
                 }
-            }.onSuccess {
+
+                _uiState.update { it.copy(isExecuting = false) }
                 _effects.emit(WorkflowsEffect.ExecutionCompleted(id, true))
                 _effects.emit(WorkflowsEffect.ShowSnackbar("Workflow executed successfully"))
-            }.onFailure {
-                _uiState.update { state ->
-                    state.copy(isExecuting = false, error = "Execution failed: ${it.message}")
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isExecuting = false,
+                        error = "Execution failed: ${e.message}"
+                    )
                 }
                 _effects.emit(WorkflowsEffect.ExecutionCompleted(id, false))
                 _effects.emit(WorkflowsEffect.ShowSnackbar("Error executing workflow"))
@@ -151,39 +173,65 @@ class WorkflowsViewModel @Inject constructor(
 
     private fun viewLogs(workflowId: String) {
         viewModelScope.launch {
-            runCatching {
+
+            try {
                 repository.getExecutionLogs(workflowId).collect { logs ->
                     _uiState.update { it.copy(executionLogs = logs) }
                 }
-            }.onSuccess {
+
                 _effects.emit(WorkflowsEffect.NavigateToLogs(workflowId))
-            }.onFailure {
+            } catch (e: Exception) {
                 _effects.emit(WorkflowsEffect.ShowSnackbar("Error loading logs"))
             }
         }
     }
 
     private fun openEditor() {
-        val selected = _uiState.value.selectedWorkflow
+        val selectedWorkflow = _uiState.value.selectedWorkflow
+
         _uiState.update {
             it.copy(
                 isEditorMode = true,
-                editorWorkflow = selected?.copy() ?: Workflow(
+                editorWorkflow = selectedWorkflow?.copy() ?: Workflow(
                     id = "",
                     name = "",
                     description = "",
+                    nodes = emptyList(),
+                    edges = emptyList(),
+                    status = "draft",
                     createdAt = System.currentTimeMillis(),
-                    updatedAt = System.currentTimeMillis()
+                    updatedAt = System.currentTimeMillis(),
+                    lastExecutionAt = null
                 )
             )
         }
+
         viewModelScope.launch {
-            _effects.emit(WorkflowsEffect.NavigateToEditor(selected?.id))
+            _effects.emit(WorkflowsEffect.NavigateToEditor(selectedWorkflow?.id))
         }
     }
 
     private fun closeEditor() {
         _uiState.update { it.copy(isEditorMode = false, editorWorkflow = null) }
+    }
+
+    private fun saveEditor(workflow: Workflow) {
+        viewModelScope.launch {
+            try {
+                if (workflow.id.isBlank()) {
+                    repository.createWorkflow(workflow).collect()
+                    _effects.emit(WorkflowsEffect.ShowSnackbar("Workflow created"))
+                } else {
+                    repository.updateWorkflow(workflow).collect()
+                    _effects.emit(WorkflowsEffect.ShowSnackbar("Workflow updated"))
+                }
+
+                closeEditor()
+                loadWorkflows()
+            } catch (e: Exception) {
+                _effects.emit(WorkflowsEffect.ShowSnackbar("Error saving workflow"))
+            }
+        }
     }
 
     private fun syncSelection(selected: Workflow?, workflows: List<Workflow>): Workflow? =

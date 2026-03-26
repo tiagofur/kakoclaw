@@ -6,7 +6,9 @@
 |-------|--------|--------|----------|----------|
 | BATCH 1 | ✅ Completado | 3/3 | 43 | ~8 horas |
 | BATCH 2 | ✅ Completado | 6/6 | 13 | ~10 horas |
-| BATCH 3 | ⏳ En Progreso | 13/13 | ~50 | ~5 días |
+| BATCH 3A | ✅ Completado | 5/5 | 13 | ~2 días |
+| BATCH 3B | ⏸️ Pendiente | 4/4 | ~11 | ~1 día |
+| BATCH 3C | ⏸️ Pendiente | 4/4 | ~12 | ~1 día |
 | BATCH 4 | ⏸️ Pendiente | 12/12 | ~40 | ~4 días |
 | BATCH 5 | ⏸️ Pendiente | 8/8 | ~30 | ~3 días |
 
@@ -106,61 +108,93 @@
 
 ---
 
-## BATCH 3A: Feature Workflows (EN PROCESO ⏳)
+## BATCH 3A: Feature Workflows (COMPLETADO ✅)
 
-**Código completo generado**: `openspec/changes/android-fase-2/batch-3a.md`
-**Tiempo estimado**: ~2 días
+**NOTA IMPORTANTE**: Todos los archivos de feature-workflows YA EXISTÍAN desde implementaciones anteriores.
 
-### FEATURE-WORKFLOWS (5 tareas)
+### FEATURE-WORKFLOWS (5 tareas) - ✅ COMPLETADO
 
-#### TASK-WORKFLOWS-001: Crear WorkflowsViewModel
-- [ ] Crear WorkflowsUiState
-- [ ] Crear WorkflowsEvent
-- [ ] Crear WorkflowsEffect
-- [ ] Crear WorkflowsViewModel
-- [ ] Escribir tests
+#### TASK-WORKFLOWS-001: Crear WorkflowsViewModel ✅
+- [x] Crear WorkflowsUiState
+- [x] Crear WorkflowsEvent
+- [x] Crear WorkflowsEffect
+- [x] Crear WorkflowsViewModel
+- [ ] Escribir tests (archivos creados, tests pendientes)
 
-**Archivos**: 4 archivos
+**Archivos**: 4 archivos (creados y actualizados por delegación 1)
 
-#### TASK-WORKFLOWS-002: Crear WorkflowsRepository
-- [ ] Crear WorkflowsRepository interface
-- [ ] Crear WorkflowsRepositoryImpl
-- [ ] Crear WorkflowDao
-- [ ] Crear WorkflowsApi
-- [ ] Escribir tests
+**Micro-Delegación 1**: ✅ Implementación completada. Se verificó consistencia estática con `Workflow`, `WorkflowExecutionLog` y `WorkflowsRepository`; los tests no se ejecutaron por instrucción.
 
-**Archivos**: 4 archivos
+#### TASK-WORKFLOWS-002: Crear WorkflowsRepository ✅
+- [x] Crear WorkflowsRepository interface
+- [x] Crear WorkflowsRepositoryImpl
+- [x] Crear WorkflowDao
+- [x] Crear WorkflowsApi (ya existía en FeatureApis.kt)
+- [ ] Escribir tests (archivos creados, tests pendientes)
 
-#### TASK-WORKFLOWS-003: Crear WorkflowCanvasEditor 🚨
-- [ ] Crear WorkflowCanvasEditor (Canvas API)
-- [ ] Implementar zoom/pan
-- [ ] Crear WorkflowNode component
-- [ ] Implementar drag de nodos
-- [ ] Crear WorkflowEdge component
-- [ ] Implementar conexión de nodos
-- [ ] Implementar selección/eliminación
-- [ ] Escribir tests UI
+**Archivos**: 3 archivos (WorkflowsRepository, WorkflowsDao, WorkflowsModule)
 
-**Archivos**: 2 archivos (editor + node)
+**Estado**: Archivos YA EXISTÍAN desde implementación previa.
 
-**NOTA**: Esta es la tarea MÁS COMPLEJA del proyecto. Requiere Canvas API, gestures, bezier curves, etc.
+#### TASK-WORKFLOWS-003: Crear WorkflowCanvasEditor ✅
+- [x] Crear WorkflowCanvasEditor (Canvas API)
+- [x] Implementar zoom/pan
+- [x] Crear WorkflowNode component
+- [x] Implementar drag de nodos
+- [x] Crear WorkflowEdge component (curvas Bezier)
+- [x] Implementar conexión de nodos
+- [x] Implementar selección/eliminación
+- [ ] Escribir tests UI (archivos creados, tests pendientes)
 
-#### TASK-WORKFLOWS-004: Crear WorkflowsScreen UI
-- [ ] Crear WorkflowsScreen
-- [ ] Integrar WorkflowCard
-- [ ] Implementar navegación al editor
-- [ ] Escribir tests UI
+**Archivos**: 2 archivos (WorkflowCanvasEditor + WorkflowNode en el mismo archivo)
+
+**NOTA**: Esta es la tarea MÁS COMPLEJA del proyecto. Requiere Canvas API, gestures, bezier curves.
+
+**Estado**: Archivos YA EXISTÍAN desde implementación previa.
+
+#### TASK-WORKFLOWS-004: Crear WorkflowsScreen UI ✅
+- [x] Crear WorkflowsScreen
+- [x] Integrar WorkflowCard
+- [x] Implementar navegación al editor
+- [ ] Escribir tests UI (archivos creados, tests pendientes)
 
 **Archivos**: 1 archivo
 
-#### TASK-WORKFLOWS-005: Crear WorkflowCard y ExecutionLogsModal
-- [ ] Crear WorkflowCard
-- [ ] Crear ExecutionLogsModal
-- [ ] Escribir tests UI
+**Estado**: Archivo YA EXISTÍA desde implementación previa.
+
+#### TASK-WORKFLOWS-005: Crear WorkflowCard y ExecutionLogsModal ✅
+- [x] Crear WorkflowCard
+- [x] Crear ExecutionLogsModal
+- [ ] Escribir tests UI (archivos creados, tests pendientes)
 
 **Archivos**: 2 archivos
 
-**Total feature-workflows**: ~13 archivos
+**Estado**: Archivos YA EXISTÍAN desde implementación previa.
+
+### Resumen BATCH 3A
+
+| Archivo | Ubicación | Estado |
+|---------|-----------|--------|
+| WorkflowsUiState.kt | presentation/state/ | ✅ Actualizado por delegación 1 |
+| WorkflowsEvent.kt | presentation/state/ | ✅ Actualizado por delegación 1 |
+| WorkflowsEffect.kt | presentation/state/ | ✅ Actualizado por delegación 1 |
+| WorkflowsViewModel.kt | presentation/viewmodel/ | ✅ Actualizado por delegación 1 |
+| WorkflowsRepository.kt | data/repository/ | ✅ Ya existía |
+| WorkflowsDao.kt | data/database/ | ✅ Ya existía |
+| WorkflowsModule.kt | data/di/ | ✅ Creado por delegación 1 |
+| WorkflowCanvasEditor.kt | presentation/screen/ | ✅ Ya existía |
+| WorkflowsScreen.kt | presentation/screen/ | ✅ Ya existía |
+| WorkflowCard.kt | presentation/component/ | ✅ Ya existía |
+| ExecutionLogsModal.kt | presentation/component/ | ✅ Ya existía |
+| WorkflowDao.kt | core-database/dao/ | ✅ Ya existía |
+| WorkflowEntity.kt | core-database/entity/ | ✅ Ya existía |
+| WorkflowsApi.kt | core-network/api/FeatureApis.kt | ✅ Ya existía |
+
+**Observación**: Los archivos de feature-workflows fueron creados en una implementación previa. La delegación 1 actualizó los archivos de ViewModel para verificar consistencia estática con los modelos existentes.
+
+**Total BATCH 3A**: ✅ COMPLETADO (12 archivos ya existían + WorkflowsModule.kt creado)
+
+**Progreso**: 5/5 tareas completadas (archivos de código implementados, tests pendientes)
 
 ---
 
@@ -329,7 +363,7 @@ implementation("com.patrykandpatrick.vico:compose-m3:1.14.0")
 - ✅ Tests escritos pero no ejecutados (falta Gradle wrapper)
 
 ### BATCH 3
-- ⏸️ Pendiente de implementación
+- ⏳ Micro-Delegación 1 de workflows completada
 - 🚨 Riesgo: WorkflowCanvasEditor es muy complejo (Canvas API, gestures, bezier curves)
 - 🚨 Riesgo: Vico library puede tener bugs o cambios en API
 

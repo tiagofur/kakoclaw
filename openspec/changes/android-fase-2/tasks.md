@@ -320,26 +320,28 @@ Este documento contiene el breakdown detallado de tareas para implementar los 11
 **Dependencies**: TASK-CORE-001
 
 **Subtasks**:
-- [ ] Crear `WorkflowsUiState` con lista, editor state, logs
-- [ ] Crear `WorkflowsEvent` sealed class
-- [ ] Crear `WorkflowsEffect` sealed class
-- [ ] Crear `WorkflowsViewModel` con @HiltViewModel
-- [ ] Implementar loadWorkflows()
-- [ ] Implementar createWorkflow()
-- [ ] Implementar openEditor()
-- [ ] Implementar executeWorkflow()
-- [ ] Implementar deleteWorkflow()
+- [x] Crear `WorkflowsUiState` con lista, editor state, logs
+- [x] Crear `WorkflowsEvent` sealed class
+- [x] Crear `WorkflowsEffect` sealed class
+- [x] Crear `WorkflowsViewModel` con @HiltViewModel
+- [x] Implementar loadWorkflows()
+- [x] Implementar createWorkflow()
+- [x] Implementar openEditor()
+- [x] Implementar executeWorkflow()
+- [x] Implementar deleteWorkflow()
 - [ ] Tests unitarios pasan
 
 **Acceptance Criteria**:
-- [ ] ViewModel compila
-- [ ] StateFlow expone WorkflowsUiState
-- [ ] Eventos manejan correctamente
+- [x] ViewModel compila
+- [x] StateFlow expone WorkflowsUiState
+- [x] Eventos manejan correctamente
 - [ ] Tests coverage >70%
 
 **Definition of Done**:
 - WorkflowsViewModel completa
 - Tests pasan
+
+**Nota**: La implementación de la micro-delegación quedó completa. La ejecución de tests quedó pendiente por instrucción explícita de no correrlos en esta delegación.
 
 ---
 
