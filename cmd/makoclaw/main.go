@@ -1091,7 +1091,10 @@ func webCmd() {
 		}
 	}
 	webServer.SetMultiUserChannelManager(multiChannelManager)
-	fmt.Println("✓ Multi-user cron service manager ready")
+	if err := multiChannelManager.StartCronServices(); err != nil {
+		logger.WarnCF("web", "Failed to start cron services", map[string]interface{}{"error": err.Error()})
+	}
+	fmt.Println("✓ Cron services started for all users")
 
 	// Create and wire agent manager so specialist CRUD works in web mode
 	// In degraded mode, agent manager can still be created but won't have active agents
