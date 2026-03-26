@@ -256,7 +256,8 @@ var RestrictedTools = map[string]bool{
 	"edit_file":   true,
 	"append_file": true,
 	"web_fetch":   true,
-	"configure":   true,
+	"configure":    true,
+	"system_setup": true,
 }
 
 // IsRestrictedTool checks if a tool should be audited

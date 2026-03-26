@@ -340,6 +340,8 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 		}
 		// Register knowledge base search tool (RAG)
 		toolsRegistry.Register(tools.NewKnowledgeTool(store))
+		// Register system setup tool for admin package management
+		toolsRegistry.Register(tools.NewSystemSetupTool(store))
 	}
 
 	// Register MCP tools from configured servers
