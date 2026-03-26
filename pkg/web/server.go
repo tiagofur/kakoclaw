@@ -269,7 +269,7 @@ func defaultWorkspace() string {
 	if err != nil || home == "" {
 		return "."
 	}
-	return filepath.Join(home, ".makoclaw", "workspace")
+	return filepath.Join(home, ".MakoClaw", "workspace")
 }
 
 func (s *Server) Start(ctx context.Context) error {

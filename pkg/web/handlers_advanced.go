@@ -33,10 +33,10 @@ import (
 // including user-specific, global, and builtin skills paths.
 func (s *Server) newUserSkillsLoader(userUUID, userWorkspace string) *skills.SkillsLoader {
 	home, _ := os.UserHomeDir()
-	globalSkillsDir := filepath.Join(home, ".makoclaw", "skills")
+	globalSkillsDir := filepath.Join(home, ".MakoClaw", "skills")
 	loader := skills.NewSkillsLoader(userWorkspace, globalSkillsDir, s.builtinSkillsDir)
 	if userUUID != "" {
-		userSkillsPath := filepath.Join(home, ".makoclaw", "users", userUUID, "skills")
+		userSkillsPath := filepath.Join(home, ".MakoClaw", "users", userUUID, "skills")
 		loader.SetUserSkillsPath(userSkillsPath)
 	}
 	return loader
@@ -1028,7 +1028,7 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 
 		if updatedAny {
 			// Persist config
-			configPath := filepath.Join(os.Getenv("HOME"), ".makoclaw", "config.json")
+			configPath := filepath.Join(os.Getenv("HOME"), ".MakoClaw", "config.json")
 			if path := os.Getenv("makoclaw_CONFIG_PATH"); path != "" {
 				configPath = path
 			}
