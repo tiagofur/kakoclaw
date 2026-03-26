@@ -264,8 +264,18 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 	toolsRegistry.Register(tools.NewExecTool(workspace, restrict))
 	toolsRegistry.Register(tools.NewPDFTool(workspace, restrict))
 
-	braveAPIKey := cfg.Tools.Web.Search.APIKey
-	toolsRegistry.Register(tools.NewWebSearchTool(braveAPIKey, cfg.Tools.Web.Search.MaxResults))
+	// Search provider selection: SearXNG (self-hosted) > Brave (API key)
+	var searchProvider tools.SearchProvider
+	if searxngURL := cfg.Tools.Web.Search.SearXNGURL; searxngURL != "" {
+		searchProvider = tools.NewSearXNGSearchProvider(searxngURL)
+		logger.InfoCF("agent", "Search provider: SearXNG", map[string]interface{}{"url": searxngURL})
+	} else if braveKey := cfg.Tools.Web.Search.APIKey; braveKey != "" {
+		searchProvider = tools.NewBraveSearchProvider(braveKey)
+		logger.InfoC("agent", "Search provider: Brave Search API")
+	} else {
+		logger.WarnC("agent", "No search provider configured — web_search will return an error")
+	}
+	toolsRegistry.Register(tools.NewWebSearchTool(searchProvider, cfg.Tools.Web.Search.MaxResults))
 	toolsRegistry.Register(tools.NewWebFetchTool(50000))
 
 	if cfg.Tools.Email.Enabled {

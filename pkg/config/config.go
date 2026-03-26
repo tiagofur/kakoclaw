@@ -304,6 +304,7 @@ type WebConfig struct {
 
 type WebSearchConfig struct {
 	APIKey     string `json:"api_key" env:"MAKOCLAW_TOOLS_WEB_SEARCH_API_KEY"`
+	SearXNGURL string `json:"searxng_url" env:"MAKOCLAW_TOOLS_WEB_SEARCH_SEARXNG_URL"`
 	MaxResults int    `json:"max_results" env:"MAKOCLAW_TOOLS_WEB_SEARCH_MAX_RESULTS"`
 }
 
@@ -460,6 +461,7 @@ func DefaultConfig() *Config {
 			Web: WebToolsConfig{
 				Search: WebSearchConfig{
 					APIKey:     "",
+					SearXNGURL: "",
 					MaxResults: 5,
 				},
 			},
@@ -691,6 +693,7 @@ func GetUserConfigTemplate(globalConfig *Config) *Config {
 			Web: WebToolsConfig{
 				Search: WebSearchConfig{
 					APIKey:     "",                                       // User must provide
+					SearXNGURL: globalConfig.Tools.Web.Search.SearXNGURL, // Inherit
 					MaxResults: globalConfig.Tools.Web.Search.MaxResults, // Inherit
 				},
 			},

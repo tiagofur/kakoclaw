@@ -168,7 +168,7 @@ func TestFilterToolsByPermissions_DefaultUser(t *testing.T) {
 	baseRegistry.Register(tools.NewExecTool("/tmp", false))
 	baseRegistry.Register(tools.NewReadFileTool("/tmp", false))
 	baseRegistry.Register(tools.NewWriteFileTool("/tmp", false))
-	baseRegistry.Register(tools.NewWebSearchTool("", 10))
+	baseRegistry.Register(tools.NewWebSearchTool(nil, 10))
 	baseRegistry.Register(tools.NewWebFetchTool(50000))
 	baseRegistry.Register(tools.NewConfigureTool())
 	baseRegistry.Register(tools.NewCronTool(cron.NewCronService(filepath.Join(t.TempDir(), "cron", "jobs.json"), nil), nil, nil))

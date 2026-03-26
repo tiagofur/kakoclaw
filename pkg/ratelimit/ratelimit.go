@@ -205,8 +205,7 @@ func GetGlobalLimiter() *RateLimiter {
 		globalLimiter.SetLimit("api:openrouter", 100, time.Minute) // OpenRouter limit
 
 		// Tool limits
-		globalLimiter.SetLimit("tool:web_search", 30, time.Hour) // Brave Search free tier
-		globalLimiter.SetLimit("tool:shell", 20, time.Hour)      // Shell execution
+		globalLimiter.SetLimit("tool:shell", 20, time.Hour) // Shell execution
 	})
 
 	return globalLimiter

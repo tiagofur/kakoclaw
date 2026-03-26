@@ -198,6 +198,7 @@ func RedactConfig(cfg *Config) *Config {
 		Web: WebToolsConfig{
 			Search: WebSearchConfig{
 				APIKey:     redactIfSet(cfg.Tools.Web.Search.APIKey),
+				SearXNGURL: cfg.Tools.Web.Search.SearXNGURL,
 				MaxResults: cfg.Tools.Web.Search.MaxResults,
 			},
 		},

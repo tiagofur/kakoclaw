@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	readability "github.com/go-shiori/go-readability"
 )
 
 const (
@@ -35,16 +37,16 @@ var webFetchHTTPClient = &http.Client{
 }
 
 type WebSearchTool struct {
-	apiKey     string
+	provider   SearchProvider
 	maxResults int
 }
 
-func NewWebSearchTool(apiKey string, maxResults int) *WebSearchTool {
+func NewWebSearchTool(provider SearchProvider, maxResults int) *WebSearchTool {
 	if maxResults <= 0 || maxResults > 10 {
 		maxResults = 5
 	}
 	return &WebSearchTool{
-		apiKey:     apiKey,
+		provider:   provider,
 		maxResults: maxResults,
 	}
 }
@@ -77,8 +79,8 @@ func (t *WebSearchTool) Parameters() map[string]interface{} {
 }
 
 func (t *WebSearchTool) Execute(ctx context.Context, args map[string]interface{}) (string, error) {
-	if t.apiKey == "" {
-		return "Error: BRAVE_API_KEY not configured", nil
+	if t.provider == nil {
+		return "Error: No search provider configured. Set MAKOCLAW_TOOLS_WEB_SEARCH_SEARXNG_URL or MAKOCLAW_TOOLS_WEB_SEARCH_API_KEY.", nil
 	}
 
 	query, ok := args["query"].(string)
@@ -93,43 +95,11 @@ func (t *WebSearchTool) Execute(ctx context.Context, args map[string]interface{}
 		}
 	}
 
-	searchURL := fmt.Sprintf("https://api.search.brave.com/res/v1/web/search?q=%s&count=%d",
-		url.QueryEscape(query), count)
-
-	req, err := http.NewRequestWithContext(ctx, "GET", searchURL, nil)
+	results, err := t.provider.Search(ctx, query, count)
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
+		return "", fmt.Errorf("search failed: %w", err)
 	}
 
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("X-Subscription-Token", t.apiKey)
-
-	resp, err := webSearchHTTPClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 5*1024*1024)) // 5 MB cap
-	if err != nil {
-		return "", fmt.Errorf("failed to read response: %w", err)
-	}
-
-	var searchResp struct {
-		Web struct {
-			Results []struct {
-				Title       string `json:"title"`
-				URL         string `json:"url"`
-				Description string `json:"description"`
-			} `json:"results"`
-		} `json:"web"`
-	}
-
-	if err := json.Unmarshal(body, &searchResp); err != nil {
-		return "", fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	results := searchResp.Web.Results
 	if len(results) == 0 {
 		return fmt.Sprintf("No results for: %s", query), nil
 	}
@@ -250,8 +220,7 @@ func (t *WebFetchTool) Execute(ctx context.Context, args map[string]interface{})
 		}
 	} else if strings.Contains(contentType, "text/html") || len(body) > 0 &&
 		(strings.HasPrefix(string(body), "<!DOCTYPE") || strings.HasPrefix(strings.ToLower(string(body)), "<html")) {
-		text = t.extractText(string(body))
-		extractor = "text"
+		text, extractor = t.extractText(string(body), urlStr)
 	} else {
 		text = string(body)
 		extractor = "raw"
@@ -275,7 +244,19 @@ func (t *WebFetchTool) Execute(ctx context.Context, args map[string]interface{})
 	return string(resultJSON), nil
 }
 
-func (t *WebFetchTool) extractText(htmlContent string) string {
+func (t *WebFetchTool) extractText(htmlContent string, pageURL string) (string, string) {
+	parsedURL, err := url.Parse(pageURL)
+	if err == nil {
+		article, err := readability.FromReader(strings.NewReader(htmlContent), parsedURL)
+		if err == nil && strings.TrimSpace(article.TextContent) != "" {
+			return strings.TrimSpace(article.TextContent), "readability"
+		}
+	}
+
+	return t.extractTextFallback(htmlContent), "regex-fallback"
+}
+
+func (t *WebFetchTool) extractTextFallback(htmlContent string) string {
 	re := regexp.MustCompile(`<script[\s\S]*?</script>`)
 	result := re.ReplaceAllLiteralString(htmlContent, "")
 	re = regexp.MustCompile(`<style[\s\S]*?</style>`)
