@@ -298,7 +298,7 @@ func (sa *SpecialistAgent) ProcessWithSpecialityAndSession(ctx context.Context, 
 // with explicit user context (userUUID and userID) to ensure workspace isolation.
 // Uses a mutex to serialize concurrent calls that swap tools tool registry.
 // This is the CRITICAL fix for ISSUE-9: SwarmRunner user context propagation.
-func (sa *SpecialistAgent) ProcessWithSpecialityForUser(ctx context.Context, userUUID string, userID int64, userMessage string) (string, error) {
+func (sa *SpecialistAgent) ProcessWithSpecialityForUser(ctx context.Context, userUUID string, userID int64, userMessage string, sessionKey string) (string, error) {
 	logger.InfoCF("agent", "ProcessWithSpecialityForUser called", map[string]interface{}{
 		"userUUID_param":     userUUID,
 		"userID_param":       userID,
@@ -329,8 +329,13 @@ func (sa *SpecialistAgent) ProcessWithSpecialityForUser(ctx context.Context, use
 	// Injects specialist's name into the context so tools know who is calling them
 	agentCtx := kakoclawContext.WithAgentName(ctx, sa.name)
 
-	// Processs message using ProcessDirectWithUser to preserve user context
-	return sa.ProcessDirectWithUser(agentCtx, userID, userMessage, fmt.Sprintf("specialist_%s", sa.name))
+	// Use the provided session key to keep messages in the original chat session.
+	// Only fall back to a specialist-specific key for standalone (non-orchestrated) usage.
+	effectiveKey := sessionKey
+	if effectiveKey == "" {
+		effectiveKey = fmt.Sprintf("specialist_%s", sa.name)
+	}
+	return sa.ProcessDirectWithUser(agentCtx, userID, userMessage, effectiveKey)
 }
 
 // RequestColleagueTool allows specialists to request help from other specialists

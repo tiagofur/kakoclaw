@@ -1737,6 +1737,21 @@ func redactChannels(cfg *config.Config) map[string]interface{} {
 			"configured":   cfg.Channels.Signal.PhoneNumber != "",
 			"phone_number": cfg.Channels.Signal.PhoneNumber,
 		},
+		"email": map[string]interface{}{
+			"enabled":                cfg.Channels.Email.Enabled,
+			"configured":            cfg.Channels.Email.IMAPHost != "",
+			"imap_host":             cfg.Channels.Email.IMAPHost,
+			"imap_port":             cfg.Channels.Email.IMAPPort,
+			"smtp_host":             cfg.Channels.Email.SMTPHost,
+			"smtp_port":             cfg.Channels.Email.SMTPPort,
+			"username":              cfg.Channels.Email.Username,
+			"password":              map[string]interface{}{"has_password": cfg.Channels.Email.Password != ""},
+			"from":                  cfg.Channels.Email.From,
+			"allow_from":            strings.Join(cfg.Channels.Email.AllowFrom, ","),
+			"mailbox":               cfg.Channels.Email.Mailbox,
+			"poll_interval_seconds": cfg.Channels.Email.PollIntervalSecs,
+			"mark_as_read":          cfg.Channels.Email.MarkAsRead,
+		},
 	}
 }
 

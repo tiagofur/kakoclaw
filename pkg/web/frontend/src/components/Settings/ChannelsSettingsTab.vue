@@ -254,7 +254,8 @@ const availableChannels = [
   { id: 'dingtalk', name: 'DingTalk', icon: '🔔' },
   { id: 'qq', name: 'Tencent QQ', icon: '🐧' },
   { id: 'signal', name: 'Signal', icon: '🔒' },
-  { id: 'maixcam', name: 'MaixCam Vision', icon: '👁️' }
+  { id: 'maixcam', name: 'MaixCam Vision', icon: '👁️' },
+  { id: 'email', name: 'Email Inbox', icon: '📧' }
 ]
 
 const ensureEmailConfig = () => {

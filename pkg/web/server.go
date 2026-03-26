@@ -37,11 +37,6 @@ import (
 	"github.com/sipeed/makoclaw/pkg/workflow"
 )
 
-func sessionPropagationEnabled() bool {
-	value := strings.TrimSpace(strings.ToLower(os.Getenv("FEATURE_SESSION_PROPAGATION")))
-	return value == "1" || value == "true" || value == "yes" || value == "on"
-}
-
 //go:embed dist/*
 var staticFS embed.FS
 
@@ -1315,9 +1310,7 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 			// Inject activeAgentLoop as agent tracker so that any orchestrator
 			// delegations register involved agents into this loop's tracking.
 			ctx = agent.ContextWithAgentTracker(ctx, activeAgentLoop)
-			if sessionPropagationEnabled() {
-				ctx = agent.ContextWithSessionKey(ctx, sessionID)
-			}
+			ctx = agent.ContextWithSessionKey(ctx, sessionID)
 			execID := fmt.Sprintf("%s:%d", sessionID, time.Now().UnixNano())
 
 			// Track active execution
