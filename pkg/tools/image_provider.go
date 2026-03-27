@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 )
 
@@ -45,12 +44,11 @@ type OpenAIImageProvider struct {
 }
 
 // NewOpenAIImageProvider creates an OpenAIImageProvider with the given configuration.
+// apiBase must be the full endpoint URL (e.g. "https://api.openai.com/v1/images/generations").
 func NewOpenAIImageProvider(apiKey, apiBase, model string) *OpenAIImageProvider {
 	if apiBase == "" {
-		apiBase = "https://api.openai.com/v1"
+		apiBase = "https://api.openai.com/v1/images/generations"
 	}
-	// Strip endpoint suffix if user accidentally included it in the base URL
-	apiBase = strings.TrimSuffix(strings.TrimSuffix(apiBase, "/images/generations"), "/")
 	if model == "" {
 		model = "dall-e-3"
 	}
@@ -82,7 +80,7 @@ func (p *OpenAIImageProvider) Generate(ctx context.Context, prompt string, opts 
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", p.apiBase+"/images/generations", bytes.NewReader(bodyBytes))
+	req, err := http.NewRequestWithContext(ctx, "POST", p.apiBase, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

@@ -393,7 +393,7 @@ const IMAGE_PROVIDERS = [
     label: 'Together.ai',
     sharedKey: null,
     apiKeyUrl: 'https://api.together.xyz/settings/api-keys',
-    defaultBase: 'https://api.together.xyz/v1',
+    defaultBase: 'https://api.together.xyz/v1/images/generations',
     description: 'FLUX models via Together inference',
     models: [
       { id: 'black-forest-labs/FLUX.1-schnell-Free', label: 'FLUX.1 Schnell', badge: 'FREE', badgeColor: 'green' },
@@ -406,7 +406,7 @@ const IMAGE_PROVIDERS = [
     id: 'openai',
     label: 'OpenAI',
     sharedKey: 'openai',
-    defaultBase: 'https://api.openai.com/v1',
+    defaultBase: 'https://api.openai.com/v1/images/generations',
     description: 'Use your existing OpenAI API key',
     models: [
       { id: 'dall-e-3', label: 'DALL·E 3', badge: '$0.04–$0.12/img', badgeColor: 'gray' },
@@ -456,7 +456,7 @@ const IMAGE_PROVIDERS = [
     id: 'zhipu',
     label: 'Zhipu AI (CogView)',
     sharedKey: 'zhipu',
-    defaultBase: 'https://open.bigmodel.cn/api/paas/v4',
+    defaultBase: 'https://open.bigmodel.cn/api/paas/v4/images/generations',
     description: 'CogView image generation via Zhipu',
     models: [
       { id: 'cogview-3-flash', label: 'CogView-3 Flash', badge: 'Low cost', badgeColor: 'green' },

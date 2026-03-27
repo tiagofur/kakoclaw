@@ -334,7 +334,7 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 				pc.APIKey = cfg.Providers.Zhipu.APIKey
 			}
 			if pc.APIBase == "" {
-				pc.APIBase = "https://open.bigmodel.cn/api/paas/v4"
+				pc.APIBase = "https://open.bigmodel.cn/api/paas/v4/images/generations"
 			}
 		case "bfl":
 			pc = cfg.Tools.ImageProviders.BFL

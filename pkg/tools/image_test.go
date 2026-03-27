@@ -58,8 +58,8 @@ func TestImageGenerateTool_Generate(t *testing.T) {
 		if r.Method != "POST" {
 			t.Errorf("expected POST, got %s", r.Method)
 		}
-		if r.URL.Path != "/images/generations" {
-			t.Errorf("expected /images/generations, got %s", r.URL.Path)
+		if r.URL.Path != "/" {
+			t.Errorf("expected /, got %s", r.URL.Path)
 		}
 		if r.Header.Get("Authorization") != "Bearer test-key" {
 			t.Errorf("expected Bearer test-key, got %s", r.Header.Get("Authorization"))
@@ -92,7 +92,7 @@ func TestImageGenerateTool_Generate(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	provider := NewOpenAIImageProvider("test-key", apiServer.URL, "dall-e-3")
+	provider := NewOpenAIImageProvider("test-key", apiServer.URL+"/images/generations", "dall-e-3")
 	tool := NewImageGenerateTool(provider, tmpDir, false)
 
 	ctx := context.Background()
@@ -173,7 +173,7 @@ func TestImageGenerateTool_CustomFilename(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	provider := NewOpenAIImageProvider("test-key", apiServer.URL, "dall-e-3")
+	provider := NewOpenAIImageProvider("test-key", apiServer.URL+"/images/generations", "dall-e-3")
 	tool := NewImageGenerateTool(provider, tmpDir, false)
 
 	ctx := context.Background()
@@ -200,8 +200,8 @@ func TestOpenAIImageProvider_Generate(t *testing.T) {
 		if r.Method != "POST" {
 			t.Errorf("expected POST, got %s", r.Method)
 		}
-		if !strings.HasSuffix(r.URL.Path, "/images/generations") {
-			t.Errorf("expected path ending with /images/generations, got %s", r.URL.Path)
+		if r.URL.Path != "/images/generations" {
+			t.Errorf("expected /images/generations, got %s", r.URL.Path)
 		}
 
 		var reqBody map[string]any
@@ -233,7 +233,7 @@ func TestOpenAIImageProvider_Generate(t *testing.T) {
 	}))
 	defer server.Close()
 
-	provider := NewOpenAIImageProvider("test-api-key", server.URL, "dall-e-3")
+	provider := NewOpenAIImageProvider("test-api-key", server.URL+"/images/generations", "dall-e-3")
 	ctx := context.Background()
 
 	result, err := provider.Generate(ctx, "a landscape painting", ImageOptions{
@@ -256,8 +256,8 @@ func TestOpenAIImageProvider_Generate(t *testing.T) {
 func TestOpenAIImageProvider_Defaults(t *testing.T) {
 	provider := NewOpenAIImageProvider("key", "", "")
 
-	if provider.apiBase != "https://api.openai.com/v1" {
-		t.Errorf("expected default apiBase 'https://api.openai.com/v1', got %q", provider.apiBase)
+	if provider.apiBase != "https://api.openai.com/v1/images/generations" {
+		t.Errorf("expected default apiBase 'https://api.openai.com/v1/images/generations', got %q", provider.apiBase)
 	}
 	if provider.model != "dall-e-3" {
 		t.Errorf("expected default model 'dall-e-3', got %q", provider.model)
