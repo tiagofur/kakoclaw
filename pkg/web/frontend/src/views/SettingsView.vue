@@ -179,7 +179,7 @@
                 @save="saveConfig"
                 @toggle="toggleChannel"
                 @refresh-config="fetchUserConfig"
-                @config="openChannelConfig"
+                @config="activeTab === 'social_media' ? openSocialConfig($event) : openChannelConfig($event)"
                 @add-user="openUserModal()"
                 @edit-user="openUserModal"
                 @block-user="openBlockModal"
@@ -196,7 +196,7 @@
     <Teleport to="body">
       <Transition name="modal">
         <div
-          v-if="showChannelModal || showUserModal || showBlockModal || showUnblockModal"
+          v-if="showChannelModal || showSocialModal || showUserModal || showBlockModal || showUnblockModal"
           class="fixed inset-0 z-modal flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
           @click.self="closeAllModals"
         >
@@ -466,6 +466,180 @@
             </div>
           </div>
 
+          <!-- Social Media Config Modal -->
+          <div
+            v-if="showSocialModal"
+            class="bg-makoclaw-surface/95 backdrop-blur-2xl border border-makoclaw-border/50 rounded-2xl shadow-2xl ring-1 ring-white/10 w-full max-w-lg max-h-[90vh] flex flex-col animate-scaleIn"
+          >
+            <div class="p-5 border-b border-makoclaw-border/30 bg-gradient-to-r from-makoclaw-surface/50 to-transparent shrink-0">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-makoclaw-accent/20 to-blue-500/20 flex items-center justify-center ring-1 ring-white/10 text-2xl">
+                    {{ selectedPlatform?.icon }}
+                  </div>
+                  <div>
+                    <h3 class="text-lg font-bold text-makoclaw-text">
+                      Configure {{ selectedPlatform?.name }}
+                    </h3>
+                    <p class="text-xs text-makoclaw-text-secondary">
+                      Set up your platform credentials
+                    </p>
+                  </div>
+                </div>
+                <button
+                  class="p-2 rounded-lg hover:bg-makoclaw-surface-hover transition-colors"
+                  @click="showSocialModal = false"
+                >
+                  <XMarkIcon class="w-5 h-5 text-makoclaw-text-secondary" />
+                </button>
+              </div>
+            </div>
+
+            <div class="p-5 space-y-4 overflow-y-auto min-h-0">
+              <!-- Twitter/X fields -->
+              <div v-if="selectedPlatform?.id === 'twitter'" class="space-y-4">
+                <div v-for="field in [
+                  { key: 'api_key', label: 'API Key' },
+                  { key: 'api_secret', label: 'API Secret' },
+                  { key: 'access_token', label: 'Access Token' },
+                  { key: 'access_token_secret', label: 'Access Token Secret' }
+                ]" :key="field.key">
+                  <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">
+                    {{ field.label }}
+                  </label>
+                  <input
+                    v-model="socialForm[field.key]"
+                    type="password"
+                    :placeholder="socialForm._isConfigured ? '•••••••• (leave empty to keep)' : `Enter ${field.label}...`"
+                    class="w-full px-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent/50 transition-all min-h-[40px] backdrop-blur-sm"
+                  >
+                </div>
+              </div>
+
+              <!-- Bluesky fields -->
+              <div v-else-if="selectedPlatform?.id === 'bluesky'" class="space-y-4">
+                <div>
+                  <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">Handle</label>
+                  <input
+                    v-model="socialForm.handle"
+                    type="text"
+                    placeholder="user.bsky.social"
+                    class="w-full px-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent/50 transition-all min-h-[40px] backdrop-blur-sm"
+                  >
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">App Password</label>
+                  <input
+                    v-model="socialForm.app_password"
+                    type="password"
+                    :placeholder="socialForm._isConfigured ? '•••••••• (leave empty to keep)' : 'xxxx-xxxx-xxxx-xxxx'"
+                    class="w-full px-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent/50 transition-all min-h-[40px] backdrop-blur-sm"
+                  >
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">PDS URL <span class="text-makoclaw-text-secondary/40 normal-case font-medium">(optional)</span></label>
+                  <input
+                    v-model="socialForm.pds_url"
+                    type="text"
+                    placeholder="https://bsky.social"
+                    class="w-full px-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent/50 transition-all min-h-[40px] backdrop-blur-sm"
+                  >
+                </div>
+              </div>
+
+              <!-- LinkedIn fields -->
+              <div v-else-if="selectedPlatform?.id === 'linkedin'" class="space-y-4">
+                <div>
+                  <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">Access Token</label>
+                  <input
+                    v-model="socialForm.access_token"
+                    type="password"
+                    :placeholder="socialForm._isConfigured ? '•••••••• (leave empty to keep)' : 'OAuth 2.0 Bearer token...'"
+                    class="w-full px-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent/50 transition-all min-h-[40px] backdrop-blur-sm"
+                  >
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">Author URN</label>
+                  <input
+                    v-model="socialForm.author_urn"
+                    type="text"
+                    placeholder="urn:li:person:abc123 or urn:li:organization:456"
+                    class="w-full px-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent/50 transition-all min-h-[40px] backdrop-blur-sm"
+                  >
+                  <p class="text-xs text-makoclaw-text-secondary/60 mt-1.5">
+                    Your LinkedIn person or organization URN
+                  </p>
+                </div>
+              </div>
+
+              <!-- Facebook fields -->
+              <div v-else-if="selectedPlatform?.id === 'facebook'" class="space-y-4">
+                <div>
+                  <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">Page Access Token</label>
+                  <input
+                    v-model="socialForm.page_access_token"
+                    type="password"
+                    :placeholder="socialForm._isConfigured ? '•••••••• (leave empty to keep)' : 'EAAxxxx...'"
+                    class="w-full px-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent/50 transition-all min-h-[40px] backdrop-blur-sm"
+                  >
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">Page ID</label>
+                  <input
+                    v-model="socialForm.page_id"
+                    type="text"
+                    placeholder="123456789"
+                    class="w-full px-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent/50 transition-all min-h-[40px] backdrop-blur-sm"
+                  >
+                </div>
+              </div>
+
+              <!-- Configured hint -->
+              <p
+                v-if="socialForm._isConfigured"
+                class="text-xs text-makoclaw-success/70 flex items-center gap-1"
+              >
+                ✓ Credentials saved — leave fields empty to keep existing values
+              </p>
+
+              <!-- Test Result -->
+              <div
+                v-if="socialTestResult"
+                class="flex items-center gap-3 p-3 rounded-xl text-sm font-medium"
+                :class="socialTestResult.ok
+                  ? 'bg-makoclaw-success/10 border border-makoclaw-success/20 text-makoclaw-success'
+                  : 'bg-red-500/10 border border-red-500/20 text-red-400'"
+              >
+                <span>{{ socialTestResult.ok ? '✅ Connection successful' : `❌ ${socialTestResult.error}` }}</span>
+              </div>
+            </div>
+
+            <div class="p-5 border-t border-makoclaw-border/30 flex items-center justify-between gap-3 bg-makoclaw-bg/30 shrink-0">
+              <button
+                :disabled="socialTesting"
+                class="px-4 py-2.5 min-h-[40px] bg-makoclaw-surface border border-makoclaw-border/50 hover:border-makoclaw-accent/40 text-makoclaw-text rounded-xl text-xs font-bold uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
+                @click="testSocialConnection"
+              >
+                <ArrowPathIcon v-if="socialTesting" class="w-4 h-4 animate-spin" />
+                <span v-else>Test Connection</span>
+              </button>
+              <div class="flex items-center gap-3">
+                <button
+                  class="px-4 py-2.5 text-sm text-makoclaw-text-secondary hover:text-makoclaw-text transition-colors min-h-[40px]"
+                  @click="showSocialModal = false"
+                >
+                  Cancel
+                </button>
+                <button
+                  class="px-5 py-2.5 min-h-[40px] bg-gradient-to-r from-makoclaw-accent to-makoclaw-accent/80 hover:from-makoclaw-accent-hover hover:to-makoclaw-accent text-white rounded-xl text-sm font-bold shadow-lg shadow-makoclaw-accent/25 transition-all active:scale-95"
+                  @click="saveSocialConfig"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+
           <!-- User Modal -->
           <div
             v-if="showUserModal"
@@ -616,6 +790,7 @@ import {
   DocumentMagnifyingGlassIcon,
   GlobeAltIcon,
   SparklesIcon,
+  MegaphoneIcon,
   XMarkIcon,
   NoSymbolIcon,
   CheckCircleIcon
@@ -626,6 +801,7 @@ import SoulSettingsTab from '../components/Settings/SoulSettingsTab.vue'
 import AgentSettingsTab from '../components/Settings/AgentSettingsTab.vue'
 import ProvidersSettingsTab from '../components/Settings/ProvidersSettingsTab.vue'
 import ChannelsSettingsTab from '../components/Settings/ChannelsSettingsTab.vue'
+import SocialMediaSettingsTab from '../components/Settings/SocialMediaSettingsTab.vue'
 import ToolPermissionsTab from '../components/Settings/ToolPermissionsTab.vue'
 import AuditLogTab from '../components/Settings/AuditLogTab.vue'
 import CoreSystemTab from '../components/Settings/CoreSystemTab.vue'
@@ -652,7 +828,8 @@ const tabs = computed(() => {
     { key: 'soul', label: 'Soul' },
     { key: 'agents', label: 'Agents' },
     { key: 'providers', label: 'Providers' },
-    { key: 'channels', label: 'Channels' }
+    { key: 'channels', label: 'Channels' },
+    { key: 'social_media', label: 'Social Media' }
   ]
   if (authStore.user?.role === 'admin') {
     base.push({ key: 'users', label: 'Users' })
@@ -670,6 +847,7 @@ const getTabIcon = (key) => {
     agents: BeakerIcon,
     providers: Cog6ToothIcon,
     channels: ChatBubbleLeftRightIcon,
+    social_media: MegaphoneIcon,
     users: UserGroupIcon,
     permissions: ShieldCheckIcon,
     audit: DocumentMagnifyingGlassIcon,
@@ -687,6 +865,7 @@ const activeTabDescription = computed(() => {
     agents: 'Configure AI specialists and orchestration',
     providers: 'Connect LLM providers and models',
     channels: 'Manage communication channels',
+    social_media: 'Connect social media platforms for publishing',
     users: 'Manage registered user accounts',
     permissions: 'Configure tool access and permissions',
     audit: 'Review system activity logs',
@@ -704,6 +883,7 @@ const activeTabComponent = computed(() => {
     agents: AgentSettingsTab,
     providers: ProvidersSettingsTab,
     channels: ChannelsSettingsTab,
+    social_media: SocialMediaSettingsTab,
     users: AdminUsersTab,
     permissions: ToolPermissionsTab,
     audit: AuditLogTab,
@@ -732,8 +912,16 @@ const showChannelModal = ref(false)
 const selectedChannel = ref(null)
 const channelForm = ref({})
 
+// Social Media modal state
+const showSocialModal = ref(false)
+const selectedPlatform = ref(null)
+const socialForm = ref({})
+const socialTesting = ref(false)
+const socialTestResult = ref(null) // null | { ok: bool, error?: string }
+
 const closeAllModals = () => {
   showChannelModal.value = false
+  showSocialModal.value = false
   showUserModal.value = false
   showBlockModal.value = false
   showUnblockModal.value = false
@@ -892,6 +1080,51 @@ const openChannelConfig = (c) => {
 
 const toggleChannel = async (id) => {
   await saveConfig({ channels: { [id]: { enabled: !configData.value.channels[id]?.enabled } } })
+}
+
+// Social Media handlers
+const platformFields = {
+  twitter:  ['api_key', 'api_secret', 'access_token', 'access_token_secret'],
+  bluesky:  ['handle', 'app_password', 'pds_url'],
+  linkedin: ['access_token', 'author_urn'],
+  facebook: ['page_access_token', 'page_id']
+}
+
+const openSocialConfig = (platform) => {
+  selectedPlatform.value = platform
+  socialTestResult.value = null
+  const fields = platformFields[platform.id] || []
+  const form = {}
+  fields.forEach(f => { form[f] = '' })
+  form._isConfigured = configData.value?.tools?.social_media?.[platform.id]?.configured || false
+  socialForm.value = form
+  showSocialModal.value = true
+}
+
+const saveSocialConfig = async () => {
+  const formData = { ...socialForm.value }
+  delete formData._isConfigured
+  // Remove empty strings — backend will keep existing secrets
+  Object.keys(formData).forEach(k => { if (formData[k] === '') delete formData[k] })
+  await saveConfig({ tools: { social_media: { [selectedPlatform.value.id]: formData } } })
+  showSocialModal.value = false
+}
+
+const testSocialConnection = async () => {
+  socialTesting.value = true
+  socialTestResult.value = null
+  try {
+    const res = await fetch(`/api/v1/social-media/${selectedPlatform.value.id}/test`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authStore.token}` }
+    })
+    const data = await res.json()
+    socialTestResult.value = data
+  } catch (err) {
+    socialTestResult.value = { ok: false, error: err.message }
+  } finally {
+    socialTesting.value = false
+  }
 }
 
 onMounted(() => {

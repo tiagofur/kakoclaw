@@ -130,6 +130,20 @@ func (s *Server) handleGetUserConfig(w http.ResponseWriter, r *http.Request) {
 				"from":     mergedCfg.Tools.Email.From,
 				"to":       mergedCfg.Tools.Email.To,
 			},
+			"social_media": map[string]interface{}{
+				"twitter": map[string]interface{}{
+					"configured": mergedCfg.Tools.SocialMedia.Twitter.APIKey != "",
+				},
+				"bluesky": map[string]interface{}{
+					"configured": mergedCfg.Tools.SocialMedia.Bluesky.Handle != "",
+				},
+				"linkedin": map[string]interface{}{
+					"configured": mergedCfg.Tools.SocialMedia.LinkedIn.AccessToken != "",
+				},
+				"facebook": map[string]interface{}{
+					"configured": mergedCfg.Tools.SocialMedia.Facebook.PageAccessToken != "",
+				},
+			},
 		},
 	}
 
@@ -658,6 +672,49 @@ func applyConfigUpdates(cfg *config.Config, updates map[string]interface{}) erro
 			}
 
 			cfg.Tools.Email = tempCfg
+		}
+		// Handle social_media - skip empty-string secrets to preserve existing values
+		if smUpdate, ok := toolsUpdate["social_media"].(map[string]interface{}); ok {
+			if twUpdate, ok := smUpdate["twitter"].(map[string]interface{}); ok {
+				for _, secretKey := range []string{"api_key", "api_secret", "access_token", "access_token_secret"} {
+					if v, ok := twUpdate[secretKey].(string); ok && v == "" {
+						delete(twUpdate, secretKey)
+					}
+				}
+				if err := mergeStructFromMap(&cfg.Tools.SocialMedia.Twitter, twUpdate); err != nil {
+					return err
+				}
+			}
+			if bsUpdate, ok := smUpdate["bluesky"].(map[string]interface{}); ok {
+				for _, secretKey := range []string{"app_password"} {
+					if v, ok := bsUpdate[secretKey].(string); ok && v == "" {
+						delete(bsUpdate, secretKey)
+					}
+				}
+				if err := mergeStructFromMap(&cfg.Tools.SocialMedia.Bluesky, bsUpdate); err != nil {
+					return err
+				}
+			}
+			if liUpdate, ok := smUpdate["linkedin"].(map[string]interface{}); ok {
+				for _, secretKey := range []string{"access_token"} {
+					if v, ok := liUpdate[secretKey].(string); ok && v == "" {
+						delete(liUpdate, secretKey)
+					}
+				}
+				if err := mergeStructFromMap(&cfg.Tools.SocialMedia.LinkedIn, liUpdate); err != nil {
+					return err
+				}
+			}
+			if fbUpdate, ok := smUpdate["facebook"].(map[string]interface{}); ok {
+				for _, secretKey := range []string{"page_access_token"} {
+					if v, ok := fbUpdate[secretKey].(string); ok && v == "" {
+						delete(fbUpdate, secretKey)
+					}
+				}
+				if err := mergeStructFromMap(&cfg.Tools.SocialMedia.Facebook, fbUpdate); err != nil {
+					return err
+				}
+			}
 		}
 		// Remove "tools" from bulk update map
 		delete(updates, "tools")

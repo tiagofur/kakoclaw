@@ -311,6 +311,7 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/me/workspace/init", s.handleWorkspaceInit)           // Initialize workspace with skills
 	mux.HandleFunc("/api/v1/me/providers/update", s.handleUpdateUserProvider)    // Update specific provider
 	mux.HandleFunc("/api/v1/me/channels", s.handleGetUserChannels)               // Get user's channels
+	mux.HandleFunc("/api/v1/social-media/", s.handleTestSocialMediaConnection)   // Test social media platform credentials
 	// Backwards-compatible aliases
 	mux.HandleFunc("/api/v1/users/me/config", s.handleGetUserConfig)
 	mux.HandleFunc("/api/v1/users/me/config/update", s.handleUpdateUserConfig)
