@@ -224,6 +224,7 @@ func (cs *CentralStorage) migrate() error {
 		`ALTER TABLE skill_submissions ADD COLUMN forked_from_id INTEGER REFERENCES skill_submissions(id);`,
 		`ALTER TABLE skill_submissions ADD COLUMN dependencies TEXT DEFAULT '[]';`,
 		`ALTER TABLE skill_submissions ADD COLUMN usage_count INTEGER NOT NULL DEFAULT 0;`,
+		`ALTER TABLE skill_submissions ADD COLUMN disabled_reason TEXT NOT NULL DEFAULT '';`,
 
 		// Skill bundles table for Feature E
 		`CREATE TABLE IF NOT EXISTS skill_bundles (
@@ -829,6 +830,7 @@ type SkillSubmission struct {
 	ForkCount        int      `json:"fork_count"`
 	ForkedFromID     *int64   `json:"forked_from_id,omitempty"`
 	Dependencies     []string `json:"dependencies,omitempty"`
+	DisabledReason   string   `json:"disabled_reason,omitempty"`
 }
 
 // SkillCategory represents a skill category
@@ -878,7 +880,7 @@ func (cs *CentralStorage) GetSkillSubmission(id int64) (*SkillSubmission, error)
 		       author, tags, category, repository_url, security_score, security_findings,
 		       security_scan_at, status, reviewer_id, reviewer_notes, reviewed_at,
 		       download_count, install_count, created_at, updated_at, published_at, visibility,
-		       fork_count, forked_from_id, dependencies
+		       fork_count, forked_from_id, dependencies, disabled_reason
 		FROM skill_submissions WHERE id = ?`, id)
 
 	return cs.scanSkillSubmission(row)
@@ -891,7 +893,7 @@ func (cs *CentralStorage) GetSkillSubmissionBySlug(slug string) (*SkillSubmissio
 		       author, tags, category, repository_url, security_score, security_findings,
 		       security_scan_at, status, reviewer_id, reviewer_notes, reviewed_at,
 		       download_count, install_count, created_at, updated_at, published_at, visibility,
-		       fork_count, forked_from_id, dependencies
+		       fork_count, forked_from_id, dependencies, disabled_reason
 		FROM skill_submissions WHERE skill_slug = ?`, slug)
 
 	return cs.scanSkillSubmission(row)
@@ -909,7 +911,7 @@ func (cs *CentralStorage) scanSkillSubmission(row *sql.Row) (*SkillSubmission, e
 		&sub.Author, &tagsJSON, &sub.Category, &sub.RepositoryURL, &sub.SecurityScore, &sub.SecurityFindings,
 		&securityScanAt, &sub.Status, &reviewerID, &sub.ReviewerNotes, &reviewedAt,
 		&sub.DownloadCount, &sub.InstallCount, &sub.CreatedAt, &sub.UpdatedAt, &publishedAt, &sub.Visibility,
-		&sub.ForkCount, &forkedFromID, &depsJSON,
+		&sub.ForkCount, &forkedFromID, &depsJSON, &sub.DisabledReason,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -952,7 +954,7 @@ func (cs *CentralStorage) GetApprovedSkillSubmissions(category, sort string, lim
 		       author, tags, category, repository_url, security_score, security_findings,
 		       security_scan_at, status, reviewer_id, reviewer_notes, reviewed_at,
 		       download_count, install_count, created_at, updated_at, published_at, visibility,
-		       fork_count, forked_from_id, dependencies
+		       fork_count, forked_from_id, dependencies, disabled_reason
 		FROM skill_submissions ss
 		WHERE status = 'approved' AND (ss.visibility = 'public' OR ss.user_id = ?)`
 	args := []interface{}{callerUserID}
@@ -989,7 +991,7 @@ func (cs *CentralStorage) GetPendingSkillSubmissions() ([]*SkillSubmission, erro
 		       author, tags, category, repository_url, security_score, security_findings,
 		       security_scan_at, status, reviewer_id, reviewer_notes, reviewed_at,
 		       download_count, install_count, created_at, updated_at, published_at, visibility,
-		       fork_count, forked_from_id, dependencies
+		       fork_count, forked_from_id, dependencies, disabled_reason
 		FROM skill_submissions
 		WHERE status IN ('pending', 'needs_review')
 		ORDER BY created_at ASC`)
@@ -1008,7 +1010,7 @@ func (cs *CentralStorage) GetUserSkillSubmissions(userID int64) ([]*SkillSubmiss
 		       author, tags, category, repository_url, security_score, security_findings,
 		       security_scan_at, status, reviewer_id, reviewer_notes, reviewed_at,
 		       download_count, install_count, created_at, updated_at, published_at, visibility,
-		       fork_count, forked_from_id, dependencies
+		       fork_count, forked_from_id, dependencies, disabled_reason
 		FROM skill_submissions
 		WHERE user_id = ?
 		ORDER BY created_at DESC`, userID)
@@ -1034,7 +1036,7 @@ func (cs *CentralStorage) scanSkillSubmissions(rows *sql.Rows) ([]*SkillSubmissi
 			&sub.Author, &tagsJSON, &sub.Category, &sub.RepositoryURL, &sub.SecurityScore, &sub.SecurityFindings,
 			&securityScanAt, &sub.Status, &reviewerID, &sub.ReviewerNotes, &reviewedAt,
 			&sub.DownloadCount, &sub.InstallCount, &sub.CreatedAt, &sub.UpdatedAt, &publishedAt, &sub.Visibility,
-			&sub.ForkCount, &forkedFromID, &depsJSON,
+			&sub.ForkCount, &forkedFromID, &depsJSON, &sub.DisabledReason,
 		)
 		if err != nil {
 			return nil, err
@@ -1115,6 +1117,41 @@ func (cs *CentralStorage) IncrementSkillUsageCount(slug string) error {
 		UPDATE skill_submissions SET usage_count = usage_count + 1, updated_at = CURRENT_TIMESTAMP
 		WHERE skill_slug = ?`, slug)
 	return err
+}
+
+// DisableSkill sets a skill's status to 'disabled', security_score to 0,
+// and records the reason. Used by admins when a post-publication vulnerability is found.
+func (cs *CentralStorage) DisableSkill(id int64, reviewerID int64, reason string) error {
+	_, err := cs.db.Exec(`
+		UPDATE skill_submissions
+		SET status = 'disabled',
+		    security_score = 0,
+		    disabled_reason = ?,
+		    reviewer_id = ?,
+		    reviewed_at = CURRENT_TIMESTAMP,
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?`, reason, reviewerID, id)
+	return err
+}
+
+// GetDisabledSkillSlugs returns the skill_slug of every disabled marketplace skill.
+// Used by the security-alerts endpoint and config/status.
+func (cs *CentralStorage) GetDisabledSkillSlugs() ([]string, error) {
+	rows, err := cs.db.Query(`
+		SELECT skill_slug FROM skill_submissions WHERE status = 'disabled'`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var slugs []string
+	for rows.Next() {
+		var slug string
+		if err := rows.Scan(&slug); err != nil {
+			return nil, err
+		}
+		slugs = append(slugs, slug)
+	}
+	return slugs, rows.Err()
 }
 
 // IncrementSkillForkCount increments the fork count for a skill
