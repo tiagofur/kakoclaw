@@ -1,0 +1,75 @@
+{
+  "name": "Full Marketing Campaign",
+  "description": "End-to-end campaign workflow: from brief to published posts. Chains content strategist, copywriter, visual designer, social media manager, and analyst.",
+  "version": "1.0",
+  "parameters": [
+    {"name": "account", "type": "string", "required": true, "description": "Brand/company slug (e.g. acme-corp)"},
+    {"name": "campaign", "type": "string", "required": true, "description": "Campaign slug (e.g. summer-2026)"},
+    {"name": "objective", "type": "string", "required": true, "description": "What this campaign should achieve"},
+    {"name": "target_audience", "type": "string", "required": true, "description": "Who you are targeting"},
+    {"name": "platforms", "type": "string", "required": false, "default": "twitter,linkedin", "description": "Comma-separated platforms"},
+    {"name": "tone", "type": "string", "required": false, "default": "professional", "description": "Content tone"},
+    {"name": "post_count", "type": "string", "required": false, "default": "5", "description": "Posts per platform"}
+  ],
+  "steps": [
+    {
+      "id": "init",
+      "type": "tool",
+      "label": "Initialize Campaign Workspace",
+      "config": {
+        "tool_name": "marketing_init_campaign",
+        "args": {
+          "account": "{{param.account}}",
+          "campaign": "{{param.campaign}}",
+          "objective": "{{param.objective}}",
+          "platforms": "{{param.platforms}}"
+        }
+      }
+    },
+    {
+      "id": "strategy",
+      "type": "prompt",
+      "label": "Create Campaign Strategy",
+      "depends_on": ["init"],
+      "config": {
+        "message": "@content_strategist Create a complete marketing strategy for account '{{param.account}}', campaign '{{param.campaign}}'. Objective: {{param.objective}}. Target audience: {{param.target_audience}}. Tone: {{param.tone}}. Platforms: {{param.platforms}}. The workspace has already been initialized. Save strategy.md and update brief.md in the campaign folder. Workspace info: {{step.init.output}}"
+      }
+    },
+    {
+      "id": "copy",
+      "type": "prompt",
+      "label": "Write Marketing Copy",
+      "depends_on": ["strategy"],
+      "config": {
+        "message": "@copywriter Write {{param.post_count}} posts per platform for this campaign. Account: {{param.account}}, Campaign: {{param.campaign}}. Platforms: {{param.platforms}}. Tone: {{param.tone}}. First read the strategy from marketing/{{param.account}}/{{param.campaign}}/strategy.md, then create individual copy files in the copy/ folder. Strategy summary: {{step.strategy.output}}"
+      }
+    },
+    {
+      "id": "visuals",
+      "type": "prompt",
+      "label": "Generate Visual Assets",
+      "depends_on": ["copy"],
+      "config": {
+        "message": "@visual_designer Generate visual assets for this campaign. Account: {{param.account}}, Campaign: {{param.campaign}}. Read the strategy and copy files first, then generate: 1 hero banner, platform-specific cards for each post. Save all images to marketing/{{param.account}}/{{param.campaign}}/assets/images/ using the output_dir parameter. Copy summary: {{step.copy.output}}"
+      }
+    },
+    {
+      "id": "schedule",
+      "type": "prompt",
+      "label": "Build Posting Schedule",
+      "depends_on": ["copy", "visuals"],
+      "config": {
+        "message": "@social_media_manager Create a 2-week posting schedule for account '{{param.account}}', campaign '{{param.campaign}}'. Platforms: {{param.platforms}}. Read all copy files from marketing/{{param.account}}/{{param.campaign}}/copy/ and create a schedule.json in the schedules/ folder with optimal posting times. Copy summary: {{step.copy.output}}"
+      }
+    },
+    {
+      "id": "report",
+      "type": "prompt",
+      "label": "Generate Pre-Launch Report",
+      "depends_on": ["schedule"],
+      "config": {
+        "message": "@campaign_analyst Generate a pre-launch campaign report for account '{{param.account}}', campaign '{{param.campaign}}'. Review all campaign artifacts and write a pre-launch-report.md to the analytics/ folder. Include: campaign overview, content inventory, posting schedule summary, expected KPIs with benchmarks, and success metrics. Schedule: {{step.schedule.output}}"
+      }
+    }
+  ]
+}

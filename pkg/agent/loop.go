@@ -313,11 +313,38 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 	var imageProvider tools.ImageProvider
 	if cfg.Tools.Image.APIKey != "" {
 		model := cfg.Tools.Image.Model
-		if model == "" {
-			model = "dall-e-3"
+		switch strings.ToLower(cfg.Tools.Image.Provider) {
+		case "fal", "fal.ai":
+			if model == "" {
+				model = "fal-ai/flux/dev"
+			}
+			imageProvider = tools.NewFalImageProvider(cfg.Tools.Image.APIKey, model)
+			logger.InfoC("agent", "Image generation provider: fal.ai")
+		case "replicate":
+			if model == "" {
+				model = "black-forest-labs/flux-schnell"
+			}
+			imageProvider = tools.NewReplicateImageProvider(cfg.Tools.Image.APIKey, model)
+			logger.InfoC("agent", "Image generation provider: Replicate")
+		case "together":
+			if model == "" {
+				model = "black-forest-labs/FLUX.1-schnell-Free"
+			}
+			imageProvider = tools.NewTogetherImageProvider(cfg.Tools.Image.APIKey, model)
+			logger.InfoC("agent", "Image generation provider: Together.ai")
+		case "google", "imagen":
+			if model == "" {
+				model = "gemini-2.0-flash-exp"
+			}
+			imageProvider = tools.NewGoogleImageProvider(cfg.Tools.Image.APIKey, model)
+			logger.InfoC("agent", "Image generation provider: Google Imagen")
+		default:
+			if model == "" {
+				model = "dall-e-3"
+			}
+			imageProvider = tools.NewOpenAIImageProvider(cfg.Tools.Image.APIKey, cfg.Tools.Image.APIBase, model)
+			logger.InfoC("agent", "Image generation provider: OpenAI-compatible")
 		}
-		imageProvider = tools.NewOpenAIImageProvider(cfg.Tools.Image.APIKey, cfg.Tools.Image.APIBase, model)
-		logger.InfoC("agent", "Image generation provider: OpenAI-compatible")
 	} else {
 		logger.WarnC("agent", "No image provider configured — image_generate will return an error")
 	}
@@ -332,6 +359,7 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 	}
 	toolsRegistry.Register(tools.NewSocialPostTool(socialProvider))
 	toolsRegistry.Register(tools.NewSocialAnalyticsTool(socialProvider))
+	toolsRegistry.Register(tools.NewMarketingCampaignTool(workspace))
 
 	// Register message tool
 	messageTool := tools.NewMessageTool()

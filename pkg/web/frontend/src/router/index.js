@@ -26,6 +26,7 @@ import MetricsView from '../views/MetricsView.vue'
 import WorkflowView from '../views/WorkflowView.vue'
 import AgentsView from '../views/AgentsView.vue'
 import SetupView from '../views/SetupView.vue'
+import MarketingView from '../views/Marketing.vue'
 
 const routes = [
   {
@@ -158,6 +159,11 @@ const routes = [
         path: 'agents',
         name: 'agents',
         component: AgentsView
+      },
+      {
+        path: 'marketing',
+        name: 'marketing',
+        component: MarketingView
       },
     ]
   },

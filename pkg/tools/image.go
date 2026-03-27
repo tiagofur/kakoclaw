@@ -68,6 +68,10 @@ func (t *ImageGenerateTool) Parameters() map[string]any {
 				"type":        "string",
 				"description": "Custom filename for the saved image",
 			},
+			"output_dir": map[string]any{
+				"type":        "string",
+				"description": "Relative path within workspace to save the image. Defaults to 'generated-images'.",
+			},
 		},
 		"required": []string{"prompt"},
 	}
@@ -111,27 +115,13 @@ func (t *ImageGenerateTool) Execute(ctx context.Context, args map[string]any) (s
 		return "", fmt.Errorf("image generation failed: %w", err)
 	}
 
-	// Download the image
-	imgReq, err := http.NewRequestWithContext(ctx, "GET", result.URL, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to create download request: %w", err)
-	}
-
-	imgResp, err := imageHTTPClient.Do(imgReq)
-	if err != nil {
-		return "", fmt.Errorf("failed to download image: %w", err)
-	}
-	defer imgResp.Body.Close()
-
-	const maxImageSize = 20 * 1024 * 1024 // 20 MB cap
-	imgData, err := io.ReadAll(io.LimitReader(imgResp.Body, maxImageSize))
-	if err != nil {
-		return "", fmt.Errorf("failed to read image data: %w", err)
-	}
-
 	// Create output directory
-	outputDir := filepath.Join(t.workspace, "generated-images")
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
+	outputSubDir := "generated-images"
+	if v, ok := args["output_dir"].(string); ok && v != "" {
+		outputSubDir = v
+	}
+	saveDir := filepath.Join(t.workspace, outputSubDir)
+	if err := os.MkdirAll(saveDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create output directory: %w", err)
 	}
 
@@ -146,14 +136,36 @@ func (t *ImageGenerateTool) Execute(ctx context.Context, args map[string]any) (s
 		filename = fmt.Sprintf("%d_%s.png", time.Now().Unix(), sanitizeFilename(prompt))
 	}
 
-	outputPath := filepath.Join(outputDir, filename)
+	if result.LocalPath != "" && result.URL == "" {
+		// Google provider returns a temp LocalPath instead of a URL — move it into workspace
+		if err := googleImageTempToWorkspace(result, saveDir, filename); err != nil {
+			return "", fmt.Errorf("failed to move google image to workspace: %w", err)
+		}
+	} else {
+		// Download the image from URL
+		imgReq, err := http.NewRequestWithContext(ctx, "GET", result.URL, nil)
+		if err != nil {
+			return "", fmt.Errorf("failed to create download request: %w", err)
+		}
 
-	// Save image to file
-	if err := os.WriteFile(outputPath, imgData, 0644); err != nil {
-		return "", fmt.Errorf("failed to save image: %w", err)
+		imgResp, err := imageHTTPClient.Do(imgReq)
+		if err != nil {
+			return "", fmt.Errorf("failed to download image: %w", err)
+		}
+		defer imgResp.Body.Close()
+
+		const maxImageSize = 20 * 1024 * 1024 // 20 MB cap
+		imgData, err := io.ReadAll(io.LimitReader(imgResp.Body, maxImageSize))
+		if err != nil {
+			return "", fmt.Errorf("failed to read image data: %w", err)
+		}
+
+		outputPath := filepath.Join(saveDir, filename)
+		if err := os.WriteFile(outputPath, imgData, 0644); err != nil {
+			return "", fmt.Errorf("failed to save image: %w", err)
+		}
+		result.LocalPath = outputPath
 	}
-
-	result.LocalPath = outputPath
 
 	// Return JSON result
 	output := map[string]any{
