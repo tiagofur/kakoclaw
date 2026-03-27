@@ -1100,7 +1100,7 @@
               v-else
               :disabled="savingGenerated || !generatedPreview.trim()"
               class="px-5 py-2 text-sm font-semibold bg-emerald-500 text-white rounded-lg hover:bg-emerald-400 transition-all flex items-center gap-2 disabled:opacity-50"
-              @click="handleSaveGenerated"
+              @click="handleSaveGenerated()"
             >
               <svg
                 v-if="savingGenerated"
