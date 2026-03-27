@@ -35,6 +35,7 @@
 
       <!-- Degraded Mode Banner -->
       <DegradedModeBanner />
+      <SecurityAlertBanner />
 
       <!-- Page Content -->
       <main class="flex-1 overflow-auto relative scroll-smooth custom-scrollbar">
@@ -62,6 +63,7 @@ import { getChatWebSocket } from '../../services/websocketService'
 import Sidebar from './Sidebar.vue'
 import ToastContainer from './ToastContainer.vue'
 import DegradedModeBanner from '../DegradedModeBanner.vue'
+import SecurityAlertBanner from '../SecurityAlertBanner.vue'
 
 const uiStore = useUIStore()
 const chatStore = useChatStore()
