@@ -10,6 +10,7 @@ export const useConfigStore = defineStore('config', () => {
   const loading = ref(false)
   const checkError = ref(null)
   const statusChecked = ref(false)
+  const securityAlert = ref(false)
 
   // Check configuration status
   async function checkStatus() {
@@ -21,6 +22,7 @@ export const useConfigStore = defineStore('config', () => {
       degradedMode.value = response.data.degradedMode
       reason.value = response.data.reason || ''
       activeProviders.value = response.data.activeProviders || []
+      securityAlert.value = response.data.securityAlert === true
       statusChecked.value = true
       return response.data
     } catch (error) {
@@ -72,6 +74,7 @@ export const useConfigStore = defineStore('config', () => {
     loading,
     checkError,
     statusChecked,
+    securityAlert,
     checkStatus,
     updateProvider,
     validateProvider,
