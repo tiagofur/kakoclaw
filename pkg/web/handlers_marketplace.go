@@ -577,14 +577,8 @@ func (s *Server) handleMarketplaceSubmit(w http.ResponseWriter, r *http.Request)
 	var securityScanAt *string
 	var status string
 
-	if body.Visibility == "private" {
-		// Private skills bypass the review queue and are auto-approved immediately
-		securityScore = 100
-		findingsJSON = []byte("[]")
-		securityScanAt = nil
-		status = "approved"
-	} else {
-		// Run security scan for public submissions
+	// Run security scan for all submissions (private and public alike).
+	{
 		var aiReviewer skills.AISecurityReviewer
 		if s.agentLoop != nil {
 			aiReviewer = skills.NewLLMSecurityReviewer(s.agentLoop)
@@ -603,15 +597,30 @@ func (s *Server) handleMarketplaceSubmit(w http.ResponseWriter, r *http.Request)
 		securityScore = scanResult.Score
 		findingsJSON, _ = json.Marshal(scanResult.Findings)
 		securityScanAt = &now
+	}
 
-		// Determine submission status based on scan
-		if !scanResult.Passed {
-			status = "rejected"
-		} else if scanResult.AutoApprove {
-			status = "approved"
-		} else {
+	// Determine status based on security score thresholds.
+	//   score < 50  → auto-rejected (never shown in marketplace)
+	//   score 50-74 → needs_review (admin must approve manually)
+	//   score >= 75 → approved (or needs_review if high-severity findings exist)
+	switch {
+	case securityScore < 50:
+		status = "rejected"
+	case securityScore < 75:
+		status = "needs_review"
+	default:
+		// High score but specific findings may still require human review
+		if hasHighSeverityFindings(string(findingsJSON)) {
 			status = "needs_review"
+		} else {
+			status = "approved"
 		}
+	}
+
+	// Private skills skip the public review queue regardless of score,
+	// but still enforce the hard floor.
+	if body.Visibility == "private" && status != "rejected" {
+		status = "approved"
 	}
 
 	// Extract dependencies from skill content
@@ -1217,6 +1226,21 @@ func getSubmissionMessage(status string, score int) string {
 	default:
 		return "Your skill has been submitted and is pending review."
 	}
+}
+
+// hasHighSeverityFindings returns true when any security finding has severity "high" or "critical".
+func hasHighSeverityFindings(findingsJSON string) bool {
+	var findings []map[string]interface{}
+	if err := json.Unmarshal([]byte(findingsJSON), &findings); err != nil {
+		return false
+	}
+	for _, f := range findings {
+		sev, _ := f["severity"].(string)
+		if sev == "high" || sev == "critical" {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Server) isAdmin(r *http.Request) bool {
