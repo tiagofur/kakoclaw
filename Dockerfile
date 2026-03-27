@@ -73,7 +73,7 @@ RUN useradd -m -u 10001 -s /bin/bash makoclaw && \
 
 # Copy binary and skills
 COPY --from=backend-builder --chown=makoclaw:makoclaw /out/makoclaw /usr/local/bin/makoclaw
-COPY --from=backend-builder --chown=makoclaw:makoclaw /out/skills /home/makoclaw/.makoclaw/skills/
+COPY --from=backend-builder /out/skills /usr/local/skills/
 
 # Switch to non-root user
 USER makoclaw
