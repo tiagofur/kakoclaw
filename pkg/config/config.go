@@ -1344,8 +1344,9 @@ func mergeToolsConfig(global, user *ToolsConfig) ToolsConfig {
 		merged.Email = global.Email
 	}
 
-	// Merge Image tools
-	if user.Image.APIKey != "" {
+	// Merge Image tools — user wins if they set provider OR model OR API key
+	// (shared-key providers like Zhipu/OpenAI/Google don't need a dedicated key)
+	if user.Image.APIKey != "" || user.Image.Provider != "" || user.Image.Model != "" {
 		merged.Image = user.Image
 	} else {
 		merged.Image = global.Image
