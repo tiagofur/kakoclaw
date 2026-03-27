@@ -35,6 +35,8 @@ type PublicSkillResponse struct {
 	AverageRating float64  `json:"average_rating"`
 	RatingCount   int      `json:"rating_count"`
 	Dependencies  []string `json:"dependencies,omitempty"`
+	Source        string   `json:"source"`    // "community" or "builtin"
+	Installed     bool     `json:"installed"` // whether user already has this skill
 }
 
 // ==================== MARKETPLACE ====================
@@ -48,69 +50,114 @@ func (s *Server) handleMarketplaceSkills(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if s.centralStore == nil {
-		writeJSONError(w, "marketplace unavailable", http.StatusServiceUnavailable)
-		return
+	// Build set of user-installed skill slugs for marking installed status
+	var installedSlugs map[string]bool
+	if _, userUUID, ok := s.getUserStorage(r); ok {
+		userWorkspace, _ := config.EnsureUserWorkspace(userUUID)
+		userLoader := s.newUserSkillsLoader(userUUID, userWorkspace)
+		userSkills := userLoader.ListUserSkills()
+		installedSlugs = make(map[string]bool, len(userSkills))
+		for _, us := range userSkills {
+			installedSlugs[us.Slug] = true
+		}
 	}
 
-	category := r.URL.Query().Get("category")
-	sort := r.URL.Query().Get("sort")
+	// Load built-in skills from filesystem to include in marketplace
+	builtinLoader := skills.NewSkillsLoader("", "", s.builtinSkillsDir)
+	builtinSkills := builtinLoader.ListBuiltinSkills()
+
+	// Build set of builtin slugs (to skip DB duplicates)
+	builtinSlugs := make(map[string]skills.SkillInfo, len(builtinSkills))
+	for _, bs := range builtinSkills {
+		builtinSlugs[bs.Slug] = bs
+	}
+
+	// Convert built-in skills to marketplace format (shown first)
+	publicSkills := make([]PublicSkillResponse, 0)
+	for _, bs := range builtinSkills {
+		publicSkills = append(publicSkills, PublicSkillResponse{
+			Name:          bs.Name,
+			Slug:          bs.Slug,
+			Description:   bs.Description,
+			Author:        "MakoClaw",
+			Tags:          []string{"builtin"},
+			Category:      "general",
+			SecurityScore: 100,
+			Visibility:    "public",
+			Source:        "builtin",
+			Installed:     installedSlugs[bs.Slug],
+		})
+	}
+
+	// Fetch community skills from central DB (if available)
+	if s.centralStore != nil {
+		category := r.URL.Query().Get("category")
+		sort := r.URL.Query().Get("sort")
+		page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+		if page < 1 {
+			page = 1
+		}
+		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+		if limit < 1 || limit > 100 {
+			limit = 20
+		}
+		offset := (page - 1) * limit
+
+		var callerUserID int64
+		if _, userUUID, ok := s.getUserStorage(r); ok {
+			callerUserID, _ = s.getUserIDFromUUID(userUUID)
+		}
+
+		submissions, err := s.centralStore.GetApprovedSkillSubmissions(category, sort, limit, offset, callerUserID)
+		if err != nil {
+			http.Error(w, "failed to fetch skills", http.StatusInternalServerError)
+			return
+		}
+
+		// Fetch all rating summaries in a single query to avoid N+1
+		ids := make([]int64, len(submissions))
+		for i, sub := range submissions {
+			ids[i] = sub.ID
+		}
+		summaries, err := s.centralStore.GetSkillRatingSummaries(ids)
+		if err != nil {
+			summaries = map[int64]*storage.SkillRatingSummary{}
+		}
+
+		for _, sub := range submissions {
+			// Skip community skills that collide with builtin slugs
+			if _, isBuiltin := builtinSlugs[sub.SkillSlug]; isBuiltin {
+				continue
+			}
+			skillResp := PublicSkillResponse{
+				ID:            sub.ID,
+				Name:          sub.SkillName,
+				Slug:          sub.SkillSlug,
+				Version:       sub.Version,
+				Description:   sub.Description,
+				Author:        sub.Author,
+				Tags:          sub.Tags,
+				Category:      sub.Category,
+				SecurityScore: sub.SecurityScore,
+				InstallCount:  sub.InstallCount,
+				ForkCount:     sub.ForkCount,
+				PublishedAt:   sub.PublishedAt,
+				Visibility:    sub.Visibility,
+				Dependencies:  sub.Dependencies,
+				Source:        "community",
+				Installed:     installedSlugs[sub.SkillSlug],
+			}
+			if summary, ok := summaries[sub.ID]; ok {
+				skillResp.AverageRating = summary.AverageRating
+				skillResp.RatingCount = summary.RatingCount
+			}
+			publicSkills = append(publicSkills, skillResp)
+		}
+	}
+
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	if page < 1 {
 		page = 1
-	}
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit < 1 || limit > 100 {
-		limit = 20
-	}
-	offset := (page - 1) * limit
-
-	// Determine caller's user ID (0 if unauthenticated; private skills will still be filtered to the owner)
-	var callerUserID int64
-	if _, userUUID, ok := s.getUserStorage(r); ok {
-		callerUserID, _ = s.getUserIDFromUUID(userUUID)
-	}
-
-	submissions, err := s.centralStore.GetApprovedSkillSubmissions(category, sort, limit, offset, callerUserID)
-	if err != nil {
-		http.Error(w, "failed to fetch skills", http.StatusInternalServerError)
-		return
-	}
-
-	// Fetch all rating summaries in a single query to avoid N+1
-	ids := make([]int64, len(submissions))
-	for i, s := range submissions {
-		ids[i] = s.ID
-	}
-	summaries, err := s.centralStore.GetSkillRatingSummaries(ids)
-	if err != nil {
-		summaries = map[int64]*storage.SkillRatingSummary{}
-	}
-
-	// Convert to public format (without full content)
-	publicSkills := make([]PublicSkillResponse, 0, len(submissions))
-	for _, sub := range submissions {
-		skillResp := PublicSkillResponse{
-			ID:            sub.ID,
-			Name:          sub.SkillName,
-			Slug:          sub.SkillSlug,
-			Version:       sub.Version,
-			Description:   sub.Description,
-			Author:        sub.Author,
-			Tags:          sub.Tags,
-			Category:      sub.Category,
-			SecurityScore: sub.SecurityScore,
-			InstallCount:  sub.InstallCount,
-			ForkCount:     sub.ForkCount,
-			PublishedAt:   sub.PublishedAt,
-			Visibility:    sub.Visibility,
-			Dependencies:  sub.Dependencies,
-		}
-		if summary, ok := summaries[sub.ID]; ok {
-			skillResp.AverageRating = summary.AverageRating
-			skillResp.RatingCount = summary.RatingCount
-		}
-		publicSkills = append(publicSkills, skillResp)
 	}
 
 	writeJSONResponse(w, map[string]interface{}{
@@ -175,8 +222,50 @@ func (s *Server) handleMarketplaceInstall(w http.ResponseWriter, r *http.Request
 	slug := strings.TrimPrefix(r.URL.Path, "/api/v1/marketplace/skills/")
 	slug = strings.TrimSuffix(slug, "/install")
 
+	_, userUUID, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	userSkillsDir, err := getUserSkillsDir(userUUID)
+	if err != nil {
+		http.Error(w, "failed to access skills directory", http.StatusInternalServerError)
+		return
+	}
+
+	installer := skills.NewSkillInstaller(filepath.Dir(userSkillsDir))
+
+	// Try built-in skills first (they're not in the DB)
+	builtinLoader := skills.NewSkillsLoader("", "", s.builtinSkillsDir)
+	if builtinContent, found := builtinLoader.LoadSkill(slug); found {
+		// Re-read the raw content (with frontmatter) for installation
+		builtinSkills := builtinLoader.ListBuiltinSkills()
+		var rawContent []byte
+		for _, bs := range builtinSkills {
+			if bs.Slug == slug {
+				rawContent, _ = os.ReadFile(bs.Path)
+				break
+			}
+		}
+		if rawContent == nil {
+			rawContent = []byte(builtinContent)
+		}
+		if err := installer.InstallFromContent(slug, string(rawContent)); err != nil {
+			http.Error(w, "failed to install skill: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSONResponse(w, map[string]interface{}{
+			"message":        "installed",
+			"auto_installed": []string{},
+			"unresolvable":   []string{},
+		})
+		return
+	}
+
+	// Fall back to community skills from central DB
 	if s.centralStore == nil {
-		writeJSONError(w, "marketplace unavailable", http.StatusServiceUnavailable)
+		writeJSONError(w, "skill not found", http.StatusNotFound)
 		return
 	}
 
@@ -190,13 +279,6 @@ func (s *Server) handleMarketplaceInstall(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Get user workspace and install the skill
-	_, userUUID, ok := s.getUserStorage(r)
-	if !ok {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	// Private skills can only be installed by their owner
 	if sub.Visibility == "private" {
 		callerUserID, _ := s.getUserIDFromUUID(userUUID)
@@ -206,14 +288,6 @@ func (s *Server) handleMarketplaceInstall(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	userWorkspace, err := config.EnsureUserWorkspace(userUUID)
-	if err != nil {
-		http.Error(w, "failed to access workspace", http.StatusInternalServerError)
-		return
-	}
-
-	// Create skill directory and write SKILL.md
-	installer := skills.NewSkillInstaller(userWorkspace)
 	if err := installer.InstallFromContent(sub.SkillSlug, sub.Content); err != nil {
 		http.Error(w, "failed to install skill: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -226,8 +300,8 @@ func (s *Server) handleMarketplaceInstall(w http.ResponseWriter, r *http.Request
 	var autoInstalled []string
 	var unresolvable []string
 	for _, depSlug := range sub.Dependencies {
-		// Skip if already installed
-		depSkillMD := filepath.Join(userWorkspace, "skills", depSlug, "SKILL.md")
+		// Skip if already installed in user skills dir
+		depSkillMD := filepath.Join(userSkillsDir, depSlug, "SKILL.md")
 		if _, statErr := os.Stat(depSkillMD); statErr == nil {
 			continue
 		}
@@ -295,9 +369,10 @@ func (s *Server) handleMarketplaceFork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userWorkspace, err := config.EnsureUserWorkspace(userUUID)
+	// Fork to user-specific skills directory
+	userSkillsDir, err := getUserSkillsDir(userUUID)
 	if err != nil {
-		http.Error(w, "failed to access workspace", http.StatusInternalServerError)
+		http.Error(w, "failed to access skills directory", http.StatusInternalServerError)
 		return
 	}
 
@@ -306,7 +381,7 @@ func (s *Server) handleMarketplaceFork(w http.ResponseWriter, r *http.Request) {
 	forkedName := baseName
 	found := false
 	for i := 2; i <= 10; i++ {
-		skillMD := filepath.Join(userWorkspace, "skills", forkedName, "SKILL.md")
+		skillMD := filepath.Join(userSkillsDir, forkedName, "SKILL.md")
 		if _, statErr := os.Stat(skillMD); os.IsNotExist(statErr) {
 			found = true
 			break
@@ -318,7 +393,7 @@ func (s *Server) handleMarketplaceFork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	skillDir := filepath.Join(userWorkspace, "skills", forkedName)
+	skillDir := filepath.Join(userSkillsDir, forkedName)
 	if err := os.MkdirAll(skillDir, 0755); err != nil {
 		http.Error(w, "failed to create skill directory", http.StatusInternalServerError)
 		return
@@ -957,21 +1032,21 @@ func (s *Server) handleMarketplaceBundleInstall(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	userWorkspace, err := config.EnsureUserWorkspace(userUUID)
+	userSkillsDir, err := getUserSkillsDir(userUUID)
 	if err != nil {
-		http.Error(w, "failed to access workspace", http.StatusInternalServerError)
+		http.Error(w, "failed to access skills directory", http.StatusInternalServerError)
 		return
 	}
 
-	installer := skills.NewSkillInstaller(userWorkspace)
+	installer := skills.NewSkillInstaller(filepath.Dir(userSkillsDir))
 
 	var installed []string
 	var skipped []string
 	var failed []string
 
 	for _, skillSlug := range bundle.SkillSlugs {
-		// Check if already installed
-		skillMD := filepath.Join(userWorkspace, "skills", skillSlug, "SKILL.md")
+		// Check if already installed in user skills dir
+		skillMD := filepath.Join(userSkillsDir, skillSlug, "SKILL.md")
 		if _, statErr := os.Stat(skillMD); statErr == nil {
 			skipped = append(skipped, skillSlug)
 			continue

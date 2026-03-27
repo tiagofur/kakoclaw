@@ -42,6 +42,21 @@ func (s *Server) newUserSkillsLoader(userUUID, userWorkspace string) *skills.Ski
 	return loader
 }
 
+// getUserSkillsDir returns the user-specific skills directory where marketplace
+// installs should be written. This is ~/.MakoClaw/users/{uuid}/skills/ (the "user"
+// tier), NOT the workspace/skills/ dir (the "workspace" tier).
+func getUserSkillsDir(userUUID string) (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	dir := filepath.Join(home, ".MakoClaw", "users", userUUID, "skills")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return "", err
+	}
+	return dir, nil
+}
+
 func (s *Server) handleSkills(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		q := r.URL.Query().Get("type")
@@ -67,7 +82,7 @@ func (s *Server) handleSkills(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Default: list installed skills for this user
+		// Default: list only user-installed skills (not global/builtin)
 		_, userUUID, ok := s.getUserStorage(r)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -81,7 +96,7 @@ func (s *Server) handleSkills(w http.ResponseWriter, r *http.Request) {
 		}
 
 		userLoader := s.newUserSkillsLoader(userUUID, userWorkspace)
-		installed := userLoader.ListSkills()
+		installed := userLoader.ListUserSkills()
 		writeJSONResponse(w, map[string]interface{}{"skills": installed})
 		return
 	}
@@ -329,20 +344,20 @@ Respond ONLY with a valid JSON object matching this exact structure, with no mar
 			return
 		}
 
-		// Get user-specific workspace
+		// Get user-specific skills directory
 		_, userUUID, ok := s.getUserStorage(r)
 		if !ok {
 			writeJSONError(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 
-		userWorkspace, err := config.EnsureUserWorkspace(userUUID)
+		userSkillsDir, err := getUserSkillsDir(userUUID)
 		if err != nil {
-			writeJSONError(w, "failed to access workspace", http.StatusInternalServerError)
+			writeJSONError(w, "failed to access skills directory", http.StatusInternalServerError)
 			return
 		}
 
-		skillDir := filepath.Join(userWorkspace, "skills", skillName)
+		skillDir := filepath.Join(userSkillsDir, skillName)
 		skillPath := filepath.Join(skillDir, "SKILL.md")
 		if _, err := os.Stat(skillPath); err == nil && !body.Overwrite {
 			writeJSONError(w, "skill already exists", http.StatusConflict)
@@ -374,21 +389,21 @@ Respond ONLY with a valid JSON object matching this exact structure, with no mar
 			return
 		}
 
-		// Get user-specific workspace
+		// Get user-specific skills directory
 		_, userUUID, ok := s.getUserStorage(r)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 
-		userWorkspace, err := config.EnsureUserWorkspace(userUUID)
+		userSkillsDir, err := getUserSkillsDir(userUUID)
 		if err != nil {
-			http.Error(w, "failed to access workspace", http.StatusInternalServerError)
+			http.Error(w, "failed to access skills directory", http.StatusInternalServerError)
 			return
 		}
 
-		// Create a temporary installer for this user's workspace
-		userInstaller := skills.NewSkillInstaller(userWorkspace)
+		// Installer writes to userSkillsDir (the "user" tier: ~/.MakoClaw/users/{uuid}/skills/)
+		userInstaller := skills.NewSkillInstaller(filepath.Dir(userSkillsDir))
 
 		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 		defer cancel()
@@ -442,21 +457,21 @@ Respond ONLY with a valid JSON object matching this exact structure, with no mar
 			return
 		}
 
-		// Get user-specific workspace
+		// Get user-specific skills directory
 		_, userUUID, ok := s.getUserStorage(r)
 		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 
-		userWorkspace, err := config.EnsureUserWorkspace(userUUID)
+		userSkillsDir, err := getUserSkillsDir(userUUID)
 		if err != nil {
-			http.Error(w, "failed to access workspace", http.StatusInternalServerError)
+			http.Error(w, "failed to access skills directory", http.StatusInternalServerError)
 			return
 		}
 
-		// Create a temporary installer for this user's workspace
-		userInstaller := skills.NewSkillInstaller(userWorkspace)
+		// Installer writes to userSkillsDir (the "user" tier)
+		userInstaller := skills.NewSkillInstaller(filepath.Dir(userSkillsDir))
 
 		if err := userInstaller.Uninstall(skillName); err != nil {
 			http.Error(w, "uninstall failed: "+err.Error(), http.StatusInternalServerError)

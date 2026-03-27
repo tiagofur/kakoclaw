@@ -60,142 +60,168 @@ func (sl *SkillsLoader) SetUserSkillsPath(path string) {
 	sl.userSkillsPath = path
 }
 
+// scanSkillsFlat scans a directory one level deep for skills (dirs containing SKILL.md).
+func (sl *SkillsLoader) scanSkillsFlat(dir, source string) []SkillInfo {
+	var result []SkillInfo
+	dirs, err := os.ReadDir(dir)
+	if err != nil {
+		return result
+	}
+	for _, d := range dirs {
+		if !d.IsDir() {
+			continue
+		}
+		skillFile := filepath.Join(dir, d.Name(), "SKILL.md")
+		if _, err := os.Stat(skillFile); err != nil {
+			continue
+		}
+		info := SkillInfo{
+			Name:   d.Name(),
+			Slug:   Slugify(d.Name()),
+			Path:   skillFile,
+			Source: source,
+		}
+		if metadata := sl.getSkillMetadata(skillFile); metadata != nil {
+			info.Description = metadata.Description
+		}
+		result = append(result, info)
+	}
+	return result
+}
+
+// scanSkillsNested scans a directory for skills, supporting one level of category
+// subdirectories. This handles both flat skills (github/SKILL.md) and categorized
+// skills (development/code-review-checklist/SKILL.md).
+func (sl *SkillsLoader) scanSkillsNested(dir, source string) []SkillInfo {
+	var result []SkillInfo
+	dirs, err := os.ReadDir(dir)
+	if err != nil {
+		return result
+	}
+	for _, d := range dirs {
+		if !d.IsDir() {
+			continue
+		}
+		skillFile := filepath.Join(dir, d.Name(), "SKILL.md")
+		if _, err := os.Stat(skillFile); err == nil {
+			// Flat skill: dir/skillName/SKILL.md
+			info := SkillInfo{
+				Name:   d.Name(),
+				Slug:   Slugify(d.Name()),
+				Path:   skillFile,
+				Source: source,
+			}
+			if metadata := sl.getSkillMetadata(skillFile); metadata != nil {
+				info.Description = metadata.Description
+			}
+			result = append(result, info)
+			continue
+		}
+		// No SKILL.md here — check one level deeper (category subdirectory)
+		subDirs, err := os.ReadDir(filepath.Join(dir, d.Name()))
+		if err != nil {
+			continue
+		}
+		for _, sub := range subDirs {
+			if !sub.IsDir() {
+				continue
+			}
+			subSkillFile := filepath.Join(dir, d.Name(), sub.Name(), "SKILL.md")
+			if _, err := os.Stat(subSkillFile); err != nil {
+				continue
+			}
+			info := SkillInfo{
+				Name:   sub.Name(),
+				Slug:   Slugify(sub.Name()),
+				Path:   subSkillFile,
+				Source: source,
+			}
+			if metadata := sl.getSkillMetadata(subSkillFile); metadata != nil {
+				info.Description = metadata.Description
+			}
+			result = append(result, info)
+		}
+	}
+	return result
+}
+
+// hasSkillName checks if a skill with the given name already exists in the list.
+func hasSkillName(skills []SkillInfo, name string) bool {
+	for _, s := range skills {
+		if s.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+// ListSkills returns all skills from all tiers merged by priority.
+// Used by the agent context (BuildSkillsSummary) to load all available skills.
 func (sl *SkillsLoader) ListSkills() []SkillInfo {
 	skills := make([]SkillInfo, 0)
 
-	// 1. User-specific skills (~/.makoclaw/users/<uuid>/skills) - highest priority
+	// 1. User-specific skills - highest priority
 	if sl.userSkillsPath != "" {
-		if dirs, err := os.ReadDir(sl.userSkillsPath); err == nil {
-			for _, dir := range dirs {
-				if dir.IsDir() {
-					skillFile := filepath.Join(sl.userSkillsPath, dir.Name(), "SKILL.md")
-					if _, err := os.Stat(skillFile); err == nil {
-						info := SkillInfo{
-							Name:   dir.Name(),
-							Slug:   Slugify(dir.Name()),
-							Path:   skillFile,
-							Source: "user",
-						}
-						metadata := sl.getSkillMetadata(skillFile)
-						if metadata != nil {
-							info.Description = metadata.Description
-						}
-						skills = append(skills, info)
-					}
-				}
-			}
-		}
+		skills = append(skills, sl.scanSkillsFlat(sl.userSkillsPath, "user")...)
 	}
 
-	// 2. Workspace skills (项目级别) - override user skills
+	// 2. Workspace skills - skip if already in user tier
 	if sl.workspaceSkills != "" {
-		if dirs, err := os.ReadDir(sl.workspaceSkills); err == nil {
-			for _, dir := range dirs {
-				if dir.IsDir() {
-					skillFile := filepath.Join(sl.workspaceSkills, dir.Name(), "SKILL.md")
-					if _, err := os.Stat(skillFile); err == nil {
-						// Check if already added from user skills
-						exists := false
-						for _, s := range skills {
-							if s.Name == dir.Name() && s.Source == "user" {
-								exists = true
-								break
-							}
-						}
-						if exists {
-							continue
-						}
-
-						info := SkillInfo{
-							Name:   dir.Name(),
-							Slug:   Slugify(dir.Name()),
-							Path:   skillFile,
-							Source: "workspace",
-						}
-						metadata := sl.getSkillMetadata(skillFile)
-						if metadata != nil {
-							info.Description = metadata.Description
-						}
-						skills = append(skills, info)
-					}
-				}
+		for _, s := range sl.scanSkillsFlat(sl.workspaceSkills, "workspace") {
+			if !hasSkillName(skills, s.Name) {
+				skills = append(skills, s)
 			}
 		}
 	}
 
-	// 3. 全局 skills (~/.makoclaw/skills) - 被 user 和 workspace skills 覆盖
+	// 3. Global skills - skip if already in higher tiers
 	if sl.globalSkills != "" {
-		if dirs, err := os.ReadDir(sl.globalSkills); err == nil {
-			for _, dir := range dirs {
-				if dir.IsDir() {
-					skillFile := filepath.Join(sl.globalSkills, dir.Name(), "SKILL.md")
-					if _, err := os.Stat(skillFile); err == nil {
-						// 检查是否已被 user 或 workspace skills 覆盖
-						exists := false
-						for _, s := range skills {
-							if s.Name == dir.Name() && (s.Source == "user" || s.Source == "workspace") {
-								exists = true
-								break
-							}
-						}
-						if exists {
-							continue
-						}
-
-						info := SkillInfo{
-							Name:   dir.Name(),
-							Slug:   Slugify(dir.Name()),
-							Path:   skillFile,
-							Source: "global",
-						}
-						metadata := sl.getSkillMetadata(skillFile)
-						if metadata != nil {
-							info.Description = metadata.Description
-						}
-						skills = append(skills, info)
-					}
-				}
+		for _, s := range sl.scanSkillsFlat(sl.globalSkills, "global") {
+			if !hasSkillName(skills, s.Name) {
+				skills = append(skills, s)
 			}
 		}
 	}
 
-	// 4. Builtin skills - lowest priority
+	// 4. Builtin skills (with nested category support) - lowest priority
 	if sl.builtinSkills != "" {
-		if dirs, err := os.ReadDir(sl.builtinSkills); err == nil {
-			for _, dir := range dirs {
-				if dir.IsDir() {
-					skillFile := filepath.Join(sl.builtinSkills, dir.Name(), "SKILL.md")
-					if _, err := os.Stat(skillFile); err == nil {
-						// 检查是否已被 user, workspace, 或 global skills 覆盖
-						exists := false
-						for _, s := range skills {
-							if s.Name == dir.Name() && (s.Source == "user" || s.Source == "workspace" || s.Source == "global") {
-								exists = true
-								break
-							}
-						}
-						if exists {
-							continue
-						}
-
-						info := SkillInfo{
-							Name:   dir.Name(),
-							Slug:   Slugify(dir.Name()),
-							Path:   skillFile,
-							Source: "builtin",
-						}
-						metadata := sl.getSkillMetadata(skillFile)
-						if metadata != nil {
-							info.Description = metadata.Description
-						}
-						skills = append(skills, info)
-					}
-				}
+		for _, s := range sl.scanSkillsNested(sl.builtinSkills, "builtin") {
+			if !hasSkillName(skills, s.Name) {
+				skills = append(skills, s)
 			}
 		}
 	}
 
 	return skills
+}
+
+// ListUserSkills returns ONLY user-installed skills (user-specific + workspace tiers).
+// Used by the web UI "Installed" tab to show only what the user explicitly installed.
+func (sl *SkillsLoader) ListUserSkills() []SkillInfo {
+	skills := make([]SkillInfo, 0)
+
+	if sl.userSkillsPath != "" {
+		skills = append(skills, sl.scanSkillsFlat(sl.userSkillsPath, "user")...)
+	}
+
+	if sl.workspaceSkills != "" {
+		for _, s := range sl.scanSkillsFlat(sl.workspaceSkills, "workspace") {
+			if !hasSkillName(skills, s.Name) {
+				skills = append(skills, s)
+			}
+		}
+	}
+
+	return skills
+}
+
+// ListBuiltinSkills returns ONLY built-in skills (with nested category support).
+// Used by the marketplace API to include built-in skills in the response.
+func (sl *SkillsLoader) ListBuiltinSkills() []SkillInfo {
+	if sl.builtinSkills == "" {
+		return nil
+	}
+	return sl.scanSkillsNested(sl.builtinSkills, "builtin")
 }
 
 func (sl *SkillsLoader) LoadSkill(name string) (string, bool) {
@@ -223,11 +249,23 @@ func (sl *SkillsLoader) LoadSkill(name string) (string, bool) {
 		}
 	}
 
-	// 4. Builtin skills
+	// 4. Builtin skills (flat first, then nested categories)
 	if sl.builtinSkills != "" {
 		skillFile := filepath.Join(sl.builtinSkills, name, "SKILL.md")
 		if content, err := os.ReadFile(skillFile); err == nil {
 			return sl.stripFrontmatter(string(content)), true
+		}
+		// Search one level deeper: builtinSkills/*/name/SKILL.md
+		if dirs, err := os.ReadDir(sl.builtinSkills); err == nil {
+			for _, d := range dirs {
+				if !d.IsDir() {
+					continue
+				}
+				nestedFile := filepath.Join(sl.builtinSkills, d.Name(), name, "SKILL.md")
+				if content, err := os.ReadFile(nestedFile); err == nil {
+					return sl.stripFrontmatter(string(content)), true
+				}
+			}
 		}
 	}
 

@@ -96,14 +96,11 @@ install: build
 	@echo "Installed binary to $(INSTALL_BIN_DIR)/$(BINARY_NAME)"
 	@echo "Installing builtin skills to $(WORKSPACE_SKILLS_DIR)..."
 	@mkdir -p $(WORKSPACE_SKILLS_DIR)
-	@for skill in $(BUILTIN_SKILLS_DIR)/*/; do \
-		if [ -d "$$skill" ]; then \
-			skill_name=$$(basename "$$skill"); \
-			if [ -f "$$skill/SKILL.md" ]; then \
-				cp -r "$$skill" $(WORKSPACE_SKILLS_DIR); \
-				echo "  ✓ Installed skill: $$skill_name"; \
-			fi; \
-		fi; \
+	@find $(BUILTIN_SKILLS_DIR) -name "SKILL.md" -type f | while read skill_file; do \
+		skill_name=$$(basename $$(dirname "$$skill_file")); \
+		mkdir -p "$(WORKSPACE_SKILLS_DIR)/$$skill_name"; \
+		cp "$$skill_file" "$(WORKSPACE_SKILLS_DIR)/$$skill_name/SKILL.md"; \
+		echo "  ✓ Installed skill: $$skill_name"; \
 	done
 	@echo "Installation complete!"
 
@@ -111,15 +108,11 @@ install: build
 install-skills:
 	@echo "Installing builtin skills to $(WORKSPACE_SKILLS_DIR)..."
 	@mkdir -p $(WORKSPACE_SKILLS_DIR)
-	@for skill in $(BUILTIN_SKILLS_DIR)/*/; do \
-		if [ -d "$$skill" ]; then \
-			skill_name=$$(basename "$$skill"); \
-			if [ -f "$$skill/SKILL.md" ]; then \
-				mkdir -p $(WORKSPACE_SKILLS_DIR)/$$skill_name; \
-				cp -r "$$skill" $(WORKSPACE_SKILLS_DIR); \
-				echo "  ✓ Installed skill: $$skill_name"; \
-			fi; \
-		fi; \
+	@find $(BUILTIN_SKILLS_DIR) -name "SKILL.md" -type f | while read skill_file; do \
+		skill_name=$$(basename $$(dirname "$$skill_file")); \
+		mkdir -p "$(WORKSPACE_SKILLS_DIR)/$$skill_name"; \
+		cp "$$skill_file" "$(WORKSPACE_SKILLS_DIR)/$$skill_name/SKILL.md"; \
+		echo "  ✓ Installed skill: $$skill_name"; \
 	done
 	@echo "Skills installation complete!"
 

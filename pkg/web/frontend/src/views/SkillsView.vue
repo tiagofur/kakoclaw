@@ -251,7 +251,7 @@
                     View
                   </button>
                   <button
-                    v-if="skill.source === 'workspace'"
+                    v-if="skill.source === 'workspace' || skill.source === 'user'"
                     class="skill-action-btn text-makoclaw-accent"
                     @click="editSkill(skill.name)"
                   >
@@ -271,7 +271,7 @@
                     Edit
                   </button>
                   <button
-                    v-if="skill.source === 'workspace'"
+                    v-if="skill.source === 'workspace' || skill.source === 'user'"
                     class="skill-action-btn text-emerald-400"
                     @click="openSubmitModal(skill)"
                   >
@@ -291,7 +291,7 @@
                     Share
                   </button>
                   <button
-                    v-if="skill.source === 'workspace'"
+                    v-if="skill.source === 'workspace' || skill.source === 'user'"
                     class="skill-action-btn text-makoclaw-error ml-auto"
                     @click="confirmUninstall(skill.name)"
                   >
@@ -411,11 +411,19 @@
                         by {{ skill.author || 'unknown' }}
                       </p>
                     </div>
-                    <div
-                      v-if="skill.security_score !== undefined"
-                      :class="securityScoreClasses(skill.security_score)"
-                    >
-                      {{ skill.security_score }}
+                    <div class="flex items-center gap-1.5">
+                      <span
+                        v-if="skill.source === 'builtin'"
+                        class="px-2 py-0.5 text-[10px] font-medium rounded-full bg-amber-500/10 text-amber-400"
+                      >
+                        Built-in
+                      </span>
+                      <div
+                        v-if="skill.security_score !== undefined && skill.source !== 'builtin'"
+                        :class="securityScoreClasses(skill.security_score)"
+                      >
+                        {{ skill.security_score }}
+                      </div>
                     </div>
                   </div>
 
@@ -496,7 +504,14 @@
                           />
                         </svg>
                       </button>
+                      <span
+                        v-if="skill.installed"
+                        class="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                      >
+                        Installed
+                      </span>
                       <button
+                        v-else
                         :disabled="installing === skill.slug"
                         class="install-btn"
                         @click="installMarketplaceSkill(skill.slug)"
@@ -1584,8 +1599,10 @@ const getUsageCount = (skillName) => {
 
 const sourceClasses = (source) => {
   const base = 'px-2 py-0.5 text-[10px] font-medium rounded-full'
+  if (source === 'user') return `${base} bg-emerald-500/10 text-emerald-400`
   if (source === 'workspace') return `${base} bg-makoclaw-accent/10 text-makoclaw-accent`
   if (source === 'global') return `${base} bg-purple-500/10 text-purple-400`
+  if (source === 'builtin') return `${base} bg-amber-500/10 text-amber-400`
   return `${base} bg-makoclaw-text-secondary/10 text-makoclaw-text-secondary`
 }
 
@@ -1780,6 +1797,8 @@ const installMarketplaceSkill = async (slug) => {
     } else {
       toast.success('Skill installed')
     }
+    // Mark as installed in marketplace view
+    if (skill) skill.installed = true
     await loadSkills()
   } catch {
     toast.error('Failed to install skill')

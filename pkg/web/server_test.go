@@ -554,11 +554,15 @@ func TestHandleSkillCreateWritesSkillFile(t *testing.T) {
 	if user == nil {
 		t.Fatal("admin user not found")
 	}
-	userWorkspace, _ := config.EnsureUserWorkspace(user.UUID)
-	skillPath := filepath.Join(userWorkspace, "skills", "demo-skill", "SKILL.md")
+	// Skills are now written to the user-specific skills dir (~/.MakoClaw/users/{uuid}/skills/)
+	home, _ := os.UserHomeDir()
+	userSkillsDir := filepath.Join(home, ".MakoClaw", "users", user.UUID, "skills")
+	skillPath := filepath.Join(userSkillsDir, "demo-skill", "SKILL.md")
 	if _, err := os.Stat(skillPath); err != nil {
 		t.Fatalf("expected skill file to exist: %v", err)
 	}
+	// Clean up the created skill
+	t.Cleanup(func() { os.RemoveAll(filepath.Join(userSkillsDir, "demo-skill")) })
 }
 
 func strconvQuote(v string) string {
