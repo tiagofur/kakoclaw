@@ -53,7 +53,7 @@ func (t *SocialAnalyticsTool) SetUserID(userID int64) {
 
 func (t *SocialAnalyticsTool) Execute(ctx context.Context, args map[string]any) (string, error) {
 	if t.provider == nil {
-		return "Error: No social media provider configured. Set MAKOCLAW_TOOLS_SOCIAL_API_KEY to enable social analytics.", nil
+		return "Error: No social media platforms configured. Add credentials in Settings or config.json under tools.social_media.", nil
 	}
 
 	postID, _ := args["post_id"].(string)

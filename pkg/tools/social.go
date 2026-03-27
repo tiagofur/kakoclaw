@@ -116,7 +116,7 @@ func (t *SocialPostTool) SetUserContext(userID int64, userUUID string) {
 
 func (t *SocialPostTool) Execute(ctx context.Context, args map[string]any) (string, error) {
 	if t.provider == nil {
-		return "Error: No social media provider configured. Set MAKOCLAW_TOOLS_SOCIAL_API_KEY to enable social posting.", nil
+		return "Error: No social media platforms configured. Add credentials for Twitter, Bluesky, LinkedIn, or Facebook in Settings or config.json under tools.social_media.", nil
 	}
 
 	action, _ := args["action"].(string)

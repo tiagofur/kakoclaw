@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -53,7 +51,7 @@ func TestSocialPostTool_NilProvider(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error for nil provider, got: %v", err)
 	}
-	if !strings.Contains(result, "No social media provider configured") {
+	if !strings.Contains(result, "No social media platforms configured") {
 		t.Fatalf("expected helpful error message, got: %s", result)
 	}
 }
@@ -261,69 +259,33 @@ func TestSocialAnalyticsTool_GetMetrics(t *testing.T) {
 	}
 }
 
-func TestAyrshareProvider_Post(t *testing.T) {
-	// Create a mock Ayrshare server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Verify request
-		if r.Method != "POST" {
-			t.Errorf("expected POST, got %s", r.Method)
-		}
-		if r.Header.Get("Authorization") != "Bearer test-api-key" {
-			t.Errorf("expected Authorization header, got %q", r.Header.Get("Authorization"))
-		}
-		if r.Header.Get("Content-Type") != "application/json" {
-			t.Errorf("expected Content-Type application/json, got %q", r.Header.Get("Content-Type"))
-		}
+// mockPlatformProvider is a fake PlatformProvider for testing MultiPlatformProvider.
+type mockPlatformProvider struct {
+	platform string
+	postErr  error
+}
 
-		// Parse request body
-		var body map[string]any
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			t.Errorf("failed to decode request body: %v", err)
-		}
+func (m *mockPlatformProvider) Platform() string { return m.platform }
+func (m *mockPlatformProvider) Post(ctx context.Context, content string, mediaURLs []string, opts map[string]any) (*SocialPostResult, error) {
+	if m.postErr != nil {
+		return nil, m.postErr
+	}
+	return &SocialPostResult{
+		Platform: m.platform,
+		PostID:   "mock-123",
+		PostURL:  "https://example.com/post/123",
+		Status:   "posted",
+	}, nil
+}
 
-		post, _ := body["post"].(string)
-		if !strings.Contains(post, "Test post") {
-			t.Errorf("expected 'Test post' in post content, got %q", post)
-		}
-
-		// Return mock response
-		resp := map[string]any{
-			"id":     "ayr_abc123",
-			"status": "success",
-			"postIds": []map[string]any{
-				{
-					"platform": "twitter",
-					"id":       "tw_789",
-					"postUrl":  "https://twitter.com/post/789",
-					"status":   "success",
-				},
-			},
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
-	}))
-	defer server.Close()
-
-	// Create provider pointing to mock server
-	provider := NewAyrshareProvider("test-api-key")
-	// Override HTTP client to use test server
-	provider.httpClient = server.Client()
-
-	// We need to rewrite the URL — use a custom transport
-	originalTransport := server.Client().Transport
-	provider.httpClient = &http.Client{
-		Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-			req.URL.Scheme = "http"
-			req.URL.Host = server.Listener.Addr().String()
-			if originalTransport != nil {
-				return originalTransport.RoundTrip(req)
-			}
-			return http.DefaultTransport.RoundTrip(req)
-		}),
+func TestMultiPlatformProvider_Post(t *testing.T) {
+	mp := &MultiPlatformProvider{
+		providers: map[string]PlatformProvider{
+			"twitter": &mockPlatformProvider{platform: "twitter"},
+		},
 	}
 
-	results, err := provider.Post(context.Background(), SocialPostRequest{
+	results, err := mp.Post(context.Background(), SocialPostRequest{
 		Platforms: []string{"twitter"},
 		Content:   "Test post",
 		Hashtags:  []string{"#test"},
@@ -331,23 +293,59 @@ func TestAyrshareProvider_Post(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Post failed: %v", err)
 	}
-
 	if len(results) != 1 {
 		t.Fatalf("expected 1 result, got %d", len(results))
 	}
 	if results[0].Platform != "twitter" {
 		t.Fatalf("expected platform 'twitter', got %q", results[0].Platform)
 	}
-	if results[0].PostID != "tw_789" {
-		t.Fatalf("expected post ID 'tw_789', got %q", results[0].PostID)
+	if results[0].PostID != "mock-123" {
+		t.Fatalf("expected post ID 'mock-123', got %q", results[0].PostID)
 	}
 }
 
-// roundTripperFunc allows using a function as an http.RoundTripper.
-type roundTripperFunc func(*http.Request) (*http.Response, error)
+func TestMultiPlatformProvider_NoPlatformsConfigured(t *testing.T) {
+	mp := &MultiPlatformProvider{
+		providers: map[string]PlatformProvider{},
+	}
 
-func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
-	return f(req)
+	_, err := mp.Post(context.Background(), SocialPostRequest{
+		Platforms: []string{"twitter"},
+		Content:   "Test",
+	})
+	if err == nil {
+		t.Fatal("expected error when no platforms configured")
+	}
+	if !strings.Contains(err.Error(), "no social media platforms configured") {
+		t.Fatalf("expected helpful error, got: %v", err)
+	}
+}
+
+func TestMultiPlatformProvider_MixedResults(t *testing.T) {
+	mp := &MultiPlatformProvider{
+		providers: map[string]PlatformProvider{
+			"twitter": &mockPlatformProvider{platform: "twitter"},
+			// bluesky not configured
+		},
+	}
+
+	results, err := mp.Post(context.Background(), SocialPostRequest{
+		Platforms: []string{"twitter", "bluesky"},
+		Content:   "Test",
+	})
+	if err != nil {
+		t.Fatalf("expected nil error for partial success, got: %v", err)
+	}
+	if len(results) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(results))
+	}
+	// twitter should succeed, bluesky should fail
+	if results[0].Status != "posted" {
+		t.Fatalf("expected twitter posted, got %q", results[0].Status)
+	}
+	if results[1].Status != "failed" {
+		t.Fatalf("expected bluesky failed, got %q", results[1].Status)
+	}
 }
 
 func TestSocialAnalyticsTool_NilProvider(t *testing.T) {
@@ -359,7 +357,7 @@ func TestSocialAnalyticsTool_NilProvider(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error for nil provider, got: %v", err)
 	}
-	if !strings.Contains(result, "No social media provider configured") {
+	if !strings.Contains(result, "No social media platforms configured") {
 		t.Fatalf("expected helpful error message, got: %s", result)
 	}
 }

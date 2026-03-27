@@ -323,13 +323,12 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 	}
 	toolsRegistry.Register(tools.NewImageGenerateTool(imageProvider, workspace, restrict))
 
-	// Register social media tools
-	var socialProvider tools.SocialMediaProvider
-	if cfg.Tools.SocialMedia.APIKey != "" {
-		socialProvider = tools.NewAyrshareProvider(cfg.Tools.SocialMedia.APIKey)
-		logger.InfoC("agent", "Social media provider: Ayrshare")
+	// Register social media tools (native platform providers — zero cost)
+	socialProvider := tools.NewMultiPlatformProvider(cfg.Tools.SocialMedia)
+	if socialProvider.PlatformCount() > 0 {
+		logger.InfoCF("agent", "Social media platforms configured", map[string]any{"platforms": socialProvider.ConfiguredPlatforms()})
 	} else {
-		logger.WarnC("agent", "No social media provider configured — social_post will return an error")
+		logger.WarnC("agent", "No social media platforms configured — social_post will return an error")
 	}
 	toolsRegistry.Register(tools.NewSocialPostTool(socialProvider))
 	toolsRegistry.Register(tools.NewSocialAnalyticsTool(socialProvider))

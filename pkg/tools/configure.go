@@ -112,9 +112,21 @@ var fieldWhitelist = map[string]FieldPolicy{
 	"tools.image.api_base": {Type: TypeString, Readable: true, Writable: true, Validator: validateURL},
 	"tools.image.model":    {Type: TypeString, Readable: true, Writable: true},
 
-	// Social media
-	"tools.social_media.provider": {Type: TypeString, Readable: true, Writable: true},
-	"tools.social_media.api_key":  {Type: TypeString, Readable: false, Writable: true},
+	// Social media — Twitter
+	"tools.social_media.twitter.api_key":              {Type: TypeString, Readable: false, Writable: true},
+	"tools.social_media.twitter.api_secret":            {Type: TypeString, Readable: false, Writable: true},
+	"tools.social_media.twitter.access_token":          {Type: TypeString, Readable: false, Writable: true},
+	"tools.social_media.twitter.access_token_secret":   {Type: TypeString, Readable: false, Writable: true},
+	// Social media — Bluesky
+	"tools.social_media.bluesky.handle":       {Type: TypeString, Readable: true, Writable: true},
+	"tools.social_media.bluesky.app_password": {Type: TypeString, Readable: false, Writable: true},
+	"tools.social_media.bluesky.pds_url":      {Type: TypeString, Readable: true, Writable: true, Validator: validateURL},
+	// Social media — LinkedIn
+	"tools.social_media.linkedin.access_token": {Type: TypeString, Readable: false, Writable: true},
+	"tools.social_media.linkedin.author_urn":   {Type: TypeString, Readable: true, Writable: true},
+	// Social media — Facebook
+	"tools.social_media.facebook.page_access_token": {Type: TypeString, Readable: false, Writable: true},
+	"tools.social_media.facebook.page_id":           {Type: TypeString, Readable: true, Writable: true},
 
 	// ============================================================
 	// EMAIL CHANNEL (IMAP polling + SMTP reply)

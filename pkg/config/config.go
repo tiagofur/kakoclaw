@@ -319,9 +319,34 @@ type ImageToolsConfig struct {
 	Model    string `json:"model" env:"MAKOCLAW_TOOLS_IMAGE_MODEL"`
 }
 
+type TwitterSocialConfig struct {
+	APIKey            string `json:"api_key" env:"MAKOCLAW_TOOLS_SOCIAL_TWITTER_API_KEY"`
+	APISecret         string `json:"api_secret" env:"MAKOCLAW_TOOLS_SOCIAL_TWITTER_API_SECRET"`
+	AccessToken       string `json:"access_token" env:"MAKOCLAW_TOOLS_SOCIAL_TWITTER_ACCESS_TOKEN"`
+	AccessTokenSecret string `json:"access_token_secret" env:"MAKOCLAW_TOOLS_SOCIAL_TWITTER_ACCESS_TOKEN_SECRET"`
+}
+
+type BlueskySocialConfig struct {
+	Handle      string `json:"handle" env:"MAKOCLAW_TOOLS_SOCIAL_BLUESKY_HANDLE"`
+	AppPassword string `json:"app_password" env:"MAKOCLAW_TOOLS_SOCIAL_BLUESKY_APP_PASSWORD"`
+	PDSURL      string `json:"pds_url" env:"MAKOCLAW_TOOLS_SOCIAL_BLUESKY_PDS_URL"`
+}
+
+type LinkedInSocialConfig struct {
+	AccessToken string `json:"access_token" env:"MAKOCLAW_TOOLS_SOCIAL_LINKEDIN_ACCESS_TOKEN"`
+	AuthorURN   string `json:"author_urn" env:"MAKOCLAW_TOOLS_SOCIAL_LINKEDIN_AUTHOR_URN"`
+}
+
+type FacebookSocialConfig struct {
+	PageAccessToken string `json:"page_access_token" env:"MAKOCLAW_TOOLS_SOCIAL_FACEBOOK_PAGE_ACCESS_TOKEN"`
+	PageID          string `json:"page_id" env:"MAKOCLAW_TOOLS_SOCIAL_FACEBOOK_PAGE_ID"`
+}
+
 type SocialMediaConfig struct {
-	Provider string `json:"provider" env:"MAKOCLAW_TOOLS_SOCIAL_MEDIA_PROVIDER"`
-	APIKey   string `json:"api_key" env:"MAKOCLAW_TOOLS_SOCIAL_MEDIA_API_KEY"`
+	Twitter  TwitterSocialConfig  `json:"twitter"`
+	Bluesky  BlueskySocialConfig  `json:"bluesky"`
+	LinkedIn LinkedInSocialConfig `json:"linkedin"`
+	Facebook FacebookSocialConfig `json:"facebook"`
 }
 
 type ToolsConfig struct {
@@ -490,7 +515,9 @@ func DefaultConfig() *Config {
 				To:       "",
 			},
 			Image: ImageToolsConfig{Provider: "openai", Model: "dall-e-3"},
-			SocialMedia: SocialMediaConfig{Provider: "ayrshare"},
+			SocialMedia: SocialMediaConfig{
+				Bluesky: BlueskySocialConfig{PDSURL: "https://bsky.social"},
+			},
 			MCP: MCPConfig{
 				Servers: map[string]MCPServerConfig{},
 			},
@@ -734,8 +761,7 @@ func GetUserConfigTemplate(globalConfig *Config) *Config {
 				Model:    "dall-e-3",
 			},
 			SocialMedia: SocialMediaConfig{
-				Provider: "ayrshare",
-				APIKey:   "",
+				Bluesky: BlueskySocialConfig{PDSURL: "https://bsky.social"},
 			},
 			MCP: MCPConfig{
 				Servers: make(map[string]MCPServerConfig),
@@ -1234,11 +1260,19 @@ func mergeToolsConfig(global, user *ToolsConfig) ToolsConfig {
 		merged.Image = global.Image
 	}
 
-	// Merge Social Media tools
-	if user.SocialMedia.APIKey != "" {
-		merged.SocialMedia = user.SocialMedia
-	} else {
-		merged.SocialMedia = global.SocialMedia
+	// Merge Social Media tools (per-platform: user overrides global if credentials set)
+	merged.SocialMedia = global.SocialMedia
+	if user.SocialMedia.Twitter.APIKey != "" {
+		merged.SocialMedia.Twitter = user.SocialMedia.Twitter
+	}
+	if user.SocialMedia.Bluesky.Handle != "" {
+		merged.SocialMedia.Bluesky = user.SocialMedia.Bluesky
+	}
+	if user.SocialMedia.LinkedIn.AccessToken != "" {
+		merged.SocialMedia.LinkedIn = user.SocialMedia.LinkedIn
+	}
+	if user.SocialMedia.Facebook.PageAccessToken != "" {
+		merged.SocialMedia.Facebook = user.SocialMedia.Facebook
 	}
 
 	// Merge MCP tools
