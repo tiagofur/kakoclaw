@@ -22,9 +22,9 @@ INSTALL_BIN_DIR=$(INSTALL_PREFIX)/bin
 INSTALL_MAN_DIR=$(INSTALL_PREFIX)/share/man/man1
 
 # Workspace and Skills
-MAKOCLAW_HOME?=$(HOME)/.makoclaw
+MAKOCLAW_HOME?=$(HOME)/.MakoClaw
 WORKSPACE_DIR?=$(MAKOCLAW_HOME)/workspace
-WORKSPACE_SKILLS_DIR=$(WORKSPACE_DIR)/skills
+BUILTIN_INSTALL_DIR=$(MAKOCLAW_HOME)/builtin-skills
 BUILTIN_SKILLS_DIR=$(CURDIR)/skills
 
 # OS detection
@@ -94,24 +94,24 @@ install: build
 	@cp $(BUILD_DIR)/$(BINARY_NAME) $(INSTALL_BIN_DIR)/$(BINARY_NAME)
 	@chmod +x $(INSTALL_BIN_DIR)/$(BINARY_NAME)
 	@echo "Installed binary to $(INSTALL_BIN_DIR)/$(BINARY_NAME)"
-	@echo "Installing builtin skills to $(WORKSPACE_SKILLS_DIR)..."
-	@mkdir -p $(WORKSPACE_SKILLS_DIR)
+	@echo "Installing builtin skills to $(BUILTIN_INSTALL_DIR)..."
+	@mkdir -p $(BUILTIN_INSTALL_DIR)
 	@find $(BUILTIN_SKILLS_DIR) -name "SKILL.md" -type f | while read skill_file; do \
 		skill_name=$$(basename $$(dirname "$$skill_file")); \
-		mkdir -p "$(WORKSPACE_SKILLS_DIR)/$$skill_name"; \
-		cp "$$skill_file" "$(WORKSPACE_SKILLS_DIR)/$$skill_name/SKILL.md"; \
+		mkdir -p "$(BUILTIN_INSTALL_DIR)/$$skill_name"; \
+		cp "$$skill_file" "$(BUILTIN_INSTALL_DIR)/$$skill_name/SKILL.md"; \
 		echo "  ✓ Installed skill: $$skill_name"; \
 	done
 	@echo "Installation complete!"
 
-## install-skills: Install builtin skills to workspace
+## install-skills: Install builtin skills to marketplace location
 install-skills:
-	@echo "Installing builtin skills to $(WORKSPACE_SKILLS_DIR)..."
-	@mkdir -p $(WORKSPACE_SKILLS_DIR)
+	@echo "Installing builtin skills to $(BUILTIN_INSTALL_DIR)..."
+	@mkdir -p $(BUILTIN_INSTALL_DIR)
 	@find $(BUILTIN_SKILLS_DIR) -name "SKILL.md" -type f | while read skill_file; do \
 		skill_name=$$(basename $$(dirname "$$skill_file")); \
-		mkdir -p "$(WORKSPACE_SKILLS_DIR)/$$skill_name"; \
-		cp "$$skill_file" "$(WORKSPACE_SKILLS_DIR)/$$skill_name/SKILL.md"; \
+		mkdir -p "$(BUILTIN_INSTALL_DIR)/$$skill_name"; \
+		cp "$$skill_file" "$(BUILTIN_INSTALL_DIR)/$$skill_name/SKILL.md"; \
 		echo "  ✓ Installed skill: $$skill_name"; \
 	done
 	@echo "Skills installation complete!"

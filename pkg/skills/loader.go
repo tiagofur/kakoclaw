@@ -215,6 +215,15 @@ func (sl *SkillsLoader) ListUserSkills() []SkillInfo {
 	return skills
 }
 
+// ListGlobalSkills returns ONLY global skills (~/.MakoClaw/skills/).
+// Used by the marketplace API to include admin-placed global skills.
+func (sl *SkillsLoader) ListGlobalSkills() []SkillInfo {
+	if sl.globalSkills == "" {
+		return nil
+	}
+	return sl.scanSkillsFlat(sl.globalSkills, "global")
+}
+
 // ListBuiltinSkills returns ONLY built-in skills (with nested category support).
 // Used by the marketplace API to include built-in skills in the response.
 func (sl *SkillsLoader) ListBuiltinSkills() []SkillInfo {

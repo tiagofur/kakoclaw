@@ -89,6 +89,31 @@ func (s *Server) handleMarketplaceSkills(w http.ResponseWriter, r *http.Request)
 		})
 	}
 
+	// Include global skills (~/.MakoClaw/skills/) in marketplace
+	home, _ := os.UserHomeDir()
+	globalSkillsDir := filepath.Join(home, ".MakoClaw", "skills")
+	globalLoader := skills.NewSkillsLoader("", globalSkillsDir, "")
+	globalSlugs := make(map[string]bool)
+	for _, gs := range globalLoader.ListGlobalSkills() {
+		// Skip global skills that collide with builtin slugs
+		if _, isBuiltin := builtinSlugs[gs.Slug]; isBuiltin {
+			continue
+		}
+		globalSlugs[gs.Slug] = true
+		publicSkills = append(publicSkills, PublicSkillResponse{
+			Name:          gs.Name,
+			Slug:          gs.Slug,
+			Description:   gs.Description,
+			Author:        "Custom",
+			Tags:          []string{"global"},
+			Category:      "general",
+			SecurityScore: 100,
+			Visibility:    "public",
+			Source:        "global",
+			Installed:     installedSlugs[gs.Slug],
+		})
+	}
+
 	// Fetch community skills from central DB (if available)
 	if s.centralStore != nil {
 		category := r.URL.Query().Get("category")
@@ -125,8 +150,11 @@ func (s *Server) handleMarketplaceSkills(w http.ResponseWriter, r *http.Request)
 		}
 
 		for _, sub := range submissions {
-			// Skip community skills that collide with builtin slugs
+			// Skip community skills that collide with builtin or global slugs
 			if _, isBuiltin := builtinSlugs[sub.SkillSlug]; isBuiltin {
+				continue
+			}
+			if globalSlugs[sub.SkillSlug] {
 				continue
 			}
 			skillResp := PublicSkillResponse{
@@ -261,6 +289,29 @@ func (s *Server) handleMarketplaceInstall(w http.ResponseWriter, r *http.Request
 			"unresolvable":   []string{},
 		})
 		return
+	}
+
+	// Try global skills (~/.MakoClaw/skills/)
+	home, _ := os.UserHomeDir()
+	globalSkillsDir := filepath.Join(home, ".MakoClaw", "skills")
+	globalLoader := skills.NewSkillsLoader("", globalSkillsDir, "")
+	for _, gs := range globalLoader.ListGlobalSkills() {
+		if gs.Slug == slug {
+			rawContent, readErr := os.ReadFile(gs.Path)
+			if readErr != nil {
+				break
+			}
+			if err := installer.InstallFromContent(slug, string(rawContent)); err != nil {
+				http.Error(w, "failed to install skill: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+			writeJSONResponse(w, map[string]interface{}{
+				"message":        "installed",
+				"auto_installed": []string{},
+				"unresolvable":   []string{},
+			})
+			return
+		}
 	}
 
 	// Fall back to community skills from central DB
