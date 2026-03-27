@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -48,6 +49,8 @@ func NewOpenAIImageProvider(apiKey, apiBase, model string) *OpenAIImageProvider 
 	if apiBase == "" {
 		apiBase = "https://api.openai.com/v1"
 	}
+	// Strip endpoint suffix if user accidentally included it in the base URL
+	apiBase = strings.TrimSuffix(strings.TrimSuffix(apiBase, "/images/generations"), "/")
 	if model == "" {
 		model = "dall-e-3"
 	}
