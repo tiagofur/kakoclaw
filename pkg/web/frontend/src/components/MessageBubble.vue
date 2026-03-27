@@ -53,7 +53,6 @@
             v-for="tc in msg.toolCalls"
             :key="tc.id"
             :tool-call="tc"
-            :msg="msg"
           />
         </div>
 

@@ -94,14 +94,10 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 
 const props = defineProps({
   toolCall: {
-    type: Object,
-    required: true
-  },
-  msg: {
     type: Object,
     required: true
   }
@@ -109,7 +105,7 @@ const props = defineProps({
 
 const localExpanded = ref(false)
 
-const isExpanded = computed(() => (props.msg.streaming && props.toolCall.status === 'started') || localExpanded.value)
+const isExpanded = computed(() => localExpanded.value)
 
 const statusLabel = computed(() => {
   if (props.toolCall.status === 'started') return 'executing…'
@@ -138,12 +134,6 @@ const formattedTime = computed(() => {
     minute: '2-digit',
     second: '2-digit'
   })
-})
-
-watch(() => props.toolCall.status, (newStatus) => {
-  if (newStatus !== 'started') {
-    localExpanded.value = false
-  }
 })
 
 function toggleExpanded() {

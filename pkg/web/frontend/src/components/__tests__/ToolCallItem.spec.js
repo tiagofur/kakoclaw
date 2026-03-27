@@ -12,16 +12,8 @@ function mountToolCallItem(overrides = {}) {
     ...overrides.toolCall
   }
 
-  const msg = {
-    streaming: true,
-    ...overrides.msg
-  }
-
   return mount(ToolCallItem, {
-    props: {
-      toolCall,
-      msg
-    }
+    props: { toolCall }
   })
 }
 
@@ -30,39 +22,22 @@ function getStatusBadge(wrapper) {
 }
 
 describe('ToolCallItem', () => {
-  it("renders a started tool call expanded while streaming", () => {
+  it('starts collapsed regardless of status or streaming', () => {
     const wrapper = mountToolCallItem()
-
-    expect(wrapper.vm.isExpanded).toBe(true)
-    expect(wrapper.text()).toContain('Arguments')
-    expect(wrapper.find('pre').text()).toContain('agent visibility')
-  })
-
-  it("renders a completed tool call collapsed and stays collapsed after status change", async () => {
-    const wrapper = mountToolCallItem({
-      toolCall: { status: 'finished' },
-      msg: { streaming: true }
-    })
-
-    expect(wrapper.vm.isExpanded).toBe(false)
-    expect(wrapper.text()).not.toContain('Arguments')
-
-    await wrapper.setProps({
-      toolCall: {
-        ...wrapper.props('toolCall'),
-        status: 'finished'
-      }
-    })
 
     expect(wrapper.vm.isExpanded).toBe(false)
     expect(wrapper.find('pre').exists()).toBe(false)
   })
 
+  it('stays collapsed when status is finished', () => {
+    const wrapper = mountToolCallItem({ toolCall: { status: 'finished' } })
+
+    expect(wrapper.vm.isExpanded).toBe(false)
+    expect(wrapper.text()).not.toContain('Arguments')
+  })
+
   it('toggles manual expansion on header click', async () => {
-    const wrapper = mountToolCallItem({
-      toolCall: { status: 'finished' },
-      msg: { streaming: false }
-    })
+    const wrapper = mountToolCallItem({ toolCall: { status: 'finished' } })
 
     const header = wrapper.find('button')
 
@@ -75,14 +50,24 @@ describe('ToolCallItem', () => {
     expect(wrapper.text()).not.toContain('Arguments')
   })
 
+  it('can be opened while executing and stays open until user closes it', async () => {
+    const wrapper = mountToolCallItem({ toolCall: { status: 'started' } })
+
+    expect(wrapper.vm.isExpanded).toBe(false)
+
+    await wrapper.find('button').trigger('click')
+    expect(wrapper.vm.isExpanded).toBe(true)
+
+    await wrapper.find('button').trigger('click')
+    expect(wrapper.vm.isExpanded).toBe(false)
+  })
+
   it.each([
     ['started', 'executing…', 'text-makoclaw-warning'],
     ['finished', 'done', 'text-makoclaw-success'],
     ['error', 'error', 'text-makoclaw-error']
   ])('renders semantic badge for %s status', (status, label, colorClass) => {
-    const wrapper = mountToolCallItem({
-      toolCall: { status }
-    })
+    const wrapper = mountToolCallItem({ toolCall: { status } })
 
     const badge = getStatusBadge(wrapper)
 
