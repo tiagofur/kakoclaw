@@ -224,7 +224,6 @@ func (cs *CentralStorage) migrate() error {
 		`ALTER TABLE skill_submissions ADD COLUMN forked_from_id INTEGER REFERENCES skill_submissions(id);`,
 		`ALTER TABLE skill_submissions ADD COLUMN dependencies TEXT DEFAULT '[]';`,
 		`ALTER TABLE skill_submissions ADD COLUMN usage_count INTEGER NOT NULL DEFAULT 0;`,
-		`ALTER TABLE skill_submissions ADD COLUMN disabled_reason TEXT NOT NULL DEFAULT '';`,
 
 		// Skill bundles table for Feature E
 		`CREATE TABLE IF NOT EXISTS skill_bundles (
@@ -245,6 +244,7 @@ func (cs *CentralStorage) migrate() error {
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_skill_bundles_status ON skill_bundles(status);`,
 		`CREATE INDEX IF NOT EXISTS idx_skill_bundles_user_id ON skill_bundles(user_id);`,
+		`ALTER TABLE skill_submissions ADD COLUMN disabled_reason TEXT NOT NULL DEFAULT '';`,
 	}
 
 	for _, query := range queries {
