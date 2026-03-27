@@ -733,6 +733,34 @@ func (s *Server) handleMarketplaceCategories(w http.ResponseWriter, r *http.Requ
 	})
 }
 
+// handleMarketplaceSecurityAlerts returns the list of disabled skill slugs.
+// Public endpoint — no auth required (slugs are not sensitive).
+// GET /api/v1/marketplace/security-alerts
+func (s *Server) handleMarketplaceSecurityAlerts(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if s.centralStore == nil {
+		writeJSONResponse(w, map[string]interface{}{"disabled_slugs": []string{}})
+		return
+	}
+
+	slugs, err := s.centralStore.GetDisabledSkillSlugs()
+	if err != nil {
+		writeJSONResponse(w, map[string]interface{}{"disabled_slugs": []string{}})
+		return
+	}
+
+	if slugs == nil {
+		slugs = []string{}
+	}
+	writeJSONResponse(w, map[string]interface{}{"disabled_slugs": slugs})
+}
+
 // ==================== ADMIN ENDPOINTS ====================
 
 // handleAdminPendingSubmissions returns submissions needing review
