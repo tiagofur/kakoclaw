@@ -393,10 +393,11 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, update telego.Updat
 	chatIDStr := fmt.Sprintf("%d", chatID)
 	c.cleanupThinking(chatIDStr)
 
-	// Create new context for thinking animation.
-	// Set to 5 minutes to allow slower LLM providers (e.g. Zhipu) enough time to respond.
-	// The HTTP provider timeout (300s) is the real deadline; this just controls the animation.
-	thinkCtx, thinkCancel := context.WithTimeout(ctx, 5*time.Minute)
+	// Create cancelable context for thinking animation.
+	// No timeout here — the animation runs until the actual LLM response arrives
+	// (cleanupThinking is called from Send). The HTTP provider and agent loop
+	// have their own timeouts; duplicating one here caused false "timed out" errors.
+	thinkCtx, thinkCancel := context.WithCancel(ctx)
 	c.stopThinking.Store(chatIDStr, &thinkingCancel{fn: thinkCancel})
 
 	pMsg, err := c.bot.SendMessage(ctx, tu.Message(tu.ID(chatID), "Thinking... 💭"))
@@ -413,18 +414,7 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, update telego.Updat
 			for {
 				select {
 				case <-thinkCtx.Done():
-					// Context cancelled or timeout - clean up placeholder (issue #36)
-					if thinkCtx.Err() == context.DeadlineExceeded {
-						// Timeout reached, delete placeholder and send error message
-						c.placeholders.Delete(chatIDStr)
-						c.stopThinking.Delete(chatIDStr)
-						_, sendErr := c.bot.SendMessage(context.Background(), tu.Message(tu.ID(chatID), "⏱️ Request timed out. Please try again."))
-						if sendErr != nil {
-							logger.ErrorCF("telegram", "Failed to send timeout message", map[string]interface{}{
-								"error": sendErr.Error(),
-							})
-						}
-					}
+					// Context cancelled — response arrived (cleanupThinking) or app shutting down
 					return
 				case <-ticker.C:
 					i++
