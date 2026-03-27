@@ -23,23 +23,31 @@ type MultiPlatformProvider struct {
 }
 
 // NewMultiPlatformProvider creates a provider that routes to configured native platforms.
+// Each account is registered as "platform:alias" (e.g. "twitter:personal", "facebook:brand").
 func NewMultiPlatformProvider(cfg config.SocialMediaConfig) *MultiPlatformProvider {
 	m := &MultiPlatformProvider{
 		providers: make(map[string]PlatformProvider),
 	}
 
-	// Register configured platforms
-	if cfg.Twitter.APIKey != "" && cfg.Twitter.AccessToken != "" {
-		m.providers["twitter"] = NewTwitterProvider(cfg.Twitter)
+	for alias, twCfg := range cfg.Twitter {
+		if twCfg.APIKey != "" && twCfg.AccessToken != "" {
+			m.providers["twitter:"+alias] = NewTwitterProvider(twCfg)
+		}
 	}
-	if cfg.Bluesky.Handle != "" && cfg.Bluesky.AppPassword != "" {
-		m.providers["bluesky"] = NewBlueskyProvider(cfg.Bluesky)
+	for alias, bsCfg := range cfg.Bluesky {
+		if bsCfg.Handle != "" && bsCfg.AppPassword != "" {
+			m.providers["bluesky:"+alias] = NewBlueskyProvider(bsCfg)
+		}
 	}
-	if cfg.LinkedIn.AccessToken != "" && cfg.LinkedIn.AuthorURN != "" {
-		m.providers["linkedin"] = NewLinkedInProvider(cfg.LinkedIn)
+	for alias, liCfg := range cfg.LinkedIn {
+		if liCfg.AccessToken != "" && liCfg.AuthorURN != "" {
+			m.providers["linkedin:"+alias] = NewLinkedInProvider(liCfg)
+		}
 	}
-	if cfg.Facebook.PageAccessToken != "" && cfg.Facebook.PageID != "" {
-		m.providers["facebook"] = NewFacebookProvider(cfg.Facebook)
+	for alias, fbCfg := range cfg.Facebook {
+		if fbCfg.PageAccessToken != "" && fbCfg.PageID != "" {
+			m.providers["facebook:"+alias] = NewFacebookProvider(fbCfg)
+		}
 	}
 
 	return m
@@ -53,7 +61,7 @@ func (m *MultiPlatformProvider) PlatformCount() int {
 	return len(m.providers)
 }
 
-// ConfiguredPlatforms returns a list of configured platform names.
+// ConfiguredPlatforms returns a list of configured platform:alias keys.
 func (m *MultiPlatformProvider) ConfiguredPlatforms() []string {
 	platforms := make([]string, 0, len(m.providers))
 	for name := range m.providers {
@@ -84,10 +92,22 @@ func (m *MultiPlatformProvider) Post(ctx context.Context, req SocialPostRequest)
 
 		provider, ok := m.providers[platform]
 		if !ok {
+			// Fallback: if no alias given (e.g. "twitter"), use first matching provider
+			if !strings.Contains(platform, ":") {
+				for key, p := range m.providers {
+					if strings.HasPrefix(key, platform+":") {
+						provider = p
+						ok = true
+						break
+					}
+				}
+			}
+		}
+		if !ok {
 			results = append(results, SocialPostResult{
 				Platform: platform,
 				Status:   "failed",
-				Error:    fmt.Sprintf("platform %q not configured -- add credentials in config.json", platform),
+				Error:    fmt.Sprintf("platform %q not configured -- add credentials in Settings or config.json", platform),
 			})
 			continue
 		}

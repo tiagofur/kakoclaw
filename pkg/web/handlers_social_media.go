@@ -20,8 +20,8 @@ import (
 	"github.com/sipeed/makoclaw/pkg/logger"
 )
 
-// handleTestSocialMediaConnection verifies credentials for a social media platform.
-// Route: POST /api/v1/social-media/{platform}/test
+// handleTestSocialMediaConnection verifies credentials for a social media platform account.
+// Route: POST /api/v1/social-media/{platform}/{alias}/test
 func (s *Server) handleTestSocialMediaConnection(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -34,13 +34,14 @@ func (s *Server) handleTestSocialMediaConnection(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// Extract platform from URL: /api/v1/social-media/{platform}/test
+	// Extract platform and alias from URL: /api/v1/social-media/{platform}/{alias}/test
 	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if len(parts) < 4 {
-		http.Error(w, "invalid path", http.StatusBadRequest)
+	if len(parts) < 5 {
+		http.Error(w, "invalid path — expected /api/v1/social-media/{platform}/{alias}/test", http.StatusBadRequest)
 		return
 	}
-	platform := parts[3] // api/v1/social-media/{platform}/test
+	platform := parts[3]
+	alias := parts[4]
 
 	globalCfg := s.fullConfig
 	if globalCfg == nil {
@@ -54,13 +55,33 @@ func (s *Server) handleTestSocialMediaConnection(w http.ResponseWriter, r *http.
 
 	switch platform {
 	case "twitter":
-		testErr = testTwitterConnection(mergedCfg.Tools.SocialMedia.Twitter)
+		cfg, found := mergedCfg.Tools.SocialMedia.Twitter[alias]
+		if !found {
+			http.Error(w, fmt.Sprintf("twitter account %q not configured", alias), http.StatusNotFound)
+			return
+		}
+		testErr = testTwitterConnection(cfg)
 	case "bluesky":
-		testErr = testBlueskyConnection(mergedCfg.Tools.SocialMedia.Bluesky)
+		cfg, found := mergedCfg.Tools.SocialMedia.Bluesky[alias]
+		if !found {
+			http.Error(w, fmt.Sprintf("bluesky account %q not configured", alias), http.StatusNotFound)
+			return
+		}
+		testErr = testBlueskyConnection(cfg)
 	case "linkedin":
-		testErr = testLinkedInConnection(mergedCfg.Tools.SocialMedia.LinkedIn)
+		cfg, found := mergedCfg.Tools.SocialMedia.LinkedIn[alias]
+		if !found {
+			http.Error(w, fmt.Sprintf("linkedin account %q not configured", alias), http.StatusNotFound)
+			return
+		}
+		testErr = testLinkedInConnection(cfg)
 	case "facebook":
-		testErr = testFacebookConnection(mergedCfg.Tools.SocialMedia.Facebook)
+		cfg, found := mergedCfg.Tools.SocialMedia.Facebook[alias]
+		if !found {
+			http.Error(w, fmt.Sprintf("facebook account %q not configured", alias), http.StatusNotFound)
+			return
+		}
+		testErr = testFacebookConnection(cfg)
 	default:
 		http.Error(w, "unknown platform: "+platform, http.StatusBadRequest)
 		return
@@ -70,6 +91,7 @@ func (s *Server) handleTestSocialMediaConnection(w http.ResponseWriter, r *http.
 	if testErr != nil {
 		logger.WarnCF("web", "Social media test connection failed", map[string]interface{}{
 			"platform":  platform,
+			"alias":     alias,
 			"user_uuid": userUUID,
 			"error":     testErr.Error(),
 		})
@@ -79,6 +101,7 @@ func (s *Server) handleTestSocialMediaConnection(w http.ResponseWriter, r *http.
 
 	logger.InfoCF("web", "Social media test connection succeeded", map[string]interface{}{
 		"platform":  platform,
+		"alias":     alias,
 		"user_uuid": userUUID,
 	})
 	writeJSONResponse(w, map[string]interface{}{"ok": true})

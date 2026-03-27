@@ -342,11 +342,95 @@ type FacebookSocialConfig struct {
 	PageID          string `json:"page_id" env:"MAKOCLAW_TOOLS_SOCIAL_FACEBOOK_PAGE_ID"`
 }
 
+// SocialMediaConfig holds credentials for all social media platforms.
+// Each platform is a map of alias → credentials, allowing multiple
+// accounts per platform (e.g., "personal", "brand", "page1").
 type SocialMediaConfig struct {
-	Twitter  TwitterSocialConfig  `json:"twitter"`
-	Bluesky  BlueskySocialConfig  `json:"bluesky"`
-	LinkedIn LinkedInSocialConfig `json:"linkedin"`
-	Facebook FacebookSocialConfig `json:"facebook"`
+	Twitter  map[string]TwitterSocialConfig  `json:"twitter"`
+	Bluesky  map[string]BlueskySocialConfig  `json:"bluesky"`
+	LinkedIn map[string]LinkedInSocialConfig `json:"linkedin"`
+	Facebook map[string]FacebookSocialConfig `json:"facebook"`
+}
+
+// UnmarshalJSON handles both the legacy single-account format
+// ({"twitter": {"api_key": "..."}}) and the new multi-account format
+// ({"twitter": {"personal": {"api_key": "..."}}}), migrating old
+// configs to the "default" alias automatically.
+func (s *SocialMediaConfig) UnmarshalJSON(data []byte) error {
+	type rawFields struct {
+		Twitter  json.RawMessage `json:"twitter"`
+		Bluesky  json.RawMessage `json:"bluesky"`
+		LinkedIn json.RawMessage `json:"linkedin"`
+		Facebook json.RawMessage `json:"facebook"`
+	}
+	var raw rawFields
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	var err error
+	s.Twitter, err = migrateSocialMap[TwitterSocialConfig](raw.Twitter, []string{"api_key", "api_secret", "access_token", "access_token_secret"})
+	if err != nil {
+		return err
+	}
+	s.Bluesky, err = migrateSocialMap[BlueskySocialConfig](raw.Bluesky, []string{"handle", "app_password"})
+	if err != nil {
+		return err
+	}
+	s.LinkedIn, err = migrateSocialMap[LinkedInSocialConfig](raw.LinkedIn, []string{"access_token", "author_urn"})
+	if err != nil {
+		return err
+	}
+	s.Facebook, err = migrateSocialMap[FacebookSocialConfig](raw.Facebook, []string{"page_access_token", "page_id"})
+	return err
+}
+
+// migrateSocialMap deserializes a platform's JSON value into a map[string]T.
+// If the JSON uses the legacy single-account format (credential keys at the top
+// level), it wraps the value under the "default" alias automatically.
+func migrateSocialMap[T any](raw json.RawMessage, legacyKeys []string) (map[string]T, error) {
+	result := make(map[string]T)
+	if len(raw) == 0 || string(raw) == "null" {
+		return result, nil
+	}
+
+	// Probe for key names at the first level
+	var probe map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &probe); err != nil {
+		return result, nil // ignore malformed input
+	}
+
+	// Detect legacy format: any of the known credential keys exist at this level
+	isLegacy := false
+	for _, key := range legacyKeys {
+		if _, exists := probe[key]; exists {
+			isLegacy = true
+			break
+		}
+	}
+
+	if isLegacy {
+		// Wrap the entire old-format object under the "default" alias
+		wrapped := map[string]json.RawMessage{"default": raw}
+		wrappedJSON, _ := json.Marshal(wrapped)
+		return result, json.Unmarshal(wrappedJSON, &result)
+	}
+
+	// New multi-account format — unmarshal directly
+	return result, json.Unmarshal(raw, &result)
+}
+
+// mergeSocialMap merges two platform account maps: global entries are the base,
+// user entries override per alias key. User wins on conflict.
+func mergeSocialMap[T any](global, user map[string]T) map[string]T {
+	merged := make(map[string]T, len(global)+len(user))
+	for alias, cfg := range global {
+		merged[alias] = cfg
+	}
+	for alias, cfg := range user {
+		merged[alias] = cfg
+	}
+	return merged
 }
 
 type ToolsConfig struct {
@@ -516,7 +600,10 @@ func DefaultConfig() *Config {
 			},
 			Image: ImageToolsConfig{Provider: "openai", Model: "dall-e-3"},
 			SocialMedia: SocialMediaConfig{
-				Bluesky: BlueskySocialConfig{PDSURL: "https://bsky.social"},
+				Twitter:  map[string]TwitterSocialConfig{},
+				Bluesky:  map[string]BlueskySocialConfig{},
+				LinkedIn: map[string]LinkedInSocialConfig{},
+				Facebook: map[string]FacebookSocialConfig{},
 			},
 			MCP: MCPConfig{
 				Servers: map[string]MCPServerConfig{},
@@ -761,7 +848,10 @@ func GetUserConfigTemplate(globalConfig *Config) *Config {
 				Model:    "dall-e-3",
 			},
 			SocialMedia: SocialMediaConfig{
-				Bluesky: BlueskySocialConfig{PDSURL: "https://bsky.social"},
+				Twitter:  map[string]TwitterSocialConfig{},
+				Bluesky:  map[string]BlueskySocialConfig{},
+				LinkedIn: map[string]LinkedInSocialConfig{},
+				Facebook: map[string]FacebookSocialConfig{},
 			},
 			MCP: MCPConfig{
 				Servers: make(map[string]MCPServerConfig),
@@ -1260,20 +1350,11 @@ func mergeToolsConfig(global, user *ToolsConfig) ToolsConfig {
 		merged.Image = global.Image
 	}
 
-	// Merge Social Media tools (per-platform: user overrides global if credentials set)
-	merged.SocialMedia = global.SocialMedia
-	if user.SocialMedia.Twitter.APIKey != "" {
-		merged.SocialMedia.Twitter = user.SocialMedia.Twitter
-	}
-	if user.SocialMedia.Bluesky.Handle != "" {
-		merged.SocialMedia.Bluesky = user.SocialMedia.Bluesky
-	}
-	if user.SocialMedia.LinkedIn.AccessToken != "" {
-		merged.SocialMedia.LinkedIn = user.SocialMedia.LinkedIn
-	}
-	if user.SocialMedia.Facebook.PageAccessToken != "" {
-		merged.SocialMedia.Facebook = user.SocialMedia.Facebook
-	}
+	// Merge Social Media tools (per-platform, per-alias: user entries override global entries)
+	merged.SocialMedia.Twitter = mergeSocialMap(global.SocialMedia.Twitter, user.SocialMedia.Twitter)
+	merged.SocialMedia.Bluesky = mergeSocialMap(global.SocialMedia.Bluesky, user.SocialMedia.Bluesky)
+	merged.SocialMedia.LinkedIn = mergeSocialMap(global.SocialMedia.LinkedIn, user.SocialMedia.LinkedIn)
+	merged.SocialMedia.Facebook = mergeSocialMap(global.SocialMedia.Facebook, user.SocialMedia.Facebook)
 
 	// Merge MCP tools
 	if len(user.MCP.Servers) > 0 {

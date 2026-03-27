@@ -48,6 +48,24 @@ func (s *Server) handleGetUserConfig(w http.ResponseWriter, r *http.Request) {
 	// Merge configs
 	mergedCfg := config.MergeConfigs(globalCfg, userCfg)
 
+	// Build social media account status maps (alias → {configured: bool})
+	smTwitterStatus := make(map[string]interface{})
+	for alias, twCfg := range mergedCfg.Tools.SocialMedia.Twitter {
+		smTwitterStatus[alias] = map[string]interface{}{"configured": twCfg.APIKey != ""}
+	}
+	smBlueskyStatus := make(map[string]interface{})
+	for alias, bsCfg := range mergedCfg.Tools.SocialMedia.Bluesky {
+		smBlueskyStatus[alias] = map[string]interface{}{"configured": bsCfg.Handle != ""}
+	}
+	smLinkedInStatus := make(map[string]interface{})
+	for alias, liCfg := range mergedCfg.Tools.SocialMedia.LinkedIn {
+		smLinkedInStatus[alias] = map[string]interface{}{"configured": liCfg.AccessToken != ""}
+	}
+	smFacebookStatus := make(map[string]interface{})
+	for alias, fbCfg := range mergedCfg.Tools.SocialMedia.Facebook {
+		smFacebookStatus[alias] = map[string]interface{}{"configured": fbCfg.PageAccessToken != ""}
+	}
+
 	// Build redacted view using existing functions
 	redacted := map[string]interface{}{
 		"agents": mergedCfg.Agents,
@@ -131,18 +149,10 @@ func (s *Server) handleGetUserConfig(w http.ResponseWriter, r *http.Request) {
 				"to":       mergedCfg.Tools.Email.To,
 			},
 			"social_media": map[string]interface{}{
-				"twitter": map[string]interface{}{
-					"configured": mergedCfg.Tools.SocialMedia.Twitter.APIKey != "",
-				},
-				"bluesky": map[string]interface{}{
-					"configured": mergedCfg.Tools.SocialMedia.Bluesky.Handle != "",
-				},
-				"linkedin": map[string]interface{}{
-					"configured": mergedCfg.Tools.SocialMedia.LinkedIn.AccessToken != "",
-				},
-				"facebook": map[string]interface{}{
-					"configured": mergedCfg.Tools.SocialMedia.Facebook.PageAccessToken != "",
-				},
+				"twitter":  smTwitterStatus,
+				"bluesky":  smBlueskyStatus,
+				"linkedin": smLinkedInStatus,
+				"facebook": smFacebookStatus,
 			},
 		},
 	}
@@ -673,46 +683,98 @@ func applyConfigUpdates(cfg *config.Config, updates map[string]interface{}) erro
 
 			cfg.Tools.Email = tempCfg
 		}
-		// Handle social_media - skip empty-string secrets to preserve existing values
+		// Handle social_media - per alias: nil value = delete alias, map = upsert (skip empty secrets)
 		if smUpdate, ok := toolsUpdate["social_media"].(map[string]interface{}); ok {
-			if twUpdate, ok := smUpdate["twitter"].(map[string]interface{}); ok {
-				for _, secretKey := range []string{"api_key", "api_secret", "access_token", "access_token_secret"} {
-					if v, ok := twUpdate[secretKey].(string); ok && v == "" {
-						delete(twUpdate, secretKey)
-					}
+			if twMap, ok := smUpdate["twitter"].(map[string]interface{}); ok {
+				if cfg.Tools.SocialMedia.Twitter == nil {
+					cfg.Tools.SocialMedia.Twitter = make(map[string]config.TwitterSocialConfig)
 				}
-				if err := mergeStructFromMap(&cfg.Tools.SocialMedia.Twitter, twUpdate); err != nil {
-					return err
+				for alias, rawVal := range twMap {
+					if rawVal == nil {
+						delete(cfg.Tools.SocialMedia.Twitter, alias)
+						continue
+					}
+					if fields, ok := rawVal.(map[string]interface{}); ok {
+						for _, k := range []string{"api_key", "api_secret", "access_token", "access_token_secret"} {
+							if v, ok := fields[k].(string); ok && v == "" {
+								delete(fields, k)
+							}
+						}
+						existing := cfg.Tools.SocialMedia.Twitter[alias]
+						if err := mergeStructFromMap(&existing, fields); err != nil {
+							return err
+						}
+						cfg.Tools.SocialMedia.Twitter[alias] = existing
+					}
 				}
 			}
-			if bsUpdate, ok := smUpdate["bluesky"].(map[string]interface{}); ok {
-				for _, secretKey := range []string{"app_password"} {
-					if v, ok := bsUpdate[secretKey].(string); ok && v == "" {
-						delete(bsUpdate, secretKey)
-					}
+			if bsMap, ok := smUpdate["bluesky"].(map[string]interface{}); ok {
+				if cfg.Tools.SocialMedia.Bluesky == nil {
+					cfg.Tools.SocialMedia.Bluesky = make(map[string]config.BlueskySocialConfig)
 				}
-				if err := mergeStructFromMap(&cfg.Tools.SocialMedia.Bluesky, bsUpdate); err != nil {
-					return err
+				for alias, rawVal := range bsMap {
+					if rawVal == nil {
+						delete(cfg.Tools.SocialMedia.Bluesky, alias)
+						continue
+					}
+					if fields, ok := rawVal.(map[string]interface{}); ok {
+						for _, k := range []string{"app_password"} {
+							if v, ok := fields[k].(string); ok && v == "" {
+								delete(fields, k)
+							}
+						}
+						existing := cfg.Tools.SocialMedia.Bluesky[alias]
+						if err := mergeStructFromMap(&existing, fields); err != nil {
+							return err
+						}
+						cfg.Tools.SocialMedia.Bluesky[alias] = existing
+					}
 				}
 			}
-			if liUpdate, ok := smUpdate["linkedin"].(map[string]interface{}); ok {
-				for _, secretKey := range []string{"access_token"} {
-					if v, ok := liUpdate[secretKey].(string); ok && v == "" {
-						delete(liUpdate, secretKey)
-					}
+			if liMap, ok := smUpdate["linkedin"].(map[string]interface{}); ok {
+				if cfg.Tools.SocialMedia.LinkedIn == nil {
+					cfg.Tools.SocialMedia.LinkedIn = make(map[string]config.LinkedInSocialConfig)
 				}
-				if err := mergeStructFromMap(&cfg.Tools.SocialMedia.LinkedIn, liUpdate); err != nil {
-					return err
+				for alias, rawVal := range liMap {
+					if rawVal == nil {
+						delete(cfg.Tools.SocialMedia.LinkedIn, alias)
+						continue
+					}
+					if fields, ok := rawVal.(map[string]interface{}); ok {
+						for _, k := range []string{"access_token"} {
+							if v, ok := fields[k].(string); ok && v == "" {
+								delete(fields, k)
+							}
+						}
+						existing := cfg.Tools.SocialMedia.LinkedIn[alias]
+						if err := mergeStructFromMap(&existing, fields); err != nil {
+							return err
+						}
+						cfg.Tools.SocialMedia.LinkedIn[alias] = existing
+					}
 				}
 			}
-			if fbUpdate, ok := smUpdate["facebook"].(map[string]interface{}); ok {
-				for _, secretKey := range []string{"page_access_token"} {
-					if v, ok := fbUpdate[secretKey].(string); ok && v == "" {
-						delete(fbUpdate, secretKey)
-					}
+			if fbMap, ok := smUpdate["facebook"].(map[string]interface{}); ok {
+				if cfg.Tools.SocialMedia.Facebook == nil {
+					cfg.Tools.SocialMedia.Facebook = make(map[string]config.FacebookSocialConfig)
 				}
-				if err := mergeStructFromMap(&cfg.Tools.SocialMedia.Facebook, fbUpdate); err != nil {
-					return err
+				for alias, rawVal := range fbMap {
+					if rawVal == nil {
+						delete(cfg.Tools.SocialMedia.Facebook, alias)
+						continue
+					}
+					if fields, ok := rawVal.(map[string]interface{}); ok {
+						for _, k := range []string{"page_access_token"} {
+							if v, ok := fields[k].(string); ok && v == "" {
+								delete(fields, k)
+							}
+						}
+						existing := cfg.Tools.SocialMedia.Facebook[alias]
+						if err := mergeStructFromMap(&existing, fields); err != nil {
+							return err
+						}
+						cfg.Tools.SocialMedia.Facebook[alias] = existing
+					}
 				}
 			}
 		}

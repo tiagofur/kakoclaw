@@ -16,6 +16,9 @@ type SocialPostResult struct {
 
 // SocialPostRequest contains all parameters needed to publish a social media post.
 type SocialPostRequest struct {
+	// Platforms is a list of target accounts in "platform:alias" format (e.g. "twitter:personal",
+	// "facebook:brand_page"). If no alias is given (e.g. "twitter"), the first configured
+	// account for that platform is used.
 	Platforms  []string   `json:"platforms"`
 	Content    string     `json:"content"`
 	MediaURLs  []string   `json:"media_urls,omitempty"`

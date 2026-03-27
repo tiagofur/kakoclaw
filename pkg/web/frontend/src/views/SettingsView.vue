@@ -180,6 +180,7 @@
                 @toggle="toggleChannel"
                 @refresh-config="fetchUserConfig"
                 @config="activeTab === 'social_media' ? openSocialConfig($event) : openChannelConfig($event)"
+                @delete="deleteSocialAccount"
                 @add-user="openUserModal()"
                 @edit-user="openUserModal"
                 @block-user="openBlockModal"
@@ -479,10 +480,10 @@
                   </div>
                   <div>
                     <h3 class="text-lg font-bold text-makoclaw-text">
-                      Configure {{ selectedPlatform?.name }}
+                      {{ socialIsNew ? `Add ${selectedPlatform?.name} account` : `Edit ${selectedPlatform?.id}:${socialAlias}` }}
                     </h3>
-                    <p class="text-xs text-makoclaw-text-secondary">
-                      Set up your platform credentials
+                    <p class="text-xs text-makoclaw-text-secondary font-mono">
+                      {{ socialIsNew ? selectedPlatform?.name : `${selectedPlatform?.id}:${socialAlias}` }}
                     </p>
                   </div>
                 </div>
@@ -496,6 +497,21 @@
             </div>
 
             <div class="p-5 space-y-4 overflow-y-auto min-h-0">
+              <!-- Alias field (editable only when creating a new account) -->
+              <div>
+                <label class="block text-xs font-bold text-makoclaw-text-secondary mb-2 uppercase tracking-wider">
+                  Account Alias
+                  <span class="text-makoclaw-text-secondary/40 normal-case font-medium ml-1">(e.g. personal, brand)</span>
+                </label>
+                <input
+                  v-model="socialAlias"
+                  type="text"
+                  :disabled="!socialIsNew"
+                  placeholder="personal"
+                  class="w-full px-4 py-2.5 bg-makoclaw-bg/40 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-makoclaw-accent/30 focus:border-makoclaw-accent/50 transition-all min-h-[40px] backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed font-mono"
+                >
+              </div>
+
               <!-- Twitter/X fields -->
               <div v-if="selectedPlatform?.id === 'twitter'" class="space-y-4">
                 <div v-for="field in [
@@ -915,6 +931,8 @@ const channelForm = ref({})
 // Social Media modal state
 const showSocialModal = ref(false)
 const selectedPlatform = ref(null)
+const socialAlias = ref('')
+const socialIsNew = ref(true)
 const socialForm = ref({})
 const socialTesting = ref(false)
 const socialTestResult = ref(null) // null | { ok: bool, error?: string }
@@ -1090,31 +1108,43 @@ const platformFields = {
   facebook: ['page_access_token', 'page_id']
 }
 
-const openSocialConfig = (platform) => {
+// { platform, alias } — alias is null when adding a new account
+const openSocialConfig = ({ platform, alias }) => {
   selectedPlatform.value = platform
+  socialAlias.value = alias ?? ''
+  socialIsNew.value = !alias
   socialTestResult.value = null
   const fields = platformFields[platform.id] || []
   const form = {}
   fields.forEach(f => { form[f] = '' })
-  form._isConfigured = configData.value?.tools?.social_media?.[platform.id]?.configured || false
+  const existing = configData.value?.tools?.social_media?.[platform.id]?.[alias]
+  form._isConfigured = existing?.configured === true
   socialForm.value = form
   showSocialModal.value = true
 }
 
 const saveSocialConfig = async () => {
+  const alias = socialAlias.value.trim()
+  if (!alias) return
   const formData = { ...socialForm.value }
   delete formData._isConfigured
   // Remove empty strings — backend will keep existing secrets
   Object.keys(formData).forEach(k => { if (formData[k] === '') delete formData[k] })
-  await saveConfig({ tools: { social_media: { [selectedPlatform.value.id]: formData } } })
+  await saveConfig({ tools: { social_media: { [selectedPlatform.value.id]: { [alias]: formData } } } })
   showSocialModal.value = false
 }
 
+const deleteSocialAccount = async ({ platform, alias }) => {
+  await saveConfig({ tools: { social_media: { [platform.id]: { [alias]: null } } } })
+}
+
 const testSocialConnection = async () => {
+  const alias = socialAlias.value.trim()
+  if (!alias) return
   socialTesting.value = true
   socialTestResult.value = null
   try {
-    const res = await fetch(`/api/v1/social-media/${selectedPlatform.value.id}/test`, {
+    const res = await fetch(`/api/v1/social-media/${selectedPlatform.value.id}/${alias}/test`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${authStore.token}` }
     })

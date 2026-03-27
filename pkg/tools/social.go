@@ -45,7 +45,7 @@ func (t *SocialPostTool) Name() string {
 }
 
 func (t *SocialPostTool) Description() string {
-	return "Post content to social media platforms. Supports Twitter/X, LinkedIn, Instagram, Facebook, and TikTok. Use action=preview first to review before posting."
+	return "Post content to social media platforms. Supports Twitter/X, LinkedIn, Facebook, and Bluesky. Platforms are specified as \"platform:alias\" (e.g. \"twitter:personal\", \"facebook:brand_page\") or just \"platform\" to use the first configured account. Use action=preview first to review before posting."
 }
 
 func (t *SocialPostTool) Parameters() map[string]any {
@@ -59,7 +59,7 @@ func (t *SocialPostTool) Parameters() map[string]any {
 			},
 			"platforms": map[string]any{
 				"type":        "array",
-				"description": "Target platforms: twitter, linkedin, instagram, facebook, tiktok",
+				"description": "Target platforms as \"platform:alias\" (e.g. \"twitter:personal\", \"facebook:brand_page\") or just \"platform\" for the first configured account",
 				"items": map[string]any{
 					"type": "string",
 				},
@@ -193,7 +193,12 @@ func (t *SocialPostTool) buildPreview(platforms []string, fullContent string, me
 	lines = append(lines, "")
 
 	for _, platform := range platforms {
-		limit := platformCharLimit(platform)
+		// Extract base platform name from "platform:alias" format
+		basePlatform := platform
+		if idx := strings.Index(platform, ":"); idx >= 0 {
+			basePlatform = platform[:idx]
+		}
+		limit := platformCharLimit(basePlatform)
 		charCount := len(fullContent)
 
 		lines = append(lines, fmt.Sprintf("--- %s ---", strings.ToUpper(platform[:1])+platform[1:]))
