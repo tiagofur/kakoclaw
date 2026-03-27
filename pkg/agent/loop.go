@@ -585,10 +585,28 @@ func (al *AgentLoop) Run(ctx context.Context) error {
 
 			al.applyMessageUserContext(msg)
 
-			response, err := al.processMessage(ctx, msg)
-			if err != nil {
-				response = fmt.Sprintf("Error processing message: %v", err)
-			}
+			// Wrap processMessage in a closure with panic recovery so that
+			// a crash never kills the goroutine silently — the channel's
+			// thinking animation would run forever without a response.
+			var response string
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						logger.ErrorCF("agent", "Panic in processMessage", map[string]interface{}{
+							"panic":       fmt.Sprintf("%v", r),
+							"session_key": msg.SessionKey,
+							"channel":     msg.Channel,
+							"chat_id":     msg.ChatID,
+						})
+						response = "An internal error occurred. Please try again."
+					}
+				}()
+				var err error
+				response, err = al.processMessage(ctx, msg)
+				if err != nil {
+					response = fmt.Sprintf("Error processing message: %v", err)
+				}
+			}()
 
 			if response != "" {
 				al.bus.PublishOutbound(bus.OutboundMessage{
