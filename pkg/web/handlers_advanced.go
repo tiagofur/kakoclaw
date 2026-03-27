@@ -473,6 +473,9 @@ Respond ONLY with a valid JSON object matching this exact structure, with no mar
 		// Installer writes to userSkillsDir (the "user" tier)
 		userInstaller := skills.NewSkillInstaller(filepath.Dir(userSkillsDir))
 
+		// Remove any specialists registered by this skill before deleting its directory
+		s.removeSkillAgents(userUUID, skillName, userSkillsDir)
+
 		if err := userInstaller.Uninstall(skillName); err != nil {
 			http.Error(w, "uninstall failed: "+err.Error(), http.StatusInternalServerError)
 			return

@@ -154,6 +154,13 @@ func (s *Server) handleGetUserConfig(w http.ResponseWriter, r *http.Request) {
 				"linkedin": smLinkedInStatus,
 				"facebook": smFacebookStatus,
 			},
+			"image": map[string]interface{}{
+				"provider":   mergedCfg.Tools.Image.Provider,
+				"model":      mergedCfg.Tools.Image.Model,
+				"api_key":    redactKey(mergedCfg.Tools.Image.APIKey),
+				"api_base":   mergedCfg.Tools.Image.APIBase,
+				"configured": mergedCfg.Tools.Image.APIKey != "" || mergedCfg.Providers.OpenAI.APIKey != "" || mergedCfg.Providers.Gemini.APIKey != "",
+			},
 		},
 	}
 
@@ -776,6 +783,21 @@ func applyConfigUpdates(cfg *config.Config, updates map[string]interface{}) erro
 						cfg.Tools.SocialMedia.Facebook[alias] = existing
 					}
 				}
+			}
+		}
+		// Handle image provider config
+		if imageUpdate, ok := toolsUpdate["image"].(map[string]interface{}); ok {
+			if provider, ok := imageUpdate["provider"].(string); ok {
+				cfg.Tools.Image.Provider = provider
+			}
+			if model, ok := imageUpdate["model"].(string); ok {
+				cfg.Tools.Image.Model = model
+			}
+			if apiKey, ok := imageUpdate["api_key"].(string); ok && apiKey != "" && !strings.Contains(apiKey, "****") {
+				cfg.Tools.Image.APIKey = apiKey
+			}
+			if apiBase, ok := imageUpdate["api_base"].(string); ok {
+				cfg.Tools.Image.APIBase = apiBase
 			}
 		}
 		// Remove "tools" from bulk update map

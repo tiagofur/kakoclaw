@@ -35,8 +35,9 @@ type PublicSkillResponse struct {
 	AverageRating float64  `json:"average_rating"`
 	RatingCount   int      `json:"rating_count"`
 	Dependencies  []string `json:"dependencies,omitempty"`
-	Source        string   `json:"source"`    // "community" or "builtin"
-	Installed     bool     `json:"installed"` // whether user already has this skill
+	Source        string   `json:"source"`               // "community" or "builtin"
+	Installed     bool     `json:"installed"`            // whether user already has this skill
+	AgentCount    int      `json:"agent_count,omitempty"` // number of specialists bundled with this skill
 }
 
 // ==================== MARKETPLACE ====================
@@ -75,7 +76,7 @@ func (s *Server) handleMarketplaceSkills(w http.ResponseWriter, r *http.Request)
 	// Convert built-in skills to marketplace format (shown first)
 	publicSkills := make([]PublicSkillResponse, 0)
 	for _, bs := range builtinSkills {
-		publicSkills = append(publicSkills, PublicSkillResponse{
+		skillResp := PublicSkillResponse{
 			Name:          bs.Name,
 			Slug:          bs.Slug,
 			Description:   bs.Description,
@@ -86,7 +87,11 @@ func (s *Server) handleMarketplaceSkills(w http.ResponseWriter, r *http.Request)
 			Visibility:    "public",
 			Source:        "builtin",
 			Installed:     installedSlugs[bs.Slug],
-		})
+		}
+		if agents, err := skills.LoadAgentsFromSkillDir(filepath.Dir(bs.Path)); err == nil {
+			skillResp.AgentCount = len(agents)
+		}
+		publicSkills = append(publicSkills, skillResp)
 	}
 
 	// Include global skills (~/.MakoClaw/skills/) in marketplace
@@ -100,7 +105,7 @@ func (s *Server) handleMarketplaceSkills(w http.ResponseWriter, r *http.Request)
 			continue
 		}
 		globalSlugs[gs.Slug] = true
-		publicSkills = append(publicSkills, PublicSkillResponse{
+		gsResp := PublicSkillResponse{
 			Name:          gs.Name,
 			Slug:          gs.Slug,
 			Description:   gs.Description,
@@ -111,7 +116,11 @@ func (s *Server) handleMarketplaceSkills(w http.ResponseWriter, r *http.Request)
 			Visibility:    "public",
 			Source:        "global",
 			Installed:     installedSlugs[gs.Slug],
-		})
+		}
+		if agents, err := skills.LoadAgentsFromSkillDir(filepath.Dir(gs.Path)); err == nil {
+			gsResp.AgentCount = len(agents)
+		}
+		publicSkills = append(publicSkills, gsResp)
 	}
 
 	// Fetch community skills from central DB (if available)
@@ -266,6 +275,8 @@ func (s *Server) handleMarketplaceInstall(w http.ResponseWriter, r *http.Request
 
 	installer := skills.NewSkillInstaller(filepath.Dir(userSkillsDir))
 
+	agentsRegistered := 0
+
 	// Try built-in skills first (they're not in the DB)
 	builtinLoader := skills.NewSkillsLoader("", "", s.builtinSkillsDir)
 	if builtinContent, found := builtinLoader.LoadSkill(slug); found {
@@ -285,10 +296,12 @@ func (s *Server) handleMarketplaceInstall(w http.ResponseWriter, r *http.Request
 			http.Error(w, "failed to install skill: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
+		agentsRegistered += s.applySkillAgents(userUUID, slug, userSkillsDir)
 		writeJSONResponse(w, map[string]interface{}{
-			"message":        "installed",
-			"auto_installed": []string{},
-			"unresolvable":   []string{},
+			"message":           "installed",
+			"auto_installed":    []string{},
+			"unresolvable":      []string{},
+			"agents_registered": agentsRegistered,
 		})
 		return
 	}
@@ -307,10 +320,12 @@ func (s *Server) handleMarketplaceInstall(w http.ResponseWriter, r *http.Request
 				http.Error(w, "failed to install skill: "+err.Error(), http.StatusInternalServerError)
 				return
 			}
+			agentsRegistered += s.applySkillAgents(userUUID, slug, userSkillsDir)
 			writeJSONResponse(w, map[string]interface{}{
-				"message":        "installed",
-				"auto_installed": []string{},
-				"unresolvable":   []string{},
+				"message":           "installed",
+				"auto_installed":    []string{},
+				"unresolvable":      []string{},
+				"agents_registered": agentsRegistered,
 			})
 			return
 		}
@@ -345,6 +360,7 @@ func (s *Server) handleMarketplaceInstall(w http.ResponseWriter, r *http.Request
 		http.Error(w, "failed to install skill: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+	agentsRegistered += s.applySkillAgents(userUUID, slug, userSkillsDir)
 
 	// Increment install count
 	_ = s.centralStore.IncrementSkillInstallCount(sub.ID)
@@ -379,9 +395,10 @@ func (s *Server) handleMarketplaceInstall(w http.ResponseWriter, r *http.Request
 	}
 
 	writeJSONResponse(w, map[string]interface{}{
-		"message":       "installed",
-		"auto_installed": autoInstalled,
-		"unresolvable":  unresolvable,
+		"message":           "installed",
+		"auto_installed":    autoInstalled,
+		"unresolvable":      unresolvable,
+		"agents_registered": agentsRegistered,
 	})
 }
 

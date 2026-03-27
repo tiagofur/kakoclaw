@@ -405,7 +405,15 @@
                     {{ specialist.temperature }}
                   </span>
                 </div>
-                <span class="text-lime-400 font-medium group-hover:translate-x-1 transition-transform">View →</span>
+                <div class="flex items-center gap-2">
+                  <span
+                    v-if="specialist.source_skill"
+                    class="px-2 py-0.5 text-[10px] font-medium bg-purple-500/10 text-purple-400 rounded-full ring-1 ring-purple-500/20"
+                  >
+                    via {{ specialist.source_skill }}
+                  </span>
+                  <span class="text-lime-400 font-medium group-hover:translate-x-1 transition-transform">View →</span>
+                </div>
               </div>
             </div>
           </div>

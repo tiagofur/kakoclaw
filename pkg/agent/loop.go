@@ -312,42 +312,68 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 
 	// Register image generation tool
 	var imageProvider tools.ImageProvider
-	if cfg.Tools.Image.APIKey != "" {
+	{
+		imageAPIKey := cfg.Tools.Image.APIKey
 		model := cfg.Tools.Image.Model
+		apiBase := cfg.Tools.Image.APIBase
 		switch strings.ToLower(cfg.Tools.Image.Provider) {
 		case "fal", "fal.ai":
 			if model == "" {
 				model = "fal-ai/flux/dev"
 			}
-			imageProvider = tools.NewFalImageProvider(cfg.Tools.Image.APIKey, model)
-			logger.InfoC("agent", "Image generation provider: fal.ai")
+			if imageAPIKey != "" {
+				imageProvider = tools.NewFalImageProvider(imageAPIKey, model)
+			}
 		case "replicate":
 			if model == "" {
 				model = "black-forest-labs/flux-schnell"
 			}
-			imageProvider = tools.NewReplicateImageProvider(cfg.Tools.Image.APIKey, model)
-			logger.InfoC("agent", "Image generation provider: Replicate")
+			if imageAPIKey != "" {
+				imageProvider = tools.NewReplicateImageProvider(imageAPIKey, model)
+			}
 		case "together":
 			if model == "" {
 				model = "black-forest-labs/FLUX.1-schnell-Free"
 			}
-			imageProvider = tools.NewTogetherImageProvider(cfg.Tools.Image.APIKey, model)
-			logger.InfoC("agent", "Image generation provider: Together.ai")
+			if imageAPIKey != "" {
+				imageProvider = tools.NewTogetherImageProvider(imageAPIKey, model)
+			}
 		case "google", "imagen":
+			if imageAPIKey == "" {
+				imageAPIKey = cfg.Providers.Gemini.APIKey
+			}
 			if model == "" {
 				model = "gemini-2.0-flash-exp"
 			}
-			imageProvider = tools.NewGoogleImageProvider(cfg.Tools.Image.APIKey, model)
-			logger.InfoC("agent", "Image generation provider: Google Imagen")
-		default:
-			if model == "" {
-				model = "dall-e-3"
+			if imageAPIKey != "" {
+				imageProvider = tools.NewGoogleImageProvider(imageAPIKey, model)
 			}
-			imageProvider = tools.NewOpenAIImageProvider(cfg.Tools.Image.APIKey, cfg.Tools.Image.APIBase, model)
-			logger.InfoC("agent", "Image generation provider: OpenAI-compatible")
+		case "bfl":
+			if model == "" {
+				model = "flux-pro-1.1"
+			}
+			if imageAPIKey != "" {
+				imageProvider = tools.NewBFLImageProvider(imageAPIKey, model)
+			}
+		default: // openai / openai-compatible
+			if imageAPIKey == "" {
+				imageAPIKey = cfg.Providers.OpenAI.APIKey
+			}
+			if model == "" {
+				model = "gpt-image-1"
+			}
+			if imageAPIKey != "" {
+				imageProvider = tools.NewOpenAIImageProvider(imageAPIKey, apiBase, model)
+			}
 		}
-	} else {
-		logger.WarnC("agent", "No image provider configured — image_generate will return an error")
+		if imageProvider != nil {
+			logger.InfoCF("agent", "Image generation provider configured", map[string]any{
+				"provider": cfg.Tools.Image.Provider,
+				"model":    model,
+			})
+		} else {
+			logger.WarnC("agent", "No image provider configured — image_generate will return an error")
+		}
 	}
 	toolsRegistry.Register(tools.NewImageGenerateTool(imageProvider, workspace, restrict))
 

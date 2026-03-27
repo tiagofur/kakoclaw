@@ -21,6 +21,7 @@ type SkillInfo struct {
 	Path        string `json:"path"`
 	Source      string `json:"source"`
 	Description string `json:"description"`
+	AgentCount  int    `json:"agent_count,omitempty"`
 }
 
 // Slugify converts a name to a URL-safe slug: lowercase, non-alphanumeric

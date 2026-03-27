@@ -461,6 +461,12 @@
                   <div class="flex items-center justify-between mt-auto pt-3 border-t border-makoclaw-border/30">
                     <div class="flex items-center gap-3 text-xs text-makoclaw-text-secondary">
                       <span
+                        v-if="skill.agent_count > 0"
+                        class="px-2 py-0.5 text-[10px] font-medium bg-lime-500/10 text-lime-400 rounded-full ring-1 ring-lime-500/20"
+                      >
+                        {{ skill.agent_count }} agent{{ skill.agent_count > 1 ? 's' : '' }}
+                      </span>
+                      <span
                         v-if="skill.install_count"
                         class="flex items-center gap-1"
                       >
@@ -1813,11 +1819,15 @@ const installMarketplaceSkill = async (slug) => {
     const skill = marketplaceSkills.value.find(s => s.slug === slug)
     const result = await advancedService.installMarketplaceSkill(slug)
     const autoInstalled = result.auto_installed || []
+    const skillName = skill ? skill.name : slug
+    const agentsRegistered = result.agents_registered || 0
+    let msg = agentsRegistered > 0
+      ? `Installed ${skillName} · ${agentsRegistered} agent${agentsRegistered > 1 ? 's' : ''} registered`
+      : `Installed ${skillName}`
     if (autoInstalled.length > 0) {
-      toast.success(`Installed ${skill ? skill.name : slug}. Also: ${autoInstalled.join(', ')}`)
-    } else {
-      toast.success('Skill installed')
+      msg += `. Also: ${autoInstalled.join(', ')}`
     }
+    toast.success(msg)
     // Mark as installed in marketplace view
     if (skill) skill.installed = true
     await loadSkills()

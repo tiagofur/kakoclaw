@@ -82,6 +82,18 @@
                 {{ specialist.temperature }}
               </p>
             </div>
+            <div
+              v-if="specialist.source_skill"
+              class="glass-panel rounded-xl p-4 border border-makoclaw-border/50 md:col-span-2"
+            >
+              <p class="text-[10px] font-bold uppercase tracking-wider text-makoclaw-text-secondary mb-2">
+                Source Skill
+              </p>
+              <p class="font-medium text-makoclaw-text flex items-center gap-2">
+                <span class="px-2 py-0.5 text-[10px] font-medium bg-purple-500/10 text-purple-400 rounded-full ring-1 ring-purple-500/20">via {{ specialist.source_skill }}</span>
+                <span class="text-xs text-makoclaw-text-secondary">This specialist was registered by a skill</span>
+              </p>
+            </div>
           </div>
 
           <!-- System Prompt -->

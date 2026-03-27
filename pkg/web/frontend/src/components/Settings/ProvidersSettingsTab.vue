@@ -91,6 +91,122 @@
       </div>
     </div>
 
+    <!-- Image Generation Section -->
+    <div class="mt-8">
+      <!-- Section header -->
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
+          <PhotoIcon class="w-4 h-4 text-purple-400" />
+        </div>
+        <div>
+          <h3 class="text-sm font-semibold text-makoclaw-text">Image Generation</h3>
+          <p class="text-xs text-makoclaw-text-secondary">Provider used by the image_generate tool</p>
+        </div>
+      </div>
+
+      <div class="glass-panel rounded-2xl p-5 md:p-6 border border-makoclaw-border/50 relative overflow-hidden group hover:border-makoclaw-accent/30 transition-all duration-300">
+        <!-- Decorative background blur -->
+        <div class="absolute -top-12 -right-12 w-48 h-48 bg-purple-500/5 blur-[60px] rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
+
+        <div class="relative z-10">
+          <!-- Provider + Model dropdowns -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="space-y-2">
+              <label class="text-[10px] font-medium uppercase tracking-wide text-makoclaw-text-secondary/60 ml-1">
+                Provider
+              </label>
+              <select
+                v-model="imageConfig.provider"
+                class="w-full bg-makoclaw-surface border border-makoclaw-border/10 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-makoclaw-accent/50 text-makoclaw-text transition-all appearance-none cursor-pointer"
+              >
+                <option
+                  v-for="p in IMAGE_PROVIDERS"
+                  :key="p.id"
+                  :value="p.id"
+                >
+                  {{ p.label }}
+                </option>
+              </select>
+            </div>
+
+            <div class="space-y-2">
+              <label class="text-[10px] font-medium uppercase tracking-wide text-makoclaw-text-secondary/60 ml-1">
+                Model
+              </label>
+              <select
+                v-model="imageConfig.model"
+                class="w-full bg-makoclaw-surface border border-makoclaw-border/10 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-makoclaw-accent/50 text-makoclaw-text transition-all appearance-none cursor-pointer"
+              >
+                <option
+                  v-for="m in selectedProviderModels"
+                  :key="m.id"
+                  :value="m.id"
+                >
+                  {{ m.label }} — {{ m.badge }}
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Shared key indicator OR dedicated API key input -->
+          <div class="mt-4">
+            <!-- Provider shares an existing LLM key -->
+            <div
+              v-if="selectedProvider?.sharedKey"
+              class="flex items-center gap-2 px-4 py-3 rounded-xl bg-makoclaw-success/10 border border-makoclaw-success/20 text-makoclaw-success text-xs font-medium"
+            >
+              <CheckCircleIcon class="w-4 h-4 flex-none" />
+              <span>Using your <span class="font-bold">{{ selectedProvider.label }}</span> API key · no separate key needed</span>
+            </div>
+
+            <!-- Provider requires its own API key -->
+            <div v-else class="space-y-2">
+              <label class="text-[10px] font-medium uppercase tracking-wide text-makoclaw-text-secondary/60 ml-1 flex items-center gap-2">
+                API Key
+                <a
+                  v-if="selectedProvider?.apiKeyUrl"
+                  :href="selectedProvider.apiKeyUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="text-makoclaw-accent hover:underline normal-case tracking-normal font-semibold"
+                >Get key →</a>
+              </label>
+              <div class="relative group/input">
+                <input
+                  v-model="imageConfig.api_key"
+                  type="password"
+                  placeholder="••••••••••••••••••••••••"
+                  class="w-full bg-makoclaw-surface border border-makoclaw-border/10 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-makoclaw-accent/50 text-makoclaw-text transition-all"
+                >
+                <div class="absolute right-4 top-1/2 -translate-y-1/2 text-makoclaw-text-secondary/20 group-hover/input:text-makoclaw-accent/40 transition-colors">
+                  <LockClosedIcon class="w-4 h-4" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Save button -->
+          <div class="mt-5 flex justify-end">
+            <button
+              class="px-6 py-3 bg-makoclaw-accent hover:bg-makoclaw-accent-hover text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-xl shadow-makoclaw-accent/10 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 group/save"
+              :disabled="saving"
+              @click="saveImageConfig"
+            >
+              <span
+                v-if="saving"
+                class="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"
+              />
+              <BoltIcon
+                v-else
+                class="w-4 h-4 group-hover/save:translate-y-[-2px] transition-transform"
+              />
+              Save Image Settings
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Models Config Modal -->
     <Teleport to="body">
       <Transition name="modal">
@@ -232,23 +348,147 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { 
-  CpuChipIcon, 
-  LockClosedIcon, 
-  BoltIcon, 
-  XMarkIcon, 
-  TrashIcon, 
-  ArrowPathIcon 
+import { ref, computed, watch } from 'vue'
+import {
+  CpuChipIcon,
+  LockClosedIcon,
+  BoltIcon,
+  XMarkIcon,
+  TrashIcon,
+  ArrowPathIcon,
+  PhotoIcon,
+  CheckCircleIcon,
 } from '@heroicons/vue/24/outline'
+
+const IMAGE_PROVIDERS = [
+  {
+    id: 'together',
+    label: 'Together.ai',
+    sharedKey: 'together',
+    description: 'Use your existing Together.ai API key',
+    models: [
+      { id: 'black-forest-labs/FLUX.1-schnell-Free', label: 'FLUX.1 Schnell', badge: 'FREE', badgeColor: 'green' },
+      { id: 'black-forest-labs/FLUX.1-schnell', label: 'FLUX.1 Schnell (paid)', badge: '$0.003/img', badgeColor: 'gray' },
+      { id: 'black-forest-labs/FLUX.1-dev', label: 'FLUX.1 Dev', badge: '$0.025/img', badgeColor: 'gray' },
+      { id: 'black-forest-labs/FLUX.1.1-pro', label: 'FLUX1.1 Pro', badge: '$0.04/img', badgeColor: 'gray' },
+    ]
+  },
+  {
+    id: 'openai',
+    label: 'OpenAI',
+    sharedKey: 'openai',
+    description: 'Use your existing OpenAI API key',
+    models: [
+      { id: 'dall-e-3', label: 'DALL·E 3', badge: '$0.04–$0.12/img', badgeColor: 'gray' },
+      { id: 'gpt-image-1', label: 'GPT-Image-1', badge: '$0.01–$0.17/img', badgeColor: 'gray' },
+      { id: 'dall-e-2', label: 'DALL·E 2', badge: '$0.016/img', badgeColor: 'gray' },
+    ]
+  },
+  {
+    id: 'google',
+    label: 'Google (Gemini)',
+    sharedKey: 'gemini',
+    description: 'Use your existing Gemini API key',
+    models: [
+      { id: 'gemini-2.0-flash-exp', label: 'Gemini 2.0 Flash', badge: 'Free tier', badgeColor: 'green' },
+      { id: 'imagen-3.0-fast-generate-001', label: 'Imagen 3 Fast', badge: '$0.02/img', badgeColor: 'gray' },
+      { id: 'imagen-3.0-generate-001', label: 'Imagen 3', badge: '$0.04/img', badgeColor: 'gray' },
+    ]
+  },
+  {
+    id: 'fal',
+    label: 'fal.ai',
+    sharedKey: null,
+    apiKeyUrl: 'https://fal.ai/dashboard/keys',
+    description: 'Fast inference, great DX',
+    models: [
+      { id: 'fal-ai/flux/schnell', label: 'FLUX.1 Schnell', badge: '$0.003/img', badgeColor: 'gray' },
+      { id: 'fal-ai/flux/dev', label: 'FLUX.1 Dev', badge: '$0.025/img', badgeColor: 'gray' },
+      { id: 'fal-ai/flux-pro/v1.1', label: 'FLUX1.1 Pro', badge: '$0.04/img', badgeColor: 'gray' },
+    ]
+  },
+  {
+    id: 'replicate',
+    label: 'Replicate',
+    sharedKey: null,
+    apiKeyUrl: 'https://replicate.com/account/api-tokens',
+    description: 'Thousands of community models',
+    models: [
+      { id: 'black-forest-labs/flux-schnell', label: 'FLUX.1 Schnell', badge: '~$0.003/img', badgeColor: 'gray' },
+      { id: 'black-forest-labs/flux-dev', label: 'FLUX.1 Dev', badge: '~$0.025/img', badgeColor: 'gray' },
+      { id: 'stability-ai/sdxl', label: 'SDXL', badge: '~$0.003/img', badgeColor: 'gray' },
+    ]
+  },
+  {
+    id: 'bfl',
+    label: 'Black Forest Labs',
+    sharedKey: null,
+    apiKeyUrl: 'https://api.bfl.ml',
+    description: 'Direct FLUX API — best quality',
+    models: [
+      { id: 'flux-pro-1.1', label: 'FLUX1.1 Pro', badge: '$0.04/img', badgeColor: 'gray' },
+      { id: 'flux-pro', label: 'FLUX Pro', badge: '$0.05/img', badgeColor: 'gray' },
+      { id: 'flux-dev', label: 'FLUX Dev', badge: '$0.025/img', badgeColor: 'gray' },
+    ]
+  },
+]
 
 const props = defineProps({
   providers: { type: Object, required: true },
   providersList: { type: Array, default: () => [] },
+  configData: { type: Object, default: () => null },
   saving: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['save'])
+
+// ── Image Generation config ──────────────────────────────────────────────────
+const imageConfig = ref({
+  provider: props.configData?.tools?.image?.provider || 'together',
+  model: props.configData?.tools?.image?.model || 'black-forest-labs/FLUX.1-schnell-Free',
+  api_key: '',
+  api_base: props.configData?.tools?.image?.api_base || '',
+})
+
+const selectedProvider = computed(() =>
+  IMAGE_PROVIDERS.find(p => p.id === imageConfig.value.provider)
+)
+
+const selectedProviderModels = computed(() =>
+  selectedProvider.value?.models || []
+)
+
+// Reset model to first available when provider changes
+watch(() => imageConfig.value.provider, () => {
+  const models = selectedProvider.value?.models
+  if (models?.length && !models.find(m => m.id === imageConfig.value.model)) {
+    imageConfig.value.model = models[0].id
+  }
+})
+
+// Sync when configData reloads (e.g. after save)
+watch(() => props.configData, (cfg) => {
+  if (!cfg) return
+  imageConfig.value.provider = cfg.tools?.image?.provider || 'together'
+  imageConfig.value.model = cfg.tools?.image?.model || 'black-forest-labs/FLUX.1-schnell-Free'
+  imageConfig.value.api_base = cfg.tools?.image?.api_base || ''
+  // Never pre-fill api_key for security
+})
+
+const saveImageConfig = () => {
+  const payload = {
+    tools: {
+      image: {
+        provider: imageConfig.value.provider,
+        model: imageConfig.value.model,
+        api_base: imageConfig.value.api_base,
+        ...(imageConfig.value.api_key ? { api_key: imageConfig.value.api_key } : {}),
+      }
+    }
+  }
+  emit('save', payload)
+}
+// ────────────────────────────────────────────────────────────────────────────
 
 const showModelsModal = ref(false)
 const selectedProviderName = ref('')

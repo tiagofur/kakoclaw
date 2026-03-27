@@ -172,7 +172,8 @@ type SpecialistConfig struct {
 	MaxToolIterations int      `json:"max_tool_iterations"`
 	Tools             []string `json:"tools"`
 	Keywords          []string `json:"keywords"`
-	Skills            []string `json:"skills,omitempty"` // Skill names to load (omitted=all, empty=none)
+	Skills            []string `json:"skills,omitempty"`       // Skill names to load (omitted=all, empty=none)
+	SourceSkill       string   `json:"source_skill,omitempty"` // Skill that registered this specialist (marketplace)
 }
 
 type ChannelsConfig struct {
