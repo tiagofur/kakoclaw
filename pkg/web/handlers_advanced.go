@@ -158,7 +158,7 @@ func (s *Server) handleSkillAction(w http.ResponseWriter, r *http.Request) {
 		prompt := buildSkillGenerationPrompt(skillName, body.Goal, body.Capabilities, body.Constraints, body.Tools, body.Examples)
 		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 		defer cancel()
-		rawDraft, err := userAgentLoop.ProcessDirectWithUserAndModel(ctx, userID, prompt, "web:skills:create:"+skillName, "", "*")
+		rawDraft, err := userAgentLoop.ProcessDirectWithUserAndModel(ctx, userID, prompt, "", "", "*")
 		if err != nil {
 			http.Error(w, "failed to generate skill draft", http.StatusInternalServerError)
 			return
@@ -225,7 +225,7 @@ Respond ONLY with a valid JSON object matching this exact structure, with no mar
   "prompt": "Any additional context, detailed instructions, or tool requirements mentioned by the user."
 }`, body.Description)
 
-		rawJSON, genErr := userAgentLoop.ProcessDirectWithUserAndModel(ctx, userID, prompt, "web:skills:generate-config", "", "*")
+		rawJSON, genErr := userAgentLoop.ProcessDirectWithUserAndModel(ctx, userID, prompt, "", "", "*")
 		if genErr != nil {
 			http.Error(w, "failed to generate config", http.StatusInternalServerError)
 			return
@@ -292,7 +292,7 @@ Respond ONLY with a valid JSON object matching this exact structure, with no mar
 		prompt := buildSkillRefinementPrompt(body.Draft, body.Feedback)
 		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 		defer cancel()
-		rawDraft, err := userAgentLoop.ProcessDirectWithUserAndModel(ctx, userID, prompt, "web:skills:refine", "", "*")
+		rawDraft, err := userAgentLoop.ProcessDirectWithUserAndModel(ctx, userID, prompt, "", "", "*")
 		if err != nil {
 			http.Error(w, "failed to refine skill draft", http.StatusInternalServerError)
 			return
@@ -4006,7 +4006,7 @@ JSON to fix:
 
 	response, aiErr := userAgentLoop.ProcessDirectWithUserAndModel(
 		ctx, userID, prompt,
-		fmt.Sprintf("web:ai:fixjson:%s", body.Type), "", "*",
+		"", "", "*",
 	)
 	if aiErr != nil {
 		http.Error(w, "AI processing failed: "+aiErr.Error(), http.StatusInternalServerError)
@@ -4148,7 +4148,7 @@ Return only explanation and JSON.`, body.Prompt)
 	defer cancel()
 
 	response, aiErr := userAgentLoop.ProcessDirectWithUserAndModel(
-		ctx, userID, aiPrompt, "web:ai:create-cron", "", "*",
+		ctx, userID, aiPrompt, "", "", "*",
 	)
 	if aiErr != nil {
 		http.Error(w, "AI processing failed: "+aiErr.Error(), http.StatusInternalServerError)
@@ -4273,7 +4273,7 @@ Generate a skill configuration for: %s`, req.Prompt)
 
 	// Use ProcessDirectWithUserAndModel without tools — we only need a JSON text response
 	response, aiErr := userAgentLoop.ProcessDirectWithUserAndModel(
-		ctx, userID, aiPrompt, "web:skills:generate-config", "", "*",
+		ctx, userID, aiPrompt, "", "", "*",
 	)
 	if aiErr != nil {
 		writeJSONError(w, "AI generation failed: "+aiErr.Error(), http.StatusInternalServerError)

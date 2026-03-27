@@ -967,6 +967,7 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, opts processOptions) (str
 	}
 
 	agentStart := time.Now()
+	shouldPersist := opts.SessionKey != ""
 
 	// 1. Update tool contexts
 	al.updateToolContexts(opts.Channel, opts.ChatID)
@@ -991,7 +992,7 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, opts processOptions) (str
 
 	// 3. Save user message to session
 	al.sessions.AddMessageForUser(al.userID, opts.SessionKey, "user", opts.UserMessage)
-	if al.storage != nil {
+	if shouldPersist && al.storage != nil {
 		if err := al.storage.SaveMessageForUser(al.userID, opts.SessionKey, "user", opts.UserMessage, ""); err != nil {
 			logger.ErrorCF("agent", "Failed to save user message to storage", map[string]interface{}{"error": err.Error()})
 		}
@@ -1020,8 +1021,10 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, opts processOptions) (str
 
 	// 6. Save final assistant message to session
 	al.sessions.AddMessageForUser(al.userID, opts.SessionKey, "assistant", finalContent)
-	al.sessions.SaveForUser(al.userID, al.sessions.GetOrCreateForUser(al.userID, opts.SessionKey))
-	if al.storage != nil {
+	if shouldPersist {
+		al.sessions.SaveForUser(al.userID, al.sessions.GetOrCreateForUser(al.userID, opts.SessionKey))
+	}
+	if shouldPersist && al.storage != nil {
 		// Prepare metadata with involved agents and tool calls
 		agents := al.GetInvolvedAgents()
 		if len(agents) == 0 {
@@ -1117,6 +1120,7 @@ func (al *AgentLoop) runAgentLoopStream(ctx context.Context, opts processOptions
 	}
 
 	agentStart := time.Now()
+	shouldPersist := opts.SessionKey != ""
 
 	// 1. Update tool contexts
 	al.updateToolContexts(opts.Channel, opts.ChatID)
@@ -1141,7 +1145,7 @@ func (al *AgentLoop) runAgentLoopStream(ctx context.Context, opts processOptions
 
 	// 3. Save user message to session
 	al.sessions.AddMessageForUser(al.userID, opts.SessionKey, "user", opts.UserMessage)
-	if al.storage != nil {
+	if shouldPersist && al.storage != nil {
 		if err := al.storage.SaveMessageForUser(al.userID, opts.SessionKey, "user", opts.UserMessage, ""); err != nil {
 			logger.ErrorCF("agent", "Failed to save user message to storage", map[string]interface{}{"error": err.Error()})
 		}
@@ -1170,8 +1174,10 @@ func (al *AgentLoop) runAgentLoopStream(ctx context.Context, opts processOptions
 
 	// 6. Save final assistant message to session
 	al.sessions.AddMessageForUser(al.userID, opts.SessionKey, "assistant", finalContent)
-	al.sessions.SaveForUser(al.userID, al.sessions.GetOrCreateForUser(al.userID, opts.SessionKey))
-	if al.storage != nil {
+	if shouldPersist {
+		al.sessions.SaveForUser(al.userID, al.sessions.GetOrCreateForUser(al.userID, opts.SessionKey))
+	}
+	if shouldPersist && al.storage != nil {
 		// Prepare metadata with involved agents and tool calls
 		agents := al.GetInvolvedAgents()
 		if len(agents) == 0 {
