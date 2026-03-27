@@ -840,6 +840,50 @@ func (s *Server) handleAdminRejectSubmission(w http.ResponseWriter, r *http.Requ
 	writeJSONResponse(w, map[string]string{"status": "rejected"})
 }
 
+// handleAdminDisableSkill disables a previously-approved skill.
+// Sets status='disabled', security_score=0, records the reason.
+// POST /api/v1/admin/submissions/{id}/disable
+// Body: {"reason": "string"}
+func (s *Server) handleAdminDisableSkill(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if !s.isAdmin(r) {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+
+	idStr := strings.TrimPrefix(r.URL.Path, "/api/v1/admin/submissions/")
+	idStr = strings.TrimSuffix(idStr, "/disable")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "invalid submission ID", http.StatusBadRequest)
+		return
+	}
+
+	var body struct {
+		Reason string `json:"reason"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	if strings.TrimSpace(body.Reason) == "" {
+		body.Reason = "Disabled by administrator"
+	}
+
+	_, userUUID, _ := s.getUserStorage(r)
+	reviewerID, _ := s.getUserIDFromUUID(userUUID)
+
+	if err := s.centralStore.DisableSkill(id, reviewerID, body.Reason); err != nil {
+		http.Error(w, "failed to disable skill", http.StatusInternalServerError)
+		return
+	}
+
+	writeJSONResponse(w, map[string]string{"status": "disabled"})
+}
+
 // handleSkillRating handles GET and POST for skill ratings
 // GET /api/v1/marketplace/skills/{slug}/rate — returns summary, reviews, and caller's rating
 // POST /api/v1/marketplace/skills/{slug}/rate — submits or updates a rating (auth required)
@@ -1206,6 +1250,11 @@ func (s *Server) handleAdminSubmissionAction(w http.ResponseWriter, r *http.Requ
 
 	if strings.HasSuffix(path, "/reject") {
 		s.handleAdminRejectSubmission(w, r)
+		return
+	}
+
+	if strings.HasSuffix(path, "/disable") {
+		s.handleAdminDisableSkill(w, r)
 		return
 	}
 
