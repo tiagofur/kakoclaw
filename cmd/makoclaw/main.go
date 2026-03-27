@@ -147,7 +147,7 @@ func main() {
 		// 获取全局配置目录和内置 skills 目录
 		globalDir := filepath.Dir(getConfigPath())
 		globalSkillsDir := filepath.Join(globalDir, "skills")
-		builtinSkillsDir := filepath.Join(globalDir, "makoclaw", "skills")
+		builtinSkillsDir := resolveBuiltinSkillsDir()
 		skillsLoader := skills.NewSkillsLoader(workspace, globalSkillsDir, builtinSkillsDir)
 
 		switch subcommand {
@@ -945,8 +945,7 @@ func gatewayCmd() {
 			webServer.SetMCPManager(mcpManager)
 		}
 		home, _ := os.UserHomeDir()
-		wd, _ := os.Getwd()
-		builtinDir := filepath.Join(wd, "skills")
+		builtinDir := resolveBuiltinSkillsDir()
 		skillsLoader := skills.NewSkillsLoader(
 			cfg.WorkspacePath(),
 			filepath.Join(home, ".MakoClaw", "skills"),
@@ -1130,8 +1129,7 @@ func webCmd() {
 		webServer.SetMCPManager(mcpManagerWeb)
 	}
 	homeWeb, _ := os.UserHomeDir()
-	wdWeb, _ := os.Getwd()
-	builtinDirWeb := filepath.Join(wdWeb, "skills")
+	builtinDirWeb := resolveBuiltinSkillsDir()
 	skillsLoaderWeb := skills.NewSkillsLoader(
 		cfg.WorkspacePath(),
 		filepath.Join(homeWeb, ".MakoClaw", "skills"),
@@ -1858,7 +1856,7 @@ func skillsCmd() {
 	// 获取全局配置目录和内置 skills 目录
 	globalDir := filepath.Dir(getConfigPath())
 	globalSkillsDir := filepath.Join(globalDir, "skills")
-	builtinSkillsDir := filepath.Join(globalDir, "makoclaw", "skills")
+	builtinSkillsDir := resolveBuiltinSkillsDir()
 	skillsLoader := skills.NewSkillsLoader(workspace, globalSkillsDir, builtinSkillsDir)
 
 	switch subcommand {
@@ -1955,7 +1953,7 @@ func skillsRemoveCmd(installer *skills.SkillInstaller, skillName string) {
 }
 
 func skillsInstallBuiltinCmd(workspace string) {
-	builtinSkillsDir := "./makoclaw/skills"
+	builtinSkillsDir := resolveBuiltinSkillsDir()
 	workspaceSkillsDir := filepath.Join(workspace, "skills")
 
 	fmt.Printf("Copying builtin skills to workspace...\n")
@@ -1991,12 +1989,7 @@ func skillsInstallBuiltinCmd(workspace string) {
 }
 
 func skillsListBuiltinCmd() {
-	cfg, err := loadConfig()
-	if err != nil {
-		fmt.Printf("Error loading config: %v\n", err)
-		return
-	}
-	builtinSkillsDir := filepath.Join(filepath.Dir(cfg.WorkspacePath()), "makoclaw", "skills")
+	builtinSkillsDir := resolveBuiltinSkillsDir()
 
 	fmt.Println("\nAvailable Builtin Skills:")
 	fmt.Println("-----------------------")
@@ -2166,4 +2159,69 @@ func resetPasswordCmd() {
 	}
 
 	fmt.Printf("✓ Password reset successfully for user %s\n", username)
+}
+
+// resolveBuiltinSkillsDir finds the built-in skills directory using a fallback chain:
+// 1. {cwd}/skills/ (development mode — running from project root)
+// 2. {executable_dir}/../skills/ (running from build/ directory)
+// 3. ~/.MakoClaw/builtin-skills/ (production installed location)
+func resolveBuiltinSkillsDir() string {
+	// 1. CWD/skills (development)
+	wd, _ := os.Getwd()
+	candidate := filepath.Join(wd, "skills")
+	if dirHasSkills(candidate) {
+		return candidate
+	}
+
+	// 2. Relative to executable (build/ directory)
+	if exe, err := os.Executable(); err == nil {
+		candidate = filepath.Join(filepath.Dir(exe), "..", "skills")
+		if abs, err := filepath.Abs(candidate); err == nil {
+			if dirHasSkills(abs) {
+				return abs
+			}
+		}
+	}
+
+	// 3. Installed location (~/.MakoClaw/builtin-skills/)
+	if home, err := os.UserHomeDir(); err == nil {
+		candidate = filepath.Join(home, ".MakoClaw", "builtin-skills")
+		if dirHasSkills(candidate) {
+			return candidate
+		}
+	}
+
+	// Fallback to CWD (may be empty but won't crash)
+	return filepath.Join(wd, "skills")
+}
+
+// dirHasSkills returns true if the directory contains at least one skill
+// (a subdirectory with a SKILL.md file, or a nested category with one).
+func dirHasSkills(dir string) bool {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		// Direct skill: dir/skillName/SKILL.md
+		if _, err := os.Stat(filepath.Join(dir, e.Name(), "SKILL.md")); err == nil {
+			return true
+		}
+		// Nested category: dir/category/skillName/SKILL.md
+		subEntries, err := os.ReadDir(filepath.Join(dir, e.Name()))
+		if err != nil {
+			continue
+		}
+		for _, sub := range subEntries {
+			if sub.IsDir() {
+				if _, err := os.Stat(filepath.Join(dir, e.Name(), sub.Name(), "SKILL.md")); err == nil {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
