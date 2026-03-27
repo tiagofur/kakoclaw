@@ -152,6 +152,40 @@ func emitDelegationUpdate(ctx context.Context, update DelegationUpdate) {
 	}
 }
 
+// ToolCallback context helpers — used by specialists to emit tool events to the WebSocket
+type toolCallbackKey struct{}
+
+// ContextWithToolCallback embeds a ToolCallback into the context so specialists can emit tool events
+func ContextWithToolCallback(ctx context.Context, callback ToolCallback) context.Context {
+	return context.WithValue(ctx, toolCallbackKey{}, callback)
+}
+
+// ToolCallbackFromCtx retrieves the ToolCallback from context
+func ToolCallbackFromCtx(ctx context.Context) ToolCallback {
+	if v, ok := ctx.Value(toolCallbackKey{}).(ToolCallback); ok {
+		return v
+	}
+	return nil
+}
+
+// SpecialistTokenCallback is called for each streamed token produced by a specialist agent
+type SpecialistTokenCallback func(agentName, token string) error
+
+type specialistTokenCallbackKey struct{}
+
+// ContextWithSpecialistTokenCallback embeds a SpecialistTokenCallback into the context
+func ContextWithSpecialistTokenCallback(ctx context.Context, callback SpecialistTokenCallback) context.Context {
+	return context.WithValue(ctx, specialistTokenCallbackKey{}, callback)
+}
+
+// SpecialistTokenCallbackFromCtx retrieves the SpecialistTokenCallback from context
+func SpecialistTokenCallbackFromCtx(ctx context.Context) SpecialistTokenCallback {
+	if v, ok := ctx.Value(specialistTokenCallbackKey{}).(SpecialistTokenCallback); ok {
+		return v
+	}
+	return nil
+}
+
 // Delegation chain context helpers
 type delegationChainKey struct{}
 
@@ -887,7 +921,7 @@ The user only sees text below the JSON block — include all findings there.
 	errChan := make(chan error, 1)
 
 	go func() {
-		result, err := specialist.ProcessWithSpecialityForUser(ctxWithTimeout, oa.userUUID, oa.userID, taskWithFormat, effectiveSessionKey)
+		result, err := specialist.ProcessWithSpecialityForUserStream(ctxWithTimeout, oa.userUUID, oa.userID, taskWithFormat, effectiveSessionKey)
 		if err != nil {
 			errChan <- err
 			return

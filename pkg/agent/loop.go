@@ -122,10 +122,11 @@ type processOptions struct {
 
 // ToolEvent represents a tool call update during agent execution.
 type ToolEvent struct {
-	Name   string                 `json:"name"`
-	Args   map[string]interface{} `json:"arguments"`
-	Result string                 `json:"result,omitempty"`
-	Status string                 `json:"status"` // "started", "finished", "error"
+	Name      string                 `json:"name"`
+	Args      map[string]interface{} `json:"arguments"`
+	Result    string                 `json:"result,omitempty"`
+	Status    string                 `json:"status"`    // "started", "finished", "error"
+	AgentName string                 `json:"agent_name,omitempty"` // specialist name, empty for orchestrator
 }
 
 // ToolCallback is called when a tool is about to be executed or starts/finishes.
@@ -1487,8 +1488,9 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 				})
 
 			// Notify start of tool call
+			agentName := utils.AgentNameFrom(ctx)
 			if opts.OnTool != nil {
-				_ = opts.OnTool(ToolEvent{Name: tc.Name, Args: tc.Arguments, Status: "started"})
+				_ = opts.OnTool(ToolEvent{Name: tc.Name, Args: tc.Arguments, Status: "started", AgentName: agentName})
 			}
 
 			toolStart := time.Now()
@@ -1539,7 +1541,7 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 				if err != nil {
 					status = "error"
 				}
-				_ = opts.OnTool(ToolEvent{Name: tc.Name, Args: tc.Arguments, Result: result, Status: status})
+				_ = opts.OnTool(ToolEvent{Name: tc.Name, Args: tc.Arguments, Result: result, Status: status, AgentName: agentName})
 			}
 
 			toolResultMsg := providers.Message{

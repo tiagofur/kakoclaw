@@ -1395,6 +1395,9 @@ const handleMessage = (message) => {
   if (message.type === 'delegation_update') {
     chatStore.updateDelegationProgress(message)
   }
+  if (message.type === 'specialist_stream') {
+    chatStore.appendSpecialistToken(message.agent, message.token)
+  }
   if (message.type === 'ready') {
     isLoading.value = false
     chatStore.setGlobalLoading(false) // Clear global loading state when response is ready

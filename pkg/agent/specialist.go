@@ -352,6 +352,48 @@ func (sa *SpecialistAgent) ProcessWithSpecialityForUser(ctx context.Context, use
 	return sa.ProcessDirectWithUser(agentCtx, userID, userMessage, effectiveKey)
 }
 
+// ProcessWithSpecialityForUserStream is identical to ProcessWithSpecialityForUser but uses
+// the streaming variant of ProcessDirect, forwarding tokens and tool events to any
+// SpecialistTokenCallback / ToolCallback registered in the context.
+// This gives real-time visibility into what the specialist is writing and which tools it calls.
+func (sa *SpecialistAgent) ProcessWithSpecialityForUserStream(ctx context.Context, userUUID string, userID int64, userMessage string, sessionKey string) (string, error) {
+	sa.processMu.Lock()
+	sa.SetUserForAgent(userUUID, userID)
+	originalTools := sa.tools
+	sa.tools = sa.ToolFilter()
+	defer func() {
+		sa.tools = originalTools
+		sa.processMu.Unlock()
+	}()
+
+	agentCtx := kakoclawContext.WithAgentName(ctx, sa.name)
+	modelOverride := strings.TrimSpace(modelOverrideFromCtx(agentCtx))
+
+	effectiveKey := sessionKey
+	if effectiveKey == "" {
+		effectiveKey = fmt.Sprintf("specialist_%s", sa.name)
+	}
+
+	// Forward each token to the SpecialistTokenCallback registered in context (if any)
+	onToken := func(token string) error {
+		if cb := SpecialistTokenCallbackFromCtx(ctx); cb != nil {
+			return cb(sa.name, token)
+		}
+		return nil
+	}
+
+	// Forward tool events to the ToolCallback registered in context (if any), tagging agent name
+	onTool := func(ev ToolEvent) error {
+		ev.AgentName = sa.name
+		if cb := ToolCallbackFromCtx(ctx); cb != nil {
+			return cb(ev)
+		}
+		return nil
+	}
+
+	return sa.ProcessDirectWithUserAndModelStream(agentCtx, userID, userMessage, effectiveKey, modelOverride, onToken, nil, onTool)
+}
+
 // RequestColleagueTool allows specialists to request help from other specialists
 type RequestColleagueTool struct {
 	registry        *SpecialistRegistry

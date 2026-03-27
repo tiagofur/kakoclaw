@@ -329,7 +329,7 @@ export const useChatStore = defineStore('chat', () => {
     const msg = messages.value.find(m => m.id === streamingMessageId.value)
     if (msg) {
       if (!msg.toolCalls) msg.toolCalls = []
-      const agentName = currentAgent.value || 'main'
+      const agentName = toolCall.agent_name || currentAgent.value || 'main'
       const expanded = msg.streaming && toolCall.status === 'started'
       
       // Try to find an open tool call with the same name to update it
@@ -377,6 +377,17 @@ export const useChatStore = defineStore('chat', () => {
       finalized: !msg.streaming,
       manuallyToggled: false
     })
+  }
+
+  // Append a streaming token from a specialist to its AgentActivityItem's live preview
+  function appendSpecialistToken(agentName, token) {
+    if (!streamingMessageId.value || !agentName || !token) return
+    const msg = messages.value.find(m => m.id === streamingMessageId.value)
+    if (!msg?.agentActivities) return
+    const activity = msg.agentActivities.find(a => a.agent === agentName)
+    if (activity) {
+      activity.streamingContent = (activity.streamingContent || '') + token
+    }
   }
 
   function updateCurrentAgent(agentName) {
@@ -580,6 +591,7 @@ export const useChatStore = defineStore('chat', () => {
     addContentSegment,
     addToolCall,
     appendThinkingDelta,
+    appendSpecialistToken,
     setMessages,
     clearMessages,
     sendMessage,

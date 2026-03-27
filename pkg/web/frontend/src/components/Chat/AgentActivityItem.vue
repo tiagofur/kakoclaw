@@ -229,6 +229,56 @@
             </div>
           </div>
 
+          <!-- Live streaming preview (closed by default, shows tokens as specialist writes) -->
+          <div v-if="activity.streamingContent || activity.status === 'working'">
+            <button
+              class="w-full flex items-center justify-between detail-label mb-0 hover:text-makoclaw-text transition-colors cursor-pointer"
+              @click="previewExpanded = !previewExpanded"
+            >
+              <span class="flex items-center gap-1.5">
+                <span
+                  v-if="activity.status === 'working'"
+                  class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse flex-shrink-0"
+                />
+                <svg
+                  class="w-3 h-3"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                  />
+                </svg>
+                Live Preview
+              </span>
+              <svg
+                class="w-3 h-3 transition-transform duration-200 flex-shrink-0"
+                :class="{ 'rotate-180': previewExpanded }"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </button>
+            <Transition name="expand">
+              <pre
+                v-if="previewExpanded && activity.streamingContent"
+                ref="previewEl"
+                class="mt-1.5 bg-black/30 p-2 rounded-lg text-[9px] md:text-[10px] font-mono text-makoclaw-text/80 max-h-40 overflow-y-auto custom-scrollbar whitespace-pre-wrap leading-relaxed"
+              >{{ activity.streamingContent }}</pre>
+            </Transition>
+          </div>
+
           <!-- Confidence -->
           <div
             v-if="activity.confidence"
@@ -278,7 +328,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch, nextTick } from 'vue'
 
 const props = defineProps({
   activity: {
@@ -288,6 +338,17 @@ const props = defineProps({
   msg: {
     type: Object,
     default: null
+  }
+})
+
+const previewExpanded = ref(false)
+const previewEl = ref(null)
+
+// Auto-scroll the preview to the bottom when new tokens arrive
+watch(() => props.activity.streamingContent, async () => {
+  if (previewExpanded.value && previewEl.value) {
+    await nextTick()
+    previewEl.value.scrollTop = previewEl.value.scrollHeight
   }
 })
 

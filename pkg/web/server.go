@@ -1608,6 +1608,35 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 					})
 				})
 
+				// Shared tool-call emitter: used both as a context callback (for specialists)
+				// and as the direct onTool parameter (for the orchestrator's own tool calls).
+				// Having a single definition avoids duplicating the JSON structure.
+				emitToolCall := func(ev agent.ToolEvent) error {
+					wsMu.Lock()
+					defer wsMu.Unlock()
+					return conn.WriteJSON(map[string]interface{}{
+						"type":       "tool_call",
+						"name":       ev.Name,
+						"args":       ev.Args,
+						"result":     ev.Result,
+						"status":     ev.Status,
+						"agent_name": ev.AgentName,
+					})
+				}
+				ctx = agent.ContextWithToolCallback(ctx, emitToolCall)
+
+				// Specialist streaming tokens: emit each token with the originating agent name
+				// so the frontend can show a live preview inside the AgentActivityItem collapsible.
+				ctx = agent.ContextWithSpecialistTokenCallback(ctx, func(agentName, token string) error {
+					wsMu.Lock()
+					defer wsMu.Unlock()
+					return conn.WriteJSON(map[string]interface{}{
+						"type":  "specialist_stream",
+						"agent": agentName,
+						"token": token,
+					})
+				})
+
 				response, err := activeAgentLoop.ProcessDirectWithUserAndModelStream(
 					ctx, userID, input, sessionID, req.Model,
 					func(token string) error {
@@ -1633,17 +1662,7 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 							})
 						}
 					},
-					func(ev agent.ToolEvent) error {
-						wsMu.Lock()
-						defer wsMu.Unlock()
-						return conn.WriteJSON(map[string]interface{}{
-							"type":   "tool_call",
-							"name":   ev.Name,
-							"args":   ev.Args,
-							"result": ev.Result,
-							"status": ev.Status,
-						})
-					},
+					emitToolCall,
 					excludeTools...,
 				)
 
@@ -3852,6 +3871,7 @@ func (s *Server) handleAgents(w http.ResponseWriter, r *http.Request) {
 					"max_tokens":          spec.MaxTokens,
 					"temperature":         spec.Temperature,
 					"max_tool_iterations": spec.MaxToolIterations,
+					"source_skill":        spec.SourceSkill,
 				})
 			}
 			// Return the full orchestrator config so the frontend can restore
