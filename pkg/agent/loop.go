@@ -314,7 +314,11 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 	var imageProvider tools.ImageProvider
 	{
 		imageAPIKey := cfg.Tools.Image.APIKey
-		model := cfg.Tools.Image.Model
+		// Image model: agent defaults take priority over tools.image.model
+		model := cfg.Agents.Defaults.ImageModel
+		if model == "" {
+			model = cfg.Tools.Image.Model
+		}
 		apiBase := cfg.Tools.Image.APIBase
 		switch strings.ToLower(cfg.Tools.Image.Provider) {
 		case "fal", "fal.ai":

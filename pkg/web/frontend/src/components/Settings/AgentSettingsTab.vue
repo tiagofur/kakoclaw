@@ -320,6 +320,38 @@
           </div>
         </div>
 
+        <!-- Image model row -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div class="space-y-2">
+            <label class="text-[10px] font-medium uppercase tracking-wide text-makoclaw-text-secondary/60 ml-1 flex items-center gap-1.5">
+              <span class="text-purple-400">✦</span> Vision Core
+              <span class="text-[8px] font-normal normal-case tracking-normal text-makoclaw-text-secondary/30">(image_generate model)</span>
+            </label>
+            <select
+              v-if="imageModels.length"
+              v-model="localDefaults.image_model"
+              class="w-full bg-makoclaw-bg/40 border-2 border-makoclaw-border/50 rounded-2xl px-5 py-3.5 text-sm font-bold text-purple-400 focus:border-purple-400/50 outline-none cursor-pointer"
+            >
+              <option value="">
+                — provider default —
+              </option>
+              <option
+                v-for="m in imageModels"
+                :key="m"
+                :value="m"
+              >
+                {{ m }}
+              </option>
+            </select>
+            <p
+              v-else
+              class="px-5 py-3.5 bg-makoclaw-bg/20 border border-dashed border-makoclaw-border/30 rounded-2xl text-[10px] text-makoclaw-text-secondary/40"
+            >
+              Configure image provider models in <span class="font-bold">Settings → Providers</span>
+            </p>
+          </div>
+        </div>
+
         <div class="grid grid-cols-2 md:grid-cols-3 gap-5 p-4 bg-makoclaw-bg/20 rounded-2xl border border-makoclaw-border/30">
           <div class="space-y-2">
             <label class="text-[9px] font-medium tracking-wide text-makoclaw-text-secondary/40 ml-1">
@@ -412,6 +444,7 @@ const agentsStore = useAgentsStore()
 const props = defineProps({
   agents: { type: Object, required: true },
   providersList: { type: Array, required: true },
+  configData: { type: Object, default: () => null },
   saving: { type: Boolean, default: false }
 })
 
@@ -431,9 +464,28 @@ const orchestratorConfig = ref({
 const localDefaults = ref({
   provider: '',
   model: '',
+  image_model: '',
   temperature: 0.7,
   max_tokens: 4096,
   max_tool_iterations: 10
+})
+
+// Image model options: user's managed list, or predefined defaults for current provider
+const IMAGE_PROVIDER_DEFAULTS = {
+  together: ['black-forest-labs/FLUX.1-schnell-Free', 'black-forest-labs/FLUX.1-schnell', 'black-forest-labs/FLUX.1-dev'],
+  openai:   ['gpt-image-1', 'dall-e-3', 'dall-e-2'],
+  google:   ['gemini-2.0-flash-exp', 'imagen-3.0-fast-generate-001', 'imagen-3.0-generate-001'],
+  zhipu:    ['cogview-3-flash', 'cogview-3-plus', 'cogview-3'],
+  fal:      ['fal-ai/flux/schnell', 'fal-ai/flux/dev', 'fal-ai/flux-pro/v1.1'],
+  replicate:['black-forest-labs/flux-schnell', 'black-forest-labs/flux-dev'],
+  bfl:      ['flux-pro-1.1', 'flux-pro', 'flux-dev'],
+}
+
+const imageModels = computed(() => {
+  const saved = props.configData?.tools?.image?.models
+  if (saved?.length) return saved
+  const provider = props.configData?.tools?.image?.provider || 'together'
+  return IMAGE_PROVIDER_DEFAULTS[provider] || []
 })
 
 const specialists = ref([])

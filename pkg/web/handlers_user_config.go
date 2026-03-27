@@ -157,9 +157,10 @@ func (s *Server) handleGetUserConfig(w http.ResponseWriter, r *http.Request) {
 			"image": map[string]interface{}{
 				"provider":   mergedCfg.Tools.Image.Provider,
 				"model":      mergedCfg.Tools.Image.Model,
+				"models":     mergedCfg.Tools.Image.Models,
 				"api_key":    redactKey(mergedCfg.Tools.Image.APIKey),
 				"api_base":   mergedCfg.Tools.Image.APIBase,
-				"configured": mergedCfg.Tools.Image.APIKey != "" || mergedCfg.Providers.OpenAI.APIKey != "" || mergedCfg.Providers.Gemini.APIKey != "",
+				"configured": mergedCfg.Tools.Image.APIKey != "" || mergedCfg.Providers.OpenAI.APIKey != "" || mergedCfg.Providers.Gemini.APIKey != "" || mergedCfg.Providers.Zhipu.APIKey != "",
 			},
 		},
 	}
@@ -450,6 +451,9 @@ func applyConfigUpdates(cfg *config.Config, updates map[string]interface{}) erro
 			}
 			if model, ok := defaultsUpdate["model"].(string); ok {
 				cfg.Agents.Defaults.Model = model
+			}
+			if imageModel, ok := defaultsUpdate["image_model"].(string); ok {
+				cfg.Agents.Defaults.ImageModel = imageModel
 			}
 			if tokens, ok := defaultsUpdate["max_tokens"].(float64); ok {
 				cfg.Agents.Defaults.MaxTokens = int(tokens)
@@ -798,6 +802,17 @@ func applyConfigUpdates(cfg *config.Config, updates map[string]interface{}) erro
 			}
 			if apiBase, ok := imageUpdate["api_base"].(string); ok {
 				cfg.Tools.Image.APIBase = apiBase
+			}
+			if modelsRaw, ok := imageUpdate["models"]; ok {
+				if modelsList, ok := modelsRaw.([]interface{}); ok {
+					models := make([]string, 0, len(modelsList))
+					for _, m := range modelsList {
+						if s, ok := m.(string); ok && s != "" {
+							models = append(models, s)
+						}
+					}
+					cfg.Tools.Image.Models = models
+				}
 			}
 		}
 		// Remove "tools" from bulk update map

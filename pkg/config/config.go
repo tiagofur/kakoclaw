@@ -145,6 +145,7 @@ type AgentDefaults struct {
 	RestrictToWorkspace bool    `json:"restrict_to_workspace" env:"MAKOCLAW_AGENTS_DEFAULTS_RESTRICT_TO_WORKSPACE"`
 	Provider            string  `json:"provider" env:"MAKOCLAW_AGENTS_DEFAULTS_PROVIDER"`
 	Model               string  `json:"model" env:"MAKOCLAW_AGENTS_DEFAULTS_MODEL"`
+	ImageModel          string  `json:"image_model,omitempty"`
 	MaxTokens           int     `json:"max_tokens" env:"MAKOCLAW_AGENTS_DEFAULTS_MAX_TOKENS"`
 	Temperature         float64 `json:"temperature" env:"MAKOCLAW_AGENTS_DEFAULTS_TEMPERATURE"`
 	MaxToolIterations   int     `json:"max_tool_iterations" env:"MAKOCLAW_AGENTS_DEFAULTS_MAX_TOOL_ITERATIONS"`
@@ -314,10 +315,11 @@ type WebToolsConfig struct {
 }
 
 type ImageToolsConfig struct {
-	Provider string `json:"provider" env:"MAKOCLAW_TOOLS_IMAGE_PROVIDER"`
-	APIKey   string `json:"api_key" env:"MAKOCLAW_TOOLS_IMAGE_API_KEY"`
-	APIBase  string `json:"api_base" env:"MAKOCLAW_TOOLS_IMAGE_API_BASE"`
-	Model    string `json:"model" env:"MAKOCLAW_TOOLS_IMAGE_MODEL"`
+	Provider string   `json:"provider" env:"MAKOCLAW_TOOLS_IMAGE_PROVIDER"`
+	APIKey   string   `json:"api_key" env:"MAKOCLAW_TOOLS_IMAGE_API_KEY"`
+	APIBase  string   `json:"api_base" env:"MAKOCLAW_TOOLS_IMAGE_API_BASE"`
+	Model    string   `json:"model" env:"MAKOCLAW_TOOLS_IMAGE_MODEL"`
+	Models   []string `json:"models,omitempty"`
 }
 
 type TwitterSocialConfig struct {
@@ -1344,9 +1346,8 @@ func mergeToolsConfig(global, user *ToolsConfig) ToolsConfig {
 		merged.Email = global.Email
 	}
 
-	// Merge Image tools — user wins if they set provider OR model OR API key
-	// (shared-key providers like Zhipu/OpenAI/Google don't need a dedicated key)
-	if user.Image.APIKey != "" || user.Image.Provider != "" || user.Image.Model != "" {
+	// Merge Image tools — user wins if they set any image config field
+	if user.Image.APIKey != "" || user.Image.Provider != "" || user.Image.Model != "" || len(user.Image.Models) > 0 {
 		merged.Image = user.Image
 	} else {
 		merged.Image = global.Image

@@ -109,9 +109,9 @@
         <div class="absolute -top-12 -right-12 w-48 h-48 bg-purple-500/5 blur-[60px] rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
 
         <div class="relative z-10">
-          <!-- Provider + Model dropdowns -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="space-y-2">
+          <!-- Header row: Provider dropdown + Edit Models button -->
+          <div class="flex items-end gap-4 mb-4">
+            <div class="flex-1 space-y-2">
               <label class="text-[10px] font-medium uppercase tracking-wide text-makoclaw-text-secondary/60 ml-1">
                 Provider
               </label>
@@ -128,25 +128,18 @@
                 </option>
               </select>
             </div>
-
-            <div class="space-y-2">
-              <label class="text-[10px] font-medium uppercase tracking-wide text-makoclaw-text-secondary/60 ml-1">
-                Model
-              </label>
-              <select
-                v-model="imageConfig.model"
-                class="w-full bg-makoclaw-surface border border-makoclaw-border/10 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-makoclaw-accent/50 text-makoclaw-text transition-all appearance-none cursor-pointer"
-              >
-                <option
-                  v-for="m in selectedProviderModels"
-                  :key="m.id"
-                  :value="m.id"
-                >
-                  {{ m.label }} — {{ m.badge }}
-                </option>
-              </select>
-            </div>
+            <button
+              class="p-3 rounded-xl bg-makoclaw-bg/40 border border-makoclaw-border/50 text-makoclaw-text-secondary hover:text-makoclaw-accent transition-all hover:scale-105 active:scale-95 group/btn"
+              title="Manage available image models"
+              @click="openImageModelsModal"
+            >
+              <CpuChipIcon class="w-5 h-5 group-hover/btn:rotate-12 transition-transform" />
+            </button>
           </div>
+          <!-- Model selection hint -->
+          <p class="text-[10px] text-makoclaw-text-secondary/40 mb-4">
+            Model selection is in <span class="font-bold text-makoclaw-accent/60">Agents → Default Protocols</span>. Use the button above to manage available models for this provider.
+          </p>
 
           <!-- Shared key indicator OR dedicated API key input -->
           <div class="mt-4">
@@ -456,7 +449,7 @@ const emit = defineEmits(['save'])
 // ── Image Generation config ──────────────────────────────────────────────────
 const imageConfig = ref({
   provider: props.configData?.tools?.image?.provider || 'together',
-  model: props.configData?.tools?.image?.model || 'black-forest-labs/FLUX.1-schnell-Free',
+  models: props.configData?.tools?.image?.models || [],
   api_key: '',
   api_base: props.configData?.tools?.image?.api_base || '',
 })
@@ -465,23 +458,11 @@ const selectedProvider = computed(() =>
   IMAGE_PROVIDERS.find(p => p.id === imageConfig.value.provider)
 )
 
-const selectedProviderModels = computed(() =>
-  selectedProvider.value?.models || []
-)
-
-// Reset model to first available when provider changes
-watch(() => imageConfig.value.provider, () => {
-  const models = selectedProvider.value?.models
-  if (models?.length && !models.find(m => m.id === imageConfig.value.model)) {
-    imageConfig.value.model = models[0].id
-  }
-})
-
 // Sync when configData reloads (e.g. after save)
 watch(() => props.configData, (cfg) => {
   if (!cfg) return
   imageConfig.value.provider = cfg.tools?.image?.provider || 'together'
-  imageConfig.value.model = cfg.tools?.image?.model || 'black-forest-labs/FLUX.1-schnell-Free'
+  imageConfig.value.models = cfg.tools?.image?.models || []
   imageConfig.value.api_base = cfg.tools?.image?.api_base || ''
   // Never pre-fill api_key for security
 })
@@ -491,7 +472,6 @@ const saveImageConfig = () => {
     tools: {
       image: {
         provider: imageConfig.value.provider,
-        model: imageConfig.value.model,
         api_base: imageConfig.value.api_base,
         ...(imageConfig.value.api_key ? { api_key: imageConfig.value.api_key } : {}),
       }
@@ -505,6 +485,7 @@ const showModelsModal = ref(false)
 const selectedProviderName = ref('')
 const newModelInput = ref('')
 const editingModels = ref([])
+const isImageModal = ref(false)
 
 const isProviderConfigured = (info) => {
   if (!info || typeof info !== 'object') return false
@@ -514,6 +495,7 @@ const isProviderConfigured = (info) => {
 }
 
 const openModelsModal = (name, info) => {
+  isImageModal.value = false
   selectedProviderName.value = name
   if (info.models && info.models.length > 0) {
     editingModels.value = [...info.models]
@@ -521,6 +503,20 @@ const openModelsModal = (name, info) => {
     const pList = Array.isArray(props.providersList) ? props.providersList : []
     const apiP = pList.find(p => p.name === name)
     editingModels.value = apiP?.models ? apiP.models.map(m => m.id) : []
+  }
+  newModelInput.value = ''
+  showModelsModal.value = true
+}
+
+const openImageModelsModal = () => {
+  isImageModal.value = true
+  selectedProviderName.value = selectedProvider.value?.label || imageConfig.value.provider
+  // Load user's saved models, or fall back to predefined defaults for this provider
+  const saved = imageConfig.value.models || []
+  if (saved.length > 0) {
+    editingModels.value = [...saved]
+  } else {
+    editingModels.value = (selectedProvider.value?.models || []).map(m => m.id)
   }
   newModelInput.value = ''
   showModelsModal.value = true
@@ -540,12 +536,21 @@ const removeModel = (idx) => {
 
 const resetToDefaults = () => {
   if (confirm('Purge all custom core profiles? Factory defaults will be restored.')) {
-    editingModels.value = []
+    if (isImageModal.value) {
+      editingModels.value = (selectedProvider.value?.models || []).map(m => m.id)
+    } else {
+      editingModels.value = []
+    }
   }
 }
 
 const saveModelsConfig = () => {
-  emit('save', { providers: { [selectedProviderName.value]: { models: editingModels.value } } })
+  if (isImageModal.value) {
+    emit('save', { tools: { image: { models: editingModels.value } } })
+    imageConfig.value.models = [...editingModels.value]
+  } else {
+    emit('save', { providers: { [selectedProviderName.value]: { models: editingModels.value } } })
+  }
   showModelsModal.value = false
 }
 </script>
