@@ -369,7 +369,8 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/marketplace/skills/", s.handleMarketplaceSkillAction)       // Skill detail + install
 	mux.HandleFunc("/api/v1/marketplace/submit", s.handleMarketplaceSubmit)             // Submit skill
 	mux.HandleFunc("/api/v1/marketplace/submissions", s.handleMarketplaceMySubmissions) // My submissions
-	mux.HandleFunc("/api/v1/marketplace/categories", s.handleMarketplaceCategories)     // Categories list
+	mux.HandleFunc("/api/v1/marketplace/categories", s.handleMarketplaceCategories)           // Categories list
+	mux.HandleFunc("/api/v1/marketplace/security-alerts", s.handleMarketplaceSecurityAlerts) // Security alerts
 	mux.HandleFunc("/api/v1/marketplace/bundles", s.handleMarketplaceBundles)           // List / create bundles
 	mux.HandleFunc("/api/v1/marketplace/bundles/", s.handleMarketplaceBundleAction)     // Bundle actions (install, ...)
 	mux.HandleFunc("/api/v1/admin/submissions", s.handleAdminPendingSubmissions)        // Admin: pending submissions
@@ -4565,7 +4566,7 @@ Return the configuration purely in JSON format without markdown wrapping, or wit
 
 	// Exclude all tools — we only need a JSON text response, no tool execution
 	responseRaw, err := userAgentLoop.ProcessDirectWithUserAndModel(
-		ctx, userID, aiPrompt, "web:ai:generate-specialist", "", "*",
+		ctx, userID, aiPrompt, "", "", "*",
 	)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
@@ -4714,7 +4715,7 @@ Return JSON only (no markdown wrapping):
 	defer cancel()
 
 	responseRaw, err := userAgentLoop.ProcessDirectWithUserAndModel(
-		ctx, 0, aiPrompt, "web:ai:generate-soul", "", "*",
+		ctx, 0, aiPrompt, "", "", "*",
 	)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
@@ -5070,9 +5071,32 @@ func (s *Server) handleConfigStatus(w http.ResponseWriter, r *http.Request) {
 		degradedMode = false
 	}
 
+	// Check if any of the user's installed skills have been disabled in the marketplace.
+	securityAlert := false
+	if s.centralStore != nil {
+		if disabledSlugs, err := s.centralStore.GetDisabledSkillSlugs(); err == nil && len(disabledSlugs) > 0 {
+			disabledSet := make(map[string]bool, len(disabledSlugs))
+			for _, slug := range disabledSlugs {
+				disabledSet[slug] = true
+			}
+			if _, userUUID, ok := s.getUserStorage(r); ok && userUUID != "" {
+				if userWorkspace, wsErr := config.EnsureUserWorkspace(userUUID); wsErr == nil {
+					userLoader := s.newUserSkillsLoader(userUUID, userWorkspace)
+					for _, skill := range userLoader.ListUserSkills() {
+						if disabledSet[skill.Slug] {
+							securityAlert = true
+							break
+						}
+					}
+				}
+			}
+		}
+	}
+
 	status := map[string]interface{}{
-		"configured":   configured,
-		"degradedMode": degradedMode,
+		"configured":    configured,
+		"degradedMode":  degradedMode,
+		"securityAlert": securityAlert,
 	}
 
 	if degradedMode {
