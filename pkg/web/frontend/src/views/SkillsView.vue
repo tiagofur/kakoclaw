@@ -202,6 +202,15 @@
                   </div>
                 </div>
 
+                <!-- Disabled Security Badge -->
+                <div
+                  v-if="isDisabled(skill)"
+                  class="mt-2 flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2"
+                >
+                  <span class="text-red-400 text-xs font-black uppercase tracking-widest">⚠ Deshabilitada</span>
+                  <span class="text-red-300/70 text-xs">Esta skill fue desactivada por razones de seguridad. Se recomienda desinstalarla.</span>
+                </div>
+
                 <!-- Usage Stats -->
                 <div
                   v-if="getUsageCount(skill.name) > 0"
@@ -1527,8 +1536,10 @@
 import { ref, computed, onMounted, h } from 'vue'
 import advancedService from '../services/advancedService'
 import { useToast } from '../composables/useToast'
+import { useConfigStore } from '../stores/configStore'
 
 const toast = useToast()
+const configStore = useConfigStore()
 
 // Tab icons as render functions
 const InstalledIcon = () => h('svg', { class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
@@ -1558,6 +1569,7 @@ const installing = ref(null)
 const forking = ref(null)
 const installingBundle = ref(null)
 const usageStats = ref([])
+const disabledSlugs = ref(new Set())
 
 const tabs = computed(() => [
   { id: 'installed', label: 'Installed', icon: InstalledIcon, count: skills.value.length },
@@ -1596,6 +1608,8 @@ const getUsageCount = (skillName) => {
   const stat = usageStats.value.find(s => s.skill_name === skillName)
   return stat ? stat.load_count : 0
 }
+
+const isDisabled = (skill) => disabledSlugs.value.has(skill.slug || skill.name)
 
 const sourceClasses = (source) => {
   const base = 'px-2 py-0.5 text-[10px] font-medium rounded-full'
@@ -1680,6 +1694,12 @@ const loadSkills = async () => {
     toast.error(getErrorMessage(err, 'Failed to load skills'))
   } finally {
     loading.value = false
+  }
+  try {
+    const alertData = await advancedService.fetchSecurityAlerts()
+    disabledSlugs.value = new Set(alertData.disabled_slugs || [])
+  } catch {
+    // non-critical — silently ignore
   }
 }
 
@@ -1781,6 +1801,7 @@ const uninstallSkill = async (name) => {
     await advancedService.uninstallSkill(name)
     toast.success('Skill uninstalled')
     await loadSkills()
+    await configStore.checkStatus()
   } catch (err) {
     toast.error(getErrorMessage(err, 'Failed to uninstall skill'))
   }

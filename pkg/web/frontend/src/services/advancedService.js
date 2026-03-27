@@ -105,6 +105,11 @@ export default {
     return response.data
   },
 
+  fetchSecurityAlerts: async () => {
+    const response = await client.get('/marketplace/security-alerts')
+    return response.data
+  },
+
   rateSkill: async (slug, rating, review = '') => {
     const response = await client.post(`/marketplace/skills/${encodeURIComponent(slug)}/rate`, { rating, review })
     return response.data
