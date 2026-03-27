@@ -66,13 +66,20 @@ func (p *OpenAIImageProvider) Name() string { return "openai" }
 
 func (p *OpenAIImageProvider) Generate(ctx context.Context, prompt string, opts ImageOptions) (*ImageResult, error) {
 	reqBody := map[string]any{
-		"model":           p.model,
-		"prompt":          prompt,
-		"n":               1,
-		"size":            opts.Size,
-		"style":           opts.Style,
-		"quality":         opts.Quality,
-		"response_format": "url",
+		"model":  p.model,
+		"prompt": prompt,
+		"n":      1,
+	}
+	// Only include optional fields when set — omit empty values for compatibility
+	// with non-OpenAI providers (Zhipu, etc.) that reject unknown/empty fields
+	if opts.Size != "" {
+		reqBody["size"] = opts.Size
+	}
+	if opts.Style != "" {
+		reqBody["style"] = opts.Style
+	}
+	if opts.Quality != "" {
+		reqBody["quality"] = opts.Quality
 	}
 
 	bodyBytes, err := json.Marshal(reqBody)
