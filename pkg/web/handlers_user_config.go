@@ -155,12 +155,17 @@ func (s *Server) handleGetUserConfig(w http.ResponseWriter, r *http.Request) {
 				"facebook": smFacebookStatus,
 			},
 			"image": map[string]interface{}{
-				"provider":   mergedCfg.Tools.Image.Provider,
-				"model":      mergedCfg.Tools.Image.Model,
-				"models":     mergedCfg.Tools.Image.Models,
-				"api_key":    redactKey(mergedCfg.Tools.Image.APIKey),
-				"api_base":   mergedCfg.Tools.Image.APIBase,
-				"configured": mergedCfg.Tools.Image.APIKey != "" || mergedCfg.Providers.OpenAI.APIKey != "" || mergedCfg.Providers.Gemini.APIKey != "" || mergedCfg.Providers.Zhipu.APIKey != "",
+				"provider": mergedCfg.Tools.Image.Provider,
+				"model":    mergedCfg.Tools.Image.Model,
+			},
+			"image_providers": map[string]interface{}{
+				"together":  imageProviderInfo(mergedCfg.Tools.ImageProviders.Together),
+				"openai":    imageProviderInfo(mergedCfg.Tools.ImageProviders.OpenAI, mergedCfg.Providers.OpenAI.APIKey),
+				"google":    imageProviderInfo(mergedCfg.Tools.ImageProviders.Google, mergedCfg.Providers.Gemini.APIKey),
+				"fal":       imageProviderInfo(mergedCfg.Tools.ImageProviders.Fal),
+				"replicate": imageProviderInfo(mergedCfg.Tools.ImageProviders.Replicate),
+				"zhipu":     imageProviderInfo(mergedCfg.Tools.ImageProviders.Zhipu, mergedCfg.Providers.Zhipu.APIKey),
+				"bfl":       imageProviderInfo(mergedCfg.Tools.ImageProviders.BFL),
 			},
 		},
 	}
@@ -348,6 +353,24 @@ func buildConfigSources(global, user *config.Config) map[string]ConfigSource {
 	}
 
 	return sources
+}
+
+func imageProviderInfo(pc config.ImageProviderConfig, sharedKeys ...string) map[string]interface{} {
+	configured := pc.APIKey != ""
+	if !configured {
+		for _, k := range sharedKeys {
+			if k != "" {
+				configured = true
+				break
+			}
+		}
+	}
+	return map[string]interface{}{
+		"api_key":    redactKey(pc.APIKey),
+		"api_base":   pc.APIBase,
+		"models":     pc.Models,
+		"configured": configured,
+	}
 }
 
 func redactUserProviders(cfg *storage.UserProvidersConfig) map[string]interface{} {
@@ -789,30 +812,56 @@ func applyConfigUpdates(cfg *config.Config, updates map[string]interface{}) erro
 				}
 			}
 		}
-		// Handle image provider config
+		// Handle per-provider image config
+		if imgProvsUpdate, ok := toolsUpdate["image_providers"].(map[string]interface{}); ok {
+			for name, rawUpdate := range imgProvsUpdate {
+				patch, ok := rawUpdate.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				var target *config.ImageProviderConfig
+				switch name {
+				case "together":
+					target = &cfg.Tools.ImageProviders.Together
+				case "openai":
+					target = &cfg.Tools.ImageProviders.OpenAI
+				case "google":
+					target = &cfg.Tools.ImageProviders.Google
+				case "fal":
+					target = &cfg.Tools.ImageProviders.Fal
+				case "replicate":
+					target = &cfg.Tools.ImageProviders.Replicate
+				case "zhipu":
+					target = &cfg.Tools.ImageProviders.Zhipu
+				case "bfl":
+					target = &cfg.Tools.ImageProviders.BFL
+				default:
+					continue
+				}
+				if apiKey, ok := patch["api_key"].(string); ok && apiKey != "" && !strings.Contains(apiKey, "****") {
+					target.APIKey = apiKey
+				}
+				if apiBase, ok := patch["api_base"].(string); ok {
+					target.APIBase = apiBase
+				}
+				if modelsRaw, ok := patch["models"].([]interface{}); ok {
+					models := make([]string, 0, len(modelsRaw))
+					for _, m := range modelsRaw {
+						if s, ok := m.(string); ok && s != "" {
+							models = append(models, s)
+						}
+					}
+					target.Models = models
+				}
+			}
+		}
+		// Handle active image provider + legacy model field
 		if imageUpdate, ok := toolsUpdate["image"].(map[string]interface{}); ok {
 			if provider, ok := imageUpdate["provider"].(string); ok {
 				cfg.Tools.Image.Provider = provider
 			}
 			if model, ok := imageUpdate["model"].(string); ok {
 				cfg.Tools.Image.Model = model
-			}
-			if apiKey, ok := imageUpdate["api_key"].(string); ok && apiKey != "" && !strings.Contains(apiKey, "****") {
-				cfg.Tools.Image.APIKey = apiKey
-			}
-			if apiBase, ok := imageUpdate["api_base"].(string); ok {
-				cfg.Tools.Image.APIBase = apiBase
-			}
-			if modelsRaw, ok := imageUpdate["models"]; ok {
-				if modelsList, ok := modelsRaw.([]interface{}); ok {
-					models := make([]string, 0, len(modelsList))
-					for _, m := range modelsList {
-						if s, ok := m.(string); ok && s != "" {
-							models = append(models, s)
-						}
-					}
-					cfg.Tools.Image.Models = models
-				}
 			}
 		}
 		// Remove "tools" from bulk update map

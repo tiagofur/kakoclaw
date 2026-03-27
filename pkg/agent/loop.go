@@ -313,14 +313,54 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 	// Register image generation tool
 	var imageProvider tools.ImageProvider
 	{
-		imageAPIKey := cfg.Tools.Image.APIKey
+		provider := strings.ToLower(cfg.Tools.Image.Provider)
+		// Lookup per-provider config, then apply key fallbacks
+		var pc config.ImageProviderConfig
+		switch provider {
+		case "together":
+			pc = cfg.Tools.ImageProviders.Together
+		case "google", "imagen":
+			pc = cfg.Tools.ImageProviders.Google
+			if pc.APIKey == "" {
+				pc.APIKey = cfg.Providers.Gemini.APIKey
+			}
+		case "fal", "fal.ai":
+			pc = cfg.Tools.ImageProviders.Fal
+		case "replicate":
+			pc = cfg.Tools.ImageProviders.Replicate
+		case "zhipu", "cogview":
+			pc = cfg.Tools.ImageProviders.Zhipu
+			if pc.APIKey == "" {
+				pc.APIKey = cfg.Providers.Zhipu.APIKey
+			}
+			if pc.APIBase == "" {
+				pc.APIBase = "https://open.bigmodel.cn/api/paas/v4"
+			}
+		case "bfl":
+			pc = cfg.Tools.ImageProviders.BFL
+		default: // openai / openai-compatible
+			pc = cfg.Tools.ImageProviders.OpenAI
+			if pc.APIKey == "" {
+				pc.APIKey = cfg.Providers.OpenAI.APIKey
+			}
+		}
+		// Legacy global fallback (backward compat with old single-key config)
+		if pc.APIKey == "" {
+			pc.APIKey = cfg.Tools.Image.APIKey
+		}
+		if pc.APIBase == "" {
+			pc.APIBase = cfg.Tools.Image.APIBase
+		}
+
+		imageAPIKey := pc.APIKey
+		apiBase := pc.APIBase
 		// Image model: agent defaults take priority over tools.image.model
 		model := cfg.Agents.Defaults.ImageModel
 		if model == "" {
 			model = cfg.Tools.Image.Model
 		}
-		apiBase := cfg.Tools.Image.APIBase
-		switch strings.ToLower(cfg.Tools.Image.Provider) {
+
+		switch provider {
 		case "fal", "fal.ai":
 			if model == "" {
 				model = "fal-ai/flux/dev"
@@ -343,9 +383,6 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 				imageProvider = tools.NewTogetherImageProvider(imageAPIKey, model)
 			}
 		case "google", "imagen":
-			if imageAPIKey == "" {
-				imageAPIKey = cfg.Providers.Gemini.APIKey
-			}
 			if model == "" {
 				model = "gemini-2.0-flash-exp"
 			}
@@ -353,14 +390,8 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 				imageProvider = tools.NewGoogleImageProvider(imageAPIKey, model)
 			}
 		case "zhipu", "cogview":
-			if imageAPIKey == "" {
-				imageAPIKey = cfg.Providers.Zhipu.APIKey
-			}
 			if model == "" {
 				model = "cogview-3-flash"
-			}
-			if apiBase == "" {
-				apiBase = "https://open.bigmodel.cn/api/paas/v4"
 			}
 			if imageAPIKey != "" {
 				imageProvider = tools.NewOpenAIImageProvider(imageAPIKey, apiBase, model)
@@ -373,9 +404,6 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 				imageProvider = tools.NewBFLImageProvider(imageAPIKey, model)
 			}
 		default: // openai / openai-compatible
-			if imageAPIKey == "" {
-				imageAPIKey = cfg.Providers.OpenAI.APIKey
-			}
 			if model == "" {
 				model = "gpt-image-1"
 			}

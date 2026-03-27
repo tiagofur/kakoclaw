@@ -322,6 +322,22 @@ type ImageToolsConfig struct {
 	Models   []string `json:"models,omitempty"`
 }
 
+type ImageProviderConfig struct {
+	APIKey  string   `json:"api_key"`
+	APIBase string   `json:"api_base"`
+	Models  []string `json:"models,omitempty"`
+}
+
+type ImageProvidersConfig struct {
+	Together  ImageProviderConfig `json:"together"`
+	OpenAI    ImageProviderConfig `json:"openai"`
+	Google    ImageProviderConfig `json:"google"`
+	Fal       ImageProviderConfig `json:"fal"`
+	Replicate ImageProviderConfig `json:"replicate"`
+	Zhipu     ImageProviderConfig `json:"zhipu"`
+	BFL       ImageProviderConfig `json:"bfl"`
+}
+
 type TwitterSocialConfig struct {
 	APIKey            string `json:"api_key" env:"MAKOCLAW_TOOLS_SOCIAL_TWITTER_API_KEY"`
 	APISecret         string `json:"api_secret" env:"MAKOCLAW_TOOLS_SOCIAL_TWITTER_API_SECRET"`
@@ -437,12 +453,13 @@ func mergeSocialMap[T any](global, user map[string]T) map[string]T {
 }
 
 type ToolsConfig struct {
-	Web                 WebToolsConfig    `json:"web"`
-	Email               EmailToolsConfig  `json:"email"`
-	Image               ImageToolsConfig  `json:"image"`
-	SocialMedia         SocialMediaConfig `json:"social_media"`
-	MCP                 MCPConfig         `json:"mcp"`
-	RequireConfirmation *bool             `json:"require_confirmation,omitempty"`
+	Web                 WebToolsConfig       `json:"web"`
+	Email               EmailToolsConfig     `json:"email"`
+	Image               ImageToolsConfig     `json:"image"`
+	ImageProviders      ImageProvidersConfig `json:"image_providers"`
+	SocialMedia         SocialMediaConfig    `json:"social_media"`
+	MCP                 MCPConfig            `json:"mcp"`
+	RequireConfirmation *bool                `json:"require_confirmation,omitempty"`
 }
 
 type MCPConfig struct {
@@ -1353,6 +1370,9 @@ func mergeToolsConfig(global, user *ToolsConfig) ToolsConfig {
 		merged.Image = global.Image
 	}
 
+	// Merge per-provider image configs
+	merged.ImageProviders = mergeImageProvidersConfig(&global.ImageProviders, &user.ImageProviders)
+
 	// Merge Social Media tools (per-platform, per-alias: user entries override global entries)
 	merged.SocialMedia.Twitter = mergeSocialMap(global.SocialMedia.Twitter, user.SocialMedia.Twitter)
 	merged.SocialMedia.Bluesky = mergeSocialMap(global.SocialMedia.Bluesky, user.SocialMedia.Bluesky)
@@ -1374,6 +1394,24 @@ func mergeToolsConfig(global, user *ToolsConfig) ToolsConfig {
 	}
 
 	return merged
+}
+
+func mergeImageProvidersConfig(global, user *ImageProvidersConfig) ImageProvidersConfig {
+	merge := func(g, u ImageProviderConfig) ImageProviderConfig {
+		if u.APIKey != "" || u.APIBase != "" || len(u.Models) > 0 {
+			return u
+		}
+		return g
+	}
+	return ImageProvidersConfig{
+		Together:  merge(global.Together, user.Together),
+		OpenAI:    merge(global.OpenAI, user.OpenAI),
+		Google:    merge(global.Google, user.Google),
+		Fal:       merge(global.Fal, user.Fal),
+		Replicate: merge(global.Replicate, user.Replicate),
+		Zhipu:     merge(global.Zhipu, user.Zhipu),
+		BFL:       merge(global.BFL, user.BFL),
+	}
 }
 
 // ValidateProviderConfig checks if a specific provider has minimum required configuration
