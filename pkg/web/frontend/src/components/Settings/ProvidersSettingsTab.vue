@@ -420,6 +420,17 @@ const IMAGE_PROVIDERS = [
     ]
   },
   {
+    id: 'zhipu',
+    label: 'Zhipu AI (CogView)',
+    sharedKey: 'zhipu',
+    description: 'Use your existing Zhipu API key',
+    models: [
+      { id: 'cogview-3-flash', label: 'CogView-3 Flash', badge: 'Low cost', badgeColor: 'green' },
+      { id: 'cogview-3-plus', label: 'CogView-3 Plus', badge: 'High quality', badgeColor: 'gray' },
+      { id: 'cogview-3', label: 'CogView-3', badge: 'Standard', badgeColor: 'gray' },
+    ]
+  },
+  {
     id: 'bfl',
     label: 'Black Forest Labs',
     sharedKey: null,

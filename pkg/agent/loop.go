@@ -348,6 +348,19 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 			if imageAPIKey != "" {
 				imageProvider = tools.NewGoogleImageProvider(imageAPIKey, model)
 			}
+		case "zhipu", "cogview":
+			if imageAPIKey == "" {
+				imageAPIKey = cfg.Providers.Zhipu.APIKey
+			}
+			if model == "" {
+				model = "cogview-3-flash"
+			}
+			if apiBase == "" {
+				apiBase = "https://open.bigmodel.cn/api/paas/v4"
+			}
+			if imageAPIKey != "" {
+				imageProvider = tools.NewOpenAIImageProvider(imageAPIKey, apiBase, model)
+			}
 		case "bfl":
 			if model == "" {
 				model = "flux-pro-1.1"
