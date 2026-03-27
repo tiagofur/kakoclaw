@@ -333,6 +333,10 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 			if pc.APIKey == "" {
 				pc.APIKey = cfg.Providers.Zhipu.APIKey
 			}
+			if pc.APIBase != "" && !strings.HasPrefix(pc.APIBase, "http") {
+				logger.WarnCF("agent", "zhipu image api_base is not a valid URL, using default", map[string]any{"stored": pc.APIBase})
+				pc.APIBase = ""
+			}
 			if pc.APIBase == "" {
 				pc.APIBase = "https://open.bigmodel.cn/api/paas/v4/images/generations"
 			}
@@ -342,6 +346,10 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 			pc = cfg.Tools.ImageProviders.OpenAI
 			if pc.APIKey == "" {
 				pc.APIKey = cfg.Providers.OpenAI.APIKey
+			}
+			if pc.APIBase != "" && !strings.HasPrefix(pc.APIBase, "http") {
+				logger.WarnCF("agent", "openai image api_base is not a valid URL, using default", map[string]any{"stored": pc.APIBase})
+				pc.APIBase = ""
 			}
 		}
 		// Legacy global fallback (backward compat with old single-key config)
@@ -415,6 +423,7 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 			logger.InfoCF("agent", "Image generation provider configured", map[string]any{
 				"provider": cfg.Tools.Image.Provider,
 				"model":    model,
+				"url":      apiBase,
 			})
 		} else {
 			logger.WarnC("agent", "No image provider configured — image_generate will return an error")
