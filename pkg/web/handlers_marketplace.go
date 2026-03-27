@@ -135,8 +135,10 @@ func (s *Server) handleMarketplaceSkills(w http.ResponseWriter, r *http.Request)
 
 		submissions, err := s.centralStore.GetApprovedSkillSubmissions(category, sort, limit, offset, callerUserID)
 		if err != nil {
-			http.Error(w, "failed to fetch skills", http.StatusInternalServerError)
-			return
+			// Degraded mode: community DB unavailable, but builtin skills are already collected.
+			// Log the error and fall through with nil submissions (loop below is a no-op).
+			fmt.Printf("[marketplace] warning: failed to fetch community skills: %v\n", err)
+			submissions = nil
 		}
 
 		// Fetch all rating summaries in a single query to avoid N+1
@@ -472,6 +474,11 @@ func (s *Server) handleMarketplaceSubmit(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	if s.centralStore == nil {
+		writeJSONError(w, "marketplace unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
 	var body struct {
 		Name          string   `json:"name"`
 		Description   string   `json:"description"`
@@ -661,6 +668,11 @@ func (s *Server) handleMarketplaceMySubmissions(w http.ResponseWriter, r *http.R
 
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if s.centralStore == nil {
+		writeJSONResponse(w, map[string]interface{}{"submissions": []interface{}{}})
 		return
 	}
 
@@ -929,7 +941,10 @@ func (s *Server) handleMarketplaceBundles(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Type", "application/json")
 
 	if s.centralStore == nil {
-		writeJSONError(w, "marketplace unavailable", http.StatusServiceUnavailable)
+		writeJSONResponse(w, map[string]interface{}{
+			"bundles": []*storage.SkillBundle{},
+			"count":   0,
+		})
 		return
 	}
 
@@ -1205,6 +1220,9 @@ func getSubmissionMessage(status string, score int) string {
 }
 
 func (s *Server) isAdmin(r *http.Request) bool {
+	if s.centralStore == nil {
+		return false
+	}
 	_, userUUID, ok := s.getUserStorage(r)
 	if !ok {
 		return false

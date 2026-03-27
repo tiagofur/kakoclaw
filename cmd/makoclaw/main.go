@@ -2192,6 +2192,7 @@ func resolveBuiltinSkillsDir() string {
 	}
 
 	// Fallback to CWD (may be empty but won't crash)
+	fmt.Fprintf(os.Stderr, "[warning] builtin skills directory not found; run 'make install-skills' to populate ~/.MakoClaw/builtin-skills/\n")
 	return filepath.Join(wd, "skills")
 }
 

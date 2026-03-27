@@ -88,20 +88,11 @@ build-all: build-frontend
 	@echo "All builds complete"
 
 ## install: Install makoclaw to system and copy builtin skills
-install: build
+install: build install-skills
 	@echo "Installing $(BINARY_NAME)..."
 	@mkdir -p $(INSTALL_BIN_DIR)
 	@cp $(BUILD_DIR)/$(BINARY_NAME) $(INSTALL_BIN_DIR)/$(BINARY_NAME)
 	@chmod +x $(INSTALL_BIN_DIR)/$(BINARY_NAME)
-	@echo "Installed binary to $(INSTALL_BIN_DIR)/$(BINARY_NAME)"
-	@echo "Installing builtin skills to $(BUILTIN_INSTALL_DIR)..."
-	@mkdir -p $(BUILTIN_INSTALL_DIR)
-	@find $(BUILTIN_SKILLS_DIR) -name "SKILL.md" -type f | while read skill_file; do \
-		skill_name=$$(basename $$(dirname "$$skill_file")); \
-		mkdir -p "$(BUILTIN_INSTALL_DIR)/$$skill_name"; \
-		cp "$$skill_file" "$(BUILTIN_INSTALL_DIR)/$$skill_name/SKILL.md"; \
-		echo "  ✓ Installed skill: $$skill_name"; \
-	done
 	@echo "Installation complete!"
 
 ## install-skills: Install builtin skills to marketplace location
