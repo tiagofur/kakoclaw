@@ -2008,7 +2008,9 @@ const handleSaveGenerated = async (overwrite = false) => {
       showOverwriteConfirm.value = true
       return
     }
-    generateError.value = getErrorMessage(err, 'Failed to save skill')
+    const msg = getErrorMessage(err, 'Failed to save skill')
+    generateError.value = msg
+    toast.error(msg)
   } finally {
     savingGenerated.value = false
   }

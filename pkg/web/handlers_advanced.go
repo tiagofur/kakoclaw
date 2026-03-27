@@ -632,7 +632,14 @@ func normalizeSkillDraft(name, content string) string {
 		// Content already has frontmatter — ensure required fields are present.
 		// Find the closing "---" of the frontmatter (look for "\n---" after the opening "---").
 		closeOff := strings.Index(content[3:], "\n---")
-		if closeOff != -1 {
+		if closeOff == -1 {
+			// Malformed frontmatter: opening "---" found but no closing "---".
+			// Strip the partial opening and re-inject complete frontmatter so the
+			// description and H1 injection logic below can run normally.
+			body := strings.TrimSpace(content[3:])
+			title := toTitleCase(strings.ReplaceAll(name, "-", " "))
+			content = fmt.Sprintf("---\nname: %s\ndescription: AI-generated skill\n---\n\n# %s\n\n%s\n", name, title, body)
+		} else {
 			closeAbs := 3 + closeOff // absolute index of the '\n' before closing '---'
 			endFM := closeAbs + 4    // absolute index right after '\n---'
 			fm := content[:endFM]    // frontmatter block including closing "---"
