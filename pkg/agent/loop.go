@@ -363,6 +363,9 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 				logger.WarnCF("agent", "openai image api_base is not a valid URL, using default", map[string]any{"stored": pc.APIBase})
 				pc.APIBase = ""
 			}
+			if pc.APIBase == "" {
+				pc.APIBase = "https://api.openai.com/v1/images/generations"
+			}
 		}
 		// Legacy global fallback (backward compat with old single-key config)
 		if pc.APIKey == "" {
