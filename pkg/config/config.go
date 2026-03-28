@@ -329,13 +329,14 @@ type ImageProviderConfig struct {
 }
 
 type ImageProvidersConfig struct {
-	Together  ImageProviderConfig `json:"together"`
-	OpenAI    ImageProviderConfig `json:"openai"`
-	Google    ImageProviderConfig `json:"google"`
-	Fal       ImageProviderConfig `json:"fal"`
-	Replicate ImageProviderConfig `json:"replicate"`
-	Zhipu     ImageProviderConfig `json:"zhipu"`
-	BFL       ImageProviderConfig `json:"bfl"`
+	Together   ImageProviderConfig `json:"together"`
+	OpenAI     ImageProviderConfig `json:"openai"`
+	OpenRouter ImageProviderConfig `json:"openrouter"`
+	Google     ImageProviderConfig `json:"google"`
+	Fal        ImageProviderConfig `json:"fal"`
+	Replicate  ImageProviderConfig `json:"replicate"`
+	Zhipu      ImageProviderConfig `json:"zhipu"`
+	BFL        ImageProviderConfig `json:"bfl"`
 }
 
 type TwitterSocialConfig struct {
@@ -1404,13 +1405,14 @@ func mergeImageProvidersConfig(global, user *ImageProvidersConfig) ImageProvider
 		return g
 	}
 	return ImageProvidersConfig{
-		Together:  merge(global.Together, user.Together),
-		OpenAI:    merge(global.OpenAI, user.OpenAI),
-		Google:    merge(global.Google, user.Google),
-		Fal:       merge(global.Fal, user.Fal),
-		Replicate: merge(global.Replicate, user.Replicate),
-		Zhipu:     merge(global.Zhipu, user.Zhipu),
-		BFL:       merge(global.BFL, user.BFL),
+		Together:   merge(global.Together, user.Together),
+		OpenAI:     merge(global.OpenAI, user.OpenAI),
+		OpenRouter: merge(global.OpenRouter, user.OpenRouter),
+		Google:     merge(global.Google, user.Google),
+		Fal:        merge(global.Fal, user.Fal),
+		Replicate:  merge(global.Replicate, user.Replicate),
+		Zhipu:      merge(global.Zhipu, user.Zhipu),
+		BFL:        merge(global.BFL, user.BFL),
 	}
 }
 

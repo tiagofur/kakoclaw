@@ -476,9 +476,10 @@ const localDefaults = ref({
 
 // Image providers list (mirrors ProvidersSettingsTab definitions)
 const IMAGE_PROVIDERS = [
-  { id: 'together',  label: 'Together.ai' },
-  { id: 'openai',    label: 'OpenAI' },
-  { id: 'google',    label: 'Google (Gemini)' },
+  { id: 'together',    label: 'Together.ai' },
+  { id: 'openai',      label: 'OpenAI' },
+  { id: 'openrouter',  label: 'OpenRouter' },
+  { id: 'google',      label: 'Google (Gemini)' },
   { id: 'fal',       label: 'fal.ai' },
   { id: 'replicate', label: 'Replicate' },
   { id: 'zhipu',     label: 'Zhipu AI (CogView)' },
@@ -486,9 +487,10 @@ const IMAGE_PROVIDERS = [
 ]
 
 const IMAGE_PROVIDER_DEFAULTS = {
-  together:  ['black-forest-labs/FLUX.1-schnell-Free', 'black-forest-labs/FLUX.1-schnell', 'black-forest-labs/FLUX.1-dev'],
-  openai:    ['gpt-image-1', 'dall-e-3', 'dall-e-2'],
-  google:    ['gemini-2.0-flash-exp', 'imagen-3.0-fast-generate-001', 'imagen-3.0-generate-001'],
+  together:    ['black-forest-labs/FLUX.1-schnell-Free', 'black-forest-labs/FLUX.1-schnell', 'black-forest-labs/FLUX.1-dev'],
+  openai:      ['gpt-image-1', 'dall-e-3', 'dall-e-2'],
+  openrouter:  ['openai/dall-e-3', 'black-forest-labs/FLUX.1-schnell', 'black-forest-labs/FLUX.1-pro'],
+  google:      ['gemini-2.0-flash-exp', 'imagen-3.0-fast-generate-001', 'imagen-3.0-generate-001'],
   zhipu:     ['cogview-3-flash', 'cogview-3-plus', 'cogview-3'],
   fal:       ['fal-ai/flux/schnell', 'fal-ai/flux/dev', 'fal-ai/flux-pro/v1.1'],
   replicate: ['black-forest-labs/flux-schnell', 'black-forest-labs/flux-dev'],

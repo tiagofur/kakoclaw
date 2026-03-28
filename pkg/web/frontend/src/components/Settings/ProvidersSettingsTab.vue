@@ -415,6 +415,18 @@ const IMAGE_PROVIDERS = [
     ]
   },
   {
+    id: 'openrouter',
+    label: 'OpenRouter',
+    sharedKey: 'openrouter',
+    defaultBase: 'https://openrouter.ai/api/v1/images/generations',
+    description: 'Route to DALL-E, Flux, and more via OpenRouter',
+    models: [
+      { id: 'openai/dall-e-3', label: 'DALL-E 3' },
+      { id: 'black-forest-labs/FLUX.1-schnell', label: 'FLUX Schnell' },
+      { id: 'black-forest-labs/FLUX.1-pro', label: 'FLUX Pro' },
+    ]
+  },
+  {
     id: 'google',
     label: 'Google (Gemini)',
     sharedKey: 'gemini',

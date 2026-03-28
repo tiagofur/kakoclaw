@@ -342,6 +342,18 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 			}
 		case "bfl":
 			pc = cfg.Tools.ImageProviders.BFL
+		case "openrouter":
+			pc = cfg.Tools.ImageProviders.OpenRouter
+			if pc.APIKey == "" {
+				pc.APIKey = cfg.Providers.OpenRouter.APIKey
+			}
+			if pc.APIBase != "" && !strings.HasPrefix(pc.APIBase, "http") {
+				logger.WarnCF("agent", "openrouter image api_base is not a valid URL, using default", map[string]any{"stored": pc.APIBase})
+				pc.APIBase = ""
+			}
+			if pc.APIBase == "" {
+				pc.APIBase = "https://openrouter.ai/api/v1/images/generations"
+			}
 		default: // openai / openai-compatible
 			pc = cfg.Tools.ImageProviders.OpenAI
 			if pc.APIKey == "" {
@@ -410,6 +422,13 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 			}
 			if imageAPIKey != "" {
 				imageProvider = tools.NewBFLImageProvider(imageAPIKey, model)
+			}
+		case "openrouter":
+			if model == "" {
+				model = "openai/dall-e-3"
+			}
+			if imageAPIKey != "" {
+				imageProvider = tools.NewOpenAIImageProvider(imageAPIKey, apiBase, model)
 			}
 		default: // openai / openai-compatible
 			if model == "" {

@@ -161,6 +161,7 @@ func (s *Server) handleGetUserConfig(w http.ResponseWriter, r *http.Request) {
 			"image_providers": map[string]interface{}{
 				"together":  imageProviderInfo(mergedCfg.Tools.ImageProviders.Together),
 				"openai":    imageProviderInfo(mergedCfg.Tools.ImageProviders.OpenAI, mergedCfg.Providers.OpenAI.APIKey),
+				"openrouter": imageProviderInfo(mergedCfg.Tools.ImageProviders.OpenRouter, mergedCfg.Providers.OpenRouter.APIKey),
 				"google":    imageProviderInfo(mergedCfg.Tools.ImageProviders.Google, mergedCfg.Providers.Gemini.APIKey),
 				"fal":       imageProviderInfo(mergedCfg.Tools.ImageProviders.Fal),
 				"replicate": imageProviderInfo(mergedCfg.Tools.ImageProviders.Replicate),
@@ -825,6 +826,8 @@ func applyConfigUpdates(cfg *config.Config, updates map[string]interface{}) erro
 					target = &cfg.Tools.ImageProviders.Together
 				case "openai":
 					target = &cfg.Tools.ImageProviders.OpenAI
+				case "openrouter":
+					target = &cfg.Tools.ImageProviders.OpenRouter
 				case "google":
 					target = &cfg.Tools.ImageProviders.Google
 				case "fal":
