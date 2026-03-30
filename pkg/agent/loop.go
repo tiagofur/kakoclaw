@@ -20,6 +20,7 @@ import (
 
 	"github.com/sipeed/makoclaw/pkg/bus"
 	"github.com/sipeed/makoclaw/pkg/config"
+	"github.com/sipeed/makoclaw/pkg/hooks"
 	"github.com/sipeed/makoclaw/pkg/logger"
 	"github.com/sipeed/makoclaw/pkg/mcp"
 	"github.com/sipeed/makoclaw/pkg/observability"
@@ -227,6 +228,14 @@ func NewAgentLoopForUser(userUUID string, globalCfg *config.Config, msgBus *bus.
 
 	// Merge user config over global config
 	mergedCfg := config.MergeConfigs(globalCfg, userCfg)
+
+	// Validate ActiveProfile exists (fail fast at startup rather than silently allowing all tools).
+	if profile := mergedCfg.ToolPermissions.ActiveProfile; profile != "" {
+		if _, ok := mergedCfg.ToolPermissions.ToolProfiles[profile]; !ok {
+			return nil, fmt.Errorf("config error: unknown tool_profile %q — available: %v",
+				profile, availableProfileNames(mergedCfg.ToolPermissions.ToolProfiles))
+		}
+	}
 
 	// Create provider with merged config
 	provider, err := providers.CreateProvider(mergedCfg)
@@ -1278,12 +1287,32 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, opts processOptions) (str
 
 	// 8. Optional: send response via bus
 	if opts.SendResponse {
-		al.bus.PublishOutbound(bus.OutboundMessage{
-			UserID:  al.userID,
-			Channel: opts.Channel,
-			ChatID:  opts.ChatID,
-			Content: finalContent,
-		})
+		// Security hook: message_sending
+		if al.hooks != nil {
+			hookResult := al.hooks.Run(ctx, "message_sending", hooks.HookContext{
+				Message: finalContent,
+				UserID:  al.userID,
+			})
+			if hookResult.Action == hooks.HookBlock {
+				logger.InfoCF("agent", "message_sending hook blocked delivery", map[string]interface{}{
+					"reason": hookResult.Reason,
+				})
+			} else {
+				al.bus.PublishOutbound(bus.OutboundMessage{
+					UserID:  al.userID,
+					Channel: opts.Channel,
+					ChatID:  opts.ChatID,
+					Content: finalContent,
+				})
+			}
+		} else {
+			al.bus.PublishOutbound(bus.OutboundMessage{
+				UserID:  al.userID,
+				Channel: opts.Channel,
+				ChatID:  opts.ChatID,
+				Content: finalContent,
+			})
+		}
 	}
 
 	// 9. Log response
@@ -1431,12 +1460,32 @@ func (al *AgentLoop) runAgentLoopStream(ctx context.Context, opts processOptions
 
 	// 8. Optional: send response via bus
 	if opts.SendResponse {
-		al.bus.PublishOutbound(bus.OutboundMessage{
-			UserID:  al.userID,
-			Channel: opts.Channel,
-			ChatID:  opts.ChatID,
-			Content: finalContent,
-		})
+		// Security hook: message_sending
+		if al.hooks != nil {
+			hookResult := al.hooks.Run(ctx, "message_sending", hooks.HookContext{
+				Message: finalContent,
+				UserID:  al.userID,
+			})
+			if hookResult.Action == hooks.HookBlock {
+				logger.InfoCF("agent", "message_sending hook blocked delivery", map[string]interface{}{
+					"reason": hookResult.Reason,
+				})
+			} else {
+				al.bus.PublishOutbound(bus.OutboundMessage{
+					UserID:  al.userID,
+					Channel: opts.Channel,
+					ChatID:  opts.ChatID,
+					Content: finalContent,
+				})
+			}
+		} else {
+			al.bus.PublishOutbound(bus.OutboundMessage{
+				UserID:  al.userID,
+				Channel: opts.Channel,
+				ChatID:  opts.ChatID,
+				Content: finalContent,
+			})
+		}
 	}
 
 	// 9. Log response
@@ -1663,6 +1712,34 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 					"tool":      tc.Name,
 					"iteration": iteration,
 				})
+
+			// Security hook: before_tool_call
+			if al.hooks != nil {
+				hookResult := al.hooks.Run(ctx, "before_tool_call", hooks.HookContext{
+					ToolName: tc.Name,
+					Args:     tc.Arguments,
+					UserID:   al.userID,
+				})
+				if hookResult.Action == hooks.HookBlock {
+					messages = append(messages, providers.Message{
+						Role:       "tool",
+						Content:    fmt.Sprintf("[blocked by security hook: %s]", hookResult.Reason),
+						ToolCallID: tc.ID,
+					})
+					continue
+				}
+				if hookResult.Action == hooks.HookRequireApproval {
+					messages = append(messages, providers.Message{
+						Role:       "tool",
+						Content:    fmt.Sprintf("[tool requires approval: %s]", hookResult.Reason),
+						ToolCallID: tc.ID,
+					})
+					logger.WarnCF("agent", "require_approval with no owner channel, treating as block", map[string]interface{}{
+						"tool": tc.Name,
+					})
+					continue
+				}
+			}
 
 			// Notify start of tool call
 			agentName := utils.AgentNameFrom(ctx)
@@ -2021,6 +2098,34 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 						"iteration": iteration,
 					})
 
+				// Security hook: before_tool_call
+				if al.hooks != nil {
+					hookResult := al.hooks.Run(ctx, "before_tool_call", hooks.HookContext{
+						ToolName: tc.Name,
+						Args:     tc.Arguments,
+						UserID:   al.userID,
+					})
+					if hookResult.Action == hooks.HookBlock {
+						messages = append(messages, providers.Message{
+							Role:       "tool",
+							Content:    fmt.Sprintf("[blocked by security hook: %s]", hookResult.Reason),
+							ToolCallID: tc.ID,
+						})
+						continue
+					}
+					if hookResult.Action == hooks.HookRequireApproval {
+						messages = append(messages, providers.Message{
+							Role:       "tool",
+							Content:    fmt.Sprintf("[tool requires approval: %s]", hookResult.Reason),
+							ToolCallID: tc.ID,
+						})
+						logger.WarnCF("agent", "require_approval with no owner channel, treating as block", map[string]interface{}{
+							"tool": tc.Name,
+						})
+						continue
+					}
+				}
+
 				// Notify start of tool call
 				if opts.OnTool != nil {
 					_ = opts.OnTool(ToolEvent{Name: tc.Name, Args: tc.Arguments, Status: "started"})
@@ -2140,6 +2245,34 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 					"tool":      tc.Name,
 					"iteration": iteration,
 				})
+
+			// Security hook: before_tool_call
+			if al.hooks != nil {
+				hookResult := al.hooks.Run(ctx, "before_tool_call", hooks.HookContext{
+					ToolName: tc.Name,
+					Args:     tc.Arguments,
+					UserID:   al.userID,
+				})
+				if hookResult.Action == hooks.HookBlock {
+					messages = append(messages, providers.Message{
+						Role:       "tool",
+						Content:    fmt.Sprintf("[blocked by security hook: %s]", hookResult.Reason),
+						ToolCallID: tc.ID,
+					})
+					continue
+				}
+				if hookResult.Action == hooks.HookRequireApproval {
+					messages = append(messages, providers.Message{
+						Role:       "tool",
+						Content:    fmt.Sprintf("[tool requires approval: %s]", hookResult.Reason),
+						ToolCallID: tc.ID,
+					})
+					logger.WarnCF("agent", "require_approval with no owner channel, treating as block", map[string]interface{}{
+						"tool": tc.Name,
+					})
+					continue
+				}
+			}
 
 			toolStart := time.Now()
 			result, err := al.tools.ExecuteWithContext(ctx, tc.Name, tc.Arguments, opts.Channel, opts.ChatID)

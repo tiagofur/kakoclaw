@@ -172,6 +172,17 @@ func (s *Storage) migrateUserDB() error {
 			key   TEXT PRIMARY KEY,
 			value TEXT NOT NULL
 		);`,
+		`CREATE TABLE IF NOT EXISTS pairing_store (
+			id          INTEGER PRIMARY KEY AUTOINCREMENT,
+			channel     TEXT    NOT NULL,
+			sender_id   TEXT    NOT NULL,
+			code        TEXT    NOT NULL,
+			pending     BOOLEAN NOT NULL DEFAULT 1,
+			created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			approved_at DATETIME,
+			UNIQUE(channel, sender_id)
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_pairing_code ON pairing_store(code);`,
 	}
 
 	for _, query := range queries {
@@ -213,7 +224,81 @@ func (s *Storage) migrateUserDB() error {
 	if err := s.migratePackages(); err != nil {
 		return fmt.Errorf("packages migration: %w", err)
 	}
+	if err := s.migrateMarketingAudience(); err != nil {
+		return fmt.Errorf("marketing audience migration: %w", err)
+	}
 
+	return nil
+}
+
+func (s *Storage) migrateMarketingAudience() error {
+	queries := []string{
+		`CREATE TABLE IF NOT EXISTS contacts (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			email TEXT NOT NULL UNIQUE,
+			first_name TEXT DEFAULT '',
+			last_name TEXT DEFAULT '',
+			phone TEXT DEFAULT '',
+			company TEXT DEFAULT '',
+			title TEXT DEFAULT '',
+			tags TEXT DEFAULT '[]',
+			custom_fields TEXT DEFAULT '{}',
+			status TEXT DEFAULT 'active',
+			source TEXT DEFAULT 'manual',
+			subscribed_at DATETIME,
+			unsubscribed_at DATETIME,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		);`,
+		`CREATE TABLE IF NOT EXISTS contact_lists (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL,
+			slug TEXT NOT NULL UNIQUE,
+			description TEXT DEFAULT '',
+			type TEXT DEFAULT 'static',
+			account TEXT DEFAULT '',
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		);`,
+		`CREATE TABLE IF NOT EXISTS contact_list_members (
+			contact_id INTEGER NOT NULL,
+			list_id INTEGER NOT NULL,
+			added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (contact_id, list_id)
+		);`,
+		`CREATE TABLE IF NOT EXISTS segments (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL,
+			slug TEXT NOT NULL UNIQUE,
+			description TEXT DEFAULT '',
+			rules TEXT DEFAULT '[]',
+			account TEXT DEFAULT '',
+			contact_count INTEGER DEFAULT 0,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		);`,
+		`CREATE TABLE IF NOT EXISTS email_deliveries (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			campaign_account TEXT DEFAULT '',
+			campaign_name TEXT DEFAULT '',
+			contact_id INTEGER,
+			subject TEXT DEFAULT '',
+			status TEXT DEFAULT 'queued',
+			provider_message_id TEXT DEFAULT '',
+			sent_at DATETIME,
+			delivered_at DATETIME,
+			opened_at DATETIME,
+			clicked_at DATETIME,
+			bounced_at DATETIME,
+			error TEXT DEFAULT '',
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		);`,
+	}
+	for _, q := range queries {
+		if _, err := s.db.Exec(q); err != nil {
+			return fmt.Errorf("marketing audience migration query: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -225,6 +310,11 @@ func escapeLikeQuery(query string) string {
 func (s *Storage) Close() error {
 	_, _ = s.db.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
 	return s.db.Close()
+}
+
+// Pairing returns a PairingStore backed by this storage's DB.
+func (s *Storage) Pairing() *PairingStore {
+	return NewPairingStore(s.db)
 }
 
 func (s *Storage) migrate() error {

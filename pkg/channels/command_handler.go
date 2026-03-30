@@ -2,6 +2,7 @@ package channels
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -11,8 +12,9 @@ import (
 
 // CommandHandler processes special commands like /setup
 type CommandHandler struct {
-	store      *storage.Storage
-	cancelFunc func(channel, senderID string) int
+	store        *storage.Storage
+	cancelFunc   func(channel, senderID string) int
+	pairingStore *storage.PairingStore
 }
 
 // NewCommandHandler creates a new command handler
@@ -25,6 +27,11 @@ func NewCommandHandler(store *storage.Storage) *CommandHandler {
 // SetCancelFunc sets the function used to cancel active executions for a channel/sender
 func (ch *CommandHandler) SetCancelFunc(fn func(channel, senderID string) int) {
 	ch.cancelFunc = fn
+}
+
+// SetPairingStore configures the pairing store used by the /approve command
+func (ch *CommandHandler) SetPairingStore(ps *storage.PairingStore) {
+	ch.pairingStore = ps
 }
 
 // HandleCommand processes a command and returns true if handled
@@ -50,6 +57,8 @@ func (ch *CommandHandler) HandleCommand(ctx context.Context, channel, senderID, 
 		return ch.handleSetupCommand(ctx, channel, senderID, args)
 	case "status":
 		return ch.handleStatusCommand(ctx)
+	case "approve":
+		return ch.handleApproveCommand(ctx, channel, senderID, args)
 	default:
 		return false, "", nil
 	}
@@ -86,6 +95,26 @@ func (ch *CommandHandler) handleSetupCommand(ctx context.Context, channel, sende
 func (ch *CommandHandler) handleStatusCommand(ctx context.Context) (bool, string, error) {
 	response := "✅ makoclaw is up and running!\n\nUse /setup to begin the onboarding process."
 	return true, response, nil
+}
+
+// handleApproveCommand approves a pending pairing request by code
+func (ch *CommandHandler) handleApproveCommand(_ context.Context, _, _, args string) (bool, string, error) {
+	if ch.pairingStore == nil {
+		return true, "Pairing store not configured.", nil
+	}
+	parts := strings.Fields(args)
+	if len(parts) < 2 {
+		return true, "Usage: /approve <channel> <code>", nil
+	}
+	targetChannel, code := parts[0], parts[1]
+	senderID, err := ch.pairingStore.Approve(targetChannel, code)
+	if errors.Is(err, storage.ErrCodeNotFound) {
+		return true, fmt.Sprintf("Code %q not found or already used.", code), nil
+	}
+	if err != nil {
+		return true, fmt.Sprintf("Approve failed: %v", err), nil
+	}
+	return true, fmt.Sprintf("✅ Sender %q approved on channel %q.", senderID, targetChannel), nil
 }
 
 // IsCommand checks if content starts with a command

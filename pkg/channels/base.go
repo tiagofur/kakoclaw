@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 
 	"github.com/sipeed/makoclaw/pkg/bus"
+	"github.com/sipeed/makoclaw/pkg/logger"
 	"github.com/sipeed/makoclaw/pkg/storage"
 )
 
@@ -29,6 +30,8 @@ type BaseChannel struct {
 	name         string
 	allowList    []string
 	userResolver func(senderID string) (int64, error)
+	dmPolicy     string
+	pairingStore *storage.PairingStore
 }
 
 func NewBaseChannel(name string, config interface{}, bus *bus.MessageBus, allowList []string) *BaseChannel {
@@ -104,8 +107,80 @@ func (c *BaseChannel) IsAllowed(senderID string) bool {
 	return false
 }
 
+// SetDMPolicy configures the DM policy and optional pairing store.
+func (c *BaseChannel) SetDMPolicy(policy string, ps *storage.PairingStore) {
+	c.dmPolicy = policy
+	c.pairingStore = ps
+}
+
+// ShouldDispatch returns true if the sender is allowed to have their message processed.
+func (c *BaseChannel) ShouldDispatch(senderID string) bool {
+	// Only use the allowlist fast-path when there are entries; an empty allowlist
+	// means "no explicit allowlist" and should fall through to the policy switch.
+	if len(c.allowList) > 0 && c.IsAllowed(senderID) {
+		return true
+	}
+	switch c.dmPolicy {
+	case "open":
+		return true
+	case "disabled":
+		return false
+	case "allowlist":
+		return false
+	case "pairing":
+		if c.pairingStore == nil {
+			return false
+		}
+		approved, err := c.pairingStore.IsApproved(c.name, senderID)
+		if err != nil {
+			logger.WarnCF("channel", "pairing store error", map[string]interface{}{"err": err})
+			return false
+		}
+		return approved
+	default:
+		return false
+	}
+}
+
+// issuePairingChallenge sends a challenge code to an unknown sender.
+func (c *BaseChannel) issuePairingChallenge(senderID, chatID string) {
+	if c.pairingStore == nil || c.bus == nil {
+		return
+	}
+	pending, err := c.pairingStore.HasPending(c.name, senderID)
+	if err != nil {
+		logger.WarnCF("channel", "pairing store HasPending error", map[string]interface{}{"err": err})
+		return
+	}
+	if pending {
+		return
+	}
+	code, err := storage.GenerateCode()
+	if err != nil {
+		logger.WarnCF("channel", "failed to generate pairing code", map[string]interface{}{"err": err})
+		return
+	}
+	if err := c.pairingStore.InsertPending(c.name, senderID, code); err != nil {
+		logger.WarnCF("channel", "failed to insert pending pairing", map[string]interface{}{"err": err})
+		return
+	}
+	challenge := fmt.Sprintf("👋 This agent requires pairing. Ask the owner to run: /approve %s %s", c.name, code)
+	c.bus.PublishOutbound(bus.OutboundMessage{
+		Channel: c.name,
+		ChatID:  chatID,
+		Content: challenge,
+	})
+}
+
 func (c *BaseChannel) HandleMessage(senderID, chatID, content string, media []string, metadata map[string]string) error {
-	if !c.IsAllowed(senderID) {
+	if c.dmPolicy != "" {
+		if !c.ShouldDispatch(senderID) {
+			if c.dmPolicy == "pairing" {
+				c.issuePairingChallenge(senderID, chatID)
+			}
+			return nil
+		}
+	} else if !c.IsAllowed(senderID) {
 		return nil
 	}
 

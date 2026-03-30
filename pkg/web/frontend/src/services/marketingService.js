@@ -57,5 +57,68 @@ export default {
   },
   fetchAnalyticsSummary(account, campaign) {
     return client.get(`/marketing/campaigns/${encodeSegment(account)}/${encodeSegment(campaign)}/analytics/summary`)
+  },
+
+  audienceListContacts(params) {
+    return client.get('/marketing/audience/contacts', { params })
+  },
+  audienceGetContact(id) {
+    return client.get(`/marketing/audience/contacts/${encodeSegment(id)}`)
+  },
+  audienceCreateContact(data) {
+    return client.post('/marketing/audience/contacts', data)
+  },
+  audienceUpdateContact(id, data) {
+    return client.put(`/marketing/audience/contacts/${encodeSegment(id)}`, data)
+  },
+  audienceDeleteContact(id) {
+    return client.delete(`/marketing/audience/contacts/${encodeSegment(id)}`)
+  },
+  audienceImportContacts(formData) {
+    return client.post('/marketing/audience/contacts/import', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },
+  audienceExportContacts(params) {
+    return client.get('/marketing/audience/contacts/export', { params, responseType: 'blob' })
+  },
+  audienceListLists(params) {
+    return client.get('/marketing/audience/lists', { params })
+  },
+  audienceCreateList(data) {
+    return client.post('/marketing/audience/lists', data)
+  },
+  audienceUpdateList(id, data) {
+    return client.put(`/marketing/audience/lists/${encodeSegment(id)}`, data)
+  },
+  audienceDeleteList(id) {
+    return client.delete(`/marketing/audience/lists/${encodeSegment(id)}`)
+  },
+  audienceAddListMember(listId, contactId) {
+    return client.post(`/marketing/audience/lists/${encodeSegment(listId)}/members`, { contact_id: contactId })
+  },
+  audienceRemoveListMember(listId, contactId) {
+    return client.delete(`/marketing/audience/lists/${encodeSegment(listId)}/members/${encodeSegment(contactId)}`)
+  },
+  audienceListSegments(params) {
+    return client.get('/marketing/audience/segments', { params })
+  },
+  audienceCreateSegment(data) {
+    return client.post('/marketing/audience/segments', data)
+  },
+  audienceUpdateSegment(id, data) {
+    return client.put(`/marketing/audience/segments/${encodeSegment(id)}`, data)
+  },
+  audienceDeleteSegment(id) {
+    return client.delete(`/marketing/audience/segments/${encodeSegment(id)}`)
+  },
+  audiencePreviewSegment(id, rules) {
+    return client.post(`/marketing/audience/segments/${encodeSegment(id)}/preview`, { rules })
+  },
+  audienceListDeliveries(params) {
+    return client.get('/marketing/audience/deliveries', { params })
+  },
+  audienceSendToList(data) {
+    return client.post('/marketing/audience/send', data)
   }
 }
