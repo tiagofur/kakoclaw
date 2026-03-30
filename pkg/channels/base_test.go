@@ -168,3 +168,30 @@ func TestBaseChannel_SetCommandHandler(t *testing.T) {
 	handler := NewCommandHandler(nil)
 	bc.SetCommandHandler(handler)
 }
+
+func TestBaseChannel_DMPolicy_Open(t *testing.T) {
+	b := NewBaseChannel("test", nil, nil, nil)
+	b.SetDMPolicy("open", nil)
+	if !b.ShouldDispatch("unknown-sender") {
+		t.Error("ShouldDispatch() = false with open policy, want true")
+	}
+}
+
+func TestBaseChannel_DMPolicy_Disabled(t *testing.T) {
+	b := NewBaseChannel("test", nil, nil, nil)
+	b.SetDMPolicy("disabled", nil)
+	if b.ShouldDispatch("unknown-sender") {
+		t.Error("ShouldDispatch() = true with disabled policy, want false")
+	}
+}
+
+func TestBaseChannel_DMPolicy_Allowlist(t *testing.T) {
+	b := NewBaseChannel("test", nil, nil, []string{"known"})
+	b.SetDMPolicy("allowlist", nil)
+	if b.ShouldDispatch("unknown") {
+		t.Error("ShouldDispatch(unknown) = true with allowlist policy, want false")
+	}
+	if !b.ShouldDispatch("known") {
+		t.Error("ShouldDispatch(known) = false with allowlist policy, want true")
+	}
+}
