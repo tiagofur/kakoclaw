@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -29,6 +30,27 @@ import (
 	"github.com/sipeed/makoclaw/pkg/tools"
 	"github.com/sipeed/makoclaw/pkg/utils"
 )
+
+// ThinkLevel controls the thinking budget in tokens for the current session.
+type ThinkLevel int
+
+const (
+	ThinkOff     ThinkLevel = 0
+	ThinkMinimal ThinkLevel = 512
+	ThinkLow     ThinkLevel = 1024
+	ThinkMedium  ThinkLevel = 4096
+	ThinkHigh    ThinkLevel = 8192
+	ThinkXHigh   ThinkLevel = 16000
+)
+
+var thinkLevelMap = map[string]ThinkLevel{
+	"off":     ThinkOff,
+	"minimal": ThinkMinimal,
+	"low":     ThinkLow,
+	"medium":  ThinkMedium,
+	"high":    ThinkHigh,
+	"xhigh":   ThinkXHigh,
+}
 
 type AgentLoop struct {
 	bus                *bus.MessageBus
@@ -60,6 +82,8 @@ type AgentLoop struct {
 	summarizeWg        sync.WaitGroup    // Tracks active summarization goroutines
 	costTracker        *AgentCostTracker // Tracks token usage and estimated costs
 	orchestratorOwner  *OrchestratorAgent
+	sessionThinkLevel  map[string]ThinkLevel
+	sessionThinkMu     sync.RWMutex
 }
 
 // ToolRegistry returns the agent loop's tool registry so external
@@ -560,6 +584,7 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 		cfg:                cfg,
 		metrics:            observability.Global(),
 		costTracker:        NewAgentCostTracker(),
+		sessionThinkLevel:  make(map[string]ThinkLevel),
 	}
 }
 
@@ -1074,6 +1099,24 @@ func (al *AgentLoop) processSystemMessage(ctx context.Context, msg bus.InboundMe
 // runAgentLoop is the core message processing logic.
 // It handles context building, LLM calls, tool execution, and response handling.
 func (al *AgentLoop) runAgentLoop(ctx context.Context, opts processOptions) (string, error) {
+	// Handle /think command to set session thinking budget
+	if strings.HasPrefix(opts.UserMessage, "/think ") {
+		levelStr := strings.TrimSpace(strings.TrimPrefix(opts.UserMessage, "/think "))
+		budget, ok := thinkLevelMap[levelStr]
+		if !ok {
+			validLevels := make([]string, 0, len(thinkLevelMap))
+			for k := range thinkLevelMap {
+				validLevels = append(validLevels, k)
+			}
+			sort.Strings(validLevels)
+			return "", fmt.Errorf("unknown think level %q — valid levels: %s", levelStr, strings.Join(validLevels, ", "))
+		}
+		al.sessionThinkMu.Lock()
+		al.sessionThinkLevel[opts.SessionKey] = budget
+		al.sessionThinkMu.Unlock()
+		return fmt.Sprintf("Thinking level set to %s (%d tokens)", levelStr, budget), nil
+	}
+
 	var teamCtx *TeamContext
 	if al.orchestratorOwner != nil {
 		teamCtx = al.orchestratorOwner.resetCurrentExecutionState(opts.UserMessage, al.userUUID, al.userID)
@@ -1795,7 +1838,17 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 		}
 		if opts.OnThinking != nil {
 			llmOpts["extended_thinking"] = true
-			llmOpts["thinking_budget_tokens"] = 1024
+			al.sessionThinkMu.RLock()
+			thinkBudget, wasSet := al.sessionThinkLevel[opts.SessionKey]
+			al.sessionThinkMu.RUnlock()
+			if !wasSet {
+				thinkBudget = ThinkLow // default: 1024 tokens
+			}
+			if thinkBudget == ThinkOff {
+				delete(llmOpts, "thinking_budget_tokens")
+			} else {
+				llmOpts["thinking_budget_tokens"] = int(thinkBudget)
+			}
 		}
 
 		// Try streaming for this iteration

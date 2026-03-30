@@ -1,6 +1,7 @@
 package session
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -11,6 +12,10 @@ import (
 
 	"github.com/sipeed/makoclaw/pkg/providers"
 )
+
+// FlushCallback is called when a session is truncated, allowing callers
+// to perform any cleanup needed when history is compacted.
+type FlushCallback func(ctx context.Context, sessionKey string) error
 
 type Session struct {
 	Key      string              `json:"key"`
@@ -27,9 +32,17 @@ type Session struct {
 }
 
 type SessionManager struct {
-	sessions map[string]*Session
-	mu       sync.RWMutex
-	storage  string
+	sessions      map[string]*Session
+	mu            sync.RWMutex
+	storage       string
+	flushCallback FlushCallback
+}
+
+// SetFlushCallback registers a callback that is invoked when session history is truncated.
+func (sm *SessionManager) SetFlushCallback(fn FlushCallback) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	sm.flushCallback = fn
 }
 
 func NewSessionManager(storage string) *SessionManager {
