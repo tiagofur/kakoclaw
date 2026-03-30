@@ -31,8 +31,10 @@ func GenerateCode() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-// InsertPending upserts a pending challenge for (channel, senderID).
-// If a pending row already exists it is a no-op (deduplication).
+// InsertPending inserts a pending challenge for (channel, senderID).
+// If a pending row already exists the insert is silently ignored (DO NOTHING),
+// preserving the original code. Callers must check HasPending before generating
+// a new code to avoid issuing a second challenge to the same sender.
 func (ps *PairingStore) InsertPending(channel, senderID, code string) error {
 	_, err := ps.db.Exec(`
 		INSERT INTO pairing_store (channel, sender_id, code, pending, created_at)

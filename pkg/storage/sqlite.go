@@ -173,15 +173,15 @@ func (s *Storage) migrateUserDB() error {
 			value TEXT NOT NULL
 		);`,
 		`CREATE TABLE IF NOT EXISTS pairing_store (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    channel     TEXT    NOT NULL,
-    sender_id   TEXT    NOT NULL,
-    code        TEXT    NOT NULL,
-    pending     BOOLEAN NOT NULL DEFAULT 1,
-    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    approved_at DATETIME,
-    UNIQUE(channel, sender_id)
-);`,
+			id          INTEGER PRIMARY KEY AUTOINCREMENT,
+			channel     TEXT    NOT NULL,
+			sender_id   TEXT    NOT NULL,
+			code        TEXT    NOT NULL,
+			pending     BOOLEAN NOT NULL DEFAULT 1,
+			created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			approved_at DATETIME,
+			UNIQUE(channel, sender_id)
+		);`,
 		`CREATE INDEX IF NOT EXISTS idx_pairing_code ON pairing_store(code);`,
 	}
 

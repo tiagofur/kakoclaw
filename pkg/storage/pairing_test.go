@@ -58,6 +58,14 @@ func TestPairingStore_InsertAndApprove(t *testing.T) {
 	if !approved {
 		t.Error("expected IsApproved=true after Approve")
 	}
+
+	pending2, err := ps.HasPending("telegram", "u1")
+	if err != nil {
+		t.Fatalf("HasPending after Approve: %v", err)
+	}
+	if pending2 {
+		t.Error("approved sender must not show as pending")
+	}
 }
 
 func TestPairingStore_DeduplicatePending(t *testing.T) {
