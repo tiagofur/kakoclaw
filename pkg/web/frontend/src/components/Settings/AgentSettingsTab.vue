@@ -284,7 +284,7 @@
             </label>
             <select
               v-model="localDefaults.provider"
-              class="w-full bg-makoclaw-bg/40 border-2 border-makoclaw-border/50 rounded-2xl px-5 py-3.5 text-sm font-bold text-makoclaw-text focus:border-makoclaw-accent outline-none cursor-pointer"
+              class="w-full bg-makoclaw-surface border border-makoclaw-border/10 rounded-xl px-4 py-3 text-sm font-bold text-makoclaw-text focus:border-makoclaw-accent/50 outline-none transition-all cursor-pointer"
             >
               <option
                 v-for="p in configuredProviders"
@@ -301,7 +301,7 @@
             </label>
             <select
               v-model="localDefaults.model"
-              class="w-full bg-makoclaw-bg/40 border-2 border-makoclaw-border/50 rounded-2xl px-5 py-3.5 text-sm font-bold text-makoclaw-accent focus:border-makoclaw-accent outline-none cursor-pointer"
+              class="w-full bg-makoclaw-surface border border-makoclaw-border/10 rounded-xl px-4 py-3 text-sm font-bold text-makoclaw-accent focus:border-makoclaw-accent/50 outline-none transition-all cursor-pointer"
             >
               <optgroup
                 v-for="p in configuredProviders"
@@ -328,7 +328,7 @@
             </label>
             <select
               v-model="localImageProvider"
-              class="w-full bg-makoclaw-bg/40 border-2 border-purple-500/30 rounded-2xl px-5 py-3.5 text-sm font-bold text-purple-400 focus:border-purple-400/50 outline-none cursor-pointer"
+              class="w-full bg-makoclaw-surface border border-purple-500/30 rounded-xl px-4 py-3 text-sm font-bold text-purple-400 focus:border-purple-400/50 outline-none transition-all cursor-pointer"
               @change="localDefaults.image_model = ''"
             >
               <option v-for="p in IMAGE_PROVIDERS" :key="p.id" :value="p.id">{{ p.label }}</option>
@@ -342,7 +342,7 @@
             <select
               v-if="imageModels.length"
               v-model="localDefaults.image_model"
-              class="w-full bg-makoclaw-bg/40 border-2 border-purple-500/30 rounded-2xl px-5 py-3.5 text-sm font-bold text-purple-400 focus:border-purple-400/50 outline-none cursor-pointer"
+              class="w-full bg-makoclaw-surface border border-purple-500/30 rounded-xl px-4 py-3 text-sm font-bold text-purple-400 focus:border-purple-400/50 outline-none transition-all cursor-pointer"
             >
               <option value="">— provider default —</option>
               <option v-for="m in imageModels" :key="m" :value="m">{{ m }}</option>
