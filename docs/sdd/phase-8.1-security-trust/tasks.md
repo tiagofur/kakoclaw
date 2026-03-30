@@ -1134,3 +1134,13 @@ Commit: `feat(agent): add startup validation for unknown ActiveProfile`
 | **Total** | **23** | |
 
 **Dependency order**: Phases 1 and 2 are independent and can proceed in parallel. Phase 3 depends on Phase 1 (PairingStore). Phase 4 depends on Phase 1 (PairingStore) and Phase 3 (CommandHandler). Phase 5 depends on Phase 1 (config types). Phase 6 depends on Phase 2 (hooks package). Phases 7–8 depend on all prior phases.
+
+---
+
+## Follow-up: before_install hook call site
+
+**Status**: Deferred — tracked for next iteration
+
+The `HookContext.Event` defines `"before_install"` as a valid event type but no call site exists in the skill installation code. The hook infrastructure supports it. To complete Domain 2 of the spec, wire `al.hooks.Run("before_install", ...)` in the skills loading/installation path.
+
+**File to modify**: `pkg/skills/` or wherever skills are installed from the agent loop.

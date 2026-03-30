@@ -1,12 +1,14 @@
 package agent
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
 	"github.com/sipeed/makoclaw/pkg/config"
 	"github.com/sipeed/makoclaw/pkg/cron"
 	"github.com/sipeed/makoclaw/pkg/tools"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFilterToolsByPermissions_AdminWildcard(t *testing.T) {
@@ -261,6 +263,79 @@ func TestFilterToolsByPermissions_RoleNotDefined(t *testing.T) {
 	if tool, _ := filtered.Get("read_file"); tool != nil {
 		t.Error("Undefined role should have no tool access")
 	}
+}
+
+// fakeNamedTool is a minimal Tool implementation for permission tests.
+type fakeNamedTool struct {
+	name string
+}
+
+func (f *fakeNamedTool) Name() string                                             { return f.name }
+func (f *fakeNamedTool) Description() string                                      { return f.name }
+func (f *fakeNamedTool) Parameters() map[string]interface{}                       { return map[string]interface{}{} }
+func (f *fakeNamedTool) Execute(_ context.Context, _ map[string]interface{}) (string, error) {
+	return "", nil
+}
+
+// toolNames returns all registered tool names from a registry.
+func toolNames(r *tools.ToolRegistry) []string {
+	return r.List()
+}
+
+func TestFilterToolsByPermissions_MessagingProfileDeniesExec(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.ToolPermissions.ActiveProfile = "messaging"
+
+	base := tools.NewToolRegistry()
+	base.Register(&fakeNamedTool{name: "exec"})
+	base.Register(&fakeNamedTool{name: "write_file"})
+	base.Register(&fakeNamedTool{name: "message"})
+
+	filtered := filterToolsByPermissions(base, "admin", 0, cfg, nil)
+	names := toolNames(filtered)
+	require.NotContains(t, names, "exec")
+	require.NotContains(t, names, "write_file")
+	require.Contains(t, names, "message")
+}
+
+func TestFilterToolsByPermissions_MinimalProfileAllowsOnlyDeclared(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.ToolPermissions.ActiveProfile = "minimal"
+
+	base := tools.NewToolRegistry()
+	base.Register(&fakeNamedTool{name: "exec"})
+	base.Register(&fakeNamedTool{name: "message"})
+	base.Register(&fakeNamedTool{name: "query_knowledge"})
+	base.Register(&fakeNamedTool{name: "read_file"})
+
+	filtered := filterToolsByPermissions(base, "admin", 0, cfg, nil)
+	names := toolNames(filtered)
+	require.ElementsMatch(t, []string{"message", "query_knowledge"}, names)
+}
+
+func TestFilterToolsByPermissions_UnknownProfileReturnsEmpty(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.ToolPermissions.ActiveProfile = "nonexistent"
+
+	base := tools.NewToolRegistry()
+	base.Register(&fakeNamedTool{name: "exec"})
+
+	filtered := filterToolsByPermissions(base, "admin", 0, cfg, nil)
+	require.Equal(t, 0, len(toolNames(filtered)))
+}
+
+func TestFilterToolsByPermissions_NoProfilePreservesRoleDefaults(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.ToolPermissions.ActiveProfile = "" // no profile
+
+	base := tools.NewToolRegistry()
+	base.Register(&fakeNamedTool{name: "exec"})
+	base.Register(&fakeNamedTool{name: "message"})
+
+	filtered := filterToolsByPermissions(base, "admin", 0, cfg, nil)
+	names := toolNames(filtered)
+	require.Contains(t, names, "exec")
+	require.Contains(t, names, "message")
 }
 
 func TestFilterToolsByPermissions_CaseSensitivity(t *testing.T) {
