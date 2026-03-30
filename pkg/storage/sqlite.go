@@ -172,6 +172,17 @@ func (s *Storage) migrateUserDB() error {
 			key   TEXT PRIMARY KEY,
 			value TEXT NOT NULL
 		);`,
+		`CREATE TABLE IF NOT EXISTS pairing_store (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    channel     TEXT    NOT NULL,
+    sender_id   TEXT    NOT NULL,
+    code        TEXT    NOT NULL,
+    pending     BOOLEAN NOT NULL DEFAULT 1,
+    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    approved_at DATETIME,
+    UNIQUE(channel, sender_id)
+);`,
+		`CREATE INDEX IF NOT EXISTS idx_pairing_code ON pairing_store(code);`,
 	}
 
 	for _, query := range queries {
@@ -225,6 +236,11 @@ func escapeLikeQuery(query string) string {
 func (s *Storage) Close() error {
 	_, _ = s.db.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
 	return s.db.Close()
+}
+
+// Pairing returns a PairingStore backed by this storage's DB.
+func (s *Storage) Pairing() *PairingStore {
+	return NewPairingStore(s.db)
 }
 
 func (s *Storage) migrate() error {
