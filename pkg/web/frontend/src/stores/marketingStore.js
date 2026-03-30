@@ -13,6 +13,18 @@ export const useMarketingStore = defineStore('marketing', () => {
   const loadingDetail = ref(false)
   const expandedAccounts = ref(new Set())
 
+  const audienceContacts = ref([])
+  const audienceContactsTotal = ref(0)
+  const audienceContactsPage = ref(1)
+  const audienceContactsLoading = ref(false)
+  const audienceLists = ref([])
+  const audienceListsLoading = ref(false)
+  const audienceSegments = ref([])
+  const audienceSegmentsLoading = ref(false)
+  const audienceDeliveries = ref([])
+  const audienceDeliveriesTotal = ref(0)
+  const audienceDeliveriesLoading = ref(false)
+
   let pollInterval = null
 
   function matchesCampaign(candidate, account, campaign) {
@@ -266,6 +278,159 @@ export const useMarketingStore = defineStore('marketing', () => {
     }
   }
 
+  async function fetchAudienceContacts(params = {}) {
+    audienceContactsLoading.value = true
+
+    try {
+      const response = await marketingService.audienceListContacts(params)
+      audienceContacts.value = response.data?.contacts || []
+      audienceContactsTotal.value = response.data?.total || 0
+      audienceContactsPage.value = response.data?.page || 1
+      return response.data
+    } catch (error) {
+      console.error('Failed to load audience contacts:', error)
+      audienceContacts.value = []
+      audienceContactsTotal.value = 0
+      throw error
+    } finally {
+      audienceContactsLoading.value = false
+    }
+  }
+
+  async function createAudienceContact(data) {
+    const response = await marketingService.audienceCreateContact(data)
+    await fetchAudienceContacts({ page: audienceContactsPage.value })
+    return response.data
+  }
+
+  async function updateAudienceContact(id, data) {
+    const response = await marketingService.audienceUpdateContact(id, data)
+    await fetchAudienceContacts({ page: audienceContactsPage.value })
+    return response.data
+  }
+
+  async function deleteAudienceContact(id) {
+    await marketingService.audienceDeleteContact(id)
+    await fetchAudienceContacts({ page: audienceContactsPage.value })
+  }
+
+  async function importAudienceContacts(formData) {
+    const response = await marketingService.audienceImportContacts(formData)
+    await fetchAudienceContacts({ page: 1 })
+    return response.data
+  }
+
+  async function exportAudienceContacts(params = {}) {
+    const response = await marketingService.audienceExportContacts(params)
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', 'contacts.csv')
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
+  }
+
+  async function fetchAudienceLists(params = {}) {
+    audienceListsLoading.value = true
+
+    try {
+      const response = await marketingService.audienceListLists(params)
+      audienceLists.value = response.data?.lists || []
+      return response.data
+    } catch (error) {
+      console.error('Failed to load audience lists:', error)
+      audienceLists.value = []
+      throw error
+    } finally {
+      audienceListsLoading.value = false
+    }
+  }
+
+  async function createAudienceList(data) {
+    const response = await marketingService.audienceCreateList(data)
+    await fetchAudienceLists()
+    return response.data
+  }
+
+  async function updateAudienceList(id, data) {
+    const response = await marketingService.audienceUpdateList(id, data)
+    await fetchAudienceLists()
+    return response.data
+  }
+
+  async function deleteAudienceList(id) {
+    await marketingService.audienceDeleteList(id)
+    await fetchAudienceLists()
+  }
+
+  async function addAudienceListMember(listId, contactId) {
+    const response = await marketingService.audienceAddListMember(listId, contactId)
+    return response.data
+  }
+
+  async function removeAudienceListMember(listId, contactId) {
+    await marketingService.audienceRemoveListMember(listId, contactId)
+  }
+
+  async function fetchAudienceSegments(params = {}) {
+    audienceSegmentsLoading.value = true
+
+    try {
+      const response = await marketingService.audienceListSegments(params)
+      audienceSegments.value = response.data?.segments || []
+      return response.data
+    } catch (error) {
+      console.error('Failed to load audience segments:', error)
+      audienceSegments.value = []
+      throw error
+    } finally {
+      audienceSegmentsLoading.value = false
+    }
+  }
+
+  async function createAudienceSegment(data) {
+    const response = await marketingService.audienceCreateSegment(data)
+    await fetchAudienceSegments()
+    return response.data
+  }
+
+  async function updateAudienceSegment(id, data) {
+    const response = await marketingService.audienceUpdateSegment(id, data)
+    await fetchAudienceSegments()
+    return response.data
+  }
+
+  async function deleteAudienceSegment(id) {
+    await marketingService.audienceDeleteSegment(id)
+    await fetchAudienceSegments()
+  }
+
+  async function fetchAudienceDeliveries(params = {}) {
+    audienceDeliveriesLoading.value = true
+
+    try {
+      const response = await marketingService.audienceListDeliveries(params)
+      audienceDeliveries.value = response.data?.deliveries || []
+      audienceDeliveriesTotal.value = response.data?.total || 0
+      return response.data
+    } catch (error) {
+      console.error('Failed to load audience deliveries:', error)
+      audienceDeliveries.value = []
+      audienceDeliveriesTotal.value = 0
+      throw error
+    } finally {
+      audienceDeliveriesLoading.value = false
+    }
+  }
+
+  async function sendAudienceEmail(data) {
+    const response = await marketingService.audienceSendToList(data)
+    await fetchAudienceDeliveries()
+    return response.data
+  }
+
   function startPolling() {
     stopPolling()
 
@@ -313,6 +478,35 @@ export const useMarketingStore = defineStore('marketing', () => {
     copyMediaToCampaign,
     fetchAnalyticsSummary,
     startPolling,
-    stopPolling
+    stopPolling,
+    audienceContacts,
+    audienceContactsTotal,
+    audienceContactsPage,
+    audienceContactsLoading,
+    audienceLists,
+    audienceListsLoading,
+    audienceSegments,
+    audienceSegmentsLoading,
+    audienceDeliveries,
+    audienceDeliveriesTotal,
+    audienceDeliveriesLoading,
+    fetchAudienceContacts,
+    createAudienceContact,
+    updateAudienceContact,
+    deleteAudienceContact,
+    importAudienceContacts,
+    exportAudienceContacts,
+    fetchAudienceLists,
+    createAudienceList,
+    updateAudienceList,
+    deleteAudienceList,
+    addAudienceListMember,
+    removeAudienceListMember,
+    fetchAudienceSegments,
+    createAudienceSegment,
+    updateAudienceSegment,
+    deleteAudienceSegment,
+    fetchAudienceDeliveries,
+    sendAudienceEmail
   }
 })

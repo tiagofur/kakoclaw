@@ -213,7 +213,81 @@ func (s *Storage) migrateUserDB() error {
 	if err := s.migratePackages(); err != nil {
 		return fmt.Errorf("packages migration: %w", err)
 	}
+	if err := s.migrateMarketingAudience(); err != nil {
+		return fmt.Errorf("marketing audience migration: %w", err)
+	}
 
+	return nil
+}
+
+func (s *Storage) migrateMarketingAudience() error {
+	queries := []string{
+		`CREATE TABLE IF NOT EXISTS contacts (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			email TEXT NOT NULL UNIQUE,
+			first_name TEXT DEFAULT '',
+			last_name TEXT DEFAULT '',
+			phone TEXT DEFAULT '',
+			company TEXT DEFAULT '',
+			title TEXT DEFAULT '',
+			tags TEXT DEFAULT '[]',
+			custom_fields TEXT DEFAULT '{}',
+			status TEXT DEFAULT 'active',
+			source TEXT DEFAULT 'manual',
+			subscribed_at DATETIME,
+			unsubscribed_at DATETIME,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		);`,
+		`CREATE TABLE IF NOT EXISTS contact_lists (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL,
+			slug TEXT NOT NULL UNIQUE,
+			description TEXT DEFAULT '',
+			type TEXT DEFAULT 'static',
+			account TEXT DEFAULT '',
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		);`,
+		`CREATE TABLE IF NOT EXISTS contact_list_members (
+			contact_id INTEGER NOT NULL,
+			list_id INTEGER NOT NULL,
+			added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (contact_id, list_id)
+		);`,
+		`CREATE TABLE IF NOT EXISTS segments (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL,
+			slug TEXT NOT NULL UNIQUE,
+			description TEXT DEFAULT '',
+			rules TEXT DEFAULT '[]',
+			account TEXT DEFAULT '',
+			contact_count INTEGER DEFAULT 0,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		);`,
+		`CREATE TABLE IF NOT EXISTS email_deliveries (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			campaign_account TEXT DEFAULT '',
+			campaign_name TEXT DEFAULT '',
+			contact_id INTEGER,
+			subject TEXT DEFAULT '',
+			status TEXT DEFAULT 'queued',
+			provider_message_id TEXT DEFAULT '',
+			sent_at DATETIME,
+			delivered_at DATETIME,
+			opened_at DATETIME,
+			clicked_at DATETIME,
+			bounced_at DATETIME,
+			error TEXT DEFAULT '',
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		);`,
+	}
+	for _, q := range queries {
+		if _, err := s.db.Exec(q); err != nil {
+			return fmt.Errorf("marketing audience migration query: %w", err)
+		}
+	}
 	return nil
 }
 
