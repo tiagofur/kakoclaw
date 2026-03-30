@@ -44,71 +44,114 @@ func filterToolsByPermissions(
 		}
 	}
 
-	// If wildcard, return base registry unchanged (but still configure exec allowlist for non-admins)
+	var filteredRegistry *tools.ToolRegistry
+
 	if hasWildcard {
 		logger.InfoCF("agent", "User has full tool access", map[string]interface{}{
 			"role":    userRole,
 			"user_id": userID,
 		})
 		// Admin gets full exec access - no allowlist
-		return baseRegistry
-	}
-
-	// Build permission map for quick lookup
-	allowedTools := make(map[string]bool)
-	hasRestrictedExec := false
-	for _, tool := range effectivePermissions {
-		if tool == "exec_restricted" {
-			hasRestrictedExec = true
-			allowedTools["exec"] = true // Allow exec but will configure allowlist
-		} else {
-			allowedTools[tool] = true
-		}
-	}
-
-	// Create filtered registry
-	filtered := tools.NewToolRegistry()
-	allTools := baseRegistry.List()
-
-	for _, toolName := range allTools {
-		if allowedTools[toolName] {
-			if tool, ok := baseRegistry.Get(toolName); ok {
-				// Special handling for exec tool with restricted access
-				if toolName == "exec" && hasRestrictedExec {
-					if execTool, ok := tool.(*tools.ExecTool); ok {
-						// Configure safe command allowlist
-						commands := cfg.ToolPermissions.AllowedShellCommands
-						if len(commands) == 0 {
-							commands = tools.SafeShellCommands
-						}
-						if err := execTool.SetSafeCommandsForUser(commands); err != nil {
-							// FAIL-CLOSED: Do not register exec tool if allowlist setup fails
-							logger.ErrorCF("agent", "Failed to set shell allowlist - exec tool NOT registered (fail-closed)", map[string]interface{}{
-								"error":   err.Error(),
-								"user_id": userID,
-							})
-							continue // Skip registering this tool
-						}
-						logger.InfoCF("agent", "Configured restricted shell access", map[string]interface{}{
-							"user_id":          userID,
-							"allowed_commands": len(commands),
-						})
-					}
-				}
-				filtered.Register(tool)
+		filteredRegistry = baseRegistry
+	} else {
+		// Build permission map for quick lookup
+		allowedTools := make(map[string]bool)
+		hasRestrictedExec := false
+		for _, tool := range effectivePermissions {
+			if tool == "exec_restricted" {
+				hasRestrictedExec = true
+				allowedTools["exec"] = true // Allow exec but will configure allowlist
+			} else {
+				allowedTools[tool] = true
 			}
 		}
+
+		// Create filtered registry
+		filtered := tools.NewToolRegistry()
+		allTools := baseRegistry.List()
+
+		for _, toolName := range allTools {
+			if allowedTools[toolName] {
+				if tool, ok := baseRegistry.Get(toolName); ok {
+					// Special handling for exec tool with restricted access
+					if toolName == "exec" && hasRestrictedExec {
+						if execTool, ok := tool.(*tools.ExecTool); ok {
+							// Configure safe command allowlist
+							commands := cfg.ToolPermissions.AllowedShellCommands
+							if len(commands) == 0 {
+								commands = tools.SafeShellCommands
+							}
+							if err := execTool.SetSafeCommandsForUser(commands); err != nil {
+								// FAIL-CLOSED: Do not register exec tool if allowlist setup fails
+								logger.ErrorCF("agent", "Failed to set shell allowlist - exec tool NOT registered (fail-closed)", map[string]interface{}{
+									"error":   err.Error(),
+									"user_id": userID,
+								})
+								continue // Skip registering this tool
+							}
+							logger.InfoCF("agent", "Configured restricted shell access", map[string]interface{}{
+								"user_id":          userID,
+								"allowed_commands": len(commands),
+							})
+						}
+					}
+					filtered.Register(tool)
+				}
+			}
+		}
+
+		allowedList := filtered.List()
+		logger.InfoCF("agent", "Tools filtered by permissions", map[string]interface{}{
+			"role":          userRole,
+			"user_id":       userID,
+			"allowed_count": len(allowedList),
+			"allowed_tools": allowedList,
+		})
+
+		filteredRegistry = filtered
 	}
 
-	allowedList := filtered.List()
-	logger.InfoCF("agent", "Tools filtered by permissions", map[string]interface{}{
-		"role":          userRole,
-		"user_id":       userID,
-		"allowed_count": len(allowedList),
-		"allowed_tools": allowedList,
+	// Apply active tool profile (narrows the already role-filtered set).
+	if profile := cfg.ToolPermissions.ActiveProfile; profile != "" {
+		profileCfg, ok := cfg.ToolPermissions.ToolProfiles[profile]
+		if !ok {
+			logger.WarnCF("agent", "Unknown tool profile, denying all tools", map[string]interface{}{
+				"profile": profile,
+			})
+			return tools.NewToolRegistry()
+		}
+		filteredRegistry = applyToolProfile(filteredRegistry, profileCfg)
+	}
+
+	return filteredRegistry
+}
+
+// applyToolProfile applies an allow/deny list from a ToolProfileConfig.
+func applyToolProfile(registry *tools.ToolRegistry, profile config.ToolProfileConfig) *tools.ToolRegistry {
+	result := tools.NewToolRegistry()
+
+	denySet := make(map[string]bool, len(profile.Deny))
+	for _, name := range profile.Deny {
+		denySet[name] = true
+	}
+
+	allowSet := make(map[string]bool, len(profile.Allow))
+	for _, name := range profile.Allow {
+		allowSet[name] = true
+	}
+
+	registry.ForEach(func(tool tools.Tool) {
+		name := tool.Name()
+		if denySet[name] {
+			return
+		}
+		if len(allowSet) > 0 && !allowSet[name] {
+			return
+		}
+		result.Register(tool)
 	})
 
-	return filtered
+	return result
 }
 
 // configureExecToolForRole applies shell command restrictions to an exec tool based on user role
