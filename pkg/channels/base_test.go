@@ -1,8 +1,13 @@
 package channels
 
 import (
+	"context"
 	"fmt"
+	"path/filepath"
 	"testing"
+
+	"github.com/sipeed/makoclaw/pkg/bus"
+	"github.com/sipeed/makoclaw/pkg/storage"
 )
 
 func TestBaseChannel_IsAllowed(t *testing.T) {
@@ -193,5 +198,72 @@ func TestBaseChannel_DMPolicy_Allowlist(t *testing.T) {
 	}
 	if !b.ShouldDispatch("known") {
 		t.Error("ShouldDispatch(known) = false with allowlist policy, want true")
+	}
+}
+
+func TestBaseChannel_DMPolicy_Pairing_Approved(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.db")
+	s, err := storage.NewUserStorage(path)
+	if err != nil {
+		t.Fatalf("NewUserStorage: %v", err)
+	}
+	defer s.Close()
+	ps := s.Pairing()
+
+	// Pre-approve the sender
+	if err := ps.InsertPending("test", "approved-user", "code1"); err != nil {
+		t.Fatalf("InsertPending: %v", err)
+	}
+	if _, err := ps.Approve("test", "code1"); err != nil {
+		t.Fatalf("Approve: %v", err)
+	}
+
+	b := NewBaseChannel("test", nil, nil, nil)
+	b.SetDMPolicy("pairing", ps)
+
+	if !b.ShouldDispatch("approved-user") {
+		t.Error("ShouldDispatch(approved-user) = false, want true")
+	}
+	if b.ShouldDispatch("unknown-user") {
+		t.Error("ShouldDispatch(unknown-user) = true, want false")
+	}
+}
+
+func TestBaseChannel_HandleMessage_DMPolicy_Blocks(t *testing.T) {
+	b := NewBaseChannel("test", nil, nil, nil)
+	b.SetDMPolicy("disabled", nil)
+
+	// disabled policy returns before touching the bus, so nil bus is safe.
+	err := b.HandleMessage("any-sender", "chat1", "hello", nil, nil)
+	if err != nil {
+		t.Errorf("HandleMessage() returned err = %v, want nil", err)
+	}
+}
+
+func TestBaseChannel_HandleMessage_DMPolicy_Open_Passes(t *testing.T) {
+	mb := bus.NewMessageBus()
+	defer mb.Close()
+
+	b := NewBaseChannel("test", nil, mb, nil)
+	b.SetDMPolicy("open", nil)
+
+	err := b.HandleMessage("any-sender", "chat1", "hello", nil, nil)
+	if err != nil {
+		t.Errorf("HandleMessage() returned err = %v, want nil", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel immediately so ConsumeInbound returns quickly
+	msg, ok := mb.ConsumeInbound(ctx)
+	if !ok {
+		// The message was published but context was already cancelled before we consumed.
+		// Try a non-blocking read via a fresh background context with a tiny deadline.
+		ctx2, cancel2 := context.WithCancel(context.Background())
+		defer cancel2()
+		msg, ok = mb.ConsumeInbound(ctx2)
+		cancel2()
+	}
+	if !ok || msg.SenderID != "any-sender" {
+		t.Error("open policy must dispatch the message onto the bus")
 	}
 }
