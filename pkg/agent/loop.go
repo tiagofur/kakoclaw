@@ -452,6 +452,7 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 		}
 	}
 	toolsRegistry.Register(tools.NewImageGenerateTool(imageProvider, workspace, restrict))
+	toolsRegistry.Register(tools.NewShowImageTool(workspace))
 
 	// Register social media tools (native platform providers — zero cost)
 	socialProvider := tools.NewMultiPlatformProvider(cfg.Tools.SocialMedia)

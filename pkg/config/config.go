@@ -652,6 +652,7 @@ func DefaultConfig() *Config {
 					"web_fetch",
 					// Marketing & creative
 					"image_generate",
+					"show_image",
 					"social_post",
 					"social_analytics",
 					// Communication

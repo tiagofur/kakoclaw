@@ -38,7 +38,7 @@ func (t *ImageGenerateTool) Name() string {
 }
 
 func (t *ImageGenerateTool) Description() string {
-	return "Generate images using AI. Provide a detailed text description and get back an image saved to your workspace."
+	return "Generate images using AI. The generated image will be automatically displayed as an inline visual preview in the chat — the user will see it and can download it directly. Provide a detailed text description of the image to create."
 }
 
 func (t *ImageGenerateTool) Parameters() map[string]any {
@@ -174,6 +174,65 @@ func (t *ImageGenerateTool) Execute(ctx context.Context, args map[string]any) (s
 		"revised_prompt":  result.Revised,
 	}
 
+	resultJSON, err := json.MarshalIndent(output, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal result: %w", err)
+	}
+	return string(resultJSON), nil
+}
+
+// ShowImageTool displays an existing workspace image as an inline preview in chat.
+type ShowImageTool struct {
+	workspace string
+}
+
+func NewShowImageTool(workspace string) *ShowImageTool {
+	return &ShowImageTool{workspace: workspace}
+}
+
+func (t *ShowImageTool) Name() string { return "show_image" }
+
+func (t *ShowImageTool) Description() string {
+	return "Display an existing image file from the workspace as an inline visual preview in the chat. The user will see the image and can download it. Provide the relative path to the image file (e.g. 'generated-images/photo.png')."
+}
+
+func (t *ShowImageTool) Parameters() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"path": map[string]any{
+				"type":        "string",
+				"description": "Relative path to the image file within the workspace",
+			},
+		},
+		"required": []string{"path"},
+	}
+}
+
+func (t *ShowImageTool) SetWorkspace(workspace string) { t.workspace = workspace }
+
+func (t *ShowImageTool) Execute(_ context.Context, args map[string]any) (string, error) {
+	relPath, ok := args["path"].(string)
+	if !ok || strings.TrimSpace(relPath) == "" {
+		return "", fmt.Errorf("path is required")
+	}
+
+	absPath := filepath.Join(t.workspace, relPath)
+	if _, err := os.Stat(absPath); err != nil {
+		return fmt.Sprintf("Error: file not found at path %q", relPath), nil
+	}
+
+	ext := strings.ToLower(filepath.Ext(absPath))
+	imageExts := map[string]bool{".png": true, ".jpg": true, ".jpeg": true, ".gif": true, ".webp": true, ".svg": true}
+	if !imageExts[ext] {
+		return fmt.Sprintf("Error: %q is not a supported image file (png, jpg, jpeg, gif, webp, svg)", relPath), nil
+	}
+
+	output := map[string]any{
+		"url":            "",
+		"local_path":     absPath,
+		"revised_prompt": "",
+	}
 	resultJSON, err := json.MarshalIndent(output, "", "  ")
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal result: %w", err)

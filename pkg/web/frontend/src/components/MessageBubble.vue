@@ -282,8 +282,9 @@ const workspaceRoot = computed(() => authStore.user?.workspace || '')
 const inlineImages = computed(() => {
   const toolCalls = props.msg?.toolCalls || props.msg?.tool_calls || []
 
+  const imageToolNames = new Set(['image_generate', 'show_image'])
   return toolCalls
-    .filter(toolCall => toolCall?.name === 'image_generate' || toolCall?.function?.name === 'image_generate')
+    .filter(toolCall => imageToolNames.has(toolCall?.name) || imageToolNames.has(toolCall?.function?.name))
     .map((toolCall, index) => {
       const parsed = extractImageResultData(toolCall.result || toolCall.content)
       if (!parsed) return null
