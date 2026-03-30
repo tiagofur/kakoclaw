@@ -234,12 +234,29 @@ func (sm *SessionManager) TruncateHistory(key string, keepLast int) {
 }
 
 // TruncateHistoryForUser removes all but the last keepLast messages from a user's session.
+// If a FlushCallback is registered and the session has more messages than keepLast, it is
+// called before truncation with a 30-second deadline. Truncation proceeds even if the
+// callback errors or times out.
 func (sm *SessionManager) TruncateHistoryForUser(userID int64, key string, keepLast int) {
 	nsKey := sm.namespaceKey(userID, key)
+
+	// Check whether flush is needed before acquiring the write lock.
+	sm.mu.RLock()
+	session, ok := sm.sessions[nsKey]
+	needsFlush := ok && sm.flushCallback != nil && len(session.Messages) > keepLast
+	cb := sm.flushCallback
+	sm.mu.RUnlock()
+
+	if needsFlush {
+		ctx30s, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		_ = cb(ctx30s, nsKey)
+	}
+
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
-	session, ok := sm.sessions[nsKey]
+	session, ok = sm.sessions[nsKey]
 	if !ok {
 		return
 	}

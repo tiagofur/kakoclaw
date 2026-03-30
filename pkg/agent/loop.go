@@ -68,6 +68,7 @@ type AgentLoop struct {
 	tools              *tools.ToolRegistry
 	baseTools          *tools.ToolRegistry // Unfiltered tools (before permission filtering)
 	running            atomic.Bool
+	flushInProgress    atomic.Bool               // Re-entrancy guard for the flush callback
 	summarizing        sync.Map                  // Tracks which sessions are currently being summarized
 	storage            *storage.Storage
 	autoCreatedStorage bool                      // True if storage was created by NewAgentLoop (not injected)
@@ -544,6 +545,30 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 
 	sessionsManager := session.NewSessionManager(filepath.Join(workspace, "sessions"))
 
+	// Wire flush callback — runs a synthetic memory-save agent turn before compaction.
+	// Captured as a local reference; the AgentLoop pointer is filled after construction,
+	// so we use a pointer-to-pointer trick via a closure over a *AgentLoop variable that
+	// is set immediately after the struct literal below.
+	var loopRef *AgentLoop
+	sessionsManager.SetFlushCallback(func(ctx context.Context, sessionKey string) error {
+		if loopRef == nil {
+			return nil
+		}
+		if !loopRef.flushInProgress.CompareAndSwap(false, true) {
+			return nil // re-entrant call — skip to avoid infinite recursion
+		}
+		defer loopRef.flushInProgress.Store(false)
+		if _, ok := loopRef.tools.Get("query_knowledge"); !ok {
+			return nil
+		}
+		syntheticMsg := "Before we continue, save any important facts, decisions, and in-progress work to the knowledge base."
+		_, _ = loopRef.runAgentLoop(ctx, processOptions{
+			UserMessage: syntheticMsg,
+			SessionKey:  sessionKey,
+		})
+		return nil
+	})
+
 	// Create context builder and set tools registry
 	contextBuilder := NewContextBuilder(workspace)
 	contextBuilder.SetToolsRegistry(toolsRegistry)
@@ -563,7 +588,7 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 		}
 	}
 
-	return &AgentLoop{
+	al := &AgentLoop{
 		bus:                msgBus,
 		provider:           provider,
 		workspace:          workspace,
@@ -589,6 +614,9 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 		costTracker:        NewAgentCostTracker(),
 		sessionThinkLevel:  make(map[string]ThinkLevel),
 	}
+	// Resolve the flush callback's self-reference now that the AgentLoop is constructed.
+	loopRef = al
+	return al
 }
 
 // SetCentralStorage sets the central database storage for user identity lookups.
@@ -1849,6 +1877,7 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 			}
 			if thinkBudget == ThinkOff {
 				delete(llmOpts, "thinking_budget_tokens")
+				delete(llmOpts, "extended_thinking")
 			} else {
 				llmOpts["thinking_budget_tokens"] = int(thinkBudget)
 			}
