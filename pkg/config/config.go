@@ -211,6 +211,7 @@ type WhatsAppConfig struct {
 	Enabled   bool                `json:"enabled" env:"MAKOCLAW_CHANNELS_WHATSAPP_ENABLED"`
 	BridgeURL string              `json:"bridge_url" env:"MAKOCLAW_CHANNELS_WHATSAPP_BRIDGE_URL"`
 	AllowFrom FlexibleStringSlice `json:"allow_from" env:"MAKOCLAW_CHANNELS_WHATSAPP_ALLOW_FROM"`
+	DMPolicy  string              `json:"dm_policy,omitempty" env:"MAKOCLAW_CHANNELS_WHATSAPP_DM_POLICY"`
 }
 
 type TelegramConfig struct {
@@ -218,6 +219,7 @@ type TelegramConfig struct {
 	Token     string              `json:"token" env:"MAKOCLAW_CHANNELS_TELEGRAM_TOKEN"`
 	Proxy     string              `json:"proxy" env:"MAKOCLAW_CHANNELS_TELEGRAM_PROXY"`
 	AllowFrom FlexibleStringSlice `json:"allow_from" env:"MAKOCLAW_CHANNELS_TELEGRAM_ALLOW_FROM"`
+	DMPolicy  string              `json:"dm_policy,omitempty" env:"MAKOCLAW_CHANNELS_TELEGRAM_DM_POLICY"`
 }
 
 type FeishuConfig struct {
@@ -227,12 +229,14 @@ type FeishuConfig struct {
 	EncryptKey        string              `json:"encrypt_key" env:"MAKOCLAW_CHANNELS_FEISHU_ENCRYPT_KEY"`
 	VerificationToken string              `json:"verification_token" env:"MAKOCLAW_CHANNELS_FEISHU_VERIFICATION_TOKEN"`
 	AllowFrom         FlexibleStringSlice `json:"allow_from" env:"MAKOCLAW_CHANNELS_FEISHU_ALLOW_FROM"`
+	DMPolicy          string              `json:"dm_policy,omitempty" env:"MAKOCLAW_CHANNELS_FEISHU_DM_POLICY"`
 }
 
 type DiscordConfig struct {
 	Enabled   bool                `json:"enabled" env:"MAKOCLAW_CHANNELS_DISCORD_ENABLED"`
 	Token     string              `json:"token" env:"MAKOCLAW_CHANNELS_DISCORD_TOKEN"`
 	AllowFrom FlexibleStringSlice `json:"allow_from" env:"MAKOCLAW_CHANNELS_DISCORD_ALLOW_FROM"`
+	DMPolicy  string              `json:"dm_policy,omitempty" env:"MAKOCLAW_CHANNELS_DISCORD_DM_POLICY"`
 }
 
 type MaixCamConfig struct {
@@ -240,6 +244,7 @@ type MaixCamConfig struct {
 	Host      string              `json:"host" env:"MAKOCLAW_CHANNELS_MAIXCAM_HOST"`
 	Port      int                 `json:"port" env:"MAKOCLAW_CHANNELS_MAIXCAM_PORT"`
 	AllowFrom FlexibleStringSlice `json:"allow_from" env:"MAKOCLAW_CHANNELS_MAIXCAM_ALLOW_FROM"`
+	DMPolicy  string              `json:"dm_policy,omitempty" env:"MAKOCLAW_CHANNELS_MAIXCAM_DM_POLICY"`
 }
 
 type QQConfig struct {
@@ -247,6 +252,7 @@ type QQConfig struct {
 	AppID     string              `json:"app_id" env:"MAKOCLAW_CHANNELS_QQ_APP_ID"`
 	AppSecret string              `json:"app_secret" env:"MAKOCLAW_CHANNELS_QQ_APP_SECRET"`
 	AllowFrom FlexibleStringSlice `json:"allow_from" env:"MAKOCLAW_CHANNELS_QQ_ALLOW_FROM"`
+	DMPolicy  string              `json:"dm_policy,omitempty" env:"MAKOCLAW_CHANNELS_QQ_DM_POLICY"`
 }
 
 type DingTalkConfig struct {
@@ -254,6 +260,7 @@ type DingTalkConfig struct {
 	ClientID     string              `json:"client_id" env:"MAKOCLAW_CHANNELS_DINGTALK_CLIENT_ID"`
 	ClientSecret string              `json:"client_secret" env:"MAKOCLAW_CHANNELS_DINGTALK_CLIENT_SECRET"`
 	AllowFrom    FlexibleStringSlice `json:"allow_from" env:"MAKOCLAW_CHANNELS_DINGTALK_ALLOW_FROM"`
+	DMPolicy     string              `json:"dm_policy,omitempty" env:"MAKOCLAW_CHANNELS_DINGTALK_DM_POLICY"`
 }
 
 type SlackConfig struct {
@@ -261,12 +268,14 @@ type SlackConfig struct {
 	BotToken  string              `json:"bot_token" env:"MAKOCLAW_CHANNELS_SLACK_BOT_TOKEN"`
 	AppToken  string              `json:"app_token" env:"MAKOCLAW_CHANNELS_SLACK_APP_TOKEN"`
 	AllowFrom FlexibleStringSlice `json:"allow_from" env:"MAKOCLAW_CHANNELS_SLACK_ALLOW_FROM"`
+	DMPolicy  string              `json:"dm_policy,omitempty" env:"MAKOCLAW_CHANNELS_SLACK_DM_POLICY"`
 }
 
 type SignalConfig struct {
 	Enabled     bool                `json:"enabled" env:"MAKOCLAW_CHANNELS_SIGNAL_ENABLED"`
 	PhoneNumber string              `json:"phone_number" env:"MAKOCLAW_CHANNELS_SIGNAL_PHONE_NUMBER"`
 	AllowFrom   FlexibleStringSlice `json:"allow_from" env:"MAKOCLAW_CHANNELS_SIGNAL_ALLOW_FROM"`
+	DMPolicy    string              `json:"dm_policy,omitempty" env:"MAKOCLAW_CHANNELS_SIGNAL_DM_POLICY"`
 }
 
 type ProvidersConfig struct {
@@ -484,6 +493,13 @@ type EmailToolsConfig struct {
 	To       string `json:"to" env:"MAKOCLAW_TOOLS_EMAIL_TO"`
 }
 
+// ToolProfileConfig defines a named tool-access preset.
+type ToolProfileConfig struct {
+	Allow        []string `json:"allow"`        // tool names; empty = unrestricted
+	Deny         []string `json:"deny"`          // tool names always removed
+	ExecSecurity string   `json:"exec_security"` // "deny" | "ask" | "full"
+}
+
 // ToolPermissionsConfig defines tool access control by role and user overrides
 type ToolPermissionsConfig struct {
 	// RoleDefaults maps role names ("admin", "user") to lists of allowed tools
@@ -498,6 +514,12 @@ type ToolPermissionsConfig struct {
 	// UserOverrides maps usernames to custom tool lists, overriding role defaults
 	// Use null/empty to reset to role defaults
 	UserOverrides map[string][]string `json:"user_overrides,omitempty"`
+
+	// ToolProfiles is a map of named tool-access presets.
+	ToolProfiles map[string]ToolProfileConfig `json:"tool_profiles,omitempty"`
+
+	// ActiveProfile is the name of the currently active tool profile (empty = none).
+	ActiveProfile string `json:"active_profile,omitempty"`
 }
 
 func DefaultConfig() *Config {
@@ -667,6 +689,21 @@ func DefaultConfig() *Config {
 				"which", "wc", "sort", "uniq", "diff", "tree", "file", "stat",
 			},
 			UserOverrides: map[string][]string{},
+			ToolProfiles: map[string]ToolProfileConfig{
+				"messaging": {
+					Deny:         []string{"exec", "write_file"},
+					ExecSecurity: "deny",
+				},
+				"developer": {
+					Allow:        []string{},
+					ExecSecurity: "full",
+				},
+				"minimal": {
+					Allow:        []string{"message", "query_knowledge"},
+					ExecSecurity: "deny",
+				},
+			},
+			ActiveProfile: "",
 		},
 		Storage: StorageConfig{
 			Path: "~/.MakoClaw/makoclaw.db",

@@ -80,6 +80,13 @@ The system MUST provide a `pairing_store` storage table for challenge codes and 
 - THEN the system MUST NOT issue a second challenge
 - AND MUST reuse or refresh the existing pending code
 
+#### Scenario: /approve with unknown code returns error
+
+- GIVEN no pending challenge exists for the supplied code
+- WHEN the owner executes `/approve <channel> <code>`
+- THEN the system MUST return an error message
+- AND no sender MUST be added to the allowlist
+
 ---
 
 ## Domain 2: Security Hooks
@@ -127,6 +134,13 @@ The agent loop MUST invoke all registered `before_tool_call` handlers before exe
 - THEN the panic MUST be recovered
 - AND the error MUST be logged
 - AND the agent loop MUST continue (default to `allow`)
+
+#### Scenario: require_approval with no owner channel configured falls back to block
+
+- GIVEN a `before_tool_call` handler returns `require_approval`
+- AND no owner channel is configured
+- THEN the system MUST treat the result as `block`
+- AND MUST log a warning
 
 ---
 
@@ -205,14 +219,9 @@ The system MUST ship three built-in profiles:
 - WHEN the agent loop builds its tool list
 - THEN tool filtering MUST fall back to `RoleDefaults` behavior unchanged
 
----
+#### Scenario: Unknown profile name in config causes startup error
 
-## Edge Cases & Error States
-
-| Scenario | Expected Behavior |
-|----------|-------------------|
-| `/approve` with unknown code | Command MUST return an error; no sender added |
-| `/approve` with expired code | MUST be treated as unknown; error returned |
-| Hook registered with duplicate priority | MUST be appended after existing same-priority entries |
-| `require_approval` with no owner channel configured | MUST fall back to `block` and log a warning |
-| Profile name in config does not exist in `tool_profiles` map | Agent MUST fail to start with a descriptive config error |
+- GIVEN the config specifies `tool_profile: "nonexistent"`
+- WHEN the agent starts
+- THEN the agent MUST fail to start
+- AND MUST emit a descriptive config error naming the unknown profile

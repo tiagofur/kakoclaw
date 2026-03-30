@@ -63,3 +63,4 @@ ralph/
 
 # Claude settings
 .claude/settings.local.json
+.worktrees/

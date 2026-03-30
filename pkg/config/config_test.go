@@ -366,6 +366,40 @@ func TestGetUserConfigTemplateWithNilGlobal(t *testing.T) {
 	}
 }
 
+func TestNewDefaults_BuiltInToolProfiles(t *testing.T) {
+	cfg := DefaultConfig()
+
+	profiles := cfg.ToolPermissions.ToolProfiles
+	for _, name := range []string{"messaging", "developer", "minimal"} {
+		if _, ok := profiles[name]; !ok {
+			t.Errorf("expected built-in profile %q to exist", name)
+		}
+	}
+
+	messaging := profiles["messaging"]
+	containsExec := false
+	containsWriteFile := false
+	for _, d := range messaging.Deny {
+		if d == "exec" {
+			containsExec = true
+		}
+		if d == "write_file" {
+			containsWriteFile = true
+		}
+	}
+	if !containsExec {
+		t.Error(`messaging profile Deny should contain "exec"`)
+	}
+	if !containsWriteFile {
+		t.Error(`messaging profile Deny should contain "write_file"`)
+	}
+
+	minimal := profiles["minimal"]
+	if len(minimal.Allow) != 2 || minimal.Allow[0] != "message" || minimal.Allow[1] != "query_knowledge" {
+		t.Errorf(`minimal profile Allow should be ["message","query_knowledge"], got %v`, minimal.Allow)
+	}
+}
+
 func TestIsAgentsConfigEmpty(t *testing.T) {
 	// Empty config
 	emptyCfg := &AgentsConfig{}
