@@ -2,7 +2,11 @@ package channels
 
 import (
 	"context"
+	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/sipeed/makoclaw/pkg/storage"
 )
 
 func TestIsCommand(t *testing.T) {
@@ -171,5 +175,63 @@ func TestNewCommandHandler(t *testing.T) {
 	handler := NewCommandHandler(nil)
 	if handler == nil {
 		t.Fatal("NewCommandHandler(nil) returned nil")
+	}
+}
+
+func TestCommandHandler_Approve_ValidCode(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.db")
+	s, err := storage.NewUserStorage(path)
+	if err != nil {
+		t.Fatalf("NewUserStorage: %v", err)
+	}
+	t.Cleanup(func() { _ = s.Close() })
+	ps := s.Pairing()
+	if err := ps.InsertPending("telegram", "user1", "abc123"); err != nil {
+		t.Fatalf("InsertPending: %v", err)
+	}
+
+	ch := NewCommandHandler(s)
+	ch.SetPairingStore(ps)
+
+	handled, resp, err := ch.HandleCommand(context.Background(), "telegram", "owner", "/approve telegram abc123")
+	if err != nil {
+		t.Fatalf("HandleCommand: %v", err)
+	}
+	if !handled {
+		t.Error("expected handled=true")
+	}
+	if !strings.Contains(resp, "approved") {
+		t.Errorf("expected response to contain 'approved', got: %q", resp)
+	}
+
+	approved, err := ps.IsApproved("telegram", "user1")
+	if err != nil {
+		t.Fatalf("IsApproved: %v", err)
+	}
+	if !approved {
+		t.Error("expected user1 to be approved")
+	}
+}
+
+func TestCommandHandler_Approve_UnknownCode(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.db")
+	s, err := storage.NewUserStorage(path)
+	if err != nil {
+		t.Fatalf("NewUserStorage: %v", err)
+	}
+	t.Cleanup(func() { _ = s.Close() })
+	ps := s.Pairing()
+	ch := NewCommandHandler(s)
+	ch.SetPairingStore(ps)
+
+	handled, resp, err := ch.HandleCommand(context.Background(), "telegram", "owner", "/approve telegram nope")
+	if err != nil {
+		t.Fatalf("HandleCommand: %v", err)
+	}
+	if !handled {
+		t.Error("expected handled=true")
+	}
+	if !strings.Contains(resp, "not found") {
+		t.Errorf("expected response to contain 'not found', got: %q", resp)
 	}
 }
