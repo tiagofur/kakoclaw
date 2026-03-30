@@ -68,8 +68,15 @@
     </div>
 
     <div class="flex-1 overflow-y-auto">
-      <!-- Navigation Items -->
+      <!-- Workspace Nav -->
       <nav class="p-3 space-y-1">
+        <div
+          v-if="!uiStore.sidebarCollapsed"
+          class="px-3 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-makoclaw-text-secondary/50"
+        >
+          Workspace
+        </div>
+
         <router-link
           to="/chat"
           class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative"
@@ -91,7 +98,6 @@
                 d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
               />
             </svg>
-            <!-- Agent working indicator -->
             <span
               v-if="chatStore.isWorking"
               class="absolute -top-1 -right-1 flex h-2.5 w-2.5"
@@ -151,6 +157,36 @@
         </router-link>
 
         <router-link
+          to="/workflows"
+          class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative"
+          active-class="bg-makoclaw-accent/15 text-makoclaw-accent shadow-sm shadow-makoclaw-accent/5"
+          inactive-class="text-makoclaw-text-secondary hover:bg-makoclaw-accent/5 hover:text-makoclaw-text hover:translate-x-1"
+          @click="closeMobileSidebar"
+        >
+          <svg
+            class="w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          ><path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M4 6h16M4 6l4 6-4 6M20 6l-4 6 4 6M10 12h4"
+          /></svg>
+          <span
+            v-if="!uiStore.sidebarCollapsed"
+            class="font-medium whitespace-nowrap text-sm"
+          >Workflows</span>
+          <div
+            v-if="uiStore.sidebarCollapsed"
+            class="tooltip"
+          >
+            Workflows
+          </div>
+        </router-link>
+
+        <router-link
           to="/cron"
           class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative"
           active-class="bg-makoclaw-accent/15 text-makoclaw-accent shadow-sm shadow-makoclaw-accent/5"
@@ -184,55 +220,9 @@
             Cron Jobs
           </div>
         </router-link>
-      </nav>
-
-      <div class="px-3 py-2">
-        <div class="h-px bg-makoclaw-border my-2" />
-      </div>
-
-      <!-- Tools Nav -->
-      <nav class="p-3 pt-0 space-y-1">
-        <div
-          v-if="!uiStore.sidebarCollapsed"
-          class="px-3 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-makoclaw-text-secondary/50"
-        >
-          Core Tools
-        </div>
 
         <router-link
-          to="/dashboard"
-          class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative"
-          active-class="bg-makoclaw-accent/15 text-makoclaw-accent shadow-sm shadow-makoclaw-accent/5"
-          inactive-class="text-makoclaw-text-secondary hover:bg-makoclaw-accent/5 hover:text-makoclaw-text hover:translate-x-1"
-          @click="closeMobileSidebar"
-        >
-          <svg
-            class="w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
-            />
-          </svg>
-          <span
-            v-if="!uiStore.sidebarCollapsed"
-            class="font-medium whitespace-nowrap text-sm"
-          >Dashboard</span>
-          <div
-            v-if="uiStore.sidebarCollapsed"
-            class="tooltip"
-          >
-            Dashboard
-          </div>
-        </router-link>
-
-        <router-link
-          to="/skills"
+          to="/marketing"
           class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative"
           active-class="bg-makoclaw-accent/15 text-makoclaw-accent shadow-sm shadow-makoclaw-accent/5"
           inactive-class="text-makoclaw-text-secondary hover:bg-makoclaw-accent/5 hover:text-makoclaw-text hover:translate-x-1"
@@ -247,17 +237,61 @@
             stroke-linecap="round"
             stroke-linejoin="round"
             stroke-width="2"
-            d="M13 10V3L4 14h7v7l9-11h-7z"
+            d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"
           /></svg>
           <span
             v-if="!uiStore.sidebarCollapsed"
             class="font-medium whitespace-nowrap text-sm"
-          >Skills</span>
+          >Marketing</span>
           <div
             v-if="uiStore.sidebarCollapsed"
             class="tooltip"
           >
-            Skills
+            Marketing
+          </div>
+        </router-link>
+      </nav>
+
+      <div class="px-3 py-2">
+        <div class="h-px bg-makoclaw-border my-2" />
+      </div>
+
+      <!-- Resources Nav -->
+      <nav class="p-3 pt-0 space-y-1">
+        <div
+          v-if="!uiStore.sidebarCollapsed"
+          class="px-3 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-makoclaw-text-secondary/50"
+        >
+          Resources
+        </div>
+
+        <router-link
+          to="/knowledge"
+          class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative"
+          active-class="bg-makoclaw-accent/15 text-makoclaw-accent shadow-sm shadow-makoclaw-accent/5"
+          inactive-class="text-makoclaw-text-secondary hover:bg-makoclaw-accent/5 hover:text-makoclaw-text hover:translate-x-1"
+          @click="closeMobileSidebar"
+        >
+          <svg
+            class="w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          ><path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+          /></svg>
+          <span
+            v-if="!uiStore.sidebarCollapsed"
+            class="font-medium whitespace-nowrap text-sm"
+          >Knowledge</span>
+          <div
+            v-if="uiStore.sidebarCollapsed"
+            class="tooltip"
+          >
+            Knowledge
           </div>
         </router-link>
 
@@ -292,7 +326,7 @@
         </router-link>
 
         <router-link
-          to="/knowledge"
+          to="/skills"
           class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative"
           active-class="bg-makoclaw-accent/15 text-makoclaw-accent shadow-sm shadow-makoclaw-accent/5"
           inactive-class="text-makoclaw-text-secondary hover:bg-makoclaw-accent/5 hover:text-makoclaw-text hover:translate-x-1"
@@ -307,107 +341,17 @@
             stroke-linecap="round"
             stroke-linejoin="round"
             stroke-width="2"
-            d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+            d="M13 10V3L4 14h7v7l9-11h-7z"
           /></svg>
           <span
             v-if="!uiStore.sidebarCollapsed"
             class="font-medium whitespace-nowrap text-sm"
-          >Knowledge</span>
+          >Skills</span>
           <div
             v-if="uiStore.sidebarCollapsed"
             class="tooltip"
           >
-            Knowledge
-          </div>
-        </router-link>
-
-        <router-link
-          to="/marketing"
-          class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative"
-          active-class="bg-makoclaw-accent/15 text-makoclaw-accent shadow-sm shadow-makoclaw-accent/5"
-          inactive-class="text-makoclaw-text-secondary hover:bg-makoclaw-accent/5 hover:text-makoclaw-text hover:translate-x-1"
-          @click="closeMobileSidebar"
-        >
-          <svg
-            class="w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          ><path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"
-          /></svg>
-          <span
-            v-if="!uiStore.sidebarCollapsed"
-            class="font-medium whitespace-nowrap text-sm"
-          >Marketing</span>
-          <div
-            v-if="uiStore.sidebarCollapsed"
-            class="tooltip"
-          >
-            Marketing
-          </div>
-        </router-link>
-
-        <router-link
-          to="/mcp"
-          class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative"
-          active-class="bg-makoclaw-accent/15 text-makoclaw-accent shadow-sm shadow-makoclaw-accent/5"
-          inactive-class="text-makoclaw-text-secondary hover:bg-makoclaw-accent/5 hover:text-makoclaw-text hover:translate-x-1"
-          @click="closeMobileSidebar"
-        >
-          <svg
-            class="w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          ><path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"
-          /></svg>
-          <span
-            v-if="!uiStore.sidebarCollapsed"
-            class="font-medium whitespace-nowrap text-sm"
-          >MCP</span>
-          <div
-            v-if="uiStore.sidebarCollapsed"
-            class="tooltip"
-          >
-            MCP Servers
-          </div>
-        </router-link>
-
-        <router-link
-          to="/workflows"
-          class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative"
-          active-class="bg-makoclaw-accent/15 text-makoclaw-accent shadow-sm shadow-makoclaw-accent/5"
-          inactive-class="text-makoclaw-text-secondary hover:bg-makoclaw-accent/5 hover:text-makoclaw-text hover:translate-x-1"
-          @click="closeMobileSidebar"
-        >
-          <svg
-            class="w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          ><path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M4 6h16M4 6l4 6-4 6M20 6l-4 6 4 6M10 12h4"
-          /></svg>
-          <span
-            v-if="!uiStore.sidebarCollapsed"
-            class="font-medium whitespace-nowrap text-sm"
-          >Workflows</span>
-          <div
-            v-if="uiStore.sidebarCollapsed"
-            class="tooltip"
-          >
-            Workflows
+            Skills
           </div>
         </router-link>
 
@@ -440,14 +384,83 @@
             Agents
           </div>
         </router-link>
+
+        <router-link
+          to="/mcp"
+          class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative"
+          active-class="bg-makoclaw-accent/15 text-makoclaw-accent shadow-sm shadow-makoclaw-accent/5"
+          inactive-class="text-makoclaw-text-secondary hover:bg-makoclaw-accent/5 hover:text-makoclaw-text hover:translate-x-1"
+          @click="closeMobileSidebar"
+        >
+          <svg
+            class="w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          ><path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"
+          /></svg>
+          <span
+            v-if="!uiStore.sidebarCollapsed"
+            class="font-medium whitespace-nowrap text-sm"
+          >MCP</span>
+          <div
+            v-if="uiStore.sidebarCollapsed"
+            class="tooltip"
+          >
+            MCP Servers
+          </div>
+        </router-link>
       </nav>
 
       <div class="px-3 py-2">
         <div class="h-px bg-makoclaw-border my-2" />
       </div>
 
-      <!-- Secondary Nav -->
+      <!-- Insights Nav -->
       <nav class="p-3 pt-0 space-y-1">
+        <div
+          v-if="!uiStore.sidebarCollapsed"
+          class="px-3 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-makoclaw-text-secondary/50"
+        >
+          Insights
+        </div>
+
+        <router-link
+          to="/dashboard"
+          class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative"
+          active-class="bg-makoclaw-accent/15 text-makoclaw-accent shadow-sm shadow-makoclaw-accent/5"
+          inactive-class="text-makoclaw-text-secondary hover:bg-makoclaw-accent/5 hover:text-makoclaw-text hover:translate-x-1"
+          @click="closeMobileSidebar"
+        >
+          <svg
+            class="w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
+            />
+          </svg>
+          <span
+            v-if="!uiStore.sidebarCollapsed"
+            class="font-medium whitespace-nowrap text-sm"
+          >Dashboard</span>
+          <div
+            v-if="uiStore.sidebarCollapsed"
+            class="tooltip"
+          >
+            Dashboard
+          </div>
+        </router-link>
+
         <router-link
           to="/history"
           class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative"
@@ -509,36 +522,6 @@
         </router-link>
 
         <router-link
-          to="/reports"
-          class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative"
-          active-class="bg-makoclaw-accent/15 text-makoclaw-accent shadow-sm shadow-makoclaw-accent/5"
-          inactive-class="text-makoclaw-text-secondary hover:bg-makoclaw-accent/5 hover:text-makoclaw-text hover:translate-x-1"
-          @click="closeMobileSidebar"
-        >
-          <svg
-            class="w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          ><path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-          /></svg>
-          <span
-            v-if="!uiStore.sidebarCollapsed"
-            class="font-medium whitespace-nowrap text-sm"
-          >Reports</span>
-          <div
-            v-if="uiStore.sidebarCollapsed"
-            class="tooltip"
-          >
-            Reports
-          </div>
-        </router-link>
-
-        <router-link
           to="/metrics"
           class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative"
           active-class="bg-makoclaw-accent/15 text-makoclaw-accent shadow-sm shadow-makoclaw-accent/5"
@@ -568,6 +551,43 @@
           </div>
         </router-link>
 
+        <router-link
+          to="/reports"
+          class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative"
+          active-class="bg-makoclaw-accent/15 text-makoclaw-accent shadow-sm shadow-makoclaw-accent/5"
+          inactive-class="text-makoclaw-text-secondary hover:bg-makoclaw-accent/5 hover:text-makoclaw-text hover:translate-x-1"
+          @click="closeMobileSidebar"
+        >
+          <svg
+            class="w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          ><path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+          /></svg>
+          <span
+            v-if="!uiStore.sidebarCollapsed"
+            class="font-medium whitespace-nowrap text-sm"
+          >Reports</span>
+          <div
+            v-if="uiStore.sidebarCollapsed"
+            class="tooltip"
+          >
+            Reports
+          </div>
+        </router-link>
+      </nav>
+
+      <div class="px-3 py-2">
+        <div class="h-px bg-makoclaw-border my-2" />
+      </div>
+
+      <!-- System Nav -->
+      <nav class="p-3 pt-0 space-y-1">
         <router-link
           to="/settings"
           class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative"
