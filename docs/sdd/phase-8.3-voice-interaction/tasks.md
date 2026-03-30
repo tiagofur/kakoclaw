@@ -183,7 +183,7 @@
 
 ## Phase 2: Core Subsystem Implementation
 
-- [ ] 2.1 Create `pkg/voice/wake.go` (build tag `//go:build !porcupine`) — `WakeDetector` with energy-threshold keyword detection; `Listen(ctx, keyword, sensitivity, onDetected func())` goroutine loop; no CGo dependency in default build.
+- [x] 2.1 Create `pkg/voice/wake.go` (build tag `//go:build !porcupine`) — `WakeDetector` with energy-threshold keyword detection; `Listen(ctx, keyword, sensitivity, onDetected func())` goroutine loop; no CGo dependency in default build.
 
   ```go
   //go:build !porcupine
@@ -233,7 +233,7 @@
 
 ---
 
-- [ ] 2.2 Create `pkg/voice/talk_mode.go` — `TalkModeSession` with `Start(ctx)` / `Stop()`, goroutine pipeline: audio capture → STT → agent process → TTS playback; "stop" keyword detection exits loop.
+- [x] 2.2 Create `pkg/voice/talk_mode.go` — `TalkModeSession` with `Start(ctx)` / `Stop()`, goroutine pipeline: audio capture → STT → agent process → TTS playback; "stop" keyword detection exits loop.
 
   ```go
   package voice
@@ -291,7 +291,7 @@
 
 ---
 
-- [ ] 2.3 Create `pkg/canvas/server.go` — `CanvasServer` with `sync.Map` state; HTTP handler for `GET /__makoclaw__/canvas/` serving SSE; methods `Push(html string)`, `Eval(js string) (string, error)` (only when DevMode), `Snapshot() string`, `Reset()`.
+- [x] 2.3 Create `pkg/canvas/server.go` — `CanvasServer` with `sync.Map` state; HTTP handler for `GET /__makoclaw__/canvas/` serving SSE; methods `Push(html string)`, `Eval(js string) (string, error)` (only when DevMode), `Snapshot() string`, `Reset()`.
 
   RED test in `pkg/canvas/server_test.go`:
   ```go
@@ -325,7 +325,7 @@
 
 ---
 
-- [ ] 2.4 Create `pkg/tools/canvas.go` — `CanvasTool` implementing `Tool`; params `operation` (create|update|append|clear|snapshot), `content`, `format`; delegates to `CanvasServer`; returns error `"Canvas is disabled..."` when `canvas.enabled = false`.
+- [x] 2.4 Create `pkg/tools/canvas.go` — `CanvasTool` implementing `Tool`; params `operation` (create|update|append|clear|snapshot), `content`, `format`; delegates to `CanvasServer`; returns error `"Canvas is disabled..."` when `canvas.enabled = false`.
 
   RED test in `pkg/tools/canvas_test.go`:
   ```go
@@ -362,7 +362,7 @@
 
 ---
 
-- [ ] 2.5 Create `pkg/tools/interactive_message.go` — `InteractiveMessageTool` implementing `Tool` + `ContextualTool`; params `message string`, `actions []ActionConfig`, `channel string`, `chat_id string`; returns error when `channel_actions.enabled = false` or no endpoint configured.
+- [x] 2.5 Create `pkg/tools/interactive_message.go` — `InteractiveMessageTool` implementing `Tool` + `ContextualTool`; params `message string`, `actions []ActionConfig`, `channel string`, `chat_id string`; returns error when `channel_actions.enabled = false` or no endpoint configured.
 
   RED test in `pkg/tools/interactive_message_test.go`:
   ```go
