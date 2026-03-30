@@ -6,6 +6,9 @@ export const useMarketingStore = defineStore('marketing', () => {
   const campaigns = ref([])
   const selectedCampaign = ref(null)
   const campaignDetail = ref(null)
+  const templates = ref([])
+  const media = ref([])
+  const analyticsSummary = ref(null)
   const loadingList = ref(false)
   const loadingDetail = ref(false)
   const expandedAccounts = ref(new Set())
@@ -82,6 +85,7 @@ export const useMarketingStore = defineStore('marketing', () => {
   async function fetchCampaignDetail(campaign = selectedCampaign.value) {
     if (!campaign) {
       campaignDetail.value = null
+      analyticsSummary.value = null
       return null
     }
 
@@ -94,6 +98,7 @@ export const useMarketingStore = defineStore('marketing', () => {
       return response.data
     } catch (error) {
       console.error('Failed to load campaign detail:', error)
+      analyticsSummary.value = null
       return null
     } finally {
       loadingDetail.value = false
@@ -146,6 +151,7 @@ export const useMarketingStore = defineStore('marketing', () => {
     if (wasSelected) {
       selectedCampaign.value = null
       campaignDetail.value = null
+      analyticsSummary.value = null
     }
   }
 
@@ -161,6 +167,101 @@ export const useMarketingStore = defineStore('marketing', () => {
       return response.data
     } catch (error) {
       setLocalCampaignStatus(account, campaign, previousStatus)
+      throw error
+    }
+  }
+
+  async function fetchTemplates(account) {
+    if (!account) {
+      templates.value = []
+      return []
+    }
+
+    try {
+      const response = await marketingService.fetchTemplates(account)
+      templates.value = response.data?.templates || []
+      return templates.value
+    } catch (error) {
+      console.error('Failed to load templates:', error)
+      templates.value = []
+      throw error
+    }
+  }
+
+  async function createTemplate(account, payload) {
+    const response = await marketingService.createTemplate(account, payload)
+    await fetchTemplates(account)
+    return response.data
+  }
+
+  async function updateTemplate(account, slug, payload) {
+    const response = await marketingService.updateTemplate(account, slug, payload)
+    await fetchTemplates(account)
+    return response.data
+  }
+
+  async function deleteTemplate(account, slug) {
+    await marketingService.deleteTemplate(account, slug)
+    await fetchTemplates(account)
+  }
+
+  async function fetchMedia(account) {
+    if (!account) {
+      media.value = []
+      return []
+    }
+
+    try {
+      const response = await marketingService.fetchMedia(account)
+      media.value = response.data?.media || []
+      return media.value
+    } catch (error) {
+      console.error('Failed to load media:', error)
+      media.value = []
+      throw error
+    }
+  }
+
+  async function uploadMedia(account, formData) {
+    const response = await marketingService.uploadMedia(account, formData)
+    await fetchMedia(account)
+    return response.data
+  }
+
+  async function updateMedia(account, filename, payload) {
+    const response = await marketingService.updateMedia(account, filename, payload)
+    await fetchMedia(account)
+    return response.data
+  }
+
+  async function deleteMedia(account, filename) {
+    await marketingService.deleteMedia(account, filename)
+    await fetchMedia(account)
+  }
+
+  async function copyMedia(account, filename, campaign) {
+    const response = await marketingService.copyMedia(account, filename, campaign)
+    await fetchMedia(account)
+    return response.data
+  }
+
+  async function copyMediaToCampaign(account, filename, campaign) {
+    return copyMedia(account, filename, campaign)
+  }
+
+  async function fetchAnalyticsSummary(account, campaign) {
+    if (!account || !campaign) {
+      analyticsSummary.value = null
+      return null
+    }
+
+    try {
+      const response = await marketingService.fetchAnalyticsSummary(account, campaign)
+      analyticsSummary.value = response.data || null
+      return analyticsSummary.value
+    } catch (error) {
+      console.error('Failed to load analytics summary:', error)
+      analyticsSummary.value = null
       throw error
     }
   }
@@ -186,6 +287,9 @@ export const useMarketingStore = defineStore('marketing', () => {
     campaigns,
     selectedCampaign,
     campaignDetail,
+    templates,
+    media,
+    analyticsSummary,
     loadingList,
     loadingDetail,
     expandedAccounts,
@@ -197,6 +301,17 @@ export const useMarketingStore = defineStore('marketing', () => {
     renameCampaign,
     deleteCampaign,
     updateCampaignStatus,
+    fetchTemplates,
+    createTemplate,
+    updateTemplate,
+    deleteTemplate,
+    fetchMedia,
+    uploadMedia,
+    updateMedia,
+    deleteMedia,
+    copyMedia,
+    copyMediaToCampaign,
+    fetchAnalyticsSummary,
     startPolling,
     stopPolling
   }

@@ -411,6 +411,8 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/files/", s.handleFiles)                                  // File browser subpaths
 	mux.HandleFunc("/api/v1/marketing/campaigns", s.handleListMarketingCampaigns)    // Marketing: list + create campaigns
 	mux.HandleFunc("/api/v1/marketing/campaigns/", s.handleMarketingCampaignsRouter) // Marketing: campaign detail + files
+	mux.HandleFunc("/api/v1/marketing/templates/", s.handleMarketingTemplatesRouter) // Marketing: templates CRUD
+	mux.HandleFunc("/api/v1/marketing/media/", s.handleMarketingMediaRouter)         // Marketing: media CRUD + copy
 	mux.HandleFunc("/api/v1/export/tasks", s.handleExportTasks)                      // Export tasks
 	mux.HandleFunc("/api/v1/export/chat", s.handleExportChat)                        // Export chat history
 	mux.HandleFunc("/api/v1/import/chat", s.handleImportChat)                        // Import conversations

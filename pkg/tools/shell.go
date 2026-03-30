@@ -209,6 +209,20 @@ func (t *ExecTool) guardCommand(command, cwd string) string {
 		pathPattern := regexp.MustCompile(`[A-Za-z]:\\[^\\\"']+|/[^\s\"']+`)
 		matches := pathPattern.FindAllString(cmd, -1)
 
+		filtered := make([]string, 0, len(matches))
+		for _, m := range matches {
+			idx := strings.Index(cmd, m)
+			if idx > 0 {
+				prefix := cmd[:idx]
+				lastScheme := strings.LastIndex(prefix, "://")
+				if lastScheme != -1 && !strings.ContainsAny(prefix[lastScheme+3:], " \t\n\"'") {
+					continue
+				}
+			}
+			filtered = append(filtered, m)
+		}
+		matches = filtered
+
 		for _, raw := range matches {
 			p, err := filepath.Abs(raw)
 			if err != nil {

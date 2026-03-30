@@ -10,7 +10,17 @@ vi.mock('../../services/marketingService', () => ({
     createCampaign: vi.fn(),
     renameCampaign: vi.fn(),
     deleteCampaign: vi.fn(),
-    updateCampaignStatus: vi.fn()
+    updateCampaignStatus: vi.fn(),
+    fetchTemplates: vi.fn(),
+    createTemplate: vi.fn(),
+    updateTemplate: vi.fn(),
+    deleteTemplate: vi.fn(),
+    fetchMedia: vi.fn(),
+    uploadMedia: vi.fn(),
+    updateMedia: vi.fn(),
+    deleteMedia: vi.fn(),
+    copyMedia: vi.fn(),
+    fetchAnalyticsSummary: vi.fn()
   }
 }))
 
@@ -145,5 +155,153 @@ describe('marketingStore', () => {
     expect(clearIntervalSpy).toHaveBeenCalled()
 
     vi.useRealTimers()
+  })
+
+  it('fetchTemplates() stores account templates', async () => {
+    marketingService.fetchTemplates.mockResolvedValue({
+      data: {
+        templates: [
+          { slug: 'launch-template', name: 'Launch', body: 'Hello {{name}}', variables: ['name'] }
+        ]
+      }
+    })
+
+    const store = useMarketingStore()
+    const result = await store.fetchTemplates('acme')
+
+    expect(marketingService.fetchTemplates).toHaveBeenCalledWith('acme')
+    expect(result).toHaveLength(1)
+    expect(store.templates[0].slug).toBe('launch-template')
+  })
+
+  it('createTemplate() refreshes templates after create', async () => {
+    marketingService.createTemplate.mockResolvedValue({
+      data: { slug: 'launch-template', name: 'Launch', body: 'Hello {{name}}' }
+    })
+    marketingService.fetchTemplates.mockResolvedValue({
+      data: {
+        templates: [
+          { slug: 'launch-template', name: 'Launch', body: 'Hello {{name}}', variables: ['name'] }
+        ]
+      }
+    })
+
+    const store = useMarketingStore()
+    const created = await store.createTemplate('acme', { slug: 'launch-template', name: 'Launch', body: 'Hello {{name}}' })
+
+    expect(marketingService.createTemplate).toHaveBeenCalledWith('acme', { slug: 'launch-template', name: 'Launch', body: 'Hello {{name}}' })
+    expect(marketingService.fetchTemplates).toHaveBeenCalledWith('acme')
+    expect(created.slug).toBe('launch-template')
+  })
+
+  it('fetchMedia() stores account media items', async () => {
+    marketingService.fetchMedia.mockResolvedValue({
+      data: {
+        media: [
+          { filename: 'banner.png', path: 'marketing/acme/_media/banner.png', tags: ['launch'] }
+        ]
+      }
+    })
+
+    const store = useMarketingStore()
+    const result = await store.fetchMedia('acme')
+
+    expect(marketingService.fetchMedia).toHaveBeenCalledWith('acme')
+    expect(result[0].filename).toBe('banner.png')
+    expect(store.media[0].tags).toEqual(['launch'])
+  })
+
+  it('copyMediaToCampaign() refreshes media after copy', async () => {
+    marketingService.copyMedia.mockResolvedValue({
+      data: { filename: 'banner.png', campaigns_used: ['launch'] }
+    })
+    marketingService.fetchMedia.mockResolvedValue({
+      data: {
+        media: [
+          { filename: 'banner.png', campaigns_used: ['launch'] }
+        ]
+      }
+    })
+
+    const store = useMarketingStore()
+    const copied = await store.copyMediaToCampaign('acme', 'banner.png', 'launch')
+
+    expect(marketingService.copyMedia).toHaveBeenCalledWith('acme', 'banner.png', 'launch')
+    expect(marketingService.fetchMedia).toHaveBeenCalledWith('acme')
+    expect(copied.filename).toBe('banner.png')
+  })
+
+  it('uploadMedia() refreshes media after upload', async () => {
+    marketingService.uploadMedia.mockResolvedValue({
+      data: { filename: 'banner.png' }
+    })
+    marketingService.fetchMedia.mockResolvedValue({
+      data: {
+        media: [
+          { filename: 'banner.png', path: 'marketing/acme/_media/banner.png' }
+        ]
+      }
+    })
+
+    const store = useMarketingStore()
+    const formData = new FormData()
+    const uploaded = await store.uploadMedia('acme', formData)
+
+    expect(marketingService.uploadMedia).toHaveBeenCalledWith('acme', formData)
+    expect(marketingService.fetchMedia).toHaveBeenCalledWith('acme')
+    expect(uploaded.filename).toBe('banner.png')
+  })
+
+  it('updateMedia() refreshes media after patch', async () => {
+    marketingService.updateMedia.mockResolvedValue({
+      data: { filename: 'banner.png', tags: ['hero'] }
+    })
+    marketingService.fetchMedia.mockResolvedValue({
+      data: {
+        media: [
+          { filename: 'banner.png', tags: ['hero'] }
+        ]
+      }
+    })
+
+    const store = useMarketingStore()
+    const updated = await store.updateMedia('acme', 'banner.png', { tags: ['hero'], description: 'Hero asset' })
+
+    expect(marketingService.updateMedia).toHaveBeenCalledWith('acme', 'banner.png', { tags: ['hero'], description: 'Hero asset' })
+    expect(marketingService.fetchMedia).toHaveBeenCalledWith('acme')
+    expect(updated.tags).toEqual(['hero'])
+  })
+
+  it('deleteMedia() refreshes media after delete', async () => {
+    marketingService.deleteMedia.mockResolvedValue({})
+    marketingService.fetchMedia.mockResolvedValue({ data: { media: [] } })
+
+    const store = useMarketingStore()
+    await store.deleteMedia('acme', 'banner.png')
+
+    expect(marketingService.deleteMedia).toHaveBeenCalledWith('acme', 'banner.png')
+    expect(marketingService.fetchMedia).toHaveBeenCalledWith('acme')
+    expect(store.media).toEqual([])
+  })
+
+  it('fetchAnalyticsSummary() stores aggregated analytics data', async () => {
+    marketingService.fetchAnalyticsSummary.mockResolvedValue({
+      data: {
+        total_posts: 3,
+        total_impressions: 350,
+        total_engagements: 60,
+        engagement_rate: 60 / 350,
+        by_platform: { twitter: { impressions: 150 }, linkedin: { impressions: 200 } },
+        trend_dates: ['2026-04-01', '2026-04-02'],
+        trend_impressions: [150, 200]
+      }
+    })
+
+    const store = useMarketingStore()
+    const summary = await store.fetchAnalyticsSummary('acme', 'launch')
+
+    expect(marketingService.fetchAnalyticsSummary).toHaveBeenCalledWith('acme', 'launch')
+    expect(summary.total_posts).toBe(3)
+    expect(store.analyticsSummary.total_impressions).toBe(350)
   })
 })
