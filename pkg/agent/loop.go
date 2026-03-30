@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -31,6 +32,27 @@ import (
 	"github.com/sipeed/makoclaw/pkg/utils"
 )
 
+// ThinkLevel controls the thinking budget in tokens for the current session.
+type ThinkLevel int
+
+const (
+	ThinkOff     ThinkLevel = 0
+	ThinkMinimal ThinkLevel = 512
+	ThinkLow     ThinkLevel = 1024
+	ThinkMedium  ThinkLevel = 4096
+	ThinkHigh    ThinkLevel = 8192
+	ThinkXHigh   ThinkLevel = 16000
+)
+
+var thinkLevelMap = map[string]ThinkLevel{
+	"off":     ThinkOff,
+	"minimal": ThinkMinimal,
+	"low":     ThinkLow,
+	"medium":  ThinkMedium,
+	"high":    ThinkHigh,
+	"xhigh":   ThinkXHigh,
+}
+
 type AgentLoop struct {
 	bus                *bus.MessageBus
 	provider           providers.LLMProvider
@@ -47,6 +69,7 @@ type AgentLoop struct {
 	tools              *tools.ToolRegistry
 	baseTools          *tools.ToolRegistry // Unfiltered tools (before permission filtering)
 	running            atomic.Bool
+	flushInProgress    atomic.Bool               // Re-entrancy guard for the flush callback
 	summarizing        sync.Map                  // Tracks which sessions are currently being summarized
 	storage            *storage.Storage
 	autoCreatedStorage bool                      // True if storage was created by NewAgentLoop (not injected)
@@ -61,7 +84,8 @@ type AgentLoop struct {
 	summarizeWg        sync.WaitGroup    // Tracks active summarization goroutines
 	costTracker        *AgentCostTracker // Tracks token usage and estimated costs
 	orchestratorOwner  *OrchestratorAgent
-	hooks              *hooks.HookRegistry
+	sessionThinkLevel  map[string]ThinkLevel
+	sessionThinkMu     sync.RWMutex
 }
 
 // ToolRegistry returns the agent loop's tool registry so external
@@ -521,11 +545,38 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 		}
 	}
 
+	// Register LLM task tool for single-turn model delegation
+	toolsRegistry.Register(tools.NewLLMTaskTool(cfg))
+
 	// Register configure tool for runtime config management
 	configureTool := tools.NewConfigureTool()
 	toolsRegistry.Register(configureTool)
 
 	sessionsManager := session.NewSessionManager(filepath.Join(workspace, "sessions"))
+
+	// Wire flush callback — runs a synthetic memory-save agent turn before compaction.
+	// Captured as a local reference; the AgentLoop pointer is filled after construction,
+	// so we use a pointer-to-pointer trick via a closure over a *AgentLoop variable that
+	// is set immediately after the struct literal below.
+	var loopRef *AgentLoop
+	sessionsManager.SetFlushCallback(func(ctx context.Context, sessionKey string) error {
+		if loopRef == nil {
+			return nil
+		}
+		if !loopRef.flushInProgress.CompareAndSwap(false, true) {
+			return nil // re-entrant call — skip to avoid infinite recursion
+		}
+		defer loopRef.flushInProgress.Store(false)
+		if _, ok := loopRef.tools.Get("query_knowledge"); !ok {
+			return nil
+		}
+		syntheticMsg := "Before we continue, save any important facts, decisions, and in-progress work to the knowledge base."
+		_, _ = loopRef.runAgentLoop(ctx, processOptions{
+			UserMessage: syntheticMsg,
+			SessionKey:  sessionKey,
+		})
+		return nil
+	})
 
 	// Create context builder and set tools registry
 	contextBuilder := NewContextBuilder(workspace)
@@ -546,7 +597,7 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 		}
 	}
 
-	return &AgentLoop{
+	al := &AgentLoop{
 		bus:                msgBus,
 		provider:           provider,
 		workspace:          workspace,
@@ -570,8 +621,11 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 		cfg:                cfg,
 		metrics:            observability.Global(),
 		costTracker:        NewAgentCostTracker(),
-		hooks:              hooks.NewHookRegistry(),
+		sessionThinkLevel:  make(map[string]ThinkLevel),
 	}
+	// Resolve the flush callback's self-reference now that the AgentLoop is constructed.
+	loopRef = al
+	return al
 }
 
 // SetCentralStorage sets the central database storage for user identity lookups.
@@ -1085,6 +1139,24 @@ func (al *AgentLoop) processSystemMessage(ctx context.Context, msg bus.InboundMe
 // runAgentLoop is the core message processing logic.
 // It handles context building, LLM calls, tool execution, and response handling.
 func (al *AgentLoop) runAgentLoop(ctx context.Context, opts processOptions) (string, error) {
+	// Handle /think command to set session thinking budget
+	if strings.HasPrefix(opts.UserMessage, "/think ") {
+		levelStr := strings.TrimSpace(strings.TrimPrefix(opts.UserMessage, "/think "))
+		budget, ok := thinkLevelMap[levelStr]
+		if !ok {
+			validLevels := make([]string, 0, len(thinkLevelMap))
+			for k := range thinkLevelMap {
+				validLevels = append(validLevels, k)
+			}
+			sort.Strings(validLevels)
+			return "", fmt.Errorf("unknown think level %q — valid levels: %s", levelStr, strings.Join(validLevels, ", "))
+		}
+		al.sessionThinkMu.Lock()
+		al.sessionThinkLevel[opts.SessionKey] = budget
+		al.sessionThinkMu.Unlock()
+		return fmt.Sprintf("Thinking level set to %s (%d tokens)", levelStr, budget), nil
+	}
+
 	var teamCtx *TeamContext
 	if al.orchestratorOwner != nil {
 		teamCtx = al.orchestratorOwner.resetCurrentExecutionState(opts.UserMessage, al.userUUID, al.userID)
@@ -1874,7 +1946,18 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 		}
 		if opts.OnThinking != nil {
 			llmOpts["extended_thinking"] = true
-			llmOpts["thinking_budget_tokens"] = 1024
+			al.sessionThinkMu.RLock()
+			thinkBudget, wasSet := al.sessionThinkLevel[opts.SessionKey]
+			al.sessionThinkMu.RUnlock()
+			if !wasSet {
+				thinkBudget = ThinkLow // default: 1024 tokens
+			}
+			if thinkBudget == ThinkOff {
+				delete(llmOpts, "thinking_budget_tokens")
+				delete(llmOpts, "extended_thinking")
+			} else {
+				llmOpts["thinking_budget_tokens"] = int(thinkBudget)
+			}
 		}
 
 		// Try streaming for this iteration
