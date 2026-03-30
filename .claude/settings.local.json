@@ -75,7 +75,8 @@
       "Bash(du:*)",
       "Bash(npx vue-tsc:*)",
       "Bash(git -C \"C:\\\\Users\\\\tfurt\\\\source\\\\repos\\\\kakoclaw\" add pkg/storage/central.go)",
-      "Bash(git -C \"C:\\\\Users\\\\tfurt\\\\source\\\\repos\\\\kakoclaw\" commit -m \"fix\\(storage\\): move disabled_reason migration to end of migrations slice\")"
+      "Bash(git -C \"C:\\\\Users\\\\tfurt\\\\source\\\\repos\\\\kakoclaw\" commit -m \"fix\\(storage\\): move disabled_reason migration to end of migrations slice\")",
+      "Bash(git:*)"
     ]
   },
   "enabledPlugins": {
