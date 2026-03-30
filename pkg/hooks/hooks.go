@@ -48,6 +48,7 @@ func NewHookRegistry() *HookRegistry {
 }
 
 // Register adds a handler and re-sorts by ascending priority.
+// Not safe for concurrent use — register all handlers before calling Run.
 func (r *HookRegistry) Register(h HookHandler) {
 	r.handlers = append(r.handlers, h)
 	sort.Slice(r.handlers, func(i, j int) bool {
@@ -57,7 +58,11 @@ func (r *HookRegistry) Register(h HookHandler) {
 
 // Run executes all handlers for the given event in priority order.
 // Stops on the first block or require_approval result.
-// Panics inside handlers are recovered and logged; execution continues with allow.
+// Panics inside handlers are recovered and logged. A panicking handler does not
+// update result, so the previous result is preserved: if no prior handler ran,
+// the default HookAllow is kept (fail-open); if a prior handler returned HookBlock,
+// that result is preserved (fail-secure). All handlers always see the event field
+// set on HookContext.
 func (r *HookRegistry) Run(ctx context.Context, event string, hc HookContext) (result HookResult) {
 	result = HookResult{Action: HookAllow}
 	hc.Event = event
@@ -66,6 +71,8 @@ func (r *HookRegistry) Run(ctx context.Context, event string, hc HookContext) (r
 		func() {
 			defer func() {
 				if rec := recover(); rec != nil {
+					// result is intentionally not reset: preserves prior handler's decision
+					// (fail-open on first handler panic, fail-secure if prior returned block)
 					logger.WarnCF("hooks", "handler panicked, defaulting to allow", map[string]interface{}{
 						"event":   event,
 						"recover": rec,

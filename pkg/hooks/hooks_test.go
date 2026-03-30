@@ -82,3 +82,14 @@ func TestHookRegistry_EmptyRegistryAllows(t *testing.T) {
 	result := r.Run(context.Background(), "before_tool_call", hooks.HookContext{})
 	require.Equal(t, hooks.HookAllow, result.Action)
 }
+
+func TestHookRegistry_PanicAfterBlockPreservesBlock(t *testing.T) {
+	r := hooks.NewHookRegistry()
+	r.Register(&panicHandler{}) // priority 10, runs first, panics -> result stays HookAllow
+	r.Register(&mockHandler{priority: 20, action: hooks.HookBlock, reason: "blocked", called: new(bool)})
+	result := r.Run(context.Background(), "before_tool_call", hooks.HookContext{})
+	// panic handler runs first (p=10), panics, result stays HookAllow
+	// block handler runs second (p=20), sets result to HookBlock, short-circuits
+	require.Equal(t, hooks.HookBlock, result.Action)
+	require.Equal(t, "blocked", result.Reason)
+}
