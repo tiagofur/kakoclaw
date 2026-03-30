@@ -15,6 +15,7 @@ import (
 type PlatformProvider interface {
 	Platform() string
 	Post(ctx context.Context, content string, mediaURLs []string, opts map[string]any) (*SocialPostResult, error)
+	GetAnalytics(ctx context.Context, postID string) (*SocialAnalytics, error)
 }
 
 // MultiPlatformProvider implements SocialMediaProvider by routing to native platform providers.
@@ -86,6 +87,10 @@ func (m *MultiPlatformProvider) Post(ctx context.Context, req SocialPostRequest)
 
 	var results []SocialPostResult
 	var lastErr error
+	var opts map[string]any
+	if req.ScheduleAt != nil {
+		opts = map[string]any{"schedule_at": req.ScheduleAt.Unix()}
+	}
 
 	for _, platform := range req.Platforms {
 		platform = strings.ToLower(platform)
@@ -112,7 +117,7 @@ func (m *MultiPlatformProvider) Post(ctx context.Context, req SocialPostRequest)
 			continue
 		}
 
-		result, err := provider.Post(ctx, content, req.MediaURLs, nil)
+		result, err := provider.Post(ctx, content, req.MediaURLs, opts)
 		if err != nil {
 			lastErr = err
 			results = append(results, SocialPostResult{
@@ -143,8 +148,25 @@ func (m *MultiPlatformProvider) Post(ctx context.Context, req SocialPostRequest)
 	return results, nil
 }
 
-// GetAnalytics is not supported by native APIs in a unified way.
-// Each platform has different analytics APIs with varying permission requirements.
 func (m *MultiPlatformProvider) GetAnalytics(ctx context.Context, postID, platform string) (*SocialAnalytics, error) {
-	return nil, fmt.Errorf("analytics for %s: use the platform's native dashboard -- native API analytics require additional permissions that vary per platform", platform)
+	if len(m.providers) == 0 {
+		return nil, fmt.Errorf("no social media platforms configured -- add credentials in Settings or config.json")
+	}
+
+	platform = strings.ToLower(platform)
+	provider, ok := m.providers[platform]
+	if !ok && !strings.Contains(platform, ":") {
+		for key, p := range m.providers {
+			if strings.HasPrefix(key, platform+":") {
+				provider = p
+				ok = true
+				break
+			}
+		}
+	}
+	if !ok {
+		return nil, fmt.Errorf("platform %q not configured -- add credentials in Settings or config.json", platform)
+	}
+
+	return provider.GetAnalytics(ctx, postID)
 }

@@ -2,8 +2,45 @@ package tools
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 )
+
+var (
+	ErrAnalyticsNotSupported  = errors.New("analytics not supported for this platform")
+	ErrSchedulingNotSupported = errors.New("scheduling not supported for this platform")
+)
+
+func scheduleUnix(opts map[string]any) (int64, bool) {
+	if opts == nil {
+		return 0, false
+	}
+	raw, ok := opts["schedule_at"]
+	if !ok || raw == nil {
+		return 0, false
+	}
+	switch v := raw.(type) {
+	case int64:
+		return v, true
+	case int:
+		return int64(v), true
+	case float64:
+		return int64(v), true
+	case float32:
+		return int64(v), true
+	default:
+		return 0, false
+	}
+}
+
+func requireMinimumSchedule(scheduleAtUnix int64, minDelay time.Duration) (time.Time, error) {
+	scheduledAt := time.Unix(scheduleAtUnix, 0).UTC()
+	if time.Until(scheduledAt) < minDelay {
+		return time.Time{}, fmt.Errorf("scheduled_publish_time must be at least %d minutes in the future", int(minDelay.Minutes()))
+	}
+	return scheduledAt, nil
+}
 
 // SocialPostResult represents the outcome of posting to a single platform.
 type SocialPostResult struct {

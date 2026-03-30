@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -176,6 +177,9 @@ func (t *SocialPostTool) Execute(ctx context.Context, args map[string]any) (stri
 
 	results, err := t.provider.Post(ctx, req)
 	if err != nil {
+		if action == "schedule" && errors.Is(err, ErrSchedulingNotSupported) {
+			return "", fmt.Errorf("scheduling is only supported for Facebook page posts right now")
+		}
 		return "", fmt.Errorf("social post failed: %w", err)
 	}
 

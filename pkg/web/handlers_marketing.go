@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"mime"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,8 +30,8 @@ type CampaignInfo struct {
 // CampaignDetail extends CampaignInfo with file content previews.
 type CampaignDetail struct {
 	CampaignInfo
-	Brief    string                `json:"brief,omitempty"`
-	Strategy string                `json:"strategy,omitempty"`
+	Brief    string                 `json:"brief,omitempty"`
+	Strategy string                 `json:"strategy,omitempty"`
 	Files    map[string][]FileEntry `json:"files"`
 }
 
@@ -186,8 +187,7 @@ func (s *Server) handleGetMarketingCampaign(w http.ResponseWriter, r *http.Reque
 	campaignName := parts[1]
 
 	// Security: neither part should traverse directories
-	if strings.Contains(accountName, "..") || strings.Contains(campaignName, "..") ||
-		strings.ContainsAny(accountName, "/\\") || strings.ContainsAny(campaignName, "/\\") {
+	if isUnsafeMarketingSegment(accountName) || isUnsafeMarketingSegment(campaignName) {
 		http.Error(w, "access denied", http.StatusForbidden)
 		return
 	}
@@ -299,10 +299,22 @@ func (s *Server) handleGetMarketingFile(w http.ResponseWriter, r *http.Request) 
 	campaignName := rest[:slashIdx2]
 	afterCampaign := rest[slashIdx2+1:]
 
+	if isUnsafeMarketingSegment(accountName) || isUnsafeMarketingSegment(campaignName) {
+		http.Error(w, "access denied", http.StatusForbidden)
+		return
+	}
+
 	// afterCampaign should start with "files/"
 	filePath := strings.TrimPrefix(afterCampaign, "files/")
 	if filePath == afterCampaign {
 		http.Error(w, "invalid path", http.StatusBadRequest)
+		return
+	}
+	if unescaped, err := url.PathUnescape(filePath); err == nil {
+		filePath = unescaped
+	}
+	if isUnsafeMarketingFilePath(filePath) {
+		http.Error(w, "access denied", http.StatusForbidden)
 		return
 	}
 
@@ -365,6 +377,26 @@ func mktFileExists(path string) bool {
 func mktDirExists(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && info.IsDir()
+}
+
+func isUnsafeMarketingSegment(value string) bool {
+	if unescaped, err := url.PathUnescape(value); err == nil {
+		value = unescaped
+	}
+	return strings.Contains(value, "..") || strings.ContainsAny(value, "/\\")
+}
+
+func isUnsafeMarketingFilePath(value string) bool {
+	if strings.HasPrefix(value, "/") || strings.HasPrefix(value, "\\") {
+		return true
+	}
+	value = strings.ReplaceAll(value, "\\", "/")
+	for _, part := range strings.Split(value, "/") {
+		if part == ".." {
+			return true
+		}
+	}
+	return false
 }
 
 // listFiles returns a slice of FileEntry for all non-directory files in dir.

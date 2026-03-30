@@ -38,6 +38,10 @@ func NewLinkedInProvider(cfg config.LinkedInSocialConfig) *LinkedInProvider {
 // Platform returns the platform identifier.
 func (l *LinkedInProvider) Platform() string { return "linkedin" }
 
+func (l *LinkedInProvider) GetAnalytics(ctx context.Context, postID string) (*SocialAnalytics, error) {
+	return nil, ErrAnalyticsNotSupported
+}
+
 // uploadImage initializes an image upload, uploads the binary data, and returns
 // the image URN that can be embedded in a post.
 func (l *LinkedInProvider) uploadImage(ctx context.Context, imagePath string) (string, error) {
@@ -117,6 +121,10 @@ func (l *LinkedInProvider) setHeaders(req *http.Request) {
 // Post creates a LinkedIn post. mediaURLs are treated as local file paths;
 // only the first image is uploaded (LinkedIn single-image posts).
 func (l *LinkedInProvider) Post(ctx context.Context, content string, mediaURLs []string, opts map[string]any) (*SocialPostResult, error) {
+	if _, ok := scheduleUnix(opts); ok {
+		return nil, ErrSchedulingNotSupported
+	}
+
 	postBody := map[string]any{
 		"author":     l.authorURN,
 		"commentary": content,

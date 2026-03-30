@@ -51,6 +51,51 @@ func NewTwitterProvider(cfg config.TwitterSocialConfig) *TwitterProvider {
 // Platform returns the platform identifier.
 func (t *TwitterProvider) Platform() string { return "twitter" }
 
+func (t *TwitterProvider) GetAnalytics(ctx context.Context, postID string) (*SocialAnalytics, error) {
+	analyticsURL := fmt.Sprintf("https://api.twitter.com/2/tweets/%s?tweet.fields=public_metrics", url.PathEscape(postID))
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, analyticsURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", t.oauthSign(http.MethodGet, fmt.Sprintf("https://api.twitter.com/2/tweets/%s", url.PathEscape(postID)), map[string]string{"tweet.fields": "public_metrics"}))
+
+	resp, err := t.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 5*1024*1024))
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("twitter analytics failed (status %d): %s", resp.StatusCode, string(respBody))
+	}
+
+	var result struct {
+		Data struct {
+			PublicMetrics struct {
+				LikeCount       int `json:"like_count"`
+				ReplyCount      int `json:"reply_count"`
+				RetweetCount    int `json:"retweet_count"`
+				QuoteCount      int `json:"quote_count"`
+				ImpressionCount int `json:"impression_count"`
+			} `json:"public_metrics"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse twitter analytics response: %w", err)
+	}
+
+	metrics := result.Data.PublicMetrics
+	return &SocialAnalytics{
+		PostID:      postID,
+		Platform:    t.Platform(),
+		Likes:       metrics.LikeCount,
+		Comments:    metrics.ReplyCount,
+		Shares:      metrics.RetweetCount + metrics.QuoteCount,
+		Impressions: metrics.ImpressionCount,
+	}, nil
+}
+
 // oauthSign generates the OAuth 1.0a Authorization header value for a request.
 func (t *TwitterProvider) oauthSign(method, rawURL string, params map[string]string) string {
 	nonce := generateNonce()
@@ -176,6 +221,10 @@ func (t *TwitterProvider) uploadMedia(ctx context.Context, imagePath string) (st
 // Post creates a tweet with optional media attachments (max 4).
 // mediaURLs are treated as local file paths that get uploaded first.
 func (t *TwitterProvider) Post(ctx context.Context, content string, mediaURLs []string, opts map[string]any) (*SocialPostResult, error) {
+	if _, ok := scheduleUnix(opts); ok {
+		return nil, ErrSchedulingNotSupported
+	}
+
 	tweetBody := map[string]any{
 		"text": content,
 	}

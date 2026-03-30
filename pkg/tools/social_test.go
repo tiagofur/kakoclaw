@@ -3,18 +3,22 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"strings"
 	"testing"
+	"time"
 )
 
 // mockSocialProvider implements SocialMediaProvider for testing.
 type mockSocialProvider struct {
-	postResults []SocialPostResult
-	postErr     error
-	analytics   *SocialAnalytics
+	postResults  []SocialPostResult
+	postErr      error
+	analytics    *SocialAnalytics
 	analyticsErr error
-	lastRequest *SocialPostRequest
+	lastRequest  *SocialPostRequest
 }
 
 func (m *mockSocialProvider) Name() string { return "mock" }
@@ -222,6 +226,25 @@ func TestSocialPostTool_Schedule(t *testing.T) {
 	}
 }
 
+func TestSocialPostTool_ScheduleUnsupported(t *testing.T) {
+	mock := &mockSocialProvider{postErr: ErrSchedulingNotSupported}
+	tool := NewSocialPostTool(mock)
+
+	_, err := tool.Execute(context.Background(), map[string]any{
+		"action":        "schedule",
+		"platforms":     []any{"twitter"},
+		"content":       "Scheduled post!",
+		"schedule_time": "2026-04-01T10:00:00Z",
+		"confirmed":     true,
+	})
+	if err == nil {
+		t.Fatal("expected scheduling error")
+	}
+	if !strings.Contains(err.Error(), "only supported for Facebook") {
+		t.Fatalf("expected clear scheduling error, got: %v", err)
+	}
+}
+
 func TestSocialAnalyticsTool_GetMetrics(t *testing.T) {
 	mock := &mockSocialProvider{
 		analytics: &SocialAnalytics{
@@ -261,8 +284,13 @@ func TestSocialAnalyticsTool_GetMetrics(t *testing.T) {
 
 // mockPlatformProvider is a fake PlatformProvider for testing MultiPlatformProvider.
 type mockPlatformProvider struct {
-	platform string
-	postErr  error
+	platform      string
+	postErr       error
+	analytics     *SocialAnalytics
+	analyticsErr  error
+	lastContent   string
+	lastMediaURLs []string
+	lastOpts      map[string]any
 }
 
 func (m *mockPlatformProvider) Platform() string { return m.platform }
@@ -270,12 +298,36 @@ func (m *mockPlatformProvider) Post(ctx context.Context, content string, mediaUR
 	if m.postErr != nil {
 		return nil, m.postErr
 	}
+	m.lastContent = content
+	m.lastMediaURLs = append([]string(nil), mediaURLs...)
+	if opts != nil {
+		m.lastOpts = make(map[string]any, len(opts))
+		for k, v := range opts {
+			m.lastOpts[k] = v
+		}
+	}
 	return &SocialPostResult{
 		Platform: m.platform,
 		PostID:   "mock-123",
 		PostURL:  "https://example.com/post/123",
 		Status:   "posted",
 	}, nil
+}
+
+func (m *mockPlatformProvider) GetAnalytics(ctx context.Context, postID string) (*SocialAnalytics, error) {
+	if m.analyticsErr != nil {
+		return nil, m.analyticsErr
+	}
+	if m.analytics != nil {
+		return m.analytics, nil
+	}
+	return &SocialAnalytics{PostID: postID, Platform: m.platform}, nil
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
 }
 
 func TestMultiPlatformProvider_Post(t *testing.T) {
@@ -301,6 +353,48 @@ func TestMultiPlatformProvider_Post(t *testing.T) {
 	}
 	if results[0].PostID != "mock-123" {
 		t.Fatalf("expected post ID 'mock-123', got %q", results[0].PostID)
+	}
+}
+
+func TestMultiPlatformProvider_PostPassesScheduleAtOption(t *testing.T) {
+	provider := &mockPlatformProvider{platform: "facebook"}
+	mp := &MultiPlatformProvider{
+		providers: map[string]PlatformProvider{
+			"facebook:brand": provider,
+		},
+	}
+
+	scheduleAt := time.Unix(1767225600, 0).UTC()
+	_, err := mp.Post(context.Background(), SocialPostRequest{
+		Platforms:  []string{"facebook"},
+		Content:    "Test post",
+		ScheduleAt: &scheduleAt,
+	})
+	if err != nil {
+		t.Fatalf("Post failed: %v", err)
+	}
+	if provider.lastOpts == nil {
+		t.Fatal("expected opts to be passed to provider")
+	}
+	if got := provider.lastOpts["schedule_at"]; got != scheduleAt.Unix() {
+		t.Fatalf("expected schedule_at %d, got %#v", scheduleAt.Unix(), got)
+	}
+}
+
+func TestMultiPlatformProvider_GetAnalyticsRoutesToProvider(t *testing.T) {
+	expected := &SocialAnalytics{PostID: "abc", Platform: "twitter", Likes: 10}
+	mp := &MultiPlatformProvider{
+		providers: map[string]PlatformProvider{
+			"twitter:personal": &mockPlatformProvider{platform: "twitter", analytics: expected},
+		},
+	}
+
+	analytics, err := mp.GetAnalytics(context.Background(), "abc", "twitter")
+	if err != nil {
+		t.Fatalf("GetAnalytics failed: %v", err)
+	}
+	if analytics.Likes != expected.Likes {
+		t.Fatalf("expected %d likes, got %d", expected.Likes, analytics.Likes)
 	}
 }
 
@@ -383,5 +477,221 @@ func TestSocialPostTool_PreviewCharLimitWarning(t *testing.T) {
 	}
 	if !strings.Contains(result, fmt.Sprintf("300 / 280")) {
 		t.Fatalf("expected '300 / 280' in preview, got: %s", result)
+	}
+}
+
+func TestTwitterProvider_GetAnalytics(t *testing.T) {
+	provider := &TwitterProvider{
+		apiKey:            "api-key",
+		apiSecret:         "api-secret",
+		accessToken:       "access-token",
+		accessTokenSecret: "access-secret",
+		httpClient: &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			if req.Method != http.MethodGet {
+				t.Fatalf("expected GET, got %s", req.Method)
+			}
+			if req.URL.String() != "https://api.twitter.com/2/tweets/123?tweet.fields=public_metrics" {
+				t.Fatalf("unexpected URL: %s", req.URL.String())
+			}
+			if req.Header.Get("Authorization") == "" {
+				t.Fatal("expected Authorization header")
+			}
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     make(http.Header),
+				Body:       io.NopCloser(strings.NewReader(`{"data":{"public_metrics":{"like_count":10,"reply_count":2,"retweet_count":3,"quote_count":4}}}`)),
+			}, nil
+		})},
+	}
+
+	analytics, err := provider.GetAnalytics(context.Background(), "123")
+	if err != nil {
+		t.Fatalf("GetAnalytics failed: %v", err)
+	}
+	if analytics.Likes != 10 || analytics.Comments != 2 || analytics.Shares != 7 || analytics.Impressions != 0 {
+		t.Fatalf("unexpected analytics: %+v", analytics)
+	}
+}
+
+func TestBlueskyProvider_PostUsesATURIAsPostID(t *testing.T) {
+	provider := &BlueskyProvider{
+		handle:      "alice.test",
+		appPassword: "app-pass",
+		pdsURL:      "https://bsky.social",
+		httpClient: &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			switch req.URL.Path {
+			case "/xrpc/com.atproto.server.createSession":
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader(`{"accessJwt":"jwt","did":"did:plc:alice"}`)),
+				}, nil
+			case "/xrpc/com.atproto.repo.createRecord":
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader(`{"uri":"at://did:plc:alice/app.bsky.feed.post/rkey123","cid":"cid123"}`)),
+				}, nil
+			default:
+				t.Fatalf("unexpected request path: %s", req.URL.Path)
+				return nil, nil
+			}
+		})},
+	}
+
+	result, err := provider.Post(context.Background(), "hello", nil, nil)
+	if err != nil {
+		t.Fatalf("Post failed: %v", err)
+	}
+	if result.PostID != "at://did:plc:alice/app.bsky.feed.post/rkey123" {
+		t.Fatalf("expected AT URI post ID, got %q", result.PostID)
+	}
+}
+
+func TestBlueskyProvider_GetAnalytics(t *testing.T) {
+	provider := &BlueskyProvider{
+		handle:      "alice.test",
+		appPassword: "app-pass",
+		pdsURL:      "https://bsky.social",
+		httpClient: &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			switch req.URL.Path {
+			case "/xrpc/com.atproto.server.createSession":
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader(`{"accessJwt":"jwt","did":"did:plc:alice"}`)),
+				}, nil
+			case "/xrpc/app.bsky.feed.getPostThread":
+				if got := req.URL.Query().Get("uri"); got != "at://did:plc:alice/app.bsky.feed.post/rkey123" {
+					t.Fatalf("unexpected URI query: %s", got)
+				}
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader(`{"thread":{"post":{"uri":"at://did:plc:alice/app.bsky.feed.post/rkey123","likeCount":5,"replyCount":2,"repostCount":3}}}`)),
+				}, nil
+			default:
+				t.Fatalf("unexpected request path: %s", req.URL.Path)
+				return nil, nil
+			}
+		})},
+	}
+
+	analytics, err := provider.GetAnalytics(context.Background(), "at://did:plc:alice/app.bsky.feed.post/rkey123")
+	if err != nil {
+		t.Fatalf("GetAnalytics failed: %v", err)
+	}
+	if analytics.Likes != 5 || analytics.Comments != 2 || analytics.Shares != 3 {
+		t.Fatalf("unexpected analytics: %+v", analytics)
+	}
+}
+
+func TestFacebookProvider_PostSchedulesWhenRequested(t *testing.T) {
+	var requestBody map[string]any
+	scheduleAt := time.Now().Add(11 * time.Minute).UTC().Truncate(time.Second)
+	provider := &FacebookProvider{
+		pageAccessToken: "token",
+		pageID:          "page-1",
+		httpClient: &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			if req.Method != http.MethodPost {
+				t.Fatalf("expected POST, got %s", req.Method)
+			}
+			defer req.Body.Close()
+			body, err := io.ReadAll(req.Body)
+			if err != nil {
+				t.Fatalf("failed reading request body: %v", err)
+			}
+			if err := json.Unmarshal(body, &requestBody); err != nil {
+				t.Fatalf("failed parsing request body: %v", err)
+			}
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     make(http.Header),
+				Body:       io.NopCloser(strings.NewReader(`{"id":"page-1_123"}`)),
+			}, nil
+		})},
+	}
+
+	result, err := provider.Post(context.Background(), "hello", nil, map[string]any{"schedule_at": scheduleAt.Unix()})
+	if err != nil {
+		t.Fatalf("Post failed: %v", err)
+	}
+	if requestBody["published"] != false {
+		t.Fatalf("expected published=false, got %#v", requestBody["published"])
+	}
+	if int64(requestBody["scheduled_publish_time"].(float64)) != scheduleAt.Unix() {
+		t.Fatalf("expected scheduled_publish_time %d, got %#v", scheduleAt.Unix(), requestBody["scheduled_publish_time"])
+	}
+	if result.Status != "scheduled" {
+		t.Fatalf("expected scheduled status, got %q", result.Status)
+	}
+}
+
+func TestFacebookProvider_RejectsScheduleTooSoon(t *testing.T) {
+	provider := &FacebookProvider{}
+	_, err := provider.Post(context.Background(), "hello", nil, map[string]any{"schedule_at": time.Now().Add(9 * time.Minute).Unix()})
+	if err == nil {
+		t.Fatal("expected scheduling validation error")
+	}
+	if !strings.Contains(err.Error(), "at least 10 minutes") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestFacebookProvider_GetAnalytics(t *testing.T) {
+	provider := &FacebookProvider{
+		pageAccessToken: "token",
+		pageID:          "page-1",
+		httpClient: &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			if req.Method != http.MethodGet {
+				t.Fatalf("expected GET, got %s", req.Method)
+			}
+			if req.URL.Query().Get("metric") != "post_impressions,post_engaged_users,post_reactions_by_type_total" {
+				t.Fatalf("unexpected metrics query: %s", req.URL.Query().Get("metric"))
+			}
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     make(http.Header),
+				Body:       io.NopCloser(strings.NewReader(`{"data":[{"name":"post_impressions","values":[{"value":1000}]},{"name":"post_engaged_users","values":[{"value":25}]},{"name":"post_reactions_by_type_total","values":[{"value":{"like":5,"love":3}}]}]}`)),
+			}, nil
+		})},
+	}
+
+	analytics, err := provider.GetAnalytics(context.Background(), "page-1_123")
+	if err != nil {
+		t.Fatalf("GetAnalytics failed: %v", err)
+	}
+	if analytics.Impressions != 1000 || analytics.Clicks != 25 || analytics.Likes != 8 {
+		t.Fatalf("unexpected analytics: %+v", analytics)
+	}
+}
+
+func TestFacebookProvider_GetAnalyticsPermissionError(t *testing.T) {
+	provider := &FacebookProvider{
+		pageAccessToken: "token",
+		pageID:          "page-1",
+		httpClient: &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusForbidden,
+				Header:     make(http.Header),
+				Body:       io.NopCloser(strings.NewReader(`{"error":{"message":"Missing pages_read_engagement permission"}}`)),
+			}, nil
+		})},
+	}
+
+	_, err := provider.GetAnalytics(context.Background(), "page-1_123")
+	if err == nil {
+		t.Fatal("expected permission error")
+	}
+	if !strings.Contains(err.Error(), "pages_read_engagement") {
+		t.Fatalf("expected permission guidance, got: %v", err)
+	}
+}
+
+func TestLinkedInProvider_GetAnalyticsUnsupported(t *testing.T) {
+	provider := &LinkedInProvider{}
+	_, err := provider.GetAnalytics(context.Background(), "abc")
+	if !errors.Is(err, ErrAnalyticsNotSupported) {
+		t.Fatalf("expected ErrAnalyticsNotSupported, got %v", err)
 	}
 }

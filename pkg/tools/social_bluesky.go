@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -47,6 +48,55 @@ func NewBlueskyProvider(cfg config.BlueskySocialConfig) *BlueskyProvider {
 
 // Platform returns the platform identifier.
 func (b *BlueskyProvider) Platform() string { return "bluesky" }
+
+func (b *BlueskyProvider) GetAnalytics(ctx context.Context, postID string) (*SocialAnalytics, error) {
+	if err := b.createSession(ctx); err != nil {
+		return nil, fmt.Errorf("bluesky authentication failed: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, b.pdsURL+"/xrpc/app.bsky.feed.getPostThread?uri="+url.QueryEscape(postID), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+b.accessJwt)
+
+	resp, err := b.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1*1024*1024))
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("bluesky analytics failed (status %d): %s", resp.StatusCode, string(respBody))
+	}
+
+	var result struct {
+		Thread struct {
+			Post struct {
+				URI         string `json:"uri"`
+				LikeCount   int    `json:"likeCount"`
+				ReplyCount  int    `json:"replyCount"`
+				RepostCount int    `json:"repostCount"`
+			} `json:"post"`
+		} `json:"thread"`
+	}
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse bluesky analytics response: %w", err)
+	}
+
+	post := result.Thread.Post
+	if post.URI != "" {
+		postID = post.URI
+	}
+	return &SocialAnalytics{
+		PostID:   postID,
+		Platform: b.Platform(),
+		Likes:    post.LikeCount,
+		Comments: post.ReplyCount,
+		Shares:   post.RepostCount,
+	}, nil
+}
 
 // createSession authenticates with the PDS and obtains a JWT access token.
 func (b *BlueskyProvider) createSession(ctx context.Context) error {
@@ -122,6 +172,10 @@ func (b *BlueskyProvider) uploadBlob(ctx context.Context, imageData []byte, mime
 // Post creates a Bluesky post with optional image attachments (max 4).
 // mediaURLs are treated as local file paths.
 func (b *BlueskyProvider) Post(ctx context.Context, content string, mediaURLs []string, opts map[string]any) (*SocialPostResult, error) {
+	if _, ok := scheduleUnix(opts); ok {
+		return nil, ErrSchedulingNotSupported
+	}
+
 	// Authenticate
 	if err := b.createSession(ctx); err != nil {
 		return nil, fmt.Errorf("bluesky authentication failed: %w", err)
@@ -219,7 +273,7 @@ func (b *BlueskyProvider) Post(ctx context.Context, content string, mediaURLs []
 
 	return &SocialPostResult{
 		Platform: "bluesky",
-		PostID:   result.CID,
+		PostID:   result.URI,
 		PostURL:  postURL,
 		Status:   "posted",
 	}, nil
