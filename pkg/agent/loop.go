@@ -535,6 +535,9 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 		}
 	}
 
+	// Register LLM task tool for single-turn model delegation
+	toolsRegistry.Register(tools.NewLLMTaskTool(cfg))
+
 	// Register configure tool for runtime config management
 	configureTool := tools.NewConfigureTool()
 	toolsRegistry.Register(configureTool)
