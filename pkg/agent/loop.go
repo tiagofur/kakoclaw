@@ -205,6 +205,14 @@ func NewAgentLoopForUser(userUUID string, globalCfg *config.Config, msgBus *bus.
 	// Merge user config over global config
 	mergedCfg := config.MergeConfigs(globalCfg, userCfg)
 
+	// Validate ActiveProfile exists (fail fast at startup rather than silently allowing all tools).
+	if profile := mergedCfg.ToolPermissions.ActiveProfile; profile != "" {
+		if _, ok := mergedCfg.ToolPermissions.ToolProfiles[profile]; !ok {
+			return nil, fmt.Errorf("config error: unknown tool_profile %q — available: %v",
+				profile, availableProfileNames(mergedCfg.ToolPermissions.ToolProfiles))
+		}
+	}
+
 	// Create provider with merged config
 	provider, err := providers.CreateProvider(mergedCfg)
 	if err != nil {

@@ -1,11 +1,23 @@
 package agent
 
 import (
+	"sort"
+
 	"github.com/sipeed/makoclaw/pkg/config"
 	"github.com/sipeed/makoclaw/pkg/logger"
 	"github.com/sipeed/makoclaw/pkg/storage"
 	"github.com/sipeed/makoclaw/pkg/tools"
 )
+
+// availableProfileNames returns a sorted slice of profile names for error messages.
+func availableProfileNames(profiles map[string]config.ToolProfileConfig) []string {
+	names := make([]string, 0, len(profiles))
+	for k := range profiles {
+		names = append(names, k)
+	}
+	sort.Strings(names)
+	return names
+}
 
 // filterToolsByPermissions creates a filtered ToolRegistry based on user role and permissions.
 // Returns a new registry containing only tools the user is allowed to access.
