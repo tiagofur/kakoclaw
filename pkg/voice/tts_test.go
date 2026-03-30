@@ -9,8 +9,8 @@ import (
 	"github.com/sipeed/makoclaw/pkg/config"
 )
 
-func TestNewTTSSynthesizer(t *testing.T) {
-	synth := NewTTSSynthesizer(config.TTSConfig{
+func TestNewOpenAITTSProvider(t *testing.T) {
+	synth := NewOpenAITTSProvider(config.TTSConfig{
 		APIKey: "test-key",
 		Voice:  "nova",
 		Model:  "tts-1-hd",
@@ -24,7 +24,7 @@ func TestNewTTSSynthesizer(t *testing.T) {
 }
 
 func TestTTSSynthesizerDefaults(t *testing.T) {
-	synth := NewTTSSynthesizer(config.TTSConfig{APIKey: "key"})
+	synth := NewOpenAITTSProvider(config.TTSConfig{APIKey: "key"})
 	if synth.voice != "alloy" {
 		t.Errorf("default voice = %q, want %q", synth.voice, "alloy")
 	}
@@ -34,19 +34,19 @@ func TestTTSSynthesizerDefaults(t *testing.T) {
 }
 
 func TestTTSSynthesizerIsAvailable(t *testing.T) {
-	withKey := NewTTSSynthesizer(config.TTSConfig{APIKey: "key"})
+	withKey := NewOpenAITTSProvider(config.TTSConfig{APIKey: "key"})
 	if !withKey.IsAvailable() {
 		t.Error("expected available with API key")
 	}
 
-	withoutKey := NewTTSSynthesizer(config.TTSConfig{})
+	withoutKey := NewOpenAITTSProvider(config.TTSConfig{})
 	if withoutKey.IsAvailable() {
 		t.Error("expected not available without API key")
 	}
 }
 
 func TestTTSSynthesizeEmptyText(t *testing.T) {
-	synth := NewTTSSynthesizer(config.TTSConfig{APIKey: "key"})
+	synth := NewOpenAITTSProvider(config.TTSConfig{APIKey: "key"})
 	_, err := synth.Synthesize(context.Background(), "")
 	if err == nil {
 		t.Error("expected error for empty text")
@@ -67,7 +67,7 @@ func TestTTSSynthesize_MockServer(t *testing.T) {
 	}))
 	defer server.Close()
 
-	synth := NewTTSSynthesizer(config.TTSConfig{APIKey: "test-key"})
+	synth := NewOpenAITTSProvider(config.TTSConfig{APIKey: "test-key"})
 	synth.apiBase = server.URL
 
 	audio, err := synth.Synthesize(context.Background(), "Hello world")
@@ -86,7 +86,7 @@ func TestTTSSynthesize_APIError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	synth := NewTTSSynthesizer(config.TTSConfig{APIKey: "bad-key"})
+	synth := NewOpenAITTSProvider(config.TTSConfig{APIKey: "bad-key"})
 	synth.apiBase = server.URL
 
 	_, err := synth.Synthesize(context.Background(), "Hello")

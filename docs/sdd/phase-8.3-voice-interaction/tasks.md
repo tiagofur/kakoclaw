@@ -7,7 +7,7 @@
 
 ## Phase 1: Config & Interfaces (Foundation)
 
-- [ ] 1.1 Add `VoiceWakeConfig`, `CanvasConfig`, `ChannelActionsConfig` structs to `pkg/config/config.go`; add `Voice VoiceWakeConfig`, `Canvas CanvasConfig`, `ChannelActions ChannelActionsConfig` fields to `Config` struct with JSON tags `voice`, `canvas`, `channel_actions` and `enabled: false` defaults.
+- [x] 1.1 Add `VoiceWakeConfig`, `CanvasConfig`, `ChannelActionsConfig` structs to `pkg/config/config.go`; add `Voice VoiceWakeConfig`, `Canvas CanvasConfig`, `ChannelActions ChannelActionsConfig` fields to `Config` struct with JSON tags `voice`, `canvas`, `channel_actions` and `enabled: false` defaults.
 
   ```go
   type VoiceWakeConfig struct {
@@ -37,7 +37,7 @@
 
 ---
 
-- [ ] 1.2 Create `pkg/voice/tts_provider.go` — define `TTSProvider` interface; rename `TTSSynthesizer` to `OpenAITTSProvider` in `pkg/voice/tts.go`; add `func (t *OpenAITTSProvider) IsAvailable() bool` (already present as `TTSSynthesizer`); verify existing TTS tests still pass.
+- [x] 1.2 Create `pkg/voice/tts_provider.go` — define `TTSProvider` interface; rename `TTSSynthesizer` to `OpenAITTSProvider` in `pkg/voice/tts.go`; add `func (t *OpenAITTSProvider) IsAvailable() bool` (already present as `TTSSynthesizer`); verify existing TTS tests still pass.
 
   ```go
   // pkg/voice/tts_provider.go
@@ -60,7 +60,7 @@
 
 ---
 
-- [ ] 1.3 Add `ElevenLabsProvider` to `pkg/voice/tts_provider.go` — implement `TTSProvider`; `Synthesize` POSTs to `https://api.elevenlabs.io/v1/text-to-speech/{voiceID}` with `xi-api-key` header; `IsAvailable()` returns `apiKey != ""`.
+- [x] 1.3 Add `ElevenLabsProvider` to `pkg/voice/tts_provider.go` — implement `TTSProvider`; `Synthesize` POSTs to `https://api.elevenlabs.io/v1/text-to-speech/{voiceID}` with `xi-api-key` header; `IsAvailable()` returns `apiKey != ""`.
 
   RED test in `pkg/voice/tts_provider_test.go`:
   ```go
@@ -81,7 +81,7 @@
 
 ---
 
-- [ ] 1.4 Add `SystemTTSProvider` to `pkg/voice/tts_provider.go` — on macOS calls `exec.Command("say", text)` and returns empty bytes (audio played directly); `IsAvailable()` always `true`.
+- [x] 1.4 Add `SystemTTSProvider` to `pkg/voice/tts_provider.go` — on macOS calls `exec.Command("say", text)` and returns empty bytes (audio played directly); `IsAvailable()` always `true`.
 
   RED test:
   ```go
@@ -100,7 +100,7 @@
 
 ---
 
-- [ ] 1.5 Add `STTProvider` interface to `pkg/voice/transcriber.go`; make `GroqTranscriber` implement it.
+- [x] 1.5 Add `STTProvider` interface to `pkg/voice/transcriber.go`; make `GroqTranscriber` implement it.
 
   ```go
   type STTProvider interface {
@@ -118,7 +118,7 @@
 
 ---
 
-- [ ] 1.6 Create `pkg/channels/actions.go` — define `ChannelAction` interface, `InteractiveMessageRequest`, `ApprovalResult` structs, `ReactionPoller` struct with `Wait(ctx, messageID, timeout)`.
+- [x] 1.6 Create `pkg/channels/actions.go` — define `ChannelAction` interface, `InteractiveMessageRequest`, `ApprovalResult` structs, `ReactionPoller` struct with `Wait(ctx, messageID, timeout)`.
 
   ```go
   package channels

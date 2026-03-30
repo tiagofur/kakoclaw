@@ -1118,7 +1118,7 @@ func webCmd() {
 	}
 	// Wire TTS synthesizer if configured
 	if cfg.TTS.Enabled && cfg.TTS.APIKey != "" {
-		ttsSynth := voice.NewTTSSynthesizer(cfg.TTS)
+		ttsSynth := voice.NewOpenAITTSProvider(cfg.TTS)
 		webServer.SetTTSSynthesizer(ttsSynth)
 	}
 	// Wire MCP manager if configured

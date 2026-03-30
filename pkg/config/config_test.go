@@ -463,3 +463,17 @@ func TestIsAgentsConfigEmpty(t *testing.T) {
 		t.Error("Config with custom provider should NOT be empty")
 	}
 }
+
+func TestConfigDefaults(t *testing.T) {
+	cfg := DefaultConfig()
+
+	if cfg.Voice.Enabled {
+		t.Error("Voice should be disabled by default")
+	}
+	if cfg.Canvas.Enabled {
+		t.Error("Canvas should be disabled by default")
+	}
+	if cfg.ChannelActions.Enabled {
+		t.Error("ChannelActions should be disabled by default")
+	}
+}

@@ -13,8 +13,11 @@ import (
 	"github.com/sipeed/makoclaw/pkg/logger"
 )
 
-// TTSSynthesizer converts text to speech audio using an external API.
-type TTSSynthesizer struct {
+// Compile-time check: OpenAITTSProvider implements TTSProvider.
+var _ TTSProvider = (*OpenAITTSProvider)(nil)
+
+// OpenAITTSProvider converts text to speech audio using the OpenAI TTS API.
+type OpenAITTSProvider struct {
 	apiKey     string
 	apiBase    string
 	voice      string
@@ -22,8 +25,8 @@ type TTSSynthesizer struct {
 	httpClient *http.Client
 }
 
-// NewTTSSynthesizer creates a TTS synthesizer from config.
-func NewTTSSynthesizer(cfg config.TTSConfig) *TTSSynthesizer {
+// NewOpenAITTSProvider creates a TTS synthesizer from config.
+func NewOpenAITTSProvider(cfg config.TTSConfig) *OpenAITTSProvider {
 	voice := cfg.Voice
 	if voice == "" {
 		voice = "alloy"
@@ -40,7 +43,7 @@ func NewTTSSynthesizer(cfg config.TTSConfig) *TTSSynthesizer {
 		"model":    model,
 	})
 
-	return &TTSSynthesizer{
+	return &OpenAITTSProvider{
 		apiKey:  cfg.APIKey,
 		apiBase: apiBase,
 		voice:   voice,
@@ -52,12 +55,12 @@ func NewTTSSynthesizer(cfg config.TTSConfig) *TTSSynthesizer {
 }
 
 // IsAvailable returns true if the synthesizer has an API key configured.
-func (t *TTSSynthesizer) IsAvailable() bool {
+func (t *OpenAITTSProvider) IsAvailable() bool {
 	return t.apiKey != ""
 }
 
 // Synthesize converts text to speech and returns raw MP3 audio bytes.
-func (t *TTSSynthesizer) Synthesize(ctx context.Context, text string) ([]byte, error) {
+func (t *OpenAITTSProvider) Synthesize(ctx context.Context, text string) ([]byte, error) {
 	if text == "" {
 		return nil, fmt.Errorf("text is required")
 	}

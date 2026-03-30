@@ -72,7 +72,7 @@ type Server struct {
 	channelManager          *channels.Manager
 	multiUserChannelManager *channels.MultiUserChannelManager
 	transcriber             *voice.GroqTranscriber
-	ttsSynthesizer          *voice.TTSSynthesizer
+	ttsSynthesizer          *voice.OpenAITTSProvider
 	mcpManager              *mcp.Manager
 	workflowEngine          *workflow.Engine
 	userMetrics             map[string]*observability.Metrics
@@ -241,7 +241,7 @@ func (s *Server) SetTranscriber(t *voice.GroqTranscriber) {
 }
 
 // SetTTSSynthesizer injects the TTS synthesizer for REST exposure
-func (s *Server) SetTTSSynthesizer(t *voice.TTSSynthesizer) {
+func (s *Server) SetTTSSynthesizer(t *voice.OpenAITTSProvider) {
 	s.ttsSynthesizer = t
 }
 

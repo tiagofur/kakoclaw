@@ -104,8 +104,31 @@ type Config struct {
 	ToolPermissions ToolPermissionsConfig `json:"tool_permissions"`
 	Storage         StorageConfig         `json:"storage"`
 	TTS             TTSConfig             `json:"tts"`
+	Voice           VoiceWakeConfig       `json:"voice"`
+	Canvas          CanvasConfig          `json:"canvas"`
+	ChannelActions  ChannelActionsConfig  `json:"channel_actions"`
 	DegradedMode    bool                  `json:"-"` // Runtime flag: true when no valid LLM provider is configured
 	mu              sync.RWMutex
+}
+
+// VoiceWakeConfig configures wake word detection and voice interaction.
+type VoiceWakeConfig struct {
+	Enabled          bool    `json:"enabled"`
+	WakeWord         string  `json:"wake_word"`
+	Sensitivity      float64 `json:"sensitivity"`
+	ConfirmationTone bool    `json:"confirmation_tone"`
+}
+
+// CanvasConfig configures the agent-controlled visual canvas.
+type CanvasConfig struct {
+	Enabled bool `json:"enabled"`
+	DevMode bool `json:"dev_mode"`
+}
+
+// ChannelActionsConfig configures interactive message actions (buttons, reactions).
+type ChannelActionsConfig struct {
+	Enabled              bool   `json:"enabled"`
+	InteractionsEndpoint string `json:"interactions_endpoint_url"`
 }
 
 // TTSConfig configures text-to-speech synthesis.
