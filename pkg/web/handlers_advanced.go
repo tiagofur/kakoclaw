@@ -1181,6 +1181,49 @@ func isSystemFile(relPath string) bool {
 	return false
 }
 
+func isWithinBasePath(basePath, targetPath string) bool {
+	rel, err := filepath.Rel(basePath, targetPath)
+	if err != nil {
+		return false
+	}
+	return rel == "." || (!strings.HasPrefix(rel, "..") && rel != "..")
+}
+
+func normalizeFileRequestPath(workspacePath, requestPath string) (string, string, error) {
+	absWorkspace, err := filepath.Abs(workspacePath)
+	if err != nil {
+		return "", "", err
+	}
+
+	normalizedRequestPath := filepath.Clean(filepath.FromSlash(strings.TrimSpace(requestPath)))
+	if normalizedRequestPath == "." {
+		normalizedRequestPath = ""
+	}
+
+	fullPath := filepath.Join(absWorkspace, normalizedRequestPath)
+	if normalizedRequestPath != "" && filepath.IsAbs(normalizedRequestPath) {
+		fullPath = normalizedRequestPath
+	}
+
+	absPath, err := filepath.Abs(fullPath)
+	if err != nil {
+		return "", "", err
+	}
+	if !isWithinBasePath(absWorkspace, absPath) {
+		return "", "", os.ErrPermission
+	}
+
+	relPath, err := filepath.Rel(absWorkspace, absPath)
+	if err != nil {
+		return "", "", err
+	}
+	if relPath == "." {
+		relPath = ""
+	}
+
+	return filepath.ToSlash(relPath), absPath, nil
+}
+
 func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -1212,17 +1255,20 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get relative path from URL
-	relPath := strings.TrimPrefix(r.URL.Path, "/api/v1/files")
-	relPath = strings.TrimPrefix(relPath, "/")
+	requestPath := strings.TrimPrefix(r.URL.Path, "/api/v1/files")
+	requestPath = strings.TrimPrefix(requestPath, "/")
 
 	// Security: resolve and verify path is within user workspace
-	fullPath := filepath.Clean(filepath.Join(userWorkspace, relPath))
-	absWorkspace, _ := filepath.Abs(userWorkspace)
-	absPath, _ := filepath.Abs(fullPath)
-	if !strings.HasPrefix(absPath, absWorkspace) {
-		http.Error(w, "access denied", http.StatusForbidden)
+	relPath, fullPath, err := normalizeFileRequestPath(userWorkspace, requestPath)
+	if err != nil {
+		if errors.Is(err, os.ErrPermission) {
+			http.Error(w, "access denied", http.StatusForbidden)
+		} else {
+			http.Error(w, "invalid path", http.StatusBadRequest)
+		}
 		return
 	}
+	absWorkspace, _ := filepath.Abs(userWorkspace)
 
 	// Handle Upload (POST)
 	if r.Method == http.MethodPost {
@@ -1247,8 +1293,14 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 
 		// Security: verify targetPath is still in workspace (after joining filename)
 		absTarget, _ := filepath.Abs(targetPath)
-		if !strings.HasPrefix(absTarget, absWorkspace) {
+		if !isWithinBasePath(absWorkspace, absTarget) {
 			http.Error(w, "invalid filename", http.StatusForbidden)
+			return
+		}
+
+		targetRelPath, err := filepath.Rel(absWorkspace, absTarget)
+		if err != nil {
+			http.Error(w, "failed to resolve file path", http.StatusInternalServerError)
 			return
 		}
 
@@ -1267,7 +1319,7 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 		writeJSONResponse(w, map[string]string{
 			"status": "uploaded",
 			"name":   header.Filename,
-			"path":   filepath.ToSlash(strings.TrimPrefix(targetPath, userWorkspace)),
+			"path":   filepath.ToSlash(targetRelPath),
 		})
 		return
 	}
@@ -1298,7 +1350,7 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			absLinkTarget, _ := filepath.Abs(linkTarget)
-			if !strings.HasPrefix(absLinkTarget, absWorkspace) {
+			if !isWithinBasePath(absWorkspace, absLinkTarget) {
 				http.Error(w, "cannot delete symlinks pointing outside workspace", http.StatusForbidden)
 				return
 			}
@@ -1419,7 +1471,7 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 
 		// Security: verify new path is still in workspace
 		absNewPath, _ := filepath.Abs(newPath)
-		if !strings.HasPrefix(absNewPath, absWorkspace) {
+		if !isWithinBasePath(absWorkspace, absNewPath) {
 			http.Error(w, "invalid new name: would escape workspace", http.StatusForbidden)
 			return
 		}
@@ -1571,6 +1623,33 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 		}
 		defer file.Close()
 		io.Copy(w, file)
+		return
+	}
+
+	imageExts := map[string]string{
+		".png":  "image/png",
+		".jpg":  "image/jpeg",
+		".jpeg": "image/jpeg",
+		".gif":  "image/gif",
+		".webp": "image/webp",
+		".svg":  "image/svg+xml",
+	}
+	if mimeType, ok := imageExts[strings.ToLower(filepath.Ext(info.Name()))]; ok {
+		w.Header().Set("Content-Type", mimeType)
+
+		file, err := os.Open(fullPath)
+		if err != nil {
+			http.Error(w, "failed to read file", http.StatusInternalServerError)
+			return
+		}
+		defer file.Close()
+
+		if _, err := io.Copy(w, file); err != nil {
+			logger.ErrorCF("web", "Failed to stream image file", map[string]interface{}{
+				"path":  fullPath,
+				"error": err.Error(),
+			})
+		}
 		return
 	}
 
@@ -1793,7 +1872,7 @@ func redactChannels(cfg *config.Config) map[string]interface{} {
 			"phone_number": cfg.Channels.Signal.PhoneNumber,
 		},
 		"email": map[string]interface{}{
-			"enabled":                cfg.Channels.Email.Enabled,
+			"enabled":               cfg.Channels.Email.Enabled,
 			"configured":            cfg.Channels.Email.IMAPHost != "",
 			"imap_host":             cfg.Channels.Email.IMAPHost,
 			"imap_port":             cfg.Channels.Email.IMAPPort,

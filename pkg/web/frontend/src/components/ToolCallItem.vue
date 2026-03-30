@@ -77,32 +77,12 @@
               Result
             </div>
 
-            <!-- Image preview for image_generate tool -->
-            <template v-if="imageResult && !imgError">
-              <div class="rounded-2xl overflow-hidden border border-purple-500/20 bg-purple-500/5">
-                <img
-                  :src="imageDisplayUrl"
-                  alt="Generated image"
-                  class="w-full max-w-lg object-contain"
-                  @error="imgError = true"
-                >
-                <div class="flex items-center justify-between px-4 py-2.5 border-t border-purple-500/15">
-                  <p
-                    v-if="imageResult.revised_prompt"
-                    class="text-[10px] text-purple-300/60 italic truncate flex-1 mr-3"
-                  >
-                    {{ imageResult.revised_prompt }}
-                  </p>
-                  <button
-                    class="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/40 border border-purple-500/30 rounded-lg text-[10px] font-bold text-purple-300 uppercase tracking-widest transition-all active:scale-95 flex-none"
-                    @click.stop="downloadImage"
-                  >
-                    <ArrowDownTrayIcon class="w-3.5 h-3.5" />
-                    Download
-                  </button>
-                </div>
-              </div>
-            </template>
+            <ImagePreviewCard
+              v-if="imageResult && imageDisplayUrl"
+              :src="imageDisplayUrl"
+              :caption="imageResult.revised_prompt || ''"
+              :download-url="imageDownloadUrl"
+            />
 
             <!-- Default: raw text/JSON result -->
             <div
@@ -127,8 +107,9 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { ArrowDownTrayIcon } from '@heroicons/vue/24/outline'
+import ImagePreviewCard from './ImagePreviewCard.vue'
 import { useAuthStore } from '../stores/authStore'
+import { buildFilesApiUrl, deriveWorkspaceRelativePath, extractImageResultData } from '../utils/imagePreview'
 
 const props = defineProps({
   toolCall: {
@@ -139,9 +120,9 @@ const props = defineProps({
 
 const authStore = useAuthStore()
 const localExpanded = ref(false)
-const imgError = ref(false)
 
 const isExpanded = computed(() => localExpanded.value)
+const workspaceRoot = computed(() => authStore.user?.workspace || '')
 
 const statusLabel = computed(() => {
   if (props.toolCall.status === 'started') return 'executing…'
@@ -172,38 +153,37 @@ const formattedTime = computed(() => {
   })
 })
 
-// Detect image_generate results and parse them
+// Detect tool results that point to image files
 const imageResult = computed(() => {
-  if (props.toolCall.name !== 'image_generate') return null
-  const raw = props.toolCall.result
-  if (!raw) return null
-  try {
-    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
-    if (parsed.local_path || parsed.url) return parsed
-  } catch {}
-  return null
+  return extractImageResultData(props.toolCall.result)
+})
+
+const relPath = computed(() => {
+  const absolutePath = imageResult.value?.local_path
+  return absolutePath ? deriveWorkspaceRelativePath(absolutePath, workspaceRoot.value) : ''
 })
 
 // Build display URL from local_path using the files API
 const imageDisplayUrl = computed(() => {
   if (!imageResult.value) return null
-  const path = imageResult.value.local_path
-  if (!path) return imageResult.value.url || null
-  const encoded = encodeURIComponent(path).replace(/%2F/g, '/')
-  return `/api/v1/files/${encoded}?token=${authStore.token}`
+  if (imageResult.value.local_path) {
+    return buildFilesApiUrl(relPath.value, authStore.token)
+  }
+  return imageResult.value.url || null
+})
+
+const imageDownloadUrl = computed(() => {
+  if (!imageResult.value) return ''
+  if (imageResult.value.local_path) {
+    return buildFilesApiUrl(relPath.value, authStore.token, { download: true })
+  }
+  return imageResult.value.url || ''
 })
 
 // Auto-expand when an image result arrives
 watch(imageResult, (val) => {
   if (val) localExpanded.value = true
 }, { immediate: true })
-
-const downloadImage = () => {
-  const path = imageResult.value?.local_path
-  if (!path) return
-  const encoded = encodeURIComponent(path).replace(/%2F/g, '/')
-  window.open(`/api/v1/files/${encoded}?download=true&token=${authStore.token}`, '_blank')
-}
 
 function toggleExpanded() {
   localExpanded.value = !localExpanded.value

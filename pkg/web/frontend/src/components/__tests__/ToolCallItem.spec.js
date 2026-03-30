@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { createPinia } from 'pinia'
 import ToolCallItem from '../ToolCallItem.vue'
 
 function mountToolCallItem(overrides = {}) {
@@ -13,7 +14,10 @@ function mountToolCallItem(overrides = {}) {
   }
 
   return mount(ToolCallItem, {
-    props: { toolCall }
+    props: { toolCall },
+    global: {
+      plugins: [createPinia()]
+    }
   })
 }
 

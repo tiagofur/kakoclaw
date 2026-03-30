@@ -81,20 +81,33 @@
           />
         </div>
 
-        <div v-if="msg.content">
+        <div v-if="msg.content || inlineImages.length > 0">
           <!-- Streaming Content -->
           <p
-            v-if="msg.streaming"
+            v-if="msg.content && msg.streaming"
             class="text-sm md:text-base whitespace-pre-wrap break-words leading-relaxed"
           >
             {{ msg.content }}<span class="streaming-cursor" />
           </p>
           <!-- Final Markdown Content -->
           <MarkdownRenderer
-            v-else
+            v-else-if="msg.content"
             :content="msg.content"
             class="text-sm md:text-base"
           />
+
+          <div
+            v-if="inlineImages.length > 0"
+            class="mt-4 flex flex-wrap gap-3"
+          >
+            <ImagePreviewCard
+              v-for="image in inlineImages"
+              :key="image.key"
+              :src="image.src"
+              :caption="image.caption"
+              :download-url="image.downloadUrl"
+            />
+          </div>
         </div>
 
         <!-- Fallback: no content and no segments (shouldn't happen but safety) -->
@@ -227,21 +240,23 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import MarkdownRenderer from './Chat/MarkdownRenderer.vue'
 import ThinkingBlock from './Chat/ThinkingBlock.vue'
 import ToolCallItem from './ToolCallItem.vue'
 import SpecialistBadge from './Chat/SpecialistBadge.vue'
 import AgentActivityItem from './Chat/AgentActivityItem.vue'
 import SpecialistSegment from './Chat/SpecialistSegment.vue'
+import ImagePreviewCard from './ImagePreviewCard.vue'
 import { useAuthStore } from '../stores/authStore'
 import { useChatStore } from '../stores/chatStore'
+import { buildFilesApiUrl, deriveWorkspaceRelativePath, extractImageResultData } from '../utils/imagePreview'
 
 const isSynthesizing = ref(false)
 const authStore = useAuthStore()
 const chatStore = useChatStore()
 
-defineProps({
+const props = defineProps({
   msg: {
     type: Object,
     required: true
@@ -261,6 +276,36 @@ defineProps({
 })
 
 defineEmits(['fork', 'copy', 'regenerate'])
+
+const workspaceRoot = computed(() => authStore.user?.workspace || '')
+
+const inlineImages = computed(() => {
+  const toolCalls = props.msg?.toolCalls || props.msg?.tool_calls || []
+
+  return toolCalls
+    .filter(toolCall => toolCall?.name === 'image_generate' || toolCall?.function?.name === 'image_generate')
+    .map((toolCall, index) => {
+      const parsed = extractImageResultData(toolCall.result || toolCall.content)
+      if (!parsed) return null
+
+      const candidatePath = parsed.local_path || parsed.url || ''
+      const relPath = parsed.local_path
+        ? deriveWorkspaceRelativePath(parsed.local_path, workspaceRoot.value)
+        : ''
+
+      return {
+        key: toolCall.id || `${candidatePath}-${index}`,
+        src: parsed.local_path
+          ? buildFilesApiUrl(relPath, authStore.token, { workspaceRoot: workspaceRoot.value })
+          : parsed.url,
+        downloadUrl: parsed.local_path
+          ? buildFilesApiUrl(relPath, authStore.token, { download: true, workspaceRoot: workspaceRoot.value })
+          : parsed.url,
+        caption: parsed.revised_prompt || ''
+      }
+    })
+    .filter(Boolean)
+})
 
 async function synthesizeAudio(text) {
   if (isSynthesizing.value || !text) return
@@ -301,4 +346,3 @@ const formatTime = (isoString) => {
 <style scoped>
 /* Agent badges are now inline in the footer row */
 </style>
-

@@ -333,10 +333,10 @@
               class="file-card group"
             >
               <!-- Entry Content -->
-              <div
-                class="flex-1 flex items-center gap-3 min-w-0 cursor-pointer"
-                @click="entry.is_dir ? navigateTo(entry.path) : viewFile(entry.path)"
-              >
+                <div
+                  class="flex-1 flex items-center gap-3 min-w-0 cursor-pointer"
+                  @click="entry.is_dir ? navigateTo(entry.path) : viewFile(entry)"
+                >
                 <!-- Icon -->
                 <div
                   :class="[
@@ -531,7 +531,7 @@
 
         <!-- File Viewer -->
         <div
-          v-if="fileContent !== null"
+          v-if="hasActiveFileView"
           class="p-4 sm:p-6"
         >
           <div class="glass-panel rounded-2xl overflow-hidden">
@@ -680,6 +680,12 @@
                 v-model="editContent"
                 class="w-full bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-xl p-4 text-sm font-mono overflow-auto min-h-[50vh] max-h-[70vh] whitespace-pre-wrap focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500/50 resize-y"
               />
+              <ImagePreviewCard
+                v-else-if="isImagePreview"
+                :src="imagePreviewUrl"
+                :caption="fileName"
+                :download-url="buildImagePreviewUrl(currentPath, true)"
+              />
               <pre
                 v-else
                 class="bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-xl p-4 text-sm font-mono overflow-auto max-h-[70vh] whitespace-pre-wrap"
@@ -821,7 +827,11 @@
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import advancedService from '../services/advancedService'
 import { useToast } from '../composables/useToast'
+import ImagePreviewCard from '../components/ImagePreviewCard.vue'
+import { useAuthStore } from '../stores/authStore'
+import { buildFilesApiUrl, imageExtensions } from '../utils/imagePreview'
 
+const authStore = useAuthStore()
 const toast = useToast()
 const loading = ref(true)
 const uploading = ref(false)
@@ -832,6 +842,7 @@ const fileContent = ref(null)
 const fileName = ref('')
 const fileSize = ref(0)
 const fileError = ref(null)
+const imagePreviewUrl = ref('')
 
 // Search state
 const searchQuery = ref('')
@@ -860,12 +871,21 @@ const savingFile = ref(false)
 
 // Text file extensions that can be edited
 const textExtensions = ['.txt', '.md', '.json', '.js', '.ts', '.jsx', '.tsx', '.vue', '.css', '.scss', '.html', '.xml', '.yaml', '.yml', '.toml', '.ini', '.cfg', '.conf', '.log', '.sh', '.bash', '.zsh', '.py', '.go', '.rs', '.java', '.c', '.cpp', '.h', '.hpp', '.rb', '.php', '.sql', '.env', '.gitignore', '.dockerfile', '.makefile']
+const imageExtensionSet = new Set(imageExtensions)
+
+const isImageFile = (name = '') => {
+  const normalizedName = String(name || '').toLowerCase()
+  return Array.from(imageExtensionSet).some(ext => normalizedName.endsWith(ext))
+}
 
 const isTextFile = computed(() => {
   if (!fileName.value) return false
   const name = fileName.value.toLowerCase()
   return textExtensions.some(ext => name.endsWith(ext)) || !name.includes('.')
 })
+
+const isImagePreview = computed(() => isImageFile(fileName.value || currentPath.value))
+const hasActiveFileView = computed(() => entries.value === null && (fileContent.value !== null || !!imagePreviewUrl.value || !!fileError.value))
 
 const isFileReadOnly = computed(() => {
   const path = currentPath.value
@@ -924,9 +944,12 @@ const breadcrumbs = computed(() => {
 
 const navigateTo = async (path) => {
   loading.value = true
+  entries.value = null
   fileContent.value = null
+  imagePreviewUrl.value = ''
   isEditing.value = false
   editContent.value = ''
+  fileError.value = null
   currentPath.value = path
   searchQuery.value = ''
   try {
@@ -955,8 +978,28 @@ const navigateTo = async (path) => {
 }
 
 const viewFile = async (path) => {
-  await navigateTo(path)
+  const entry = typeof path === 'string'
+    ? { path, name: path.split('/').pop() || path, size: 0 }
+    : path
+
+  if (isImageFile(entry.name || entry.path)) {
+    loading.value = false
+    entries.value = null
+    fileContent.value = null
+    imagePreviewUrl.value = buildImagePreviewUrl(entry.path)
+    fileName.value = entry.name || entry.path.split('/').pop() || entry.path
+    fileSize.value = entry.size || 0
+    fileError.value = null
+    currentPath.value = entry.path
+    isEditing.value = false
+    editContent.value = ''
+    return
+  }
+
+  await navigateTo(entry.path)
 }
+
+const buildImagePreviewUrl = (path, download = false) => buildFilesApiUrl(path, authStore.token, { download })
 
 const downloadEntry = (path) => {
   advancedService.downloadFile(path)
