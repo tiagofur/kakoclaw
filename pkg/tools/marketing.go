@@ -16,6 +16,12 @@ type MarketingCampaignTool struct {
 	workspace string
 }
 
+// CampaignStatus tracks the current lifecycle state of a marketing campaign.
+type CampaignStatus struct {
+	Status    string    `json:"status"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 // NewMarketingCampaignTool creates a MarketingCampaignTool for the given workspace.
 func NewMarketingCampaignTool(workspace string) *MarketingCampaignTool {
 	return &MarketingCampaignTool{workspace: workspace}
@@ -65,13 +71,24 @@ func (t *MarketingCampaignTool) Execute(ctx context.Context, args map[string]any
 	platforms, _ := args["platforms"].(string)
 	objective, _ := args["objective"].(string)
 
+	result, err := CreateCampaignDir(t.workspace, account, campaign, description, objective, platforms)
+	if err != nil {
+		return "", err
+	}
+
+	out, _ := json.MarshalIndent(result, "", "  ")
+	return string(out), nil
+}
+
+// CreateCampaignDir creates the marketing campaign folder structure and seed files.
+func CreateCampaignDir(workspace, account, campaign, description, objective, platforms string) (map[string]string, error) {
 	account = sanitizeSlug(account)
 	campaign = sanitizeSlug(campaign)
 	if account == "" || campaign == "" {
-		return "", fmt.Errorf("account and campaign are required and must be non-empty")
+		return nil, fmt.Errorf("account and campaign are required and must be non-empty")
 	}
 
-	basePath := filepath.Join(t.workspace, "marketing", account, campaign)
+	basePath := filepath.Join(workspace, "marketing", account, campaign)
 	dirs := []string{
 		basePath,
 		filepath.Join(basePath, "copy"),
@@ -83,7 +100,7 @@ func (t *MarketingCampaignTool) Execute(ctx context.Context, args map[string]any
 
 	for _, dir := range dirs {
 		if err := os.MkdirAll(dir, 0755); err != nil {
-			return "", fmt.Errorf("failed to create directory %s: %w", dir, err)
+			return nil, fmt.Errorf("failed to create directory %s: %w", dir, err)
 		}
 	}
 
@@ -91,24 +108,38 @@ func (t *MarketingCampaignTool) Execute(ctx context.Context, args map[string]any
 	brief := buildBriefContent(account, campaign, description, objective, platforms)
 	briefPath := filepath.Join(basePath, "brief.md")
 	if err := os.WriteFile(briefPath, []byte(brief), 0644); err != nil {
-		return "", fmt.Errorf("failed to write brief.md: %w", err)
+		return nil, fmt.Errorf("failed to write brief.md: %w", err)
+	}
+
+	statusPath := filepath.Join(basePath, "status.json")
+	status := CampaignStatus{
+		Status:    "draft",
+		UpdatedAt: time.Now().UTC(),
+	}
+	statusData, err := json.MarshalIndent(status, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal status.json: %w", err)
+	}
+	if err := os.WriteFile(statusPath, statusData, 0644); err != nil {
+		return nil, fmt.Errorf("failed to write status.json: %w", err)
 	}
 
 	result := map[string]string{
-		"base_path":      toRelative(t.workspace, basePath),
-		"brief_path":     toRelative(t.workspace, briefPath),
-		"copy_path":      toRelative(t.workspace, filepath.Join(basePath, "copy")),
-		"images_path":    toRelative(t.workspace, filepath.Join(basePath, "assets", "images")),
-		"videos_path":    toRelative(t.workspace, filepath.Join(basePath, "assets", "videos")),
-		"schedules_path": toRelative(t.workspace, filepath.Join(basePath, "schedules")),
-		"analytics_path": toRelative(t.workspace, filepath.Join(basePath, "analytics")),
-		"account":        account,
-		"campaign":       campaign,
-		"status":         "initialized",
+		"base_path":       toRelative(workspace, basePath),
+		"brief_path":      toRelative(workspace, briefPath),
+		"status_path":     toRelative(workspace, statusPath),
+		"copy_path":       toRelative(workspace, filepath.Join(basePath, "copy")),
+		"images_path":     toRelative(workspace, filepath.Join(basePath, "assets", "images")),
+		"videos_path":     toRelative(workspace, filepath.Join(basePath, "assets", "videos")),
+		"schedules_path":  toRelative(workspace, filepath.Join(basePath, "schedules")),
+		"analytics_path":  toRelative(workspace, filepath.Join(basePath, "analytics")),
+		"account":         account,
+		"campaign":        campaign,
+		"status":          "initialized",
+		"campaign_status": status.Status,
 	}
 
-	out, _ := json.MarshalIndent(result, "", "  ")
-	return string(out), nil
+	return result, nil
 }
 
 var reSlugInvalid = regexp.MustCompile(`[^a-z0-9\-_]`)
@@ -119,6 +150,11 @@ func sanitizeSlug(s string) string {
 	s = reSlugInvalid.ReplaceAllString(s, "-")
 	s = reSlugMultiDash.ReplaceAllString(s, "-")
 	return strings.Trim(s, "-")
+}
+
+// SanitizeMarketingSlug normalizes account and campaign names into safe slugs.
+func SanitizeMarketingSlug(s string) string {
+	return sanitizeSlug(s)
 }
 
 func toRelative(workspace, absPath string) string {

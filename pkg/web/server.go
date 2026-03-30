@@ -365,16 +365,16 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/skills/generate-config", s.handleSkillGenerateConfig) // Generate skill config with AI
 
 	// Marketplace endpoints
-	mux.HandleFunc("/api/v1/marketplace/skills", s.handleMarketplaceSkills)             // List approved skills
-	mux.HandleFunc("/api/v1/marketplace/skills/", s.handleMarketplaceSkillAction)       // Skill detail + install
-	mux.HandleFunc("/api/v1/marketplace/submit", s.handleMarketplaceSubmit)             // Submit skill
-	mux.HandleFunc("/api/v1/marketplace/submissions", s.handleMarketplaceMySubmissions) // My submissions
-	mux.HandleFunc("/api/v1/marketplace/categories", s.handleMarketplaceCategories)           // Categories list
+	mux.HandleFunc("/api/v1/marketplace/skills", s.handleMarketplaceSkills)                  // List approved skills
+	mux.HandleFunc("/api/v1/marketplace/skills/", s.handleMarketplaceSkillAction)            // Skill detail + install
+	mux.HandleFunc("/api/v1/marketplace/submit", s.handleMarketplaceSubmit)                  // Submit skill
+	mux.HandleFunc("/api/v1/marketplace/submissions", s.handleMarketplaceMySubmissions)      // My submissions
+	mux.HandleFunc("/api/v1/marketplace/categories", s.handleMarketplaceCategories)          // Categories list
 	mux.HandleFunc("/api/v1/marketplace/security-alerts", s.handleMarketplaceSecurityAlerts) // Security alerts
-	mux.HandleFunc("/api/v1/marketplace/bundles", s.handleMarketplaceBundles)           // List / create bundles
-	mux.HandleFunc("/api/v1/marketplace/bundles/", s.handleMarketplaceBundleAction)     // Bundle actions (install, ...)
-	mux.HandleFunc("/api/v1/admin/submissions", s.handleAdminPendingSubmissions)        // Admin: pending submissions
-	mux.HandleFunc("/api/v1/admin/submissions/", s.handleAdminSubmissionAction)         // Admin: approve/reject
+	mux.HandleFunc("/api/v1/marketplace/bundles", s.handleMarketplaceBundles)                // List / create bundles
+	mux.HandleFunc("/api/v1/marketplace/bundles/", s.handleMarketplaceBundleAction)          // Bundle actions (install, ...)
+	mux.HandleFunc("/api/v1/admin/submissions", s.handleAdminPendingSubmissions)             // Admin: pending submissions
+	mux.HandleFunc("/api/v1/admin/submissions/", s.handleAdminSubmissionAction)              // Admin: approve/reject
 
 	mux.HandleFunc("/api/v1/cron", s.handleCron)                              // Cron jobs list + create
 	mux.HandleFunc("/api/v1/cron/", s.handleCronAction)                       // Cron job actions
@@ -407,38 +407,38 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/setup/complete/", s.handleSetupComplete)      // Complete setup
 	mux.HandleFunc("/api/v1/test-channel/telegram", s.handleTestTelegram) // Test Telegram connection
 
-	mux.HandleFunc("/api/v1/files", s.handleFiles)                                 // File browser
-	mux.HandleFunc("/api/v1/files/", s.handleFiles)                                // File browser subpaths
-	mux.HandleFunc("/api/v1/marketing/campaigns", s.handleListMarketingCampaigns)  // Marketing: list campaigns
+	mux.HandleFunc("/api/v1/files", s.handleFiles)                                   // File browser
+	mux.HandleFunc("/api/v1/files/", s.handleFiles)                                  // File browser subpaths
+	mux.HandleFunc("/api/v1/marketing/campaigns", s.handleListMarketingCampaigns)    // Marketing: list + create campaigns
 	mux.HandleFunc("/api/v1/marketing/campaigns/", s.handleMarketingCampaignsRouter) // Marketing: campaign detail + files
-	mux.HandleFunc("/api/v1/export/tasks", s.handleExportTasks)                    // Export tasks
-	mux.HandleFunc("/api/v1/export/chat", s.handleExportChat)                      // Export chat history
-	mux.HandleFunc("/api/v1/import/chat", s.handleImportChat)                      // Import conversations
-	mux.HandleFunc("/api/v1/models", s.handleModels)                               // Available models/providers
-	mux.HandleFunc("/api/v1/providers/catalog", s.handleProvidersCatalog)          // All available providers metadata
-	mux.HandleFunc("/api/v1/voice/transcribe", s.handleVoiceTranscribe)            // Voice-to-text (Groq STT)
-	mux.HandleFunc("/api/v1/voice/synthesize", s.handleVoiceSynthesize)            // Text-to-speech (TTS)
-	mux.HandleFunc("/api/v1/knowledge", s.handleKnowledge)                         // Knowledge base: list + upload
-	mux.HandleFunc("/api/v1/knowledge/search", s.handleKnowledgeSearch)            // Knowledge base: FTS5 search
-	mux.HandleFunc("/api/v1/knowledge/chunks/", s.handleKnowledgeChunkAction)      // Knowledge base: update chunks
-	mux.HandleFunc("/api/v1/knowledge/", s.handleKnowledgeAction)                  // Knowledge base: view chunks or delete by ID
-	mux.HandleFunc("/api/v1/openapi.json", s.handleOpenAPISpec)                    // OpenAPI 3.0 spec (JSON)
-	mux.HandleFunc("/api/docs", s.handleAPIDocsUI)                                 // Swagger UI
-	mux.HandleFunc("/api/v1/mcp", s.handleMCPServers)                              // MCP servers: list + status
-	mux.HandleFunc("/api/v1/mcp/reconnect-all", s.handleMCPReconnectAll)           // MCP: reconnect all servers
-	mux.HandleFunc("/api/v1/mcp/", s.handleMCPServerAction)                        // MCP server actions: reconnect
-	mux.HandleFunc("/api/v1/metrics", s.handleMetrics)                             // Observability metrics
-	mux.HandleFunc("/api/v1/tools", s.handleToolsList)                             // Available tools list
-	mux.HandleFunc("/api/v1/prompts", s.handlePrompts)                             // Prompt templates: list + create
-	mux.HandleFunc("/api/v1/prompts/", s.handlePromptAction)                       // Prompt templates: update/delete
-	mux.HandleFunc("/api/v1/chat/attachments", s.handleChatAttachment)             // Chat file upload/extract
-	mux.HandleFunc("/api/v1/workflows", s.handleWorkflows)                         // Workflows: list + create
-	mux.HandleFunc("/api/v1/workflows/approvals", s.handleWorkflowApprovals)       // Workflow approvals: list pending
-	mux.HandleFunc("/api/v1/workflows/approvals/", s.handleWorkflowApprovalAction) // Resolve approval
-	mux.HandleFunc("/api/v1/workflows/", s.handleWorkflowAction)                   // Workflow actions: get/update/delete/run
-	mux.HandleFunc("/api/v1/backup/export", s.handleBackupExport)                  // Export backup
-	mux.HandleFunc("/api/v1/backup/import", s.handleBackupImport)                  // Import backup
-	mux.HandleFunc("/api/v1/backup/validate", s.handleBackupValidate)              // Validate backup
+	mux.HandleFunc("/api/v1/export/tasks", s.handleExportTasks)                      // Export tasks
+	mux.HandleFunc("/api/v1/export/chat", s.handleExportChat)                        // Export chat history
+	mux.HandleFunc("/api/v1/import/chat", s.handleImportChat)                        // Import conversations
+	mux.HandleFunc("/api/v1/models", s.handleModels)                                 // Available models/providers
+	mux.HandleFunc("/api/v1/providers/catalog", s.handleProvidersCatalog)            // All available providers metadata
+	mux.HandleFunc("/api/v1/voice/transcribe", s.handleVoiceTranscribe)              // Voice-to-text (Groq STT)
+	mux.HandleFunc("/api/v1/voice/synthesize", s.handleVoiceSynthesize)              // Text-to-speech (TTS)
+	mux.HandleFunc("/api/v1/knowledge", s.handleKnowledge)                           // Knowledge base: list + upload
+	mux.HandleFunc("/api/v1/knowledge/search", s.handleKnowledgeSearch)              // Knowledge base: FTS5 search
+	mux.HandleFunc("/api/v1/knowledge/chunks/", s.handleKnowledgeChunkAction)        // Knowledge base: update chunks
+	mux.HandleFunc("/api/v1/knowledge/", s.handleKnowledgeAction)                    // Knowledge base: view chunks or delete by ID
+	mux.HandleFunc("/api/v1/openapi.json", s.handleOpenAPISpec)                      // OpenAPI 3.0 spec (JSON)
+	mux.HandleFunc("/api/docs", s.handleAPIDocsUI)                                   // Swagger UI
+	mux.HandleFunc("/api/v1/mcp", s.handleMCPServers)                                // MCP servers: list + status
+	mux.HandleFunc("/api/v1/mcp/reconnect-all", s.handleMCPReconnectAll)             // MCP: reconnect all servers
+	mux.HandleFunc("/api/v1/mcp/", s.handleMCPServerAction)                          // MCP server actions: reconnect
+	mux.HandleFunc("/api/v1/metrics", s.handleMetrics)                               // Observability metrics
+	mux.HandleFunc("/api/v1/tools", s.handleToolsList)                               // Available tools list
+	mux.HandleFunc("/api/v1/prompts", s.handlePrompts)                               // Prompt templates: list + create
+	mux.HandleFunc("/api/v1/prompts/", s.handlePromptAction)                         // Prompt templates: update/delete
+	mux.HandleFunc("/api/v1/chat/attachments", s.handleChatAttachment)               // Chat file upload/extract
+	mux.HandleFunc("/api/v1/workflows", s.handleWorkflows)                           // Workflows: list + create
+	mux.HandleFunc("/api/v1/workflows/approvals", s.handleWorkflowApprovals)         // Workflow approvals: list pending
+	mux.HandleFunc("/api/v1/workflows/approvals/", s.handleWorkflowApprovalAction)   // Resolve approval
+	mux.HandleFunc("/api/v1/workflows/", s.handleWorkflowAction)                     // Workflow actions: get/update/delete/run
+	mux.HandleFunc("/api/v1/backup/export", s.handleBackupExport)                    // Export backup
+	mux.HandleFunc("/api/v1/backup/import", s.handleBackupImport)                    // Import backup
+	mux.HandleFunc("/api/v1/backup/validate", s.handleBackupValidate)                // Validate backup
 	mux.HandleFunc("/ws/chat", s.handleChatWS)
 	mux.HandleFunc("/ws/tasks", s.handleTasksWS)
 	mux.Handle("/", s.staticHandler())

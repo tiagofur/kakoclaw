@@ -1,6 +1,7 @@
 package web
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/sipeed/makoclaw/pkg/config"
 	"github.com/sipeed/makoclaw/pkg/storage"
+	"github.com/sipeed/makoclaw/pkg/tools"
 )
 
 func setupMarketingServer(t *testing.T) (*Server, *storage.User, string) {
@@ -62,6 +64,14 @@ func seedMarketingCampaign(t *testing.T, workspace, account, campaign string) st
 		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 			t.Fatalf("failed to write %s: %v", path, err)
 		}
+	}
+
+	statusData, err := json.Marshal(tools.CampaignStatus{Status: "active"})
+	if err != nil {
+		t.Fatalf("failed to marshal status: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(basePath, "status.json"), statusData, 0644); err != nil {
+		t.Fatalf("failed to write status.json: %v", err)
 	}
 
 	pngData, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9p5nYe0AAAAASUVORK5CYII=")
@@ -128,6 +138,9 @@ func TestHandleListMarketingCampaigns(t *testing.T) {
 		if campaign.Account != "acme" || campaign.Campaign != "launch" {
 			t.Fatalf("unexpected campaign payload: %+v", campaign)
 		}
+		if campaign.Status != "active" {
+			t.Fatalf("expected active status, got %+v", campaign)
+		}
 		if !campaign.HasStrategy || !campaign.HasCopy || !campaign.HasAssets || !campaign.HasSchedule || !campaign.HasAnalytics {
 			t.Fatalf("expected all presence flags to be true, got %+v", campaign)
 		}
@@ -168,6 +181,9 @@ func TestHandleGetMarketingCampaign(t *testing.T) {
 		}
 		if detail.Account != "acme" || detail.Campaign != "launch" {
 			t.Fatalf("unexpected campaign detail: %+v", detail)
+		}
+		if detail.Status != "active" {
+			t.Fatalf("expected active status, got %+v", detail)
 		}
 		if !strings.Contains(detail.Brief, "Launch week plan") {
 			t.Fatalf("expected brief content, got %q", detail.Brief)
@@ -308,5 +324,157 @@ func TestHandleGetMarketingFile_PathTraversal(t *testing.T) {
 				t.Fatalf("expected 403 for %s, got %d: %s", tt.name, rr.Code, rr.Body.String())
 			}
 		})
+	}
+}
+
+func TestHandleCreateMarketingCampaign(t *testing.T) {
+	t.Run("creates campaign", func(t *testing.T) {
+		s, _, workspace := setupMarketingServer(t)
+
+		body := `{"account":"Acme Corp","campaign":"Launch 2026","objective":"Ship","platforms":["Twitter","LinkedIn"],"description":"Hello"}`
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/marketing/campaigns", bytes.NewBufferString(body))
+		req = withTestUserContext(t, s, req)
+		rr := httptest.NewRecorder()
+
+		s.handleListMarketingCampaigns(rr, req)
+
+		if rr.Code != http.StatusCreated {
+			t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
+		}
+
+		var out CampaignInfo
+		if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
+			t.Fatalf("invalid response JSON: %v", err)
+		}
+		if out.Account != "acme-corp" || out.Campaign != "launch-2026" {
+			t.Fatalf("unexpected campaign info: %+v", out)
+		}
+		if out.Status != "draft" {
+			t.Fatalf("expected draft status, got %+v", out)
+		}
+		if _, err := os.Stat(filepath.Join(workspace, "marketing", "acme-corp", "launch-2026", "status.json")); err != nil {
+			t.Fatalf("expected status.json to exist: %v", err)
+		}
+	})
+
+	t.Run("rejects duplicate campaign", func(t *testing.T) {
+		s, _, workspace := setupMarketingServer(t)
+		seedMarketingCampaign(t, workspace, "acme", "launch")
+
+		body := `{"account":"acme","campaign":"launch"}`
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/marketing/campaigns", bytes.NewBufferString(body))
+		req = withTestUserContext(t, s, req)
+		rr := httptest.NewRecorder()
+
+		s.handleListMarketingCampaigns(rr, req)
+
+		if rr.Code != http.StatusConflict {
+			t.Fatalf("expected 409, got %d: %s", rr.Code, rr.Body.String())
+		}
+	})
+}
+
+func TestHandleRenameMarketingCampaign(t *testing.T) {
+	s, _, workspace := setupMarketingServer(t)
+	seedMarketingCampaign(t, workspace, "acme", "launch")
+
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/marketing/campaigns/acme/launch", bytes.NewBufferString(`{"new_name":"Launch 2027"}`))
+	req = withTestUserContext(t, s, req)
+	rr := httptest.NewRecorder()
+
+	s.handleMarketingCampaignsRouter(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var out CampaignInfo
+	if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
+		t.Fatalf("invalid response JSON: %v", err)
+	}
+	if out.Campaign != "launch-2027" {
+		t.Fatalf("expected renamed campaign, got %+v", out)
+	}
+	if _, err := os.Stat(filepath.Join(workspace, "marketing", "acme", "launch-2027", "status.json")); err != nil {
+		t.Fatalf("expected status.json in renamed path: %v", err)
+	}
+}
+
+func TestHandleDeleteMarketingCampaign(t *testing.T) {
+	s, _, workspace := setupMarketingServer(t)
+	seedMarketingCampaign(t, workspace, "acme", "launch")
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/marketing/campaigns/acme/launch", nil)
+	req = withTestUserContext(t, s, req)
+	rr := httptest.NewRecorder()
+
+	s.handleMarketingCampaignsRouter(rr, req)
+
+	if rr.Code != http.StatusNoContent {
+		t.Fatalf("expected 204, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if _, err := os.Stat(filepath.Join(workspace, "marketing", "acme", "launch")); !os.IsNotExist(err) {
+		t.Fatalf("expected campaign directory removed, err=%v", err)
+	}
+}
+
+func TestHandleUpdateCampaignStatus(t *testing.T) {
+	s, _, workspace := setupMarketingServer(t)
+	basePath := seedMarketingCampaign(t, workspace, "acme", "launch")
+
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/marketing/campaigns/acme/launch/status", bytes.NewBufferString(`{"status":"paused"}`))
+	req = withTestUserContext(t, s, req)
+	rr := httptest.NewRecorder()
+
+	s.handleMarketingCampaignsRouter(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var out tools.CampaignStatus
+	if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
+		t.Fatalf("invalid response JSON: %v", err)
+	}
+	if out.Status != "paused" {
+		t.Fatalf("expected paused status, got %+v", out)
+	}
+
+	data, err := os.ReadFile(filepath.Join(basePath, "status.json"))
+	if err != nil {
+		t.Fatalf("failed to read status.json: %v", err)
+	}
+	var stored tools.CampaignStatus
+	if err := json.Unmarshal(data, &stored); err != nil {
+		t.Fatalf("invalid status.json: %v", err)
+	}
+	if stored.Status != "paused" {
+		t.Fatalf("expected persisted paused status, got %+v", stored)
+	}
+}
+
+func TestHandleMarketingCampaign_DefaultsMissingStatusToDraft(t *testing.T) {
+	s, _, workspace := setupMarketingServer(t)
+	basePath := seedMarketingCampaign(t, workspace, "acme", "launch")
+	if err := os.Remove(filepath.Join(basePath, "status.json")); err != nil {
+		t.Fatalf("failed to remove status.json: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/marketing/campaigns/acme/launch", nil)
+	req = withTestUserContext(t, s, req)
+	rr := httptest.NewRecorder()
+
+	s.handleGetMarketingCampaign(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var detail CampaignDetail
+	if err := json.Unmarshal(rr.Body.Bytes(), &detail); err != nil {
+		t.Fatalf("invalid response JSON: %v", err)
+	}
+	if detail.Status != "draft" {
+		t.Fatalf("expected default draft status, got %+v", detail)
 	}
 }

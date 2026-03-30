@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	"fmt"
 	"mime"
 	"net/http"
 	"net/url"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/sipeed/makoclaw/pkg/config"
 	"github.com/sipeed/makoclaw/pkg/logger"
+	"github.com/sipeed/makoclaw/pkg/tools"
 )
 
 // CampaignInfo holds summary metadata for a campaign directory.
@@ -19,6 +21,7 @@ type CampaignInfo struct {
 	Account      string    `json:"account"`
 	Campaign     string    `json:"campaign"`
 	BasePath     string    `json:"base_path"`
+	Status       string    `json:"status"`
 	CreatedAt    time.Time `json:"created_at"`
 	HasStrategy  bool      `json:"has_strategy"`
 	HasCopy      bool      `json:"has_copy"`
@@ -43,6 +46,30 @@ type FileEntry struct {
 	IsImage bool   `json:"is_image"`
 }
 
+type CreateCampaignRequest struct {
+	Account     string   `json:"account"`
+	Campaign    string   `json:"campaign"`
+	Objective   string   `json:"objective"`
+	Platforms   []string `json:"platforms"`
+	Description string   `json:"description"`
+}
+
+type renameCampaignRequest struct {
+	NewName string `json:"new_name"`
+}
+
+type updateCampaignStatusRequest struct {
+	Status string `json:"status"`
+}
+
+var allowedCampaignStatuses = map[string]struct{}{
+	"draft":     {},
+	"active":    {},
+	"paused":    {},
+	"completed": {},
+	"archived":  {},
+}
+
 var imageExtensions = map[string]bool{
 	".png": true, ".jpg": true, ".jpeg": true, ".gif": true, ".webp": true,
 	".svg": true, ".bmp": true, ".tiff": true,
@@ -52,9 +79,15 @@ func isImageFile(name string) bool {
 	return imageExtensions[strings.ToLower(filepath.Ext(name))]
 }
 
-// handleListMarketingCampaigns handles GET /api/v1/marketing/campaigns
+// handleListMarketingCampaigns handles GET/POST /api/v1/marketing/campaigns
 func (s *Server) handleListMarketingCampaigns(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
+	switch r.Method {
+	case http.MethodGet:
+		// continue below
+	case http.MethodPost:
+		s.handleCreateMarketingCampaign(w, r)
+		return
+	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -118,7 +151,8 @@ func (s *Server) handleListMarketingCampaigns(w http.ResponseWriter, r *http.Req
 			ci := CampaignInfo{
 				Account:   accountName,
 				Campaign:  campaignName,
-				BasePath:  campaignPath,
+				BasePath:  mktToRelative(userWorkspace, campaignPath),
+				Status:    readCampaignStatus(campaignPath).Status,
 				CreatedAt: info.ModTime(),
 			}
 
@@ -144,7 +178,7 @@ func (s *Server) handleListMarketingCampaigns(w http.ResponseWriter, r *http.Req
 }
 
 // handleMarketingCampaignsRouter dispatches /api/v1/marketing/campaigns/{account}/{campaign}
-// and /api/v1/marketing/campaigns/{account}/{campaign}/files/{path...}
+// and nested files/status endpoints.
 func (s *Server) handleMarketingCampaignsRouter(w http.ResponseWriter, r *http.Request) {
 	suffix := strings.TrimPrefix(r.URL.Path, "/api/v1/marketing/campaigns/")
 	// Count path segments after campaigns/
@@ -154,16 +188,93 @@ func (s *Server) handleMarketingCampaignsRouter(w http.ResponseWriter, r *http.R
 		s.handleGetMarketingFile(w, r)
 		return
 	}
-	s.handleGetMarketingCampaign(w, r)
+	if len(parts) >= 3 && parts[2] == "status" {
+		s.handleUpdateCampaignStatus(w, r)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		s.handleGetMarketingCampaign(w, r)
+	case http.MethodPatch:
+		s.handleRenameMarketingCampaign(w, r)
+	case http.MethodDelete:
+		s.handleDeleteMarketingCampaign(w, r)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// handleCreateMarketingCampaign handles POST /api/v1/marketing/campaigns
+func (s *Server) handleCreateMarketingCampaign(w http.ResponseWriter, r *http.Request) {
+	_, userUUID, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	userWorkspace, err := config.EnsureUserWorkspace(userUUID)
+	if err != nil {
+		http.Error(w, "failed to access workspace", http.StatusInternalServerError)
+		return
+	}
+
+	var req CreateCampaignRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid json", http.StatusBadRequest)
+		return
+	}
+
+	if strings.TrimSpace(req.Account) == "" || strings.TrimSpace(req.Campaign) == "" {
+		http.Error(w, "account and campaign are required", http.StatusBadRequest)
+		return
+	}
+	if isUnsafeMarketingSegment(req.Account) || isUnsafeMarketingSegment(req.Campaign) {
+		http.Error(w, "access denied", http.StatusForbidden)
+		return
+	}
+
+	accountSlug := tools.SanitizeMarketingSlug(req.Account)
+	campaignSlug := tools.SanitizeMarketingSlug(req.Campaign)
+	if accountSlug == "" || campaignSlug == "" {
+		http.Error(w, "account and campaign are required", http.StatusBadRequest)
+		return
+	}
+
+	campaignPath := filepath.Join(userWorkspace, "marketing", accountSlug, campaignSlug)
+	if _, err := os.Stat(campaignPath); err == nil {
+		http.Error(w, "campaign already exists", http.StatusConflict)
+		return
+	} else if err != nil && !os.IsNotExist(err) {
+		http.Error(w, "failed to access campaign", http.StatusInternalServerError)
+		return
+	}
+
+	if _, err := tools.CreateCampaignDir(
+		userWorkspace,
+		req.Account,
+		req.Campaign,
+		req.Description,
+		req.Objective,
+		strings.Join(req.Platforms, ","),
+	); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	createdInfo, err := buildCampaignInfo(userWorkspace, accountSlug, campaignSlug, campaignPath)
+	if err != nil {
+		http.Error(w, "failed to load created campaign", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	writeJSONResponse(w, createdInfo)
 }
 
 // handleGetMarketingCampaign handles GET /api/v1/marketing/campaigns/{account}/{campaign}
 func (s *Server) handleGetMarketingCampaign(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	_, userUUID, ok := s.getUserStorage(r)
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -205,60 +316,199 @@ func (s *Server) handleGetMarketingCampaign(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	info, err := os.Stat(campaignPath)
+	detail, err := buildCampaignDetail(userWorkspace, accountName, campaignName, campaignPath)
 	if err != nil {
-		http.Error(w, "failed to stat campaign", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	detail := CampaignDetail{
-		CampaignInfo: CampaignInfo{
-			Account:   accountName,
-			Campaign:  campaignName,
-			BasePath:  campaignPath,
-			CreatedAt: info.ModTime(),
-		},
-		Files: make(map[string][]FileEntry),
-	}
-
-	// Check presence flags
-	detail.HasStrategy = mktFileExists(filepath.Join(campaignPath, "strategy.md"))
-	detail.HasCopy = mktDirExists(filepath.Join(campaignPath, "copy"))
-	detail.HasAssets = mktDirExists(filepath.Join(campaignPath, "assets", "images")) ||
-		mktDirExists(filepath.Join(campaignPath, "assets"))
-	detail.HasSchedule = mktDirExists(filepath.Join(campaignPath, "schedules")) ||
-		mktFileExists(filepath.Join(campaignPath, "schedule.json"))
-	detail.HasAnalytics = mktDirExists(filepath.Join(campaignPath, "analytics"))
-
-	// Read brief.md
-	if brief, err := os.ReadFile(filepath.Join(campaignPath, "brief.md")); err == nil {
-		detail.Brief = string(brief)
-	}
-
-	// Read strategy.md
-	if strategy, err := os.ReadFile(filepath.Join(campaignPath, "strategy.md")); err == nil {
-		detail.Strategy = string(strategy)
-	}
-
-	// List copy/ files
-	detail.Files["copy"] = listFiles(filepath.Join(campaignPath, "copy"), "copy")
-
-	// List assets/images/ (or assets/)
-	assetsImagesDir := filepath.Join(campaignPath, "assets", "images")
-	if mktDirExists(assetsImagesDir) {
-		detail.Files["assets"] = listFiles(assetsImagesDir, "assets/images")
-	} else {
-		detail.Files["assets"] = listFiles(filepath.Join(campaignPath, "assets"), "assets")
-	}
-
-	// List schedules/
-	detail.Files["schedules"] = listFiles(filepath.Join(campaignPath, "schedules"), "schedules")
-
-	// List analytics/
-	detail.Files["analytics"] = listFiles(filepath.Join(campaignPath, "analytics"), "analytics")
-
 	w.Header().Set("Content-Type", "application/json")
 	writeJSONResponse(w, detail)
+}
+
+// handleRenameMarketingCampaign handles PATCH /api/v1/marketing/campaigns/{account}/{campaign}
+func (s *Server) handleRenameMarketingCampaign(w http.ResponseWriter, r *http.Request) {
+	_, userUUID, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	userWorkspace, err := config.EnsureUserWorkspace(userUUID)
+	if err != nil {
+		http.Error(w, "failed to access workspace", http.StatusInternalServerError)
+		return
+	}
+
+	accountName, campaignName, err := parseMarketingCampaignPath(r.URL.Path)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if isUnsafeMarketingSegment(accountName) || isUnsafeMarketingSegment(campaignName) {
+		http.Error(w, "access denied", http.StatusForbidden)
+		return
+	}
+
+	var req renameCampaignRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid json", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.NewName) == "" {
+		http.Error(w, "new_name is required", http.StatusBadRequest)
+		return
+	}
+	if isUnsafeMarketingSegment(req.NewName) {
+		http.Error(w, "access denied", http.StatusForbidden)
+		return
+	}
+
+	newCampaignName := tools.SanitizeMarketingSlug(req.NewName)
+	if newCampaignName == "" {
+		http.Error(w, "new_name is required", http.StatusBadRequest)
+		return
+	}
+
+	oldPath := filepath.Join(userWorkspace, "marketing", accountName, campaignName)
+	if _, err := os.Stat(oldPath); os.IsNotExist(err) {
+		http.Error(w, "campaign not found", http.StatusNotFound)
+		return
+	} else if err != nil {
+		http.Error(w, "failed to access campaign", http.StatusInternalServerError)
+		return
+	}
+
+	if newCampaignName != campaignName {
+		newPath := filepath.Join(userWorkspace, "marketing", accountName, newCampaignName)
+		if _, err := os.Stat(newPath); err == nil {
+			http.Error(w, "campaign already exists", http.StatusConflict)
+			return
+		} else if err != nil && !os.IsNotExist(err) {
+			http.Error(w, "failed to access campaign", http.StatusInternalServerError)
+			return
+		}
+
+		if err := os.Rename(oldPath, newPath); err != nil {
+			http.Error(w, "failed to rename campaign", http.StatusInternalServerError)
+			return
+		}
+		oldPath = newPath
+	}
+
+	if _, err := ensureCampaignStatus(oldPath); err != nil {
+		http.Error(w, "failed to update campaign status", http.StatusInternalServerError)
+		return
+	}
+
+	updatedInfo, err := buildCampaignInfo(userWorkspace, accountName, newCampaignName, oldPath)
+	if err != nil {
+		http.Error(w, "failed to load renamed campaign", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	writeJSONResponse(w, updatedInfo)
+}
+
+// handleDeleteMarketingCampaign handles DELETE /api/v1/marketing/campaigns/{account}/{campaign}
+func (s *Server) handleDeleteMarketingCampaign(w http.ResponseWriter, r *http.Request) {
+	_, userUUID, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	userWorkspace, err := config.EnsureUserWorkspace(userUUID)
+	if err != nil {
+		http.Error(w, "failed to access workspace", http.StatusInternalServerError)
+		return
+	}
+
+	accountName, campaignName, err := parseMarketingCampaignPath(r.URL.Path)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if isUnsafeMarketingSegment(accountName) || isUnsafeMarketingSegment(campaignName) {
+		http.Error(w, "access denied", http.StatusForbidden)
+		return
+	}
+
+	campaignPath := filepath.Join(userWorkspace, "marketing", accountName, campaignName)
+	if _, err := os.Stat(campaignPath); os.IsNotExist(err) {
+		http.Error(w, "campaign not found", http.StatusNotFound)
+		return
+	} else if err != nil {
+		http.Error(w, "failed to access campaign", http.StatusInternalServerError)
+		return
+	}
+
+	if err := os.RemoveAll(campaignPath); err != nil {
+		http.Error(w, "failed to delete campaign", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// handleUpdateCampaignStatus handles PATCH /api/v1/marketing/campaigns/{account}/{campaign}/status
+func (s *Server) handleUpdateCampaignStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPatch {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	_, userUUID, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	userWorkspace, err := config.EnsureUserWorkspace(userUUID)
+	if err != nil {
+		http.Error(w, "failed to access workspace", http.StatusInternalServerError)
+		return
+	}
+
+	accountName, campaignName, err := parseMarketingCampaignStatusPath(r.URL.Path)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if isUnsafeMarketingSegment(accountName) || isUnsafeMarketingSegment(campaignName) {
+		http.Error(w, "access denied", http.StatusForbidden)
+		return
+	}
+
+	var req updateCampaignStatusRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid json", http.StatusBadRequest)
+		return
+	}
+	status := strings.ToLower(strings.TrimSpace(req.Status))
+	if _, ok := allowedCampaignStatuses[status]; !ok {
+		http.Error(w, "invalid status", http.StatusBadRequest)
+		return
+	}
+
+	campaignPath := filepath.Join(userWorkspace, "marketing", accountName, campaignName)
+	if _, err := os.Stat(campaignPath); os.IsNotExist(err) {
+		http.Error(w, "campaign not found", http.StatusNotFound)
+		return
+	} else if err != nil {
+		http.Error(w, "failed to access campaign", http.StatusInternalServerError)
+		return
+	}
+
+	updatedStatus, err := writeCampaignStatus(campaignPath, status)
+	if err != nil {
+		http.Error(w, "failed to update campaign status", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	writeJSONResponse(w, updatedStatus)
 }
 
 // handleGetMarketingFile handles GET /api/v1/marketing/campaigns/{account}/{campaign}/files/{path...}
@@ -427,4 +677,129 @@ func listFiles(dir string, pathPrefix string) []FileEntry {
 		})
 	}
 	return entries
+}
+
+func parseMarketingCampaignPath(path string) (string, string, error) {
+	suffix := strings.TrimPrefix(path, "/api/v1/marketing/campaigns/")
+	parts := strings.SplitN(suffix, "/", 3)
+	if len(parts) < 2 || parts[0] == "" || parts[1] == "" {
+		return "", "", fmt.Errorf("invalid campaign path")
+	}
+	return parts[0], parts[1], nil
+}
+
+func parseMarketingCampaignStatusPath(path string) (string, string, error) {
+	suffix := strings.TrimPrefix(path, "/api/v1/marketing/campaigns/")
+	parts := strings.SplitN(suffix, "/", 3)
+	if len(parts) != 3 || parts[2] != "status" || parts[0] == "" || parts[1] == "" {
+		return "", "", fmt.Errorf("invalid campaign path")
+	}
+	return parts[0], parts[1], nil
+}
+
+func mktToRelative(workspace, absPath string) string {
+	rel, err := filepath.Rel(workspace, absPath)
+	if err != nil {
+		return absPath
+	}
+	return filepath.ToSlash(rel)
+}
+
+func readCampaignStatus(campaignPath string) tools.CampaignStatus {
+	status, err := ensureCampaignStatus(campaignPath)
+	if err != nil {
+		return tools.CampaignStatus{Status: "draft"}
+	}
+	return status
+}
+
+func ensureCampaignStatus(campaignPath string) (tools.CampaignStatus, error) {
+	statusPath := filepath.Join(campaignPath, "status.json")
+	data, err := os.ReadFile(statusPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			status := tools.CampaignStatus{Status: "draft"}
+			return writeCampaignStatus(campaignPath, status.Status)
+		}
+		return tools.CampaignStatus{}, err
+	}
+
+	var status tools.CampaignStatus
+	if err := json.Unmarshal(data, &status); err != nil {
+		return writeCampaignStatus(campaignPath, "draft")
+	}
+	status.Status = strings.ToLower(strings.TrimSpace(status.Status))
+	if status.Status == "" {
+		return writeCampaignStatus(campaignPath, "draft")
+	}
+	return status, nil
+}
+
+func writeCampaignStatus(campaignPath, status string) (tools.CampaignStatus, error) {
+	payload := tools.CampaignStatus{
+		Status:    status,
+		UpdatedAt: time.Now().UTC(),
+	}
+	data, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		return tools.CampaignStatus{}, err
+	}
+	if err := os.WriteFile(filepath.Join(campaignPath, "status.json"), data, 0644); err != nil {
+		return tools.CampaignStatus{}, err
+	}
+	return payload, nil
+}
+
+func buildCampaignInfo(userWorkspace, accountName, campaignName, campaignPath string) (CampaignInfo, error) {
+	info, err := os.Stat(campaignPath)
+	if err != nil {
+		return CampaignInfo{}, err
+	}
+
+	ci := CampaignInfo{
+		Account:   accountName,
+		Campaign:  campaignName,
+		BasePath:  mktToRelative(userWorkspace, campaignPath),
+		Status:    readCampaignStatus(campaignPath).Status,
+		CreatedAt: info.ModTime(),
+	}
+	ci.HasStrategy = mktFileExists(filepath.Join(campaignPath, "strategy.md"))
+	ci.HasCopy = mktDirExists(filepath.Join(campaignPath, "copy"))
+	ci.HasAssets = mktDirExists(filepath.Join(campaignPath, "assets", "images")) ||
+		mktDirExists(filepath.Join(campaignPath, "assets"))
+	ci.HasSchedule = mktDirExists(filepath.Join(campaignPath, "schedules")) ||
+		mktFileExists(filepath.Join(campaignPath, "schedule.json"))
+	ci.HasAnalytics = mktDirExists(filepath.Join(campaignPath, "analytics"))
+	return ci, nil
+}
+
+func buildCampaignDetail(userWorkspace, accountName, campaignName, campaignPath string) (CampaignDetail, error) {
+	info, err := buildCampaignInfo(userWorkspace, accountName, campaignName, campaignPath)
+	if err != nil {
+		return CampaignDetail{}, err
+	}
+
+	detail := CampaignDetail{
+		CampaignInfo: info,
+		Files:        make(map[string][]FileEntry),
+	}
+
+	if brief, err := os.ReadFile(filepath.Join(campaignPath, "brief.md")); err == nil {
+		detail.Brief = string(brief)
+	}
+	if strategy, err := os.ReadFile(filepath.Join(campaignPath, "strategy.md")); err == nil {
+		detail.Strategy = string(strategy)
+	}
+
+	detail.Files["copy"] = listFiles(filepath.Join(campaignPath, "copy"), "copy")
+	assetsImagesDir := filepath.Join(campaignPath, "assets", "images")
+	if mktDirExists(assetsImagesDir) {
+		detail.Files["assets"] = listFiles(assetsImagesDir, "assets/images")
+	} else {
+		detail.Files["assets"] = listFiles(filepath.Join(campaignPath, "assets"), "assets")
+	}
+	detail.Files["schedules"] = listFiles(filepath.Join(campaignPath, "schedules"), "schedules")
+	detail.Files["analytics"] = listFiles(filepath.Join(campaignPath, "analytics"), "analytics")
+
+	return detail, nil
 }
