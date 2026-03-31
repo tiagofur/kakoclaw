@@ -254,27 +254,37 @@ func (s *Storage) evaluateSegmentRulesInMemory(rules []SegmentRule) ([]int64, er
 
 // refreshAllSegmentCounts recalculates contact_count for all segments.
 func (s *Storage) refreshAllSegmentCounts() {
-	segments, err := s.db.Query(`SELECT id, COALESCE(rules, '[]') FROM segments`)
+	// Load all segment IDs and rules into memory first to avoid cursor contention
+	// with MaxOpenConns=1 (can't hold a query cursor and open another query).
+	rows, err := s.db.Query(`SELECT id, COALESCE(rules, '[]') FROM segments`)
 	if err != nil {
 		return
 	}
-	defer segments.Close()
-
-	for segments.Next() {
+	type segEntry struct {
+		ID    int64
+		Rules []SegmentRule
+	}
+	var entries []segEntry
+	for rows.Next() {
 		var id int64
 		var rulesJSON string
-		if err := segments.Scan(&id, &rulesJSON); err != nil {
+		if err := rows.Scan(&id, &rulesJSON); err != nil {
 			continue
 		}
 		var rules []SegmentRule
 		if err := json.Unmarshal([]byte(rulesJSON), &rules); err != nil {
 			continue
 		}
-		ids, err := s.EvaluateSegmentRules(rules)
+		entries = append(entries, segEntry{ID: id, Rules: rules})
+	}
+	rows.Close()
+
+	for _, entry := range entries {
+		ids, err := s.EvaluateSegmentRules(entry.Rules)
 		if err != nil {
 			continue
 		}
-		s.db.Exec(`UPDATE segments SET contact_count = ? WHERE id = ?`, len(ids), id)
+		s.db.Exec(`UPDATE segments SET contact_count = ? WHERE id = ?`, len(ids), entry.ID)
 	}
 }
 

@@ -152,7 +152,10 @@ func (s *Storage) DeleteContact(id int64) error {
 	}
 
 	// Recalculate segment contact counts (best-effort, non-blocking)
-	s.refreshAllSegmentCounts()
+	go func() {
+		defer func() { recover() }()
+		s.refreshAllSegmentCounts()
+	}()
 	return nil
 }
 
