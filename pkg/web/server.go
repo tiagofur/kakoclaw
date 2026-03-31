@@ -23,6 +23,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/sipeed/makoclaw/pkg/agent"
 	"github.com/sipeed/makoclaw/pkg/bus"
+	"github.com/sipeed/makoclaw/pkg/canvas"
 	"github.com/sipeed/makoclaw/pkg/channels"
 	"github.com/sipeed/makoclaw/pkg/config"
 	"github.com/sipeed/makoclaw/pkg/cron"
@@ -74,6 +75,7 @@ type Server struct {
 	transcriber             *voice.GroqTranscriber
 	ttsSynthesizer          *voice.OpenAITTSProvider
 	mcpManager              *mcp.Manager
+	canvasServer            *canvas.CanvasServer
 	workflowEngine          *workflow.Engine
 	userMetrics             map[string]*observability.Metrics
 	userMetricsMu           sync.RWMutex
@@ -444,6 +446,18 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/backup/validate", s.handleBackupValidate)                // Validate backup
 	mux.HandleFunc("/ws/chat", s.handleChatWS)
 	mux.HandleFunc("/ws/tasks", s.handleTasksWS)
+
+	// Mount canvas routes when enabled
+	if s.fullConfig != nil && s.fullConfig.Canvas.Enabled {
+		s.canvasServer = canvas.NewCanvasServer(s.fullConfig.Canvas.DevMode)
+		mux.HandleFunc("/__makoclaw__/canvas/events", s.canvasServer.ServeSSE)
+		mux.HandleFunc("/__makoclaw__/canvas/", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			fmt.Fprint(w, `<!DOCTYPE html><html><head><title>MakoClaw Canvas</title></head><body><div id="canvas"></div><script>const es=new EventSource("/__makoclaw__/canvas/events");es.onmessage=e=>{document.getElementById("canvas").innerHTML=e.data};</script></body></html>`)
+		})
+		logger.InfoC("web", "Canvas routes mounted at /__makoclaw__/canvas/")
+	}
+
 	mux.Handle("/", s.staticHandler())
 
 	s.server = &http.Server{

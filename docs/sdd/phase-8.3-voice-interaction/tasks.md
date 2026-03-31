@@ -390,7 +390,7 @@
 
 ## Phase 3: Integration & Wiring
 
-- [ ] 3.1 Modify `pkg/agent/loop.go` — in `NewAgentLoop`, conditionally register `CanvasTool` when `cfg.Canvas.Enabled`, and `InteractiveMessageTool` when `cfg.ChannelActions.Enabled && cfg.ChannelActions.InteractionsEndpoint != ""`; log warnings when flags are false.
+- [x] 3.1 Modify `pkg/agent/loop.go` — in `NewAgentLoop`, conditionally register `CanvasTool` when `cfg.Canvas.Enabled`, and `InteractiveMessageTool` when `cfg.ChannelActions.Enabled && cfg.ChannelActions.InteractionsEndpoint != ""`; log warnings when flags are false.
 
   ```go
   // After existing tool registrations:
@@ -420,7 +420,7 @@
 
 ---
 
-- [ ] 3.2 Modify `pkg/web/server.go` — when `cfg.Canvas.Enabled`, mount SSE handler at `GET /__makoclaw__/canvas/events` and static placeholder at `GET /__makoclaw__/canvas/`; inject `CanvasServer` instance shared with the tool.
+- [x] 3.2 Modify `pkg/web/server.go` — when `cfg.Canvas.Enabled`, mount SSE handler at `GET /__makoclaw__/canvas/events` and static placeholder at `GET /__makoclaw__/canvas/`; inject `CanvasServer` instance shared with the tool.
 
   ```bash
   go build ./pkg/web/...
@@ -431,7 +431,7 @@
 
 ---
 
-- [ ] 3.3 Add Discord button rendering to `pkg/channels/discord.go` — implement `ChannelAction` on `DiscordChannel`; `SendInteractiveMessage` posts message with component button row via discordgo; register `/interactions` POST handler when `cfg.ChannelActions.Enabled`.
+- [x] 3.3 Add Discord button rendering to `pkg/channels/discord.go` — implement `ChannelAction` on `DiscordChannel`; `SendInteractiveMessage` posts message with component button row via discordgo; register `/interactions` POST handler when `cfg.ChannelActions.Enabled`.
 
   ```bash
   go build ./pkg/channels/...
@@ -442,7 +442,7 @@
 
 ---
 
-- [ ] 3.4 Add Slack button rendering to `pkg/channels/slack.go` — implement `ChannelAction` on `SlackChannel`; `SendInteractiveMessage` posts Block Kit button via slack-go; `PollReaction` polls `reactions.get` every 500ms until `👍` found or timeout.
+- [x] 3.4 Add Slack button rendering to `pkg/channels/slack.go` — implement `ChannelAction` on `SlackChannel`; `SendInteractiveMessage` posts Block Kit button via slack-go; `PollReaction` polls `reactions.get` every 500ms until `👍` found or timeout.
 
   ```bash
   go build ./pkg/channels/...
@@ -453,7 +453,7 @@
 
 ---
 
-- [ ] 3.5 Create `pkg/web/frontend/src/views/Canvas.vue` — EventSource listener on `/__makoclaw__/canvas/events`; renders received HTML inside `<iframe sandbox="allow-scripts" :srcdoc="canvasHTML">`; adds route `/canvas` in Vue router.
+- [x] 3.5 Create `pkg/web/frontend/src/views/Canvas.vue` — EventSource listener on `/__makoclaw__/canvas/events`; renders received HTML inside `<iframe sandbox="allow-scripts" :srcdoc="canvasHTML">`; adds route `/canvas` in Vue router.
 
   Commit: `feat(frontend): add CanvasView with sandboxed iframe and SSE listener`
 

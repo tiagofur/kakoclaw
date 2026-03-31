@@ -427,3 +427,117 @@ func parseSlackChatID(chatID string) (channelID, threadTS string) {
 	}
 	return
 }
+
+// Compile-time check: SlackChannel implements ChannelAction.
+var _ ChannelAction = (*SlackChannel)(nil)
+
+// SendInteractiveMessage sends a message with Block Kit buttons to a Slack channel.
+func (c *SlackChannel) SendInteractiveMessage(ctx context.Context, req InteractiveMessageRequest) (string, error) {
+	if !c.IsRunning() {
+		return "", fmt.Errorf("slack channel not running")
+	}
+
+	channelID, threadTS := parseSlackChatID(req.ChatID)
+	if channelID == "" {
+		return "", fmt.Errorf("invalid slack chat ID: %s", req.ChatID)
+	}
+
+	var buttonElements []slack.BlockElement
+	for _, action := range req.Actions {
+		style := slack.StyleDefault
+		if action.Style == "danger" {
+			style = slack.StyleDanger
+		} else if action.Style == "primary" {
+			style = slack.StylePrimary
+		}
+		btn := slack.NewButtonBlockElement(action.Value, action.Value, slack.NewTextBlockObject("plain_text", action.Label, false, false))
+		if style != slack.StyleDefault {
+			btn.Style = style
+		}
+		buttonElements = append(buttonElements, btn)
+	}
+
+	textBlock := slack.NewSectionBlock(
+		slack.NewTextBlockObject("mrkdwn", req.Message, false, false),
+		nil, nil,
+	)
+	actionsBlock := slack.NewActionBlock("actions_block", buttonElements...)
+
+	opts := []slack.MsgOption{
+		slack.MsgOptionBlocks(textBlock, actionsBlock),
+	}
+	if threadTS != "" {
+		opts = append(opts, slack.MsgOptionTS(threadTS))
+	}
+
+	_, ts, err := c.api.PostMessageContext(ctx, channelID, opts...)
+	if err != nil {
+		return "", fmt.Errorf("failed to send interactive message: %w", err)
+	}
+
+	messageID := channelID + "/" + ts
+	logger.InfoCF("slack", "Interactive message sent", map[string]interface{}{
+		"message_id": messageID,
+		"channel_id": channelID,
+		"buttons":    len(buttonElements),
+	})
+
+	return messageID, nil
+}
+
+// PollReaction polls for emoji reactions on a Slack message until approval or timeout.
+func (c *SlackChannel) PollReaction(ctx context.Context, messageID string, timeout time.Duration) (ApprovalResult, error) {
+	if !c.IsRunning() {
+		return ApprovalResult{TimedOut: true}, fmt.Errorf("slack channel not running")
+	}
+
+	channelID, ts := parseSlackChatID(messageID)
+	if channelID == "" || ts == "" {
+		return ApprovalResult{TimedOut: true}, fmt.Errorf("invalid message ID for reaction polling: %s", messageID)
+	}
+
+	deadline := time.After(timeout)
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ApprovalResult{TimedOut: true}, nil
+		case <-deadline:
+			return ApprovalResult{TimedOut: true}, nil
+		case <-ticker.C:
+			reactions, err := c.api.GetReactionsContext(ctx, slack.ItemRef{
+				Channel:   channelID,
+				Timestamp: ts,
+			}, slack.GetReactionsParameters{Full: true})
+			if err != nil {
+				continue
+			}
+			for _, reaction := range reactions {
+				if reaction.Name == "+1" || reaction.Name == "thumbsup" {
+					actor := ""
+					if len(reaction.Users) > 0 {
+						actor = reaction.Users[0]
+					}
+					return ApprovalResult{
+						Approved: true,
+						Actor:    actor,
+						Reaction: "👍",
+					}, nil
+				}
+				if reaction.Name == "-1" || reaction.Name == "thumbsdown" {
+					actor := ""
+					if len(reaction.Users) > 0 {
+						actor = reaction.Users[0]
+					}
+					return ApprovalResult{
+						Approved: false,
+						Actor:    actor,
+						Reaction: "👎",
+					}, nil
+				}
+			}
+		}
+	}
+}
