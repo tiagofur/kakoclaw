@@ -120,5 +120,24 @@ export default {
   },
   audienceSendToList(data) {
     return client.post('/marketing/audience/send', data)
+  },
+
+  audienceListCampaigns(params) {
+    return client.get('/marketing/audience/email-campaigns', { params })
+  },
+  audienceCreateCampaign(data) {
+    return client.post('/marketing/audience/email-campaigns', data)
+  },
+  audienceGetCampaign(id) {
+    return client.get(`/marketing/audience/email-campaigns/${encodeSegment(id)}`)
+  },
+  audienceUpdateCampaign(id, data) {
+    return client.put(`/marketing/audience/email-campaigns/${encodeSegment(id)}`, data)
+  },
+  audienceDeleteCampaign(id) {
+    return client.delete(`/marketing/audience/email-campaigns/${encodeSegment(id)}`)
+  },
+  audienceSendCampaign(id) {
+    return client.post(`/marketing/audience/email-campaigns/${encodeSegment(id)}/send`)
   }
 }

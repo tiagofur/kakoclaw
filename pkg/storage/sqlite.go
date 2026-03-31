@@ -304,6 +304,23 @@ func (s *Storage) migrateMarketingAudience() error {
 			total_cost REAL DEFAULT 0,
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		);`,
+		`CREATE TABLE IF NOT EXISTS email_campaigns (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			account TEXT DEFAULT '',
+			name TEXT NOT NULL,
+			subject TEXT NOT NULL DEFAULT '',
+			body_html TEXT DEFAULT '',
+			body_text TEXT DEFAULT '',
+			template_slug TEXT DEFAULT '',
+			list_id INTEGER DEFAULT 0,
+			segment_id INTEGER DEFAULT 0,
+			status TEXT DEFAULT 'draft',
+			scheduled_at DATETIME,
+			sent_count INTEGER DEFAULT 0,
+			skipped_count INTEGER DEFAULT 0,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		);`,
 	}
 	for _, q := range queries {
 		if _, err := s.db.Exec(q); err != nil {

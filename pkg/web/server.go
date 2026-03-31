@@ -84,6 +84,11 @@ type Server struct {
 	msgBus                  *bus.MessageBus
 	ctx                     context.Context
 	allowedOrigins          []string
+
+	// Dev Studio references (UUID -> instance)
+	devBridgesMu            sync.RWMutex
+	devBridges              map[string]interface{} // *bridge.Bridge (type erased to avoid circular deps if any)
+	devMemories             map[string]interface{} // *devmemory.Store
 }
 
 type taskItem struct {
@@ -142,6 +147,8 @@ func NewServer(cfg config.WebConfig, agentLoop *agent.AgentLoop, store *storage.
 		memory:       agent.NewMemoryStore(workspace),
 		userMetrics:  make(map[string]*observability.Metrics),
 		activeExecs:  make(map[string]*activeExecution),
+		devBridges:   make(map[string]interface{}),
+		devMemories:  make(map[string]interface{}),
 	}
 }
 
@@ -416,6 +423,7 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/marketing/templates/", s.handleMarketingTemplatesRouter) // Marketing: templates CRUD
 	mux.HandleFunc("/api/v1/marketing/media/", s.handleMarketingMediaRouter)         // Marketing: media CRUD + copy
 	mux.HandleFunc("/api/v1/marketing/audience/", s.handleMarketingAudienceRouter)   // Marketing: audience (contacts, lists, segments, deliveries)
+	mux.HandleFunc("/api/v1/marketing/unsubscribe/", s.handleUnsubscribe)            // Marketing: public unsubscribe (no auth)
 	mux.HandleFunc("/api/v1/export/tasks", s.handleExportTasks)                      // Export tasks
 	mux.HandleFunc("/api/v1/export/chat", s.handleExportChat)                        // Export chat history
 	mux.HandleFunc("/api/v1/import/chat", s.handleImportChat)                        // Import conversations
@@ -444,8 +452,20 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/backup/export", s.handleBackupExport)                    // Export backup
 	mux.HandleFunc("/api/v1/backup/import", s.handleBackupImport)                    // Import backup
 	mux.HandleFunc("/api/v1/backup/validate", s.handleBackupValidate)                // Validate backup
+
+	// Dev Studio Handlers
+	mux.HandleFunc("/api/v1/dev/projects", s.handleDevProjects)
+	mux.HandleFunc("/api/v1/dev/bridge/start", s.handleDevBridgeStart)
+	mux.HandleFunc("/api/v1/dev/bridge/stop", s.handleDevBridgeStop)
+	mux.HandleFunc("/api/v1/dev/bridge/status", s.handleDevBridgeStatus)
+	mux.HandleFunc("/api/v1/dev/memory/search", s.handleDevMemorySearch)
+	mux.HandleFunc("/api/v1/dev/memory/store", s.handleDevMemoryStore)
+	mux.HandleFunc("/api/v1/dev/memory/delete", s.handleDevMemoryDelete)
+
+	// WebSockets
 	mux.HandleFunc("/ws/chat", s.handleChatWS)
 	mux.HandleFunc("/ws/tasks", s.handleTasksWS)
+	mux.HandleFunc("/ws/dev/terminal", s.handleDevTerminalWS)
 
 	// Mount canvas routes when enabled
 	if s.fullConfig != nil && s.fullConfig.Canvas.Enabled {
@@ -624,6 +644,11 @@ func (s *Server) authMiddleware(next http.Handler) http.HandlerFunc {
 		if r.URL.Path == "/api/docs" || r.URL.Path == "/api/v1/openapi.json" {
 			// Relax CSP for Swagger UI page to load external scripts/styles
 			w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws: wss:; img-src 'self' data: https://unpkg.com")
+			next.ServeHTTP(w, r)
+			return
+		}
+		// Marketing unsubscribe is public (clicked from email links)
+		if strings.HasPrefix(r.URL.Path, "/api/v1/marketing/unsubscribe/") {
 			next.ServeHTTP(w, r)
 			return
 		}

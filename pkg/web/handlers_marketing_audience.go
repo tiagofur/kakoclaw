@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sipeed/makoclaw/pkg/marketing"
 	"github.com/sipeed/makoclaw/pkg/storage"
 )
 
@@ -38,6 +39,8 @@ func (s *Server) handleMarketingAudienceRouter(w http.ResponseWriter, r *http.Re
 			return
 		}
 		http.Error(w, "not found", http.StatusNotFound)
+	case "email-campaigns":
+		s.audienceEmailCampaignsRouter(w, r, parts)
 	case "send":
 		if r.Method == http.MethodPost {
 			s.handleSendToList(w, r)
@@ -829,7 +832,12 @@ func (s *Server) handleSendToList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sendFunc := func(to, subject, body string) error {
-		// TODO: integrate with per-user email provider config
+		emailCfg := s.resolveEmailConfig("")
+		if emailCfg.Enabled && emailCfg.Host != "" {
+			baseURL := "http://" + s.cfg.Host + ":" + strconv.Itoa(s.cfg.Port)
+			sender := marketing.NewSender(emailCfg, baseURL)
+			return sender.Send(to, subject, body, body, nil)
+		}
 		return nil
 	}
 

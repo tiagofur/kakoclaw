@@ -79,3 +79,21 @@ type EmailDelivery struct {
 	Error             string     `json:"error"`
 	CreatedAt         time.Time  `json:"created_at"`
 }
+
+type EmailCampaign struct {
+	ID           int64      `json:"id"`
+	Account      string     `json:"account"`
+	Name         string     `json:"name"`
+	Subject      string     `json:"subject"`
+	BodyHTML     string     `json:"body_html"`
+	BodyText     string     `json:"body_text"`
+	TemplateSlug string     `json:"template_slug"`
+	ListID       int64      `json:"list_id"`
+	SegmentID    int64      `json:"segment_id"`
+	Status       string     `json:"status"`
+	ScheduledAt  *time.Time `json:"scheduled_at,omitempty"`
+	SentCount    int        `json:"sent_count"`
+	SkippedCount int        `json:"skipped_count"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+}

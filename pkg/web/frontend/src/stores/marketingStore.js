@@ -24,6 +24,8 @@ export const useMarketingStore = defineStore('marketing', () => {
   const audienceDeliveries = ref([])
   const audienceDeliveriesTotal = ref(0)
   const audienceDeliveriesLoading = ref(false)
+  const emailCampaigns = ref([])
+  const emailCampaignsLoading = ref(false)
 
   let pollInterval = null
 
@@ -431,6 +433,45 @@ export const useMarketingStore = defineStore('marketing', () => {
     return response.data
   }
 
+  async function fetchEmailCampaigns(params = {}) {
+    emailCampaignsLoading.value = true
+
+    try {
+      const response = await marketingService.audienceListCampaigns(params)
+      emailCampaigns.value = response.data?.campaigns || []
+      return response.data
+    } catch (error) {
+      console.error('Failed to load email campaigns:', error)
+      emailCampaigns.value = []
+      throw error
+    } finally {
+      emailCampaignsLoading.value = false
+    }
+  }
+
+  async function createEmailCampaign(data) {
+    const response = await marketingService.audienceCreateCampaign(data)
+    await fetchEmailCampaigns()
+    return response.data
+  }
+
+  async function updateEmailCampaign(id, data) {
+    const response = await marketingService.audienceUpdateCampaign(id, data)
+    await fetchEmailCampaigns()
+    return response.data
+  }
+
+  async function deleteEmailCampaign(id) {
+    await marketingService.audienceDeleteCampaign(id)
+    await fetchEmailCampaigns()
+  }
+
+  async function sendEmailCampaign(id) {
+    const response = await marketingService.audienceSendCampaign(id)
+    await fetchEmailCampaigns()
+    return response.data
+  }
+
   function startPolling() {
     stopPolling()
 
@@ -507,6 +548,13 @@ export const useMarketingStore = defineStore('marketing', () => {
     updateAudienceSegment,
     deleteAudienceSegment,
     fetchAudienceDeliveries,
-    sendAudienceEmail
+    sendAudienceEmail,
+    emailCampaigns,
+    emailCampaignsLoading,
+    fetchEmailCampaigns,
+    createEmailCampaign,
+    updateEmailCampaign,
+    deleteEmailCampaign,
+    sendEmailCampaign
   }
 })

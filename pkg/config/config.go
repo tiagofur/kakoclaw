@@ -107,8 +107,24 @@ type Config struct {
 	Voice           VoiceWakeConfig       `json:"voice"`
 	Canvas          CanvasConfig          `json:"canvas"`
 	ChannelActions  ChannelActionsConfig  `json:"channel_actions"`
+	DevStudio       DevStudioConfig       `json:"dev_studio"`
 	DegradedMode    bool                  `json:"-"` // Runtime flag: true when no valid LLM provider is configured
 	mu              sync.RWMutex
+}
+
+// DevMemoryConfig configures semantic memory for Dev Studio.
+type DevMemoryConfig struct {
+	Enabled bool   `json:"enabled"`
+	Model   string `json:"model,omitempty"` // ONNX model name
+}
+
+// DevStudioConfig configures the local developer workspace integration.
+type DevStudioConfig struct {
+	Enabled          bool            `json:"enabled"`
+	DefaultBackend   string          `json:"default_backend"` // "claude-code" | "opencode"
+	NodePath         string          `json:"node_path,omitempty"`
+	Memory           DevMemoryConfig `json:"memory"`
+	MaxSessionTokens int             `json:"max_session_tokens,omitempty"` // default 200000
 }
 
 // VoiceWakeConfig configures wake word detection and voice interaction.
@@ -739,6 +755,16 @@ func DefaultConfig() *Config {
 		},
 		Storage: StorageConfig{
 			Path: "~/.MakoClaw/makoclaw.db",
+		},
+		DevStudio: DevStudioConfig{
+			Enabled:          false,
+			DefaultBackend:   "claude-code",
+			NodePath:         "node",
+			MaxSessionTokens: 200000,
+			Memory: DevMemoryConfig{
+				Enabled: false,
+				Model:   "all-MiniLM-L6-v2",
+			},
 		},
 	}
 }
