@@ -2755,7 +2755,6 @@ func pruneHistoryToolResults(messages []providers.Message, keepRecentN int, maxC
 		return messages
 	}
 	// Scan newest-first to identify the keepRecentN most recent tool results.
-	// All others are candidates for truncation.
 	recentCount := 0
 	recentSet := make(map[int]bool)
 	for i := len(messages) - 1; i >= 0; i-- {
@@ -2766,16 +2765,23 @@ func pruneHistoryToolResults(messages []providers.Message, keepRecentN int, maxC
 			}
 		}
 	}
-	// Build output via shallow copy, then overwrite Content for truncation candidates.
+	// Build output with per-message copies (deep-copy ToolCalls to avoid shared references).
 	output := make([]providers.Message, len(messages))
-	copy(output, messages)
-	for i := range output {
-		if output[i].Role != "tool" || recentSet[i] {
-			continue
+	for i, msg := range messages {
+		m := providers.Message{
+			Role:       msg.Role,
+			Content:    msg.Content,
+			ToolCallID: msg.ToolCallID,
 		}
-		if len(output[i].Content) > maxChars {
-			output[i].Content = output[i].Content[:maxChars] + "\n[truncated]"
+		if len(msg.ToolCalls) > 0 {
+			m.ToolCalls = make([]providers.ToolCall, len(msg.ToolCalls))
+			copy(m.ToolCalls, msg.ToolCalls)
 		}
+		// Truncate if this is an old (non-recent) tool result that exceeds maxChars
+		if msg.Role == "tool" && !recentSet[i] && len(msg.Content) > maxChars {
+			m.Content = msg.Content[:maxChars] + "\n[truncated]"
+		}
+		output[i] = m
 	}
 	return output
 }

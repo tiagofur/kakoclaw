@@ -149,3 +149,25 @@ func TestPruneHistoryToolResults_OriginalNotMutated(t *testing.T) {
 		t.Errorf("original slice was mutated: got %q, want %q", msgs[0].Content, originalContent)
 	}
 }
+
+// T8b: ToolCalls slice in output is a deep copy — modifying it does not affect the original.
+func TestPruneHistoryToolResults_ToolCallsDeepCopied(t *testing.T) {
+	msgs := []providers.Message{
+		{
+			Role:    "tool",
+			Content: strings.Repeat("x", 500),
+			ToolCalls: []providers.ToolCall{
+				{ID: "tc1", Name: "some_tool"},
+			},
+		},
+	}
+	got := pruneHistoryToolResults(msgs, 0, 100)
+	// Verify the ToolCalls slice is a different underlying array
+	if len(got[0].ToolCalls) > 0 && len(msgs[0].ToolCalls) > 0 {
+		// Mutate the output's ToolCalls
+		got[0].ToolCalls[0].Name = "mutated"
+		if msgs[0].ToolCalls[0].Name == "mutated" {
+			t.Error("ToolCalls deep copy failed: modifying output mutated the original")
+		}
+	}
+}
