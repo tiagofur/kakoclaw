@@ -562,7 +562,7 @@ func (sr *SwarmRunner) persistTeamContext(exec *SwarmExecution) {
 	if len(exec.TeamContext.Decisions) > 0 {
 		var parts []string
 		for _, d := range exec.TeamContext.Decisions {
-			parts = append(parts, fmt.Sprintf("%s: %s", d.Agent, d.Decision))
+			parts = append(parts, fmt.Sprintf("%s: %s", d.Author, d.Decision))
 		}
 		decisions = strings.Join(parts, "\n---\n")
 	}

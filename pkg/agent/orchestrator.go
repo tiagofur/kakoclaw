@@ -889,7 +889,7 @@ The user only sees text below the JSON block — include all findings there.
 ---`
 
 	// Timeout from config (default: 5 minutes)
-	timeoutSecs := o.cfg.Agents.Orchestrator.SpecialistTimeoutSeconds
+	timeoutSecs := oa.cfg.Agents.Orchestrator.SpecialistTimeoutSeconds
 	if timeoutSecs <= 0 {
 		timeoutSecs = 300
 	}
