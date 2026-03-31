@@ -2727,3 +2727,37 @@ func (al *AgentLoop) runMemoryFlushTurn(ctx context.Context, sessionKey string) 
 	})
 	return nil
 }
+
+// pruneHistoryToolResults returns a copy of messages where tool-result entries
+// older than the keepRecentN most recent are truncated to maxChars characters.
+// If maxChars == 0, the original slice is returned unchanged (feature disabled).
+// The original slice is never mutated.
+func pruneHistoryToolResults(messages []providers.Message, keepRecentN int, maxChars int) []providers.Message {
+	if maxChars == 0 {
+		return messages
+	}
+	// Scan newest-first to identify the keepRecentN most recent tool results.
+	// All others are candidates for truncation.
+	recentCount := 0
+	recentSet := make(map[int]bool)
+	for i := len(messages) - 1; i >= 0; i-- {
+		if messages[i].Role == "tool" {
+			if recentCount < keepRecentN {
+				recentSet[i] = true
+				recentCount++
+			}
+		}
+	}
+	// Build output via shallow copy, then overwrite Content for truncation candidates.
+	output := make([]providers.Message, len(messages))
+	copy(output, messages)
+	for i := range output {
+		if output[i].Role != "tool" || recentSet[i] {
+			continue
+		}
+		if len(output[i].Content) > maxChars {
+			output[i].Content = output[i].Content[:maxChars] + "\n[truncated]"
+		}
+	}
+	return output
+}
