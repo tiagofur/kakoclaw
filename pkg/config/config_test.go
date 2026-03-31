@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -562,5 +563,39 @@ func TestAgentDefaultsToolResultFields(t *testing.T) {
 	}
 	if roundtrip.ToolResultKeepRecent != cfg.Agents.Defaults.ToolResultKeepRecent {
 		t.Errorf("ToolResultKeepRecent roundtrip: got %d, want %d", roundtrip.ToolResultKeepRecent, cfg.Agents.Defaults.ToolResultKeepRecent)
+	}
+}
+
+func TestWebSearchConfigNewFields(t *testing.T) {
+	// T8: DefaultConfig must have non-empty Priority
+	cfg := DefaultConfig()
+	if len(cfg.Tools.Web.Search.Priority) == 0 {
+		t.Error("expected non-empty default Priority in WebSearchConfig")
+	}
+	// default order must be ["searxng", "brave", "tavily"]
+	want := []string{"searxng", "brave", "tavily"}
+	if !reflect.DeepEqual(cfg.Tools.Web.Search.Priority, want) {
+		t.Errorf("default Priority = %v, want %v", cfg.Tools.Web.Search.Priority, want)
+	}
+
+	// T9: JSON round-trip for TavilyAPIKey and Priority
+	src := WebSearchConfig{
+		APIKey:       "brave-key",
+		TavilyAPIKey: "tavily-key",
+		Priority:     []string{"tavily", "brave"},
+	}
+	data, err := json.Marshal(src)
+	if err != nil {
+		t.Fatalf("marshal error: %v", err)
+	}
+	var dst WebSearchConfig
+	if err := json.Unmarshal(data, &dst); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if dst.TavilyAPIKey != src.TavilyAPIKey {
+		t.Errorf("TavilyAPIKey = %q, want %q", dst.TavilyAPIKey, src.TavilyAPIKey)
+	}
+	if !reflect.DeepEqual(dst.Priority, src.Priority) {
+		t.Errorf("Priority = %v, want %v", dst.Priority, src.Priority)
 	}
 }

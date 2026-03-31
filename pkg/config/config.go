@@ -364,9 +364,11 @@ type WebConfig struct {
 }
 
 type WebSearchConfig struct {
-	APIKey     string `json:"api_key" env:"MAKOCLAW_TOOLS_WEB_SEARCH_API_KEY"`
-	SearXNGURL string `json:"searxng_url" env:"MAKOCLAW_TOOLS_WEB_SEARCH_SEARXNG_URL"`
-	MaxResults int    `json:"max_results" env:"MAKOCLAW_TOOLS_WEB_SEARCH_MAX_RESULTS"`
+	APIKey       string   `json:"api_key" env:"MAKOCLAW_TOOLS_WEB_SEARCH_API_KEY"`
+	SearXNGURL   string   `json:"searxng_url" env:"MAKOCLAW_TOOLS_WEB_SEARCH_SEARXNG_URL"`
+	MaxResults   int      `json:"max_results" env:"MAKOCLAW_TOOLS_WEB_SEARCH_MAX_RESULTS"`
+	TavilyAPIKey string   `json:"tavily_api_key" env:"MAKOCLAW_TOOLS_WEB_SEARCH_TAVILY_API_KEY"`
+	Priority     []string `json:"priority"` // no env tag — slice type not supported by flat env-var override
 }
 
 type WebToolsConfig struct {
@@ -702,9 +704,11 @@ func DefaultConfig() *Config {
 		Tools: ToolsConfig{
 			Web: WebToolsConfig{
 				Search: WebSearchConfig{
-					APIKey:     "",
-					SearXNGURL: "",
-					MaxResults: 5,
+					APIKey:       "",
+					SearXNGURL:   "",
+					MaxResults:   5,
+					TavilyAPIKey: "",
+					Priority:     []string{"searxng", "brave", "tavily"},
 				},
 			},
 			Email: EmailToolsConfig{
@@ -1481,7 +1485,7 @@ func mergeToolsConfig(global, user *ToolsConfig) ToolsConfig {
 	merged := ToolsConfig{}
 
 	// Merge Web tools
-	if user.Web.Search.APIKey != "" || user.Web.Search.SearXNGURL != "" {
+	if user.Web.Search.APIKey != "" || user.Web.Search.SearXNGURL != "" || user.Web.Search.TavilyAPIKey != "" || len(user.Web.Search.Priority) > 0 {
 		merged.Web.Search = user.Web.Search
 	} else {
 		merged.Web.Search = global.Web.Search
