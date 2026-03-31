@@ -12,6 +12,7 @@ import (
 type SkillMetadata struct {
 	Name         string   `json:"name"`
 	Description  string   `json:"description"`
+	WhenToUse    string   `json:"when_to_use,omitempty"`
 	Dependencies []string `json:"dependencies,omitempty"`
 }
 
@@ -21,6 +22,7 @@ type SkillInfo struct {
 	Path        string `json:"path"`
 	Source      string `json:"source"`
 	Description string `json:"description"`
+	WhenToUse   string `json:"when_to_use,omitempty"`
 	AgentCount  int    `json:"agent_count,omitempty"`
 }
 
@@ -84,6 +86,7 @@ func (sl *SkillsLoader) scanSkillsFlat(dir, source string) []SkillInfo {
 		}
 		if metadata := sl.getSkillMetadata(skillFile); metadata != nil {
 			info.Description = metadata.Description
+			info.WhenToUse = metadata.WhenToUse
 		}
 		result = append(result, info)
 	}
@@ -114,6 +117,7 @@ func (sl *SkillsLoader) scanSkillsNested(dir, source string) []SkillInfo {
 			}
 			if metadata := sl.getSkillMetadata(skillFile); metadata != nil {
 				info.Description = metadata.Description
+				info.WhenToUse = metadata.WhenToUse
 			}
 			result = append(result, info)
 			continue
@@ -139,6 +143,7 @@ func (sl *SkillsLoader) scanSkillsNested(dir, source string) []SkillInfo {
 			}
 			if metadata := sl.getSkillMetadata(subSkillFile); metadata != nil {
 				info.Description = metadata.Description
+				info.WhenToUse = metadata.WhenToUse
 			}
 			result = append(result, info)
 		}
@@ -307,15 +312,14 @@ func (sl *SkillsLoader) BuildSkillsSummary() string {
 	var lines []string
 	lines = append(lines, "<skills>")
 	for _, s := range allSkills {
-		escapedName := escapeXML(s.Name)
-		escapedDesc := escapeXML(s.Description)
-		escapedPath := escapeXML(s.Path)
-
-		lines = append(lines, fmt.Sprintf("  <skill>"))
-		lines = append(lines, fmt.Sprintf("    <name>%s</name>", escapedName))
-		lines = append(lines, fmt.Sprintf("    <description>%s</description>", escapedDesc))
-		lines = append(lines, fmt.Sprintf("    <location>%s</location>", escapedPath))
-		lines = append(lines, fmt.Sprintf("    <source>%s</source>", s.Source))
+		lines = append(lines, "  <skill>")
+		lines = append(lines, "    <name>"+escapeXML(s.Name)+"</name>")
+		lines = append(lines, "    <description>"+escapeXML(s.Description)+"</description>")
+		if s.WhenToUse != "" {
+			lines = append(lines, "    <when_to_use>"+escapeXML(s.WhenToUse)+"</when_to_use>")
+		}
+		lines = append(lines, "    <location>"+escapeXML(s.Path)+"</location>")
+		lines = append(lines, "    <source>"+s.Source+"</source>")
 		lines = append(lines, "  </skill>")
 	}
 	lines = append(lines, "</skills>")
@@ -348,15 +352,14 @@ func (sl *SkillsLoader) BuildSkillsSummaryForNames(names []string) string {
 			continue
 		}
 		matched = true
-		escapedName := escapeXML(s.Name)
-		escapedDesc := escapeXML(s.Description)
-		escapedPath := escapeXML(s.Path)
-
 		lines = append(lines, "  <skill>")
-		lines = append(lines, fmt.Sprintf("    <name>%s</name>", escapedName))
-		lines = append(lines, fmt.Sprintf("    <description>%s</description>", escapedDesc))
-		lines = append(lines, fmt.Sprintf("    <location>%s</location>", escapedPath))
-		lines = append(lines, fmt.Sprintf("    <source>%s</source>", s.Source))
+		lines = append(lines, "    <name>"+escapeXML(s.Name)+"</name>")
+		lines = append(lines, "    <description>"+escapeXML(s.Description)+"</description>")
+		if s.WhenToUse != "" {
+			lines = append(lines, "    <when_to_use>"+escapeXML(s.WhenToUse)+"</when_to_use>")
+		}
+		lines = append(lines, "    <location>"+escapeXML(s.Path)+"</location>")
+		lines = append(lines, "    <source>"+s.Source+"</source>")
 		lines = append(lines, "  </skill>")
 	}
 	lines = append(lines, "</skills>")
@@ -398,6 +401,7 @@ func (sl *SkillsLoader) getSkillMetadata(skillPath string) *SkillMetadata {
 	meta := &SkillMetadata{
 		Name:        yamlMeta["name"],
 		Description: yamlMeta["description"],
+		WhenToUse:   yamlMeta["when_to_use"],
 	}
 	if depsStr, ok := yamlMeta["dependencies"]; ok && depsStr != "" {
 		parts := strings.Split(depsStr, ",")

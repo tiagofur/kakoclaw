@@ -1,6 +1,7 @@
 ---
 name: programmer
 description: Autonomous programmer agent - full-stack development, builds, testing, and deployment
+when_to_use: When implementing a feature, fixing a bug, refactoring code, running builds, or managing a full development lifecycle task end-to-end
 emoji: "\U0001F4BB"
 ---
 

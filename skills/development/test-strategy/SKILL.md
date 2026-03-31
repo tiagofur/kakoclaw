@@ -2,6 +2,7 @@
 name: test-strategy
 title: Testing Strategy Expert
 description: Expert guidance on comprehensive testing strategies, frameworks, and best practices
+when_to_use: When designing test suites, writing unit/integration/e2e tests, applying TDD, improving test coverage, or choosing a testing framework
 version: 1.0.0
 author: MakoClaw Development Team
 category: testing

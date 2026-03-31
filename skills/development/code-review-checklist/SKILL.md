@@ -2,6 +2,7 @@
 name: code-review-checklist
 title: Code Review Checklist
 description: Comprehensive checklist for thorough and effective code reviews
+when_to_use: When reviewing code, opening/commenting on PRs, auditing a diff for quality, security, or correctness, or when asked to review someone's implementation
 version: 1.0.0
 author: MakoClaw Development Team
 category: code-review

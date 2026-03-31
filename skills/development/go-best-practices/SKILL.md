@@ -2,6 +2,7 @@
 name: go-best-practices
 title: Go Best Practices Expert
 description: Expert guidance on Go (Golang) best practices, idioms, and patterns
+when_to_use: When writing, reviewing, or refactoring Go code; when asked about Go idioms, error handling, goroutines, interfaces, or project structure
 version: 1.0.0
 author: MakoClaw Development Team
 category: development

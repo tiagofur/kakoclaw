@@ -1,6 +1,7 @@
 ---
 name: tmux
 description: Remote-control tmux sessions for interactive CLIs by sending keystrokes and scraping pane output.
+when_to_use: When the user needs to send keystrokes to a running tmux session, read pane output, or automate an interactive CLI that cannot be driven non-interactively
 metadata: {"nanobot":{"emoji":"🧵","os":["darwin","linux"],"requires":{"bins":["tmux"]}}}
 ---
 

@@ -1,6 +1,7 @@
 ---
 name: marketing
 description: Full-stack marketing campaign system. Configures 5 specialist agents (content strategist, copywriter, visual designer, social media manager, analyst) and provides a complete campaign workflow template.
+when_to_use: When planning a marketing campaign, creating content strategy, writing copy, managing social media posts, or analyzing campaign performance
 emoji: 📣
 ---
 
