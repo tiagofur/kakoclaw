@@ -6,18 +6,16 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/sipeed/makoclaw/pkg/channels"
 )
 
-// mockAction implements channels.ChannelAction for testing the tool.
+// mockAction implements ChannelActionProvider for testing the tool.
 type mockAction struct {
-	lastReq   channels.InteractiveMessageRequest
+	lastReq   InteractiveMessageRequest
 	returnID  string
 	returnErr error
 }
 
-func (m *mockAction) SendInteractiveMessage(ctx context.Context, req channels.InteractiveMessageRequest) (string, error) {
+func (m *mockAction) SendInteractiveMessage(ctx context.Context, req InteractiveMessageRequest) (string, error) {
 	m.lastReq = req
 	if m.returnErr != nil {
 		return "", m.returnErr
@@ -25,8 +23,8 @@ func (m *mockAction) SendInteractiveMessage(ctx context.Context, req channels.In
 	return m.returnID, nil
 }
 
-func (m *mockAction) PollReaction(ctx context.Context, messageID string, timeout time.Duration) (channels.ApprovalResult, error) {
-	return channels.ApprovalResult{Approved: true}, nil
+func (m *mockAction) PollReaction(ctx context.Context, messageID string, timeout time.Duration) (ApprovalResult, error) {
+	return ApprovalResult{Approved: true}, nil
 }
 
 func TestInteractiveMessageToolDisabledReturnsError(t *testing.T) {
