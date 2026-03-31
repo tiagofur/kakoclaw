@@ -2,7 +2,8 @@
   <transition name="slide-fade">
     <div
       v-if="isActive"
-      class="rounded-lg px-3 py-2 mb-3 flex items-center gap-2.5 bg-makoclaw-surface/40 border border-makoclaw-border/20"
+      class="rounded-lg px-3 py-2 mb-3 flex items-center gap-2.5"
+      :class="containerClass"
     >
       <!-- Spinner -->
       <div class="relative w-5 h-5 flex-shrink-0">
@@ -43,6 +44,15 @@
         </div>
       </div>
 
+      <!-- Agent badge -->
+      <span
+        v-if="agentBadge"
+        class="text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0"
+        :class="badgeClass"
+      >
+        {{ agentBadge }}
+      </span>
+
       <!-- Elapsed time -->
       <span
         v-if="elapsedSeconds > 0"
@@ -68,12 +78,21 @@ const isProcessing = computed(() => {
   return chatStore.globalIsLoading || chatStore.isStreaming
 })
 
+// Show indicator whenever processing OR orchestrator active
 const isActive = computed(() => {
-  return hasOrchestratorStatus.value || (isProcessing.value && !chatStore.isStreaming)
+  return hasOrchestratorStatus.value || isProcessing.value
 })
 
 const currentAgent = computed(() => {
-  return chatStore.currentAgent || chatStore.activeSpecialist
+  return chatStore.activeSpecialist || chatStore.currentAgent || 'main'
+})
+
+const isSpecialist = computed(() => {
+  return chatStore.activeSpecialist && chatStore.activeSpecialist !== 'main'
+})
+
+const isOrchestrating = computed(() => {
+  return hasOrchestratorStatus.value && chatStore.orchestratorStatus === 'delegating'
 })
 
 const activeToolCall = computed(() => {
@@ -83,11 +102,27 @@ const activeToolCall = computed(() => {
 })
 
 const agentLine = computed(() => {
-  const agentName = activeToolCall.value?.agentName || currentAgent.value
   const toolName = activeToolCall.value?.name
+  if (toolName) return `Using ${toolName}`
+  return ''
+})
 
-  if (agentName && toolName) return `${agentName} — ${toolName}`
-  return agentName || toolName || ''
+const agentBadge = computed(() => {
+  if (isSpecialist.value) return `@${chatStore.activeSpecialist}`
+  if (isOrchestrating.value) return 'orchestrator'
+  return null
+})
+
+const badgeClass = computed(() => {
+  if (isSpecialist.value) return 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/30'
+  if (isOrchestrating.value) return 'bg-purple-500/20 text-purple-400 ring-1 ring-purple-500/30'
+  return 'bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/30'
+})
+
+const containerClass = computed(() => {
+  if (isSpecialist.value) return 'bg-emerald-500/5 border border-emerald-500/20'
+  if (isOrchestrating.value) return 'bg-purple-500/5 border border-purple-500/20'
+  return 'bg-makoclaw-surface/40 border border-makoclaw-border/20'
 })
 
 const statusText = computed(() => {
@@ -97,24 +132,28 @@ const statusText = computed(() => {
   if (hasOrchestratorStatus.value) {
     const statusMap = {
       analyzing: 'Analyzing request...',
-      delegating: agent ? `Routing to ${agent}` : 'Routing to specialist...',
-      working: agent ? `${agent} working...` : 'Working...',
+      delegating: agent !== 'main' ? `Delegating to @${agent}` : 'Selecting specialist...',
+      working: agent !== 'main' ? `@${agent} working...` : 'Working...',
       fallback: 'Processing with default agent...',
-      max_delegations_reached: 'Synthesizing...',
-      timeout: agent ? `${agent} timed out` : 'Timed out',
+      max_delegations_reached: 'Synthesizing final response...',
+      timeout: agent !== 'main' ? `@${agent} timed out` : 'Timed out',
       synthesizing: 'Synthesizing response...'
     }
     return statusMap[status] || 'Processing...'
   }
 
+  // Default processing state (no orchestrator)
+  if (chatStore.isStreaming) return 'Generating response...'
   return 'Processing...'
 })
 
 const iconColorClass = computed(() => {
   const status = chatStore.orchestratorStatus
   if (status === 'timeout') return 'text-red-400'
-  if (status === 'working') return 'text-emerald-400'
+  if (isSpecialist.value) return 'text-emerald-400'
   if (status === 'delegating') return 'text-purple-400'
+  if (status === 'working') return 'text-emerald-400'
+  if (chatStore.isStreaming) return 'text-blue-400'
   return 'text-blue-400'
 })
 
