@@ -537,3 +537,30 @@ func TestConfigVoiceCanvasChannelActionsRoundTrip(t *testing.T) {
 			restored.ChannelActions.InteractionsEndpoint, "https://example.com/interactions")
 	}
 }
+
+func TestAgentDefaultsToolResultFields(t *testing.T) {
+	// DefaultConfig must have non-zero values for both fields
+	cfg := DefaultConfig()
+	if cfg.Agents.Defaults.ToolResultMaxChars == 0 {
+		t.Error("expected ToolResultMaxChars default > 0, got 0 (would disable the feature)")
+	}
+	if cfg.Agents.Defaults.ToolResultKeepRecent == 0 {
+		t.Error("expected ToolResultKeepRecent default > 0, got 0")
+	}
+
+	// Fields must round-trip through JSON
+	data, err := json.Marshal(cfg.Agents.Defaults)
+	if err != nil {
+		t.Fatalf("marshal error: %v", err)
+	}
+	var roundtrip AgentDefaults
+	if err := json.Unmarshal(data, &roundtrip); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if roundtrip.ToolResultMaxChars != cfg.Agents.Defaults.ToolResultMaxChars {
+		t.Errorf("ToolResultMaxChars roundtrip: got %d, want %d", roundtrip.ToolResultMaxChars, cfg.Agents.Defaults.ToolResultMaxChars)
+	}
+	if roundtrip.ToolResultKeepRecent != cfg.Agents.Defaults.ToolResultKeepRecent {
+		t.Errorf("ToolResultKeepRecent roundtrip: got %d, want %d", roundtrip.ToolResultKeepRecent, cfg.Agents.Defaults.ToolResultKeepRecent)
+	}
+}

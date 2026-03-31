@@ -191,6 +191,8 @@ type AgentDefaults struct {
 	Temperature                 float64 `json:"temperature" env:"MAKOCLAW_AGENTS_DEFAULTS_TEMPERATURE"`
 	MaxToolIterations           int     `json:"max_tool_iterations" env:"MAKOCLAW_AGENTS_DEFAULTS_MAX_TOOL_ITERATIONS"`
 	MemoryFlushBeforeCompaction bool    `json:"memory_flush_before_compaction"`
+	ToolResultMaxChars          int     `json:"tool_result_max_chars"`   // 0 = disabled; default 2000
+	ToolResultKeepRecent        int     `json:"tool_result_keep_recent"` // default 3
 }
 
 type OrchestratorConfig struct {
@@ -604,6 +606,8 @@ func DefaultConfig() *Config {
 				Temperature:                 0.7,
 				MaxToolIterations:           20,
 				MemoryFlushBeforeCompaction: true,
+				ToolResultMaxChars:          2000,
+				ToolResultKeepRecent:        3,
 			},
 			Orchestrator: OrchestratorConfig{
 				Enabled:              false,
@@ -939,6 +943,8 @@ func GetUserConfigTemplate(globalConfig *Config) *Config {
 				Temperature:                 globalConfig.Agents.Defaults.Temperature,       // Inherit
 				MaxToolIterations:           globalConfig.Agents.Defaults.MaxToolIterations, // Inherit
 				MemoryFlushBeforeCompaction: globalConfig.Agents.Defaults.MemoryFlushBeforeCompaction, // Inherit
+				ToolResultMaxChars:          globalConfig.Agents.Defaults.ToolResultMaxChars,          // Inherit
+				ToolResultKeepRecent:        globalConfig.Agents.Defaults.ToolResultKeepRecent,        // Inherit
 			},
 			Orchestrator: OrchestratorConfig{
 				Enabled:              false, // Always start disabled
