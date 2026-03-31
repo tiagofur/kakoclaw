@@ -363,7 +363,11 @@ func (sr *SwarmRunner) buildTaskWithSharedNotes(exec *SwarmExecution, currentMem
 			continue
 		}
 		entry := fmt.Sprintf("**%s**: %s\n\n", note.Author, note.Content)
-		if totalLen+len(entry) > 4000 { // Cap shared context
+		maxChars := exec.Config.SharedNotesMaxChars
+		if maxChars <= 0 {
+			maxChars = 4000
+		}
+		if totalLen+len(entry) > maxChars { // Cap shared context
 			sb.WriteString("...(additional context truncated)\n\n")
 			break
 		}
