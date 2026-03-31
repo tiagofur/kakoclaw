@@ -267,3 +267,89 @@ func (c *DiscordChannel) downloadAttachment(url, filename string) string {
 		LoggerPrefix: "discord",
 	})
 }
+
+// Compile-time check: DiscordChannel implements ChannelAction.
+var _ ChannelAction = (*DiscordChannel)(nil)
+
+// SendInteractiveMessage sends a message with action buttons to a Discord channel.
+func (c *DiscordChannel) SendInteractiveMessage(ctx context.Context, req InteractiveMessageRequest) (string, error) {
+	if !c.IsRunning() {
+		return "", fmt.Errorf("discord bot not running")
+	}
+
+	var buttons []discordgo.MessageComponent
+	for _, action := range req.Actions {
+		style := discordgo.PrimaryButton
+		if action.Style == "danger" {
+			style = discordgo.DangerButton
+		}
+		buttons = append(buttons, discordgo.Button{
+			Label:    action.Label,
+			Style:    style,
+			CustomID: action.Value,
+		})
+	}
+
+	msg, err := c.session.ChannelMessageSendComplex(req.ChatID, &discordgo.MessageSend{
+		Content: req.Message,
+		Components: []discordgo.MessageComponent{
+			discordgo.ActionsRow{Components: buttons},
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to send interactive message: %w", err)
+	}
+
+	logger.InfoCF("discord", "Interactive message sent", map[string]interface{}{
+		"message_id": msg.ID,
+		"chat_id":    req.ChatID,
+		"buttons":    len(buttons),
+	})
+
+	return msg.ID, nil
+}
+
+// PollReaction polls for emoji reactions on a Discord message until approval or timeout.
+func (c *DiscordChannel) PollReaction(ctx context.Context, messageID string, timeout time.Duration) (ApprovalResult, error) {
+	if !c.IsRunning() {
+		return ApprovalResult{TimedOut: true}, fmt.Errorf("discord bot not running")
+	}
+
+	deadline := time.After(timeout)
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ApprovalResult{TimedOut: true}, nil
+		case <-deadline:
+			return ApprovalResult{TimedOut: true}, nil
+		case <-ticker.C:
+			// Check for 👍 reaction
+			users, err := c.session.MessageReactions(c.config.AllowFrom[0], messageID, "👍", 1, "", "")
+			if err != nil {
+				continue
+			}
+			if len(users) > 0 {
+				return ApprovalResult{
+					Approved: true,
+					Actor:    users[0].Username,
+					Reaction: "👍",
+				}, nil
+			}
+			// Check for 👎 reaction
+			users, err = c.session.MessageReactions(c.config.AllowFrom[0], messageID, "👎", 1, "", "")
+			if err != nil {
+				continue
+			}
+			if len(users) > 0 {
+				return ApprovalResult{
+					Approved: false,
+					Actor:    users[0].Username,
+					Reaction: "👎",
+				}, nil
+			}
+		}
+	}
+}

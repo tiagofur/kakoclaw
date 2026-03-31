@@ -7,7 +7,7 @@
 
 ## Phase 1: Config & Interfaces (Foundation)
 
-- [ ] 1.1 Add `VoiceWakeConfig`, `CanvasConfig`, `ChannelActionsConfig` structs to `pkg/config/config.go`; add `Voice VoiceWakeConfig`, `Canvas CanvasConfig`, `ChannelActions ChannelActionsConfig` fields to `Config` struct with JSON tags `voice`, `canvas`, `channel_actions` and `enabled: false` defaults.
+- [x] 1.1 Add `VoiceWakeConfig`, `CanvasConfig`, `ChannelActionsConfig` structs to `pkg/config/config.go`; add `Voice VoiceWakeConfig`, `Canvas CanvasConfig`, `ChannelActions ChannelActionsConfig` fields to `Config` struct with JSON tags `voice`, `canvas`, `channel_actions` and `enabled: false` defaults.
 
   ```go
   type VoiceWakeConfig struct {
@@ -37,7 +37,7 @@
 
 ---
 
-- [ ] 1.2 Create `pkg/voice/tts_provider.go` — define `TTSProvider` interface; rename `TTSSynthesizer` to `OpenAITTSProvider` in `pkg/voice/tts.go`; add `func (t *OpenAITTSProvider) IsAvailable() bool` (already present as `TTSSynthesizer`); verify existing TTS tests still pass.
+- [x] 1.2 Create `pkg/voice/tts_provider.go` — define `TTSProvider` interface; rename `TTSSynthesizer` to `OpenAITTSProvider` in `pkg/voice/tts.go`; add `func (t *OpenAITTSProvider) IsAvailable() bool` (already present as `TTSSynthesizer`); verify existing TTS tests still pass.
 
   ```go
   // pkg/voice/tts_provider.go
@@ -60,7 +60,7 @@
 
 ---
 
-- [ ] 1.3 Add `ElevenLabsProvider` to `pkg/voice/tts_provider.go` — implement `TTSProvider`; `Synthesize` POSTs to `https://api.elevenlabs.io/v1/text-to-speech/{voiceID}` with `xi-api-key` header; `IsAvailable()` returns `apiKey != ""`.
+- [x] 1.3 Add `ElevenLabsProvider` to `pkg/voice/tts_provider.go` — implement `TTSProvider`; `Synthesize` POSTs to `https://api.elevenlabs.io/v1/text-to-speech/{voiceID}` with `xi-api-key` header; `IsAvailable()` returns `apiKey != ""`.
 
   RED test in `pkg/voice/tts_provider_test.go`:
   ```go
@@ -81,7 +81,7 @@
 
 ---
 
-- [ ] 1.4 Add `SystemTTSProvider` to `pkg/voice/tts_provider.go` — on macOS calls `exec.Command("say", text)` and returns empty bytes (audio played directly); `IsAvailable()` always `true`.
+- [x] 1.4 Add `SystemTTSProvider` to `pkg/voice/tts_provider.go` — on macOS calls `exec.Command("say", text)` and returns empty bytes (audio played directly); `IsAvailable()` always `true`.
 
   RED test:
   ```go
@@ -100,7 +100,7 @@
 
 ---
 
-- [ ] 1.5 Add `STTProvider` interface to `pkg/voice/transcriber.go`; make `GroqTranscriber` implement it.
+- [x] 1.5 Add `STTProvider` interface to `pkg/voice/transcriber.go`; make `GroqTranscriber` implement it.
 
   ```go
   type STTProvider interface {
@@ -118,7 +118,7 @@
 
 ---
 
-- [ ] 1.6 Create `pkg/channels/actions.go` — define `ChannelAction` interface, `InteractiveMessageRequest`, `ApprovalResult` structs, `ReactionPoller` struct with `Wait(ctx, messageID, timeout)`.
+- [x] 1.6 Create `pkg/channels/actions.go` — define `ChannelAction` interface, `InteractiveMessageRequest`, `ApprovalResult` structs, `ReactionPoller` struct with `Wait(ctx, messageID, timeout)`.
 
   ```go
   package channels
@@ -183,7 +183,7 @@
 
 ## Phase 2: Core Subsystem Implementation
 
-- [ ] 2.1 Create `pkg/voice/wake.go` (build tag `//go:build !porcupine`) — `WakeDetector` with energy-threshold keyword detection; `Listen(ctx, keyword, sensitivity, onDetected func())` goroutine loop; no CGo dependency in default build.
+- [x] 2.1 Create `pkg/voice/wake.go` (build tag `//go:build !porcupine`) — `WakeDetector` with energy-threshold keyword detection; `Listen(ctx, keyword, sensitivity, onDetected func())` goroutine loop; no CGo dependency in default build.
 
   ```go
   //go:build !porcupine
@@ -233,7 +233,7 @@
 
 ---
 
-- [ ] 2.2 Create `pkg/voice/talk_mode.go` — `TalkModeSession` with `Start(ctx)` / `Stop()`, goroutine pipeline: audio capture → STT → agent process → TTS playback; "stop" keyword detection exits loop.
+- [x] 2.2 Create `pkg/voice/talk_mode.go` — `TalkModeSession` with `Start(ctx)` / `Stop()`, goroutine pipeline: audio capture → STT → agent process → TTS playback; "stop" keyword detection exits loop.
 
   ```go
   package voice
@@ -291,7 +291,7 @@
 
 ---
 
-- [ ] 2.3 Create `pkg/canvas/server.go` — `CanvasServer` with `sync.Map` state; HTTP handler for `GET /__makoclaw__/canvas/` serving SSE; methods `Push(html string)`, `Eval(js string) (string, error)` (only when DevMode), `Snapshot() string`, `Reset()`.
+- [x] 2.3 Create `pkg/canvas/server.go` — `CanvasServer` with `sync.Map` state; HTTP handler for `GET /__makoclaw__/canvas/` serving SSE; methods `Push(html string)`, `Eval(js string) (string, error)` (only when DevMode), `Snapshot() string`, `Reset()`.
 
   RED test in `pkg/canvas/server_test.go`:
   ```go
@@ -325,7 +325,7 @@
 
 ---
 
-- [ ] 2.4 Create `pkg/tools/canvas.go` — `CanvasTool` implementing `Tool`; params `operation` (create|update|append|clear|snapshot), `content`, `format`; delegates to `CanvasServer`; returns error `"Canvas is disabled..."` when `canvas.enabled = false`.
+- [x] 2.4 Create `pkg/tools/canvas.go` — `CanvasTool` implementing `Tool`; params `operation` (create|update|append|clear|snapshot), `content`, `format`; delegates to `CanvasServer`; returns error `"Canvas is disabled..."` when `canvas.enabled = false`.
 
   RED test in `pkg/tools/canvas_test.go`:
   ```go
@@ -362,7 +362,7 @@
 
 ---
 
-- [ ] 2.5 Create `pkg/tools/interactive_message.go` — `InteractiveMessageTool` implementing `Tool` + `ContextualTool`; params `message string`, `actions []ActionConfig`, `channel string`, `chat_id string`; returns error when `channel_actions.enabled = false` or no endpoint configured.
+- [x] 2.5 Create `pkg/tools/interactive_message.go` — `InteractiveMessageTool` implementing `Tool` + `ContextualTool`; params `message string`, `actions []ActionConfig`, `channel string`, `chat_id string`; returns error when `channel_actions.enabled = false` or no endpoint configured.
 
   RED test in `pkg/tools/interactive_message_test.go`:
   ```go
@@ -390,7 +390,7 @@
 
 ## Phase 3: Integration & Wiring
 
-- [ ] 3.1 Modify `pkg/agent/loop.go` — in `NewAgentLoop`, conditionally register `CanvasTool` when `cfg.Canvas.Enabled`, and `InteractiveMessageTool` when `cfg.ChannelActions.Enabled && cfg.ChannelActions.InteractionsEndpoint != ""`; log warnings when flags are false.
+- [x] 3.1 Modify `pkg/agent/loop.go` — in `NewAgentLoop`, conditionally register `CanvasTool` when `cfg.Canvas.Enabled`, and `InteractiveMessageTool` when `cfg.ChannelActions.Enabled && cfg.ChannelActions.InteractionsEndpoint != ""`; log warnings when flags are false.
 
   ```go
   // After existing tool registrations:
@@ -420,7 +420,7 @@
 
 ---
 
-- [ ] 3.2 Modify `pkg/web/server.go` — when `cfg.Canvas.Enabled`, mount SSE handler at `GET /__makoclaw__/canvas/events` and static placeholder at `GET /__makoclaw__/canvas/`; inject `CanvasServer` instance shared with the tool.
+- [x] 3.2 Modify `pkg/web/server.go` — when `cfg.Canvas.Enabled`, mount SSE handler at `GET /__makoclaw__/canvas/events` and static placeholder at `GET /__makoclaw__/canvas/`; inject `CanvasServer` instance shared with the tool.
 
   ```bash
   go build ./pkg/web/...
@@ -431,7 +431,7 @@
 
 ---
 
-- [ ] 3.3 Add Discord button rendering to `pkg/channels/discord.go` — implement `ChannelAction` on `DiscordChannel`; `SendInteractiveMessage` posts message with component button row via discordgo; register `/interactions` POST handler when `cfg.ChannelActions.Enabled`.
+- [x] 3.3 Add Discord button rendering to `pkg/channels/discord.go` — implement `ChannelAction` on `DiscordChannel`; `SendInteractiveMessage` posts message with component button row via discordgo; register `/interactions` POST handler when `cfg.ChannelActions.Enabled`.
 
   ```bash
   go build ./pkg/channels/...
@@ -442,7 +442,7 @@
 
 ---
 
-- [ ] 3.4 Add Slack button rendering to `pkg/channels/slack.go` — implement `ChannelAction` on `SlackChannel`; `SendInteractiveMessage` posts Block Kit button via slack-go; `PollReaction` polls `reactions.get` every 500ms until `👍` found or timeout.
+- [x] 3.4 Add Slack button rendering to `pkg/channels/slack.go` — implement `ChannelAction` on `SlackChannel`; `SendInteractiveMessage` posts Block Kit button via slack-go; `PollReaction` polls `reactions.get` every 500ms until `👍` found or timeout.
 
   ```bash
   go build ./pkg/channels/...
@@ -453,7 +453,7 @@
 
 ---
 
-- [ ] 3.5 Create `pkg/web/frontend/src/views/Canvas.vue` — EventSource listener on `/__makoclaw__/canvas/events`; renders received HTML inside `<iframe sandbox="allow-scripts" :srcdoc="canvasHTML">`; adds route `/canvas` in Vue router.
+- [x] 3.5 Create `pkg/web/frontend/src/views/Canvas.vue` — EventSource listener on `/__makoclaw__/canvas/events`; renders received HTML inside `<iframe sandbox="allow-scripts" :srcdoc="canvasHTML">`; adds route `/canvas` in Vue router.
 
   Commit: `feat(frontend): add CanvasView with sandboxed iframe and SSE listener`
 
@@ -461,7 +461,7 @@
 
 ## Phase 4: Tests & Verification
 
-- [ ] 4.1 Integration test `pkg/canvas/server_test.go` — `TestCanvasSSEBroadcast`: spin up `httptest.NewServer`, connect EventSource client, `Push` HTML, assert SSE event received within 500ms.
+- [x] 4.1 Integration test `pkg/canvas/server_test.go` — `TestCanvasSSEBroadcast`: spin up `httptest.NewServer`, connect EventSource client, `Push` HTML, assert SSE event received within 500ms.
 
   ```bash
   go test ./pkg/canvas/... -run TestCanvasSSEBroadcast -v -timeout 5s
@@ -472,7 +472,7 @@
 
 ---
 
-- [ ] 4.2 Integration test `pkg/channels/actions_test.go` — `TestReactionPollerApproval`: mock `ChannelAction` that signals approval after 200ms; assert `ApprovalResult.Approved == true` and `TimedOut == false`.
+- [x] 4.2 Integration test `pkg/channels/actions_test.go` — `TestReactionPollerApproval`: mock `ChannelAction` that signals approval after 200ms; assert `ApprovalResult.Approved == true` and `TimedOut == false`.
 
   ```bash
   go test ./pkg/channels/... -run TestReactionPollerApproval -v
@@ -483,7 +483,7 @@
 
 ---
 
-- [ ] 4.3 Unit test `pkg/voice/tts_provider_test.go` — `TestElevenLabsSynthesizeCallsAPI`: use `httptest.NewServer` returning 200 MP3 bytes; assert returned bytes match.
+- [x] 4.3 Unit test `pkg/voice/tts_provider_test.go` — `TestElevenLabsSynthesizeCallsAPI`: use `httptest.NewServer` returning 200 MP3 bytes; assert returned bytes match.
 
   ```bash
   go test ./pkg/voice/... -run TestElevenLabsSynthesizeCallsAPI -v
@@ -494,7 +494,7 @@
 
 ---
 
-- [ ] 4.4 Run full test suite; fix any regressions introduced by the `OpenAITTSProvider` rename.
+- [x] 4.4 Run full test suite; fix any regressions introduced by the `OpenAITTSProvider` rename.
 
   ```bash
   go test -race ./... 2>&1 | tail -20
@@ -505,7 +505,7 @@
 
 ---
 
-- [ ] 4.5 Verify config JSON round-trip — write `TestConfigVoiceCanvasChannelActionsRoundTrip` in `pkg/config/config_test.go`: marshal/unmarshal JSON with all three feature blocks; assert field values preserved.
+- [x] 4.5 Verify config JSON round-trip — write `TestConfigVoiceCanvasChannelActionsRoundTrip` in `pkg/config/config_test.go`: marshal/unmarshal JSON with all three feature blocks; assert field values preserved.
 
   ```bash
   go test ./pkg/config/... -run TestConfigVoiceCanvasChannelActionsRoundTrip -v
@@ -518,13 +518,13 @@
 
 ## Phase 5: Cleanup
 
-- [ ] 5.1 Update `CLAUDE.md` tool table — add `canvas` and `interactive_message` rows with file paths and descriptions; no code changes.
+- [x] 5.1 Update `CLAUDE.md` tool table — add `canvas` and `interactive_message` rows with file paths and descriptions; no code changes.
 
   Commit: `docs(claude): document canvas and interactive_message tools in architecture table`
 
 ---
 
-- [ ] 5.2 Add `//go:build porcupine` stub `pkg/voice/wake_porcupine.go` with compile-time note; ensures `go build -tags porcupine` does not break CI.
+- [x] 5.2 Add `//go:build porcupine` stub `pkg/voice/wake_porcupine.go` with compile-time note; ensures `go build -tags porcupine` does not break CI.
 
   ```bash
   go build -tags porcupine ./pkg/voice/...

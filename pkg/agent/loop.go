@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/sipeed/makoclaw/pkg/bus"
+	"github.com/sipeed/makoclaw/pkg/canvas"
 	"github.com/sipeed/makoclaw/pkg/config"
 	"github.com/sipeed/makoclaw/pkg/hooks"
 	"github.com/sipeed/makoclaw/pkg/logger"
@@ -551,6 +552,23 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 	// Register configure tool for runtime config management
 	configureTool := tools.NewConfigureTool()
 	toolsRegistry.Register(configureTool)
+
+	// Register canvas tool when canvas feature is enabled
+	if cfg.Canvas.Enabled {
+		canvasServer := canvas.NewCanvasServer(cfg.Canvas.DevMode)
+		toolsRegistry.Register(tools.NewCanvasTool(canvasServer))
+		logger.InfoC("agent", "Canvas tool registered")
+	}
+
+	// Register interactive message tool when channel actions are enabled
+	if cfg.ChannelActions.Enabled {
+		if cfg.ChannelActions.InteractionsEndpoint == "" {
+			logger.WarnC("agent", "Channel actions require a public HTTPS interactions_endpoint_url. Actions disabled.")
+		} else {
+			toolsRegistry.Register(tools.NewInteractiveMessageTool(nil, true, cfg.ChannelActions.InteractionsEndpoint))
+			logger.InfoC("agent", "InteractiveMessage tool registered")
+		}
+	}
 
 	sessionsManager := session.NewSessionManager(filepath.Join(workspace, "sessions"))
 

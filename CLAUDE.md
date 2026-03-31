@@ -206,6 +206,8 @@ Optional extension interfaces:
 | `task_manager`    | tasks.go      | Kanban task CRUD (requires storage)            |
 | `query_knowledge` | knowledge.go  | RAG semantic search (requires storage)         |
 | `schedule`        | cron.go       | Cron job scheduling (via `setupCronTool`)      |
+| `canvas`          | canvas.go     | Agent-controlled visual canvas (push/eval/snapshot/reset) |
+| `interactive_message` | interactive_message.go | Interactive channel messages with buttons/reactions |
 
 MCP tools from configured servers are dynamically registered at startup. Audit logging via `SQLiteAuditLogger` ([audit.go](pkg/tools/audit.go)).
 

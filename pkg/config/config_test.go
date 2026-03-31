@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -461,5 +462,78 @@ func TestIsAgentsConfigEmpty(t *testing.T) {
 	}
 	if isAgentsConfigEmpty(withProvider) {
 		t.Error("Config with custom provider should NOT be empty")
+	}
+}
+
+func TestConfigDefaults(t *testing.T) {
+	cfg := DefaultConfig()
+
+	if cfg.Voice.Enabled {
+		t.Error("Voice should be disabled by default")
+	}
+	if cfg.Canvas.Enabled {
+		t.Error("Canvas should be disabled by default")
+	}
+	if cfg.ChannelActions.Enabled {
+		t.Error("ChannelActions should be disabled by default")
+	}
+}
+
+func TestConfigVoiceCanvasChannelActionsRoundTrip(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Voice = VoiceWakeConfig{
+		Enabled:          true,
+		WakeWord:         "hey mako",
+		Sensitivity:      0.75,
+		ConfirmationTone: true,
+	}
+	cfg.Canvas = CanvasConfig{
+		Enabled: true,
+		DevMode: true,
+	}
+	cfg.ChannelActions = ChannelActionsConfig{
+		Enabled:              true,
+		InteractionsEndpoint: "https://example.com/interactions",
+	}
+
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatalf("marshal error: %v", err)
+	}
+
+	var restored Config
+	if err := json.Unmarshal(data, &restored); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+
+	// Voice
+	if !restored.Voice.Enabled {
+		t.Error("Voice.Enabled not preserved")
+	}
+	if restored.Voice.WakeWord != "hey mako" {
+		t.Errorf("Voice.WakeWord = %q, want %q", restored.Voice.WakeWord, "hey mako")
+	}
+	if restored.Voice.Sensitivity != 0.75 {
+		t.Errorf("Voice.Sensitivity = %v, want %v", restored.Voice.Sensitivity, 0.75)
+	}
+	if !restored.Voice.ConfirmationTone {
+		t.Error("Voice.ConfirmationTone not preserved")
+	}
+
+	// Canvas
+	if !restored.Canvas.Enabled {
+		t.Error("Canvas.Enabled not preserved")
+	}
+	if !restored.Canvas.DevMode {
+		t.Error("Canvas.DevMode not preserved")
+	}
+
+	// ChannelActions
+	if !restored.ChannelActions.Enabled {
+		t.Error("ChannelActions.Enabled not preserved")
+	}
+	if restored.ChannelActions.InteractionsEndpoint != "https://example.com/interactions" {
+		t.Errorf("ChannelActions.InteractionsEndpoint = %q, want %q",
+			restored.ChannelActions.InteractionsEndpoint, "https://example.com/interactions")
 	}
 }

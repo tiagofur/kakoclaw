@@ -16,6 +16,15 @@ import (
 	"github.com/sipeed/makoclaw/pkg/utils"
 )
 
+// STTProvider defines the interface for speech-to-text transcription.
+type STTProvider interface {
+	Transcribe(ctx context.Context, audioFilePath string) (*TranscriptionResponse, error)
+	IsAvailable() bool
+}
+
+// Compile-time check: GroqTranscriber implements STTProvider.
+var _ STTProvider = (*GroqTranscriber)(nil)
+
 type GroqTranscriber struct {
 	apiKey     string
 	apiBase    string
