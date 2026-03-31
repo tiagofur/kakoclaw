@@ -29,6 +29,9 @@ export const useMarketingStore = defineStore('marketing', () => {
 
   const experimentVariants = ref([])
   const experimentVariantsLoading = ref(false)
+  const campaignMemory = ref([])
+  const campaignMemoryLoading = ref(false)
+
   const automations = ref([])
   const automationsLoading = ref(false)
   const automationRuns = ref([])
@@ -578,6 +581,30 @@ export const useMarketingStore = defineStore('marketing', () => {
     }, 10000)
   }
 
+  async function fetchCampaignMemory(campaignId) {
+    campaignMemoryLoading.value = true
+    try {
+      const response = await marketingService.audienceListCampaignMemory(campaignId)
+      campaignMemory.value = response.data?.entries || []
+    } catch (error) {
+      console.error('Failed to load campaign memory:', error)
+      campaignMemory.value = []
+    } finally {
+      campaignMemoryLoading.value = false
+    }
+  }
+
+  async function addCampaignMemoryEntry(campaignId, content, role = 'note') {
+    const response = await marketingService.audienceAddCampaignMemoryEntry(campaignId, { content, role })
+    campaignMemory.value.push(response.data)
+    return response.data
+  }
+
+  async function deleteCampaignMemoryEntry(campaignId, entryId) {
+    await marketingService.audienceDeleteCampaignMemoryEntry(campaignId, entryId)
+    campaignMemory.value = campaignMemory.value.filter((e) => e.id !== entryId)
+  }
+
   function stopPolling() {
     if (pollInterval) {
       clearInterval(pollInterval)
@@ -666,6 +693,11 @@ export const useMarketingStore = defineStore('marketing', () => {
     fetchAutomations,
     createAutomation,
     deleteAutomation,
-    fetchAutomationRuns
+    fetchAutomationRuns,
+    campaignMemory,
+    campaignMemoryLoading,
+    fetchCampaignMemory,
+    addCampaignMemoryEntry,
+    deleteCampaignMemoryEntry
   }
 })

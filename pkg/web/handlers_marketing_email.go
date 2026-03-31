@@ -48,6 +48,11 @@ func (s *Server) audienceEmailCampaignsRouter(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	if len(parts) >= 3 && parts[2] == "memory" {
+		s.audienceCampaignMemoryRouter(w, r, parts)
+		return
+	}
+
 	switch r.Method {
 	case http.MethodGet:
 		s.handleGetEmailCampaign(w, r)
@@ -873,4 +878,96 @@ func automationIDFromPath(r *http.Request) (int64, bool) {
 		return 0, false
 	}
 	return id, true
+}
+
+// ── Campaign Memory ──────────────────────────────────────────────────────────
+
+func (s *Server) audienceCampaignMemoryRouter(w http.ResponseWriter, r *http.Request, parts []string) {
+	// parts[0]=campaignID, parts[1]=campaignID value, parts[2]="memory", parts[3]=optional entryID
+	if len(parts) == 3 {
+		switch r.Method {
+		case http.MethodGet:
+			s.handleListCampaignMemory(w, r)
+		case http.MethodPost:
+			s.handleAddCampaignMemoryEntry(w, r)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+		return
+	}
+
+	if len(parts) >= 4 && r.Method == http.MethodDelete {
+		s.handleDeleteCampaignMemoryEntry(w, r, parts[3])
+		return
+	}
+
+	http.Error(w, "not found", http.StatusNotFound)
+}
+
+func (s *Server) handleListCampaignMemory(w http.ResponseWriter, r *http.Request) {
+	store, _, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	campaignID, ok := audienceIDFromPath(r)
+	if !ok {
+		http.Error(w, "invalid campaign id", http.StatusBadRequest)
+		return
+	}
+	entries, err := store.ListCampaignMemory(campaignID)
+	if err != nil {
+		http.Error(w, "failed to list campaign memory", http.StatusInternalServerError)
+		return
+	}
+	if entries == nil {
+		entries = []storage.CampaignMemoryEntry{}
+	}
+	writeJSONResponse(w, map[string]interface{}{"entries": entries})
+}
+
+func (s *Server) handleAddCampaignMemoryEntry(w http.ResponseWriter, r *http.Request) {
+	store, _, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	campaignID, ok := audienceIDFromPath(r)
+	if !ok {
+		http.Error(w, "invalid campaign id", http.StatusBadRequest)
+		return
+	}
+	var body struct {
+		Role    string `json:"role"`
+		Content string `json:"content"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || strings.TrimSpace(body.Content) == "" {
+		http.Error(w, "content is required", http.StatusBadRequest)
+		return
+	}
+	entry, err := store.AddCampaignMemoryEntry(campaignID, body.Role, body.Content)
+	if err != nil {
+		http.Error(w, "failed to add memory entry", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+	writeJSONResponse(w, entry)
+}
+
+func (s *Server) handleDeleteCampaignMemoryEntry(w http.ResponseWriter, r *http.Request, entryIDStr string) {
+	store, _, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	entryID, err := strconv.ParseInt(entryIDStr, 10, 64)
+	if err != nil {
+		http.Error(w, "invalid entry id", http.StatusBadRequest)
+		return
+	}
+	if err := store.DeleteCampaignMemoryEntry(entryID); err != nil {
+		http.Error(w, "entry not found", http.StatusNotFound)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

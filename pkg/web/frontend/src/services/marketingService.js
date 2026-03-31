@@ -160,6 +160,16 @@ export default {
     return client.post(`/marketing/audience/email-campaigns/${encodeSegment(campaignId)}/variants/${encodeSegment(variantId)}/winner`)
   },
 
+  audienceListCampaignMemory(campaignId) {
+    return client.get(`/marketing/audience/email-campaigns/${encodeSegment(campaignId)}/memory`)
+  },
+  audienceAddCampaignMemoryEntry(campaignId, data) {
+    return client.post(`/marketing/audience/email-campaigns/${encodeSegment(campaignId)}/memory`, data)
+  },
+  audienceDeleteCampaignMemoryEntry(campaignId, entryId) {
+    return client.delete(`/marketing/audience/email-campaigns/${encodeSegment(campaignId)}/memory/${encodeSegment(entryId)}`)
+  },
+
   audienceListAutomations(params) {
     return client.get('/marketing/audience/automations', { params })
   },
