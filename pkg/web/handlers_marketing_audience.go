@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/sipeed/makoclaw/pkg/marketing"
 	"github.com/sipeed/makoclaw/pkg/storage"
@@ -41,6 +42,8 @@ func (s *Server) handleMarketingAudienceRouter(w http.ResponseWriter, r *http.Re
 		http.Error(w, "not found", http.StatusNotFound)
 	case "email-campaigns":
 		s.audienceEmailCampaignsRouter(w, r, parts)
+	case "automations":
+		s.audienceAutomationsRouter(w, r, parts)
 	case "send":
 		if r.Method == http.MethodPost {
 			s.handleSendToList(w, r)
@@ -568,6 +571,20 @@ func (s *Server) handleAddListMember(w http.ResponseWriter, r *http.Request) {
 	if err := store.AddListMember(req.ContactID, listID); err != nil {
 		http.Error(w, "failed to add list member", http.StatusInternalServerError)
 		return
+	}
+
+	automations, _ := store.ListActiveAutomationsByTriggerList(listID)
+	for _, auto := range automations {
+		scheduledAt := time.Now()
+		if auto.DelayHours > 0 {
+			scheduledAt = scheduledAt.Add(time.Duration(auto.DelayHours) * time.Hour)
+		}
+		store.CreateAutomationRun(&storage.AutomationRun{
+			AutomationID: auto.ID,
+			ContactID:    req.ContactID,
+			Status:       "pending",
+			ScheduledAt:  &scheduledAt,
+		})
 	}
 
 	w.Header().Set("Content-Type", "application/json")

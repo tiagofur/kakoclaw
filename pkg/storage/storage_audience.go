@@ -68,6 +68,7 @@ type EmailDelivery struct {
 	CampaignAccount   string     `json:"campaign_account"`
 	CampaignName      string     `json:"campaign_name"`
 	ContactID         *int64     `json:"contact_id,omitempty"`
+	VariantID         int64      `json:"variant_id"`
 	Subject           string     `json:"subject"`
 	Status            string     `json:"status"`
 	ProviderMessageID string     `json:"provider_message_id"`
@@ -96,4 +97,39 @@ type EmailCampaign struct {
 	SkippedCount int        `json:"skipped_count"`
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
+}
+
+type ExperimentVariant struct {
+	ID           int64     `json:"id"`
+	CampaignID   int64     `json:"campaign_id"`
+	Name         string    `json:"name"`
+	Subject      string    `json:"subject"`
+	BodyHTML     string    `json:"body_html"`
+	BodyText     string    `json:"body_text"`
+	SplitPercent int       `json:"split_percent"`
+	IsWinner     bool      `json:"is_winner"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
+type Automation struct {
+	ID            int64     `json:"id"`
+	Account       string    `json:"account"`
+	Name          string    `json:"name"`
+	TriggerType   string    `json:"trigger_type"`
+	TriggerListID int64     `json:"trigger_list_id"`
+	DelayHours    int       `json:"delay_hours"`
+	CampaignID    int64     `json:"campaign_id"`
+	Status        string    `json:"status"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+type AutomationRun struct {
+	ID           int64      `json:"id"`
+	AutomationID int64      `json:"automation_id"`
+	ContactID    int64      `json:"contact_id"`
+	Status       string     `json:"status"`
+	ScheduledAt  *time.Time `json:"scheduled_at,omitempty"`
+	ProcessedAt  *time.Time `json:"processed_at,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
 }

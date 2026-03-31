@@ -321,12 +321,46 @@ func (s *Storage) migrateMarketingAudience() error {
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		);`,
+		`CREATE TABLE IF NOT EXISTS experiment_variants (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			campaign_id INTEGER NOT NULL,
+			name TEXT NOT NULL DEFAULT '',
+			subject TEXT DEFAULT '',
+			body_html TEXT DEFAULT '',
+			body_text TEXT DEFAULT '',
+			split_percent INTEGER DEFAULT 50,
+			is_winner INTEGER DEFAULT 0,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		);`,
+		`CREATE TABLE IF NOT EXISTS automations (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			account TEXT DEFAULT '',
+			name TEXT NOT NULL,
+			trigger_type TEXT DEFAULT 'list_add',
+			trigger_list_id INTEGER DEFAULT 0,
+			delay_hours INTEGER DEFAULT 0,
+			campaign_id INTEGER DEFAULT 0,
+			status TEXT DEFAULT 'active',
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		);`,
+		`CREATE TABLE IF NOT EXISTS automation_runs (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			automation_id INTEGER NOT NULL,
+			contact_id INTEGER NOT NULL,
+			status TEXT DEFAULT 'pending',
+			scheduled_at DATETIME,
+			processed_at DATETIME,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		);`,
 	}
 	for _, q := range queries {
 		if _, err := s.db.Exec(q); err != nil {
 			return fmt.Errorf("marketing audience migration query: %w", err)
 		}
 	}
+
+	_, _ = s.db.Exec(`ALTER TABLE email_deliveries ADD COLUMN variant_id INTEGER DEFAULT 0`)
 
 	// Performance indexes for frequently filtered columns
 	indexes := []string{

@@ -788,7 +788,7 @@
               <!-- Sub-tabs -->
               <div class="flex gap-2 border-b border-makoclaw-border/20 pb-3">
                 <button
-                  v-for="sub in [{ id: 'contacts', label: 'Contacts' }, { id: 'lists', label: 'Lists' }, { id: 'segments', label: 'Segments' }, { id: 'deliveries', label: 'Deliveries' }, { id: 'campaigns', label: 'Campaigns' }]"
+                  v-for="sub in [{ id: 'contacts', label: 'Contacts' }, { id: 'lists', label: 'Lists' }, { id: 'segments', label: 'Segments' }, { id: 'deliveries', label: 'Deliveries' }, { id: 'campaigns', label: 'Campaigns' }, { id: 'automations', label: 'Automations' }]"
                   :key="sub.id"
                   class="px-4 py-2 rounded-xl text-sm font-medium transition-all"
                   :class="audienceSubTab === sub.id ? 'bg-pink-500/20 text-pink-400' : 'text-white/60 hover:text-white/80'"

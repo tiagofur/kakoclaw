@@ -139,5 +139,43 @@ export default {
   },
   audienceSendCampaign(id) {
     return client.post(`/marketing/audience/email-campaigns/${encodeSegment(id)}/send`)
+  },
+
+  audienceListVariants(campaignId) {
+    return client.get(`/marketing/audience/email-campaigns/${encodeSegment(campaignId)}/variants`)
+  },
+  audienceCreateVariant(campaignId, data) {
+    return client.post(`/marketing/audience/email-campaigns/${encodeSegment(campaignId)}/variants`, data)
+  },
+  audienceUpdateVariant(campaignId, variantId, data) {
+    return client.put(`/marketing/audience/email-campaigns/${encodeSegment(campaignId)}/variants/${encodeSegment(variantId)}`, data)
+  },
+  audienceDeleteVariant(campaignId, variantId) {
+    return client.delete(`/marketing/audience/email-campaigns/${encodeSegment(campaignId)}/variants/${encodeSegment(variantId)}`)
+  },
+  audienceVariantMetrics(campaignId, variantId) {
+    return client.get(`/marketing/audience/email-campaigns/${encodeSegment(campaignId)}/variants/${encodeSegment(variantId)}/metrics`)
+  },
+  audienceSetWinner(campaignId, variantId) {
+    return client.post(`/marketing/audience/email-campaigns/${encodeSegment(campaignId)}/variants/${encodeSegment(variantId)}/winner`)
+  },
+
+  audienceListAutomations(params) {
+    return client.get('/marketing/audience/automations', { params })
+  },
+  audienceCreateAutomation(data) {
+    return client.post('/marketing/audience/automations', data)
+  },
+  audienceGetAutomation(id) {
+    return client.get(`/marketing/audience/automations/${encodeSegment(id)}`)
+  },
+  audienceUpdateAutomation(id, data) {
+    return client.put(`/marketing/audience/automations/${encodeSegment(id)}`, data)
+  },
+  audienceDeleteAutomation(id) {
+    return client.delete(`/marketing/audience/automations/${encodeSegment(id)}`)
+  },
+  audienceListAutomationRuns(id) {
+    return client.get(`/marketing/audience/automations/${encodeSegment(id)}/runs`)
   }
 }

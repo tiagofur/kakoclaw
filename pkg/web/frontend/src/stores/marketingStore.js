@@ -27,6 +27,12 @@ export const useMarketingStore = defineStore('marketing', () => {
   const emailCampaigns = ref([])
   const emailCampaignsLoading = ref(false)
 
+  const experimentVariants = ref([])
+  const experimentVariantsLoading = ref(false)
+  const automations = ref([])
+  const automationsLoading = ref(false)
+  const automationRuns = ref([])
+
   let pollInterval = null
 
   function matchesCampaign(candidate, account, campaign) {
@@ -472,6 +478,76 @@ export const useMarketingStore = defineStore('marketing', () => {
     return response.data
   }
 
+  async function fetchExperimentVariants(campaignId) {
+    experimentVariantsLoading.value = true
+    try {
+      const response = await marketingService.audienceListVariants(campaignId)
+      experimentVariants.value = response.data?.variants || []
+      return response.data
+    } catch (error) {
+      console.error('Failed to load experiment variants:', error)
+      experimentVariants.value = []
+      throw error
+    } finally {
+      experimentVariantsLoading.value = false
+    }
+  }
+
+  async function createExperimentVariant(campaignId, data) {
+    const response = await marketingService.audienceCreateVariant(campaignId, data)
+    await fetchExperimentVariants(campaignId)
+    return response.data
+  }
+
+  async function deleteExperimentVariant(campaignId, variantId) {
+    await marketingService.audienceDeleteVariant(campaignId, variantId)
+    await fetchExperimentVariants(campaignId)
+  }
+
+  async function setVariantWinner(campaignId, variantId) {
+    const response = await marketingService.audienceSetWinner(campaignId, variantId)
+    await fetchExperimentVariants(campaignId)
+    return response.data
+  }
+
+  async function fetchAutomations(params = {}) {
+    automationsLoading.value = true
+    try {
+      const response = await marketingService.audienceListAutomations(params)
+      automations.value = response.data?.automations || []
+      return response.data
+    } catch (error) {
+      console.error('Failed to load automations:', error)
+      automations.value = []
+      throw error
+    } finally {
+      automationsLoading.value = false
+    }
+  }
+
+  async function createAutomation(data) {
+    const response = await marketingService.audienceCreateAutomation(data)
+    await fetchAutomations()
+    return response.data
+  }
+
+  async function deleteAutomation(id) {
+    await marketingService.audienceDeleteAutomation(id)
+    await fetchAutomations()
+  }
+
+  async function fetchAutomationRuns(id) {
+    try {
+      const response = await marketingService.audienceListAutomationRuns(id)
+      automationRuns.value = response.data?.runs || []
+      return response.data
+    } catch (error) {
+      console.error('Failed to load automation runs:', error)
+      automationRuns.value = []
+      throw error
+    }
+  }
+
   function startPolling() {
     stopPolling()
 
@@ -555,6 +631,19 @@ export const useMarketingStore = defineStore('marketing', () => {
     createEmailCampaign,
     updateEmailCampaign,
     deleteEmailCampaign,
-    sendEmailCampaign
+    sendEmailCampaign,
+    experimentVariants,
+    experimentVariantsLoading,
+    fetchExperimentVariants,
+    createExperimentVariant,
+    deleteExperimentVariant,
+    setVariantWinner,
+    automations,
+    automationsLoading,
+    automationRuns,
+    fetchAutomations,
+    createAutomation,
+    deleteAutomation,
+    fetchAutomationRuns
   }
 })

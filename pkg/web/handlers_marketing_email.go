@@ -43,6 +43,11 @@ func (s *Server) audienceEmailCampaignsRouter(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	if len(parts) >= 3 && parts[2] == "variants" {
+		s.audienceVariantsRouter(w, r, parts)
+		return
+	}
+
 	switch r.Method {
 	case http.MethodGet:
 		s.handleGetEmailCampaign(w, r)
@@ -230,6 +235,8 @@ func (s *Server) handleSendEmailCampaign(w http.ResponseWriter, r *http.Request)
 	campaign.Status = "sending"
 	store.UpdateCampaign(campaign)
 
+	variants, _ := store.ListVariants(campaign.ID)
+
 	contacts, err := store.GetListMembers(campaign.ListID)
 	if err != nil {
 		http.Error(w, "failed to load list members", http.StatusInternalServerError)
@@ -245,9 +252,35 @@ func (s *Server) handleSendEmailCampaign(w http.ResponseWriter, r *http.Request)
 			continue
 		}
 
+		subject := campaign.Subject
+		html := campaign.BodyHTML
+		text := campaign.BodyText
+		var variantID int64
+
+		if len(variants) > 0 {
+			bucket := contact.ID % 100
+			cumulative := 0
+			for _, v := range variants {
+				cumulative += v.SplitPercent
+				if int(bucket) < cumulative {
+					variantID = v.ID
+					if v.Subject != "" {
+						subject = v.Subject
+					}
+					if v.BodyHTML != "" {
+						html = v.BodyHTML
+					}
+					if v.BodyText != "" {
+						text = v.BodyText
+					}
+					break
+				}
+			}
+		}
+
 		contactFields := buildContactFields(&contact)
-		html := marketing.Render(campaign.BodyHTML, contactFields)
-		text := marketing.Render(campaign.BodyText, contactFields)
+		html = marketing.Render(html, contactFields)
+		text = marketing.Render(text, contactFields)
 
 		token := sender.GenerateUnsubscribeToken(contact.ID, campaign.ID, unsubscribeSecret)
 		unsubURL := baseURL + "/api/v1/marketing/unsubscribe/" + token
@@ -257,7 +290,7 @@ func (s *Server) handleSendEmailCampaign(w http.ResponseWriter, r *http.Request)
 			"List-Unsubscribe": "<" + unsubURL + ">",
 		}
 
-		sendErr := sender.Send(contact.Email, campaign.Subject, html, text, headers)
+		sendErr := sender.Send(contact.Email, subject, html, text, headers)
 
 		deliveryStatus := "sent"
 		deliveryError := ""
@@ -273,7 +306,8 @@ func (s *Server) handleSendEmailCampaign(w http.ResponseWriter, r *http.Request)
 			CampaignAccount: campaign.Account,
 			CampaignName:    campaign.Name,
 			ContactID:       &contact.ID,
-			Subject:         campaign.Subject,
+			VariantID:       variantID,
+			Subject:         subject,
 			Status:          deliveryStatus,
 			Error:           deliveryError,
 		})
@@ -372,4 +406,471 @@ func buildContactFields(c *storage.Contact) map[string]string {
 		"source":     c.Source,
 		"status":     c.Status,
 	}
+}
+
+func (s *Server) audienceVariantsRouter(w http.ResponseWriter, r *http.Request, parts []string) {
+	if len(parts) < 3 {
+		http.Error(w, "invalid variants path", http.StatusBadRequest)
+		return
+	}
+
+	if len(parts) == 3 {
+		switch r.Method {
+		case http.MethodGet:
+			s.handleListVariants(w, r)
+		case http.MethodPost:
+			s.handleCreateVariant(w, r)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+		return
+	}
+
+	subParts := strings.SplitN(parts[3], "/", 2)
+	_, err := strconv.ParseInt(subParts[0], 10, 64)
+	if err != nil {
+		http.Error(w, "invalid variant id", http.StatusBadRequest)
+		return
+	}
+
+	if len(subParts) == 1 {
+		switch r.Method {
+		case http.MethodGet:
+			s.handleGetVariant(w, r)
+		case http.MethodPut:
+			s.handleUpdateVariant(w, r)
+		case http.MethodDelete:
+			s.handleDeleteVariant(w, r)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+		return
+	}
+
+	switch subParts[1] {
+	case "metrics":
+		s.handleVariantMetrics(w, r)
+	case "winner":
+		s.handleSetWinner(w, r)
+	default:
+		http.Error(w, "not found", http.StatusNotFound)
+	}
+}
+
+func (s *Server) handleListVariants(w http.ResponseWriter, r *http.Request) {
+	store, _, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	campaignID, ok := audienceIDFromPath(r)
+	if !ok {
+		http.Error(w, "invalid campaign id", http.StatusBadRequest)
+		return
+	}
+
+	variants, err := store.ListVariants(campaignID)
+	if err != nil {
+		http.Error(w, "failed to list variants", http.StatusInternalServerError)
+		return
+	}
+	if variants == nil {
+		variants = []storage.ExperimentVariant{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	writeJSONResponse(w, map[string]interface{}{"variants": variants})
+}
+
+func (s *Server) handleCreateVariant(w http.ResponseWriter, r *http.Request) {
+	store, _, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	campaignID, ok := audienceIDFromPath(r)
+	if !ok {
+		http.Error(w, "invalid campaign id", http.StatusBadRequest)
+		return
+	}
+
+	var v storage.ExperimentVariant
+	if err := json.NewDecoder(r.Body).Decode(&v); err != nil {
+		http.Error(w, "invalid json", http.StatusBadRequest)
+		return
+	}
+	v.CampaignID = campaignID
+
+	created, err := store.CreateVariant(&v)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	writeJSONResponse(w, created)
+}
+
+func (s *Server) handleGetVariant(w http.ResponseWriter, r *http.Request) {
+	store, _, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	variantID, ok := variantIDFromPath(r)
+	if !ok {
+		http.Error(w, "invalid variant id", http.StatusBadRequest)
+		return
+	}
+
+	variant, err := store.GetVariantByID(variantID)
+	if err != nil {
+		http.Error(w, "failed to get variant", http.StatusInternalServerError)
+		return
+	}
+	if variant == nil {
+		http.Error(w, "variant not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	writeJSONResponse(w, variant)
+}
+
+func (s *Server) handleUpdateVariant(w http.ResponseWriter, r *http.Request) {
+	store, _, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	variantID, ok := variantIDFromPath(r)
+	if !ok {
+		http.Error(w, "invalid variant id", http.StatusBadRequest)
+		return
+	}
+
+	var v storage.ExperimentVariant
+	if err := json.NewDecoder(r.Body).Decode(&v); err != nil {
+		http.Error(w, "invalid json", http.StatusBadRequest)
+		return
+	}
+	v.ID = variantID
+
+	if err := store.UpdateVariant(&v); err != nil {
+		http.Error(w, "failed to update variant", http.StatusInternalServerError)
+		return
+	}
+
+	updated, err := store.GetVariantByID(variantID)
+	if err != nil || updated == nil {
+		http.Error(w, "failed to get updated variant", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	writeJSONResponse(w, updated)
+}
+
+func (s *Server) handleDeleteVariant(w http.ResponseWriter, r *http.Request) {
+	store, _, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	variantID, ok := variantIDFromPath(r)
+	if !ok {
+		http.Error(w, "invalid variant id", http.StatusBadRequest)
+		return
+	}
+
+	if err := store.DeleteVariant(variantID); err != nil {
+		http.Error(w, "failed to delete variant", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleVariantMetrics(w http.ResponseWriter, r *http.Request) {
+	store, _, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	variantID, ok := variantIDFromPath(r)
+	if !ok {
+		http.Error(w, "invalid variant id", http.StatusBadRequest)
+		return
+	}
+
+	sent, opened, clicked, err := store.GetVariantMetrics(variantID)
+	if err != nil {
+		http.Error(w, "failed to get variant metrics", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	writeJSONResponse(w, map[string]interface{}{
+		"sent":    sent,
+		"opened":  opened,
+		"clicked": clicked,
+	})
+}
+
+func (s *Server) handleSetWinner(w http.ResponseWriter, r *http.Request) {
+	store, _, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	variantID, ok := variantIDFromPath(r)
+	if !ok {
+		http.Error(w, "invalid variant id", http.StatusBadRequest)
+		return
+	}
+
+	if err := store.SetWinner(variantID); err != nil {
+		http.Error(w, "failed to set winner", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	writeJSONResponse(w, map[string]string{"status": "ok"})
+}
+
+func variantIDFromPath(r *http.Request) (int64, bool) {
+	suffix := strings.TrimPrefix(r.URL.Path, audiencePrefix)
+	parts := strings.SplitN(suffix, "/", 4)
+	if len(parts) < 4 {
+		return 0, false
+	}
+	if parts[2] != "variants" {
+		return 0, false
+	}
+	subParts := strings.SplitN(parts[3], "/", 2)
+	id, err := strconv.ParseInt(subParts[0], 10, 64)
+	if err != nil {
+		return 0, false
+	}
+	return id, true
+}
+
+func (s *Server) audienceAutomationsRouter(w http.ResponseWriter, r *http.Request, parts []string) {
+	if len(parts) == 1 {
+		switch r.Method {
+		case http.MethodGet:
+			s.handleListAutomations(w, r)
+		case http.MethodPost:
+			s.handleCreateAutomation(w, r)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+		return
+	}
+
+	idStr := parts[1]
+	_, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "invalid automation id", http.StatusBadRequest)
+		return
+	}
+
+	if len(parts) >= 3 && parts[2] == "runs" {
+		if r.Method == http.MethodGet {
+			s.handleListAutomationRuns(w, r)
+			return
+		}
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		s.handleGetAutomation(w, r)
+	case http.MethodPut:
+		s.handleUpdateAutomation(w, r)
+	case http.MethodDelete:
+		s.handleDeleteAutomation(w, r)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *Server) handleListAutomations(w http.ResponseWriter, r *http.Request) {
+	store, _, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	account := r.URL.Query().Get("account")
+	automations, err := store.ListAutomations(account)
+	if err != nil {
+		http.Error(w, "failed to list automations", http.StatusInternalServerError)
+		return
+	}
+	if automations == nil {
+		automations = []storage.Automation{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	writeJSONResponse(w, map[string]interface{}{"automations": automations})
+}
+
+func (s *Server) handleCreateAutomation(w http.ResponseWriter, r *http.Request) {
+	store, _, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var a storage.Automation
+	if err := json.NewDecoder(r.Body).Decode(&a); err != nil {
+		http.Error(w, "invalid json", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(a.Name) == "" {
+		http.Error(w, "name is required", http.StatusBadRequest)
+		return
+	}
+
+	created, err := store.CreateAutomation(&a)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	writeJSONResponse(w, created)
+}
+
+func (s *Server) handleGetAutomation(w http.ResponseWriter, r *http.Request) {
+	store, _, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	id, ok := automationIDFromPath(r)
+	if !ok {
+		http.Error(w, "invalid automation id", http.StatusBadRequest)
+		return
+	}
+
+	automation, err := store.GetAutomationByID(id)
+	if err != nil {
+		http.Error(w, "failed to get automation", http.StatusInternalServerError)
+		return
+	}
+	if automation == nil {
+		http.Error(w, "automation not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	writeJSONResponse(w, automation)
+}
+
+func (s *Server) handleUpdateAutomation(w http.ResponseWriter, r *http.Request) {
+	store, _, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	id, ok := automationIDFromPath(r)
+	if !ok {
+		http.Error(w, "invalid automation id", http.StatusBadRequest)
+		return
+	}
+
+	var a storage.Automation
+	if err := json.NewDecoder(r.Body).Decode(&a); err != nil {
+		http.Error(w, "invalid json", http.StatusBadRequest)
+		return
+	}
+	a.ID = id
+
+	if err := store.UpdateAutomation(&a); err != nil {
+		http.Error(w, "failed to update automation", http.StatusInternalServerError)
+		return
+	}
+
+	updated, err := store.GetAutomationByID(id)
+	if err != nil || updated == nil {
+		http.Error(w, "failed to get updated automation", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	writeJSONResponse(w, updated)
+}
+
+func (s *Server) handleDeleteAutomation(w http.ResponseWriter, r *http.Request) {
+	store, _, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	id, ok := automationIDFromPath(r)
+	if !ok {
+		http.Error(w, "invalid automation id", http.StatusBadRequest)
+		return
+	}
+
+	if err := store.DeleteAutomation(id); err != nil {
+		http.Error(w, "failed to delete automation", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleListAutomationRuns(w http.ResponseWriter, r *http.Request) {
+	store, _, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	automationID, ok := automationIDFromPath(r)
+	if !ok {
+		http.Error(w, "invalid automation id", http.StatusBadRequest)
+		return
+	}
+
+	runs, err := store.ListRunsByAutomation(automationID)
+	if err != nil {
+		http.Error(w, "failed to list automation runs", http.StatusInternalServerError)
+		return
+	}
+	if runs == nil {
+		runs = []storage.AutomationRun{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	writeJSONResponse(w, map[string]interface{}{"runs": runs})
+}
+
+func automationIDFromPath(r *http.Request) (int64, bool) {
+	suffix := strings.TrimPrefix(r.URL.Path, audiencePrefix)
+	parts := strings.SplitN(suffix, "/", 4)
+	if len(parts) < 2 {
+		return 0, false
+	}
+	id, err := strconv.ParseInt(parts[1], 10, 64)
+	if err != nil {
+		return 0, false
+	}
+	return id, true
 }
