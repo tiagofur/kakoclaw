@@ -224,7 +224,8 @@ func (t *TavilySearchProvider) Search(ctx context.Context, query string, count i
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("tavily: unexpected status %d", resp.StatusCode)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 5*1024*1024))
+		return nil, fmt.Errorf("search API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var result tavilyResponse
@@ -277,5 +278,5 @@ func (f *FallbackSearchProvider) Search(ctx context.Context, query string, count
 	if lastErr != nil {
 		return nil, fmt.Errorf("all search providers failed; last error: %w", lastErr)
 	}
-	return nil, nil
+	return []SearchResult{}, nil
 }
