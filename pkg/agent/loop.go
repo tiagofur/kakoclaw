@@ -1780,6 +1780,26 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 				}
 			}
 
+			// Check ConfirmableTool interface for semi-autonomous confirmation
+			if tool, found := al.tools.Get(tc.Name); found {
+				if confirmable, ok := tool.(tools.ConfirmableTool); ok {
+					action, _ := tc.Arguments["action"].(string)
+					if needsConfirm, reason := confirmable.RequiresConfirmation(action, tc.Arguments); needsConfirm {
+						messages = append(messages, providers.Message{
+							Role:       "tool",
+							Content:    fmt.Sprintf("[CONFIRMATION REQUIRED] %s\nThis action requires user approval. Please inform the user and ask for confirmation before retrying.", reason),
+							ToolCallID: tc.ID,
+						})
+						logger.InfoCF("agent", "Tool action requires confirmation", map[string]interface{}{
+							"tool":   tc.Name,
+							"action": action,
+							"reason": reason,
+						})
+						continue
+					}
+				}
+			}
+
 			// Notify start of tool call
 			agentName := utils.AgentNameFrom(ctx)
 			if opts.OnTool != nil {
@@ -2165,6 +2185,21 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 					}
 				}
 
+				// Check ConfirmableTool interface for semi-autonomous confirmation
+				if tool, found := al.tools.Get(tc.Name); found {
+					if confirmable, ok := tool.(tools.ConfirmableTool); ok {
+						action, _ := tc.Arguments["action"].(string)
+						if needsConfirm, reason := confirmable.RequiresConfirmation(action, tc.Arguments); needsConfirm {
+							messages = append(messages, providers.Message{
+								Role:       "tool",
+								Content:    fmt.Sprintf("[CONFIRMATION REQUIRED] %s\nThis action requires user approval. Please inform the user and ask for confirmation before retrying.", reason),
+								ToolCallID: tc.ID,
+							})
+							continue
+						}
+					}
+				}
+
 				// Notify start of tool call
 				if opts.OnTool != nil {
 					_ = opts.OnTool(ToolEvent{Name: tc.Name, Args: tc.Arguments, Status: "started"})
@@ -2310,6 +2345,21 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 						"tool": tc.Name,
 					})
 					continue
+				}
+			}
+
+			// Check ConfirmableTool interface for semi-autonomous confirmation
+			if tool, found := al.tools.Get(tc.Name); found {
+				if confirmable, ok := tool.(tools.ConfirmableTool); ok {
+					action, _ := tc.Arguments["action"].(string)
+					if needsConfirm, reason := confirmable.RequiresConfirmation(action, tc.Arguments); needsConfirm {
+						messages = append(messages, providers.Message{
+							Role:       "tool",
+							Content:    fmt.Sprintf("[CONFIRMATION REQUIRED] %s\nThis action requires user approval. Please inform the user and ask for confirmation before retrying.", reason),
+							ToolCallID: tc.ID,
+						})
+						continue
+					}
 				}
 			}
 
