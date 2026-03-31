@@ -1,13 +1,13 @@
 ---
 name: marketing
-description: Full-stack marketing campaign system. Configures 5 specialist agents (content strategist, copywriter, visual designer, social media manager, analyst) and provides a complete campaign workflow template.
-when_to_use: When planning a marketing campaign, creating content strategy, writing copy, managing social media posts, or analyzing campaign performance
+description: Full-stack marketing campaign system. Configures 5 specialist agents (content strategist, copywriter, visual designer, social media manager, analyst) and provides a complete campaign workflow, email campaign management with audience segmentation, per-campaign memory, version history, and company auto-research.
+when_to_use: When planning a marketing campaign, creating content strategy, writing copy, managing social media posts, analyzing campaign performance, managing email campaigns or audience contacts, or researching a company/account profile
 emoji: 📣
 ---
 
 # Marketing Campaign System
 
-This skill configures MakoClaw as a complete marketing agency, with 5 specialist agents that collaborate to create and publish end-to-end marketing campaigns.
+This skill configures MakoClaw as a complete marketing agency, with 5 specialist agents that collaborate to create and publish end-to-end marketing campaigns. It also provides a full **Audience & Email Campaign** module accessible via the Web UI.
 
 ## Campaign Workspace Structure
 
@@ -109,3 +109,61 @@ Parameters:
 - `platforms`: Comma-separated platforms (default: "twitter,linkedin")
 - `tone`: Content tone (default: "professional")
 - `post_count`: Posts per platform (default: "5")
+
+---
+
+## Audience & Email Campaigns (Web UI)
+
+The **Audience** tab in the Web UI provides a full email marketing suite.
+
+### Email Campaigns
+
+Each campaign has a name, subject, HTML body, optional template slug, and an assigned contact list.
+
+- **Create**: POST `/api/v1/marketing/audience/email-campaigns`
+- **Send** (async): POST `.../email-campaigns/{id}/send` → returns 202 immediately; delivery runs in background
+- **Progress polling**: GET `.../email-campaigns/{id}/progress` → `{ status, progress: "{pct, sent, total, ...}" }`
+- Statuses: `draft → sending → delivering → sent / failed`
+- Archived campaigns are hidden from the default view; accessible via filter
+
+### Per-Campaign Memory
+
+Persistent notes and agent context attached to a specific campaign. Survives across sessions.
+
+- **List**: GET `.../email-campaigns/{id}/memory`
+- **Add entry**: POST `.../email-campaigns/{id}/memory` `{ role: "note"|"decision"|"agent", content: "..." }`
+- **Delete entry**: DELETE `.../email-campaigns/{id}/memory/{entryId}`
+
+Roles:
+- `note` — free-form annotation
+- `decision` — a choice made about the campaign (audience, tone, schedule)
+- `agent` — context injected by or for an AI agent during a workflow run
+
+### Version History
+
+Snapshots of campaign content (subject + body) with auto-versioning on every save.
+
+- **List versions**: GET `.../email-campaigns/{id}/versions` → array ordered newest-first
+- **Manual snapshot**: POST `.../email-campaigns/{id}/versions` `{ note: "optional label" }`
+- **Restore version**: POST `.../email-campaigns/{id}/versions/{versionId}/restore`
+
+Auto-versioning: whenever `UpdateCampaign` detects a change in subject, body_html, or body_text, it automatically snapshots the previous content before overwriting.
+
+Version object fields: `id`, `campaign_id`, `version_number`, `subject`, `body_html`, `body_text`, `note`, `created_at`.
+
+### Company / Account Profiles
+
+Research and store company context per account slug. Used for personalizing campaigns.
+
+- **List all profiles**: GET `/api/v1/marketing/profiles`
+- **Get profile**: GET `/api/v1/marketing/profiles/{account}`
+- **Save / update**: PUT `/api/v1/marketing/profiles/{account}` `{ website, industry, description, target_audience, social_links, research_notes }`
+- **Auto-research** (AI agent): POST `/api/v1/marketing/profiles/{account}/research` `{ website? }` → runs `web_search` + `web_fetch` and upserts the profile; returns the updated profile
+
+The research endpoint spawns a single-turn agent that queries the web for the company, parses the JSON response, and stores it. It uses a 90s timeout. The `social_links` field stores a JSON object (`{ twitter, linkedin, instagram, ... }`).
+
+### Audience Contacts, Lists & Segments
+
+- **Contacts**: CRUD + CSV import/export at `/api/v1/marketing/audience/contacts`
+- **Lists**: Named contact groups at `/api/v1/marketing/audience/lists`; add/remove members via `.../lists/{id}/members`
+- **Segments**: Rule-based dynamic groups at `/api/v1/marketing/audience/segments`; preview with `.../segments/{id}/preview`
