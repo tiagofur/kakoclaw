@@ -1888,6 +1888,8 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 			Content: "[System: You have reached the maximum number of tool iterations. You MUST now provide your final response as text. Summarize what you accomplished and any remaining items.]",
 		})
 
+		// Note: pruning is intentionally skipped here — this call uses a modified
+		// messages slice with a system instruction appended (max iterations path).
 		// Call LLM with NO tools so it must produce text
 		concludeResp, err := al.provider.Chat(ctx, messages, nil, model, map[string]interface{}{
 			"max_tokens":  4096,
@@ -2415,6 +2417,8 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 			Content: "[System: You have reached the maximum number of tool iterations. You MUST now provide your final response as text. Summarize what you accomplished and any remaining items.]",
 		})
 
+		// Note: pruning is intentionally skipped here — this call uses a modified
+		// messages slice with a system instruction appended (max iterations path).
 		// Call LLM with NO tools so it must produce text
 		concludeResp, err := al.provider.Chat(ctx, messages, nil, model, map[string]interface{}{
 			"max_tokens":  4096,
@@ -2775,7 +2779,24 @@ func pruneHistoryToolResults(messages []providers.Message, keepRecentN int, maxC
 		}
 		if len(msg.ToolCalls) > 0 {
 			m.ToolCalls = make([]providers.ToolCall, len(msg.ToolCalls))
-			copy(m.ToolCalls, msg.ToolCalls)
+			for j, tc := range msg.ToolCalls {
+				m.ToolCalls[j] = providers.ToolCall{
+					ID:   tc.ID,
+					Type: tc.Type,
+					Name: tc.Name,
+				}
+				if tc.Function != nil {
+					fn := *tc.Function // copy struct by value
+					m.ToolCalls[j].Function = &fn
+				}
+				if tc.Arguments != nil {
+					args := make(map[string]interface{}, len(tc.Arguments))
+					for k, v := range tc.Arguments {
+						args[k] = v
+					}
+					m.ToolCalls[j].Arguments = args
+				}
+			}
 		}
 		// Truncate if this is an old (non-recent) tool result that exceeds maxChars
 		if msg.Role == "tool" && !recentSet[i] && len(msg.Content) > maxChars {

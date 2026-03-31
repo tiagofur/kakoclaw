@@ -19,6 +19,9 @@ func TestPruneHistoryToolResults_Disabled(t *testing.T) {
 		makeToolMsg("tool", strings.Repeat("y", 5000)),
 	}
 	got := pruneHistoryToolResults(msgs, 1, 0)
+	if len(got) == 0 {
+		t.Fatal("expected non-empty result")
+	}
 	if &got[0] != &msgs[0] {
 		t.Fatal("expected same underlying array (pointer identity) when maxChars==0")
 	}
@@ -147,6 +150,23 @@ func TestPruneHistoryToolResults_OriginalNotMutated(t *testing.T) {
 
 	if msgs[0].Content != originalContent {
 		t.Errorf("original slice was mutated: got %q, want %q", msgs[0].Content, originalContent)
+	}
+}
+
+// T9: keepRecentN exceeds the total number of tool results → all tool results preserved.
+func TestPruneHistoryToolResults_KeepRecentExceedsTotal(t *testing.T) {
+	longContent := strings.Repeat("p", 500)
+	msgs := []providers.Message{
+		makeToolMsg("tool", longContent),
+		makeToolMsg("tool", longContent),
+		makeToolMsg("tool", longContent),
+	}
+	// keepRecentN=10 > 3 tool results → all 3 should be protected
+	got := pruneHistoryToolResults(msgs, 10, 100)
+	for i, m := range got {
+		if m.Content != longContent {
+			t.Errorf("index %d: tool result was truncated but should be protected (keepRecentN=10 > total=3)", i)
+		}
 	}
 }
 
