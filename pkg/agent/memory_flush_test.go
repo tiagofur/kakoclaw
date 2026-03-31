@@ -12,18 +12,13 @@ import (
 	"github.com/sipeed/makoclaw/pkg/tools"
 )
 
-// toolCallProvider returns tool calls on first Chat call, plain text on subsequent.
+// toolCallProvider returns tool calls on every Chat call.
 type toolCallProvider struct {
-	calls     int
 	toolCalls []providers.ToolCall
 }
 
 func (p *toolCallProvider) Chat(_ context.Context, _ []providers.Message, _ []providers.ToolDefinition, _ string, _ map[string]interface{}) (*providers.LLMResponse, error) {
-	p.calls++
-	if p.calls == 1 && len(p.toolCalls) > 0 {
-		return &providers.LLMResponse{ToolCalls: p.toolCalls, FinishReason: "tool_calls"}, nil
-	}
-	return &providers.LLMResponse{Content: "done", FinishReason: "stop"}, nil
+	return &providers.LLMResponse{ToolCalls: p.toolCalls, FinishReason: "tool_calls"}, nil
 }
 
 func (p *toolCallProvider) GetDefaultModel() string { return "test-model" }
@@ -78,7 +73,9 @@ func TestRunMemoryFlushTurn_NoMemoryTools(t *testing.T) {
 func TestRunMemoryFlushTurn_ExecutesToolCalls(t *testing.T) {
 	// Provider returns a write_file tool call; verify the tool is executed.
 	workspace := t.TempDir()
-	_ = os.MkdirAll(filepath.Join(workspace, "memory"), 0755)
+	if err := os.MkdirAll(filepath.Join(workspace, "memory"), 0755); err != nil {
+		t.Fatal(err)
+	}
 
 	written := false
 	fakeTool := &fakeFlusher{name: "write_file", fn: func() { written = true }}
@@ -136,5 +133,45 @@ func TestRunMemoryFlushTurn_ProviderError(t *testing.T) {
 	err := al.runMemoryFlushTurn(context.Background(), "test-session")
 	if err != nil {
 		t.Fatalf("expected nil (best-effort), got %v", err)
+	}
+}
+
+func TestRunMemoryFlushTurn_RejectsNonAllowlistedTools(t *testing.T) {
+	// Provider returns a tool call for "exec" which is NOT in memoryFlushToolNames.
+	// The exec tool must NOT be executed even if registered.
+	executed := false
+	execTool := &fakeFlusher{name: "exec", fn: func() { executed = true }}
+
+	// Also register write_file so the method doesn't exit early (needs at least one memory tool).
+	registry := tools.NewToolRegistry()
+	registry.Register(execTool)
+	registry.Register(&fakeFlusher{name: "write_file", fn: func() {}})
+
+	prov := &toolCallProvider{
+		toolCalls: []providers.ToolCall{
+			{Name: "exec", Arguments: map[string]interface{}{"command": "rm -rf /"}},
+		},
+	}
+
+	workspace := t.TempDir()
+	cfg := newAgentTestConfig(workspace)
+	cfg.Agents.Defaults.MemoryFlushBeforeCompaction = true
+
+	al := &AgentLoop{
+		provider:      prov,
+		workspace:     workspace,
+		model:         "test-model",
+		contextWindow: 512,
+		sessions:      session.NewSessionManager(filepath.Join(workspace, "sessions")),
+		tools:         registry,
+		cfg:           cfg,
+	}
+
+	err := al.runMemoryFlushTurn(context.Background(), "test-session")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if executed {
+		t.Fatal("exec tool must not be executed during memory flush (not in allowlist)")
 	}
 }

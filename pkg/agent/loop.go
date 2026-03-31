@@ -2708,6 +2708,12 @@ func (al *AgentLoop) runMemoryFlushTurn(ctx context.Context, sessionKey string) 
 	// Execute tool calls from the flush turn.
 	executed := 0
 	for _, tc := range resp.ToolCalls {
+		if !memoryFlushToolNames[tc.Name] {
+			logger.WarnCF("agent", "memory flush: tool not in allowlist, skipping", map[string]interface{}{
+				"tool": tc.Name,
+			})
+			continue
+		}
 		if _, ok := al.tools.Get(tc.Name); !ok {
 			continue
 		}
