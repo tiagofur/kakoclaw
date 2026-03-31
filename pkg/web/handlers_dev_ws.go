@@ -77,11 +77,6 @@ func (s *Server) handleDevTerminalWS(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if in.Type == "prompt" {
-			if b.State() != "running" {
-				_ = safeWrite([]byte(`{"type":"error","error":"bridge not running"}`))
-				continue
-			}
-
 			// Persistence: get user storage
 			userStore, _, userStorOK := s.getUserStorage(r)
 			projectName := filepath.Base(b.Cwd())
@@ -115,6 +110,12 @@ func (s *Server) handleDevTerminalWS(w http.ResponseWriter, r *http.Request) {
 			go func() {
 				var fullResponse strings.Builder
 				for ev := range ch {
+					if ev.Text != "" {
+						fullResponse.WriteString(ev.Text)
+					}
+					if ev.Content != "" {
+						fullResponse.WriteString(ev.Content)
+					}
 					if ev.Message != "" {
 						fullResponse.WriteString(ev.Message)
 					}

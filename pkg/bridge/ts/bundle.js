@@ -17580,13 +17580,18 @@ async function handleQuery(req) {
   const reqId = req.request_id || "";
   const emitReq = (obj) => emit({ ...obj, request_id: reqId });
   const sdkOptions = await buildSDKOptions(req.options);
-  log(`query start \u2014 rid=${reqId} model=${sdkOptions.model ?? "default"} prompt="${req.prompt.slice(0, 80)}..."`);
+  const effectivePrompt = req.options?.prompt_injection ? `${req.options.prompt_injection}
+
+---
+
+${req.prompt}` : req.prompt;
+  log(`query start \u2014 rid=${reqId} model=${sdkOptions.model ?? "default"} prompt="${effectivePrompt.slice(0, 80)}..."`);
   const timeoutMs = 10 * 60 * 1e3;
   const timeout = setTimeout(() => {
     emitReq({ event: "error", message: "query timeout: no result after 10 minutes" });
   }, timeoutMs);
   try {
-    const stream = Aa({ prompt: req.prompt, options: sdkOptions });
+    const stream = Aa({ prompt: effectivePrompt, options: sdkOptions });
     for await (const message of stream) {
       const msg = message;
       const msgType = msg.type;

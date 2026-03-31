@@ -31,9 +31,39 @@ func (s *Server) getDevBridge(userUUID string) (*bridge.Bridge, error) {
 		return nil, fmt.Errorf("dev studio is disabled globally")
 	}
 
+	// Resolve the actual bundle path on disk before creating the bridge.
+	// EnsureBridge extracts the embedded JS bundle to storePath/bridge/ if missing or outdated.
+	storePath := s.fullConfig.Storage.Path
+	if storePath == "" {
+		storePath = defaultWorkspace()
+	}
+	bridgeDir := filepath.Join(storePath, "bridge")
+
+	backendName := s.fullConfig.DevStudio.DefaultBackend
+	if backendName == "" {
+		backendName = "claude-code"
+	}
+
+	var bundlePath string
+	var bundleErr error
+	if backendName == "opencode" {
+		bundlePath, bundleErr = bridge.EnsureBridge(bridgeDir, bridge.EmbeddedOpenCodeJS, "opencode")
+	} else {
+		bundlePath, bundleErr = bridge.EnsureBridge(bridgeDir, bridge.EmbeddedBundleJS, "claude-code")
+	}
+	if bundleErr != nil {
+		return nil, fmt.Errorf("failed to setup bridge bundle: %w", bundleErr)
+	}
+
+	nodePath := s.fullConfig.DevStudio.NodePath
+	if nodePath == "" {
+		nodePath = "node"
+	}
+
 	// Create new bridge
 	cfg := bridge.BridgeConfig{
-		Backend:    s.fullConfig.DevStudio.DefaultBackend,
+		Backend:    bundlePath,
+		NodePath:   nodePath,
 		MaxRetries: 3,
 	}
 	b := bridge.New(cfg)

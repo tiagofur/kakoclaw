@@ -19,6 +19,7 @@ interface RequestOptions {
   model?: string;
   cwd?: string;
   system_prompt?: string;
+  prompt_injection?: string;
   resume?: string;
   max_turns?: number;
   permission_mode?: string;
@@ -154,14 +155,19 @@ async function handleQuery(req: Request): Promise<void> {
   const emitReq = (obj: OutEvent) => emit({ ...obj, request_id: reqId });
   const sdkOptions = await buildSDKOptions(req.options);
 
-  log(`query start — rid=${reqId} model=${sdkOptions.model ?? "default"} prompt="${req.prompt.slice(0, 80)}..."`);
+  // Prepend semantic memory injection from devmemory if provided by the Go handler
+  const effectivePrompt = req.options?.prompt_injection
+    ? `${req.options.prompt_injection}\n\n---\n\n${req.prompt}`
+    : req.prompt;
+
+  log(`query start — rid=${reqId} model=${sdkOptions.model ?? "default"} prompt="${effectivePrompt.slice(0, 80)}..."`);
   const timeoutMs = 10 * 60 * 1000;
   const timeout = setTimeout(() => {
     emitReq({ event: "error", message: "query timeout: no result after 10 minutes" });
   }, timeoutMs);
 
   try {
-    const stream = query({ prompt: req.prompt, options: sdkOptions as Parameters<typeof query>[0]["options"] });
+    const stream = query({ prompt: effectivePrompt, options: sdkOptions as Parameters<typeof query>[0]["options"] });
     for await (const message of stream) {
       const msg = message as Record<string, unknown>;
       const msgType = msg.type as string | undefined;
