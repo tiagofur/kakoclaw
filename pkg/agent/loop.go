@@ -85,6 +85,7 @@ type AgentLoop struct {
 	summarizeWg        sync.WaitGroup    // Tracks active summarization goroutines
 	costTracker        *AgentCostTracker // Tracks token usage and estimated costs
 	orchestratorOwner  *OrchestratorAgent
+	hooks              *hooks.HookRegistry
 	sessionThinkLevel  map[string]ThinkLevel
 	sessionThinkMu     sync.RWMutex
 }
@@ -639,6 +640,7 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 		cfg:                cfg,
 		metrics:            observability.Global(),
 		costTracker:        NewAgentCostTracker(),
+		hooks:              hooks.NewHookRegistry(),
 		sessionThinkLevel:  make(map[string]ThinkLevel),
 	}
 	// Resolve the flush callback's self-reference now that the AgentLoop is constructed.
