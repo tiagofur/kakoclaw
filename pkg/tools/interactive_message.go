@@ -3,13 +3,41 @@ package tools
 import (
 	"context"
 	"fmt"
-
-	"github.com/sipeed/makoclaw/pkg/channels"
+	"time"
 )
+
+// ChannelActionProvider defines the interface for sending interactive messages.
+// Implemented by channel adapters (Discord, Slack, etc.) in pkg/channels.
+type ChannelActionProvider interface {
+	SendInteractiveMessage(ctx context.Context, req InteractiveMessageRequest) (messageID string, err error)
+	PollReaction(ctx context.Context, messageID string, timeout time.Duration) (ApprovalResult, error)
+}
+
+// InteractiveMessageRequest describes an interactive message to send.
+type InteractiveMessageRequest struct {
+	Message string         `json:"message"`
+	Actions []ActionConfig `json:"actions"`
+	ChatID  string         `json:"chat_id"`
+}
+
+// ActionConfig defines a single interactive action (button, reaction, etc.).
+type ActionConfig struct {
+	Label string `json:"label"`
+	Value string `json:"value"`
+	Style string `json:"style"`
+}
+
+// ApprovalResult holds the outcome of an interactive approval flow.
+type ApprovalResult struct {
+	Approved bool   `json:"approved"`
+	Actor    string `json:"actor"`
+	Reaction string `json:"reaction"`
+	TimedOut bool   `json:"timed_out"`
+}
 
 // InteractiveMessageTool sends interactive messages (buttons, reactions) to channels.
 type InteractiveMessageTool struct {
-	action   channels.ChannelAction
+	action   ChannelActionProvider
 	enabled  bool
 	endpoint string
 	channel  string
@@ -18,7 +46,7 @@ type InteractiveMessageTool struct {
 
 // NewInteractiveMessageTool creates a new InteractiveMessageTool.
 // Pass enabled=false or empty endpoint to disable the tool.
-func NewInteractiveMessageTool(action channels.ChannelAction, enabled bool, endpoint string) *InteractiveMessageTool {
+func NewInteractiveMessageTool(action ChannelActionProvider, enabled bool, endpoint string) *InteractiveMessageTool {
 	return &InteractiveMessageTool{
 		action:   action,
 		enabled:  enabled,
@@ -110,11 +138,11 @@ func (t *InteractiveMessageTool) Execute(ctx context.Context, args map[string]in
 	}
 
 	// Parse actions from args
-	var actionConfigs []channels.ActionConfig
+	var actionConfigs []ActionConfig
 	if rawActions, ok := args["actions"].([]interface{}); ok {
 		for _, ra := range rawActions {
 			if actionMap, ok := ra.(map[string]interface{}); ok {
-				actionConfigs = append(actionConfigs, channels.ActionConfig{
+				actionConfigs = append(actionConfigs, ActionConfig{
 					Label: stringOrDefault(actionMap, "label", ""),
 					Value: stringOrDefault(actionMap, "value", ""),
 					Style: stringOrDefault(actionMap, "style", "primary"),
@@ -123,7 +151,7 @@ func (t *InteractiveMessageTool) Execute(ctx context.Context, args map[string]in
 		}
 	}
 
-	req := channels.InteractiveMessageRequest{
+	req := InteractiveMessageRequest{
 		Message: message,
 		Actions: actionConfigs,
 		ChatID:  chatID,
