@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -556,6 +557,33 @@ func TestBraveSearchProvider(t *testing.T) {
 	// the transport level. Here we verify the struct and interface compliance.
 
 	var _ SearchProvider = provider // compile-time interface check
+}
+
+func TestBraveSearchProvider_WithBaseURL(t *testing.T) {
+	// Mock server returning valid Brave-shaped response
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Subscription-Token") == "" {
+			t.Error("expected X-Subscription-Token header")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"web":{"results":[{"title":"Test Title","url":"https://example.com","description":"Test desc"}]}}`)
+	}))
+	defer server.Close()
+
+	provider := NewBraveSearchProviderWithBaseURL("test-api-key", server.URL)
+	results, err := provider.Search(context.Background(), "test query", 5)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if results[0].Title != "Test Title" {
+		t.Errorf("Title = %q, want %q", results[0].Title, "Test Title")
+	}
+	if results[0].URL != "https://example.com" {
+		t.Errorf("URL = %q, want %q", results[0].URL, "https://example.com")
+	}
 }
 
 func TestWebFetchToolExtractTextReadability(t *testing.T) {

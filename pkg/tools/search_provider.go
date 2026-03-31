@@ -26,19 +26,26 @@ type SearchProvider interface {
 
 // BraveSearchProvider implements SearchProvider using the Brave Search API.
 type BraveSearchProvider struct {
-	apiKey string
+	apiKey  string
+	baseURL string
 }
 
 // NewBraveSearchProvider creates a BraveSearchProvider with the given API key.
 func NewBraveSearchProvider(apiKey string) *BraveSearchProvider {
-	return &BraveSearchProvider{apiKey: apiKey}
+	return &BraveSearchProvider{apiKey: apiKey, baseURL: "https://api.search.brave.com"}
+}
+
+// NewBraveSearchProviderWithBaseURL creates a BraveSearchProvider with a custom base URL,
+// useful for testing with httptest.NewServer.
+func NewBraveSearchProviderWithBaseURL(apiKey, baseURL string) *BraveSearchProvider {
+	return &BraveSearchProvider{apiKey: apiKey, baseURL: baseURL}
 }
 
 func (b *BraveSearchProvider) Name() string { return "brave" }
 
 func (b *BraveSearchProvider) Search(ctx context.Context, query string, count int) ([]SearchResult, error) {
-	searchURL := fmt.Sprintf("https://api.search.brave.com/res/v1/web/search?q=%s&count=%d",
-		url.QueryEscape(query), count)
+	searchURL := fmt.Sprintf("%s/res/v1/web/search?q=%s&count=%d",
+		b.baseURL, url.QueryEscape(query), count)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", searchURL, nil)
 	if err != nil {
