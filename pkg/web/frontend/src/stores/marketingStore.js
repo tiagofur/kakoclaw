@@ -41,7 +41,91 @@ export const useMarketingStore = defineStore('marketing', () => {
   const automationsLoading = ref(false)
   const automationRuns = ref([])
 
+  // ─── Campaign Workflow State ──────────────────────────
+  const workflow = ref(null)
+  const workflowLoading = ref(false)
+  const workflowGenerating = ref(false)
+
   let pollInterval = null
+
+  // ─── Campaign Workflow Actions ────────────────────────
+  async function fetchWorkflowStatus(account, campaign) {
+    workflowLoading.value = true
+    try {
+      const { data } = await marketingService.getWorkflowStatus(account, campaign)
+      workflow.value = data.status === 'not_started' ? null : data
+    } catch (e) {
+      console.error('fetchWorkflowStatus', e)
+    } finally {
+      workflowLoading.value = false
+    }
+  }
+
+  async function startWorkflow(account, campaign) {
+    workflowLoading.value = true
+    try {
+      const { data } = await marketingService.startWorkflow(account, campaign)
+      workflow.value = data
+    } catch (e) {
+      console.error('startWorkflow', e)
+    } finally {
+      workflowLoading.value = false
+    }
+  }
+
+  async function generateStage(account, campaign, params = {}) {
+    workflowGenerating.value = true
+    try {
+      const { data } = await marketingService.generateStage(account, campaign, params)
+      workflow.value = data
+      return data
+    } catch (e) {
+      console.error('generateStage', e)
+      throw e
+    } finally {
+      workflowGenerating.value = false
+    }
+  }
+
+  async function approveStage(account, campaign) {
+    try {
+      const { data } = await marketingService.approveStage(account, campaign)
+      workflow.value = data
+    } catch (e) {
+      console.error('approveStage', e)
+      throw e
+    }
+  }
+
+  async function rejectStage(account, campaign, feedback) {
+    try {
+      const { data } = await marketingService.rejectStage(account, campaign, feedback)
+      workflow.value = data
+    } catch (e) {
+      console.error('rejectStage', e)
+      throw e
+    }
+  }
+
+  async function skipStage(account, campaign) {
+    try {
+      const { data } = await marketingService.skipStage(account, campaign)
+      workflow.value = data
+    } catch (e) {
+      console.error('skipStage', e)
+      throw e
+    }
+  }
+
+  async function resetStage(account, campaign, stage) {
+    try {
+      const { data } = await marketingService.resetStage(account, campaign, stage)
+      workflow.value = data
+    } catch (e) {
+      console.error('resetStage', e)
+      throw e
+    }
+  }
 
   function matchesCampaign(candidate, account, campaign) {
     return candidate?.account === account && candidate?.campaign === campaign
@@ -773,6 +857,17 @@ export const useMarketingStore = defineStore('marketing', () => {
     fetchCompanyProfiles,
     getCompanyProfile,
     saveCompanyProfile,
-    researchCompany
+    researchCompany,
+    // Workflow
+    workflow,
+    workflowLoading,
+    workflowGenerating,
+    fetchWorkflowStatus,
+    startWorkflow,
+    generateStage,
+    approveStage,
+    rejectStage,
+    skipStage,
+    resetStage
   }
 })

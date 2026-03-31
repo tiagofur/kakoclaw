@@ -300,6 +300,12 @@
           </div>
 
           <div v-else class="p-6 space-y-6">
+            <div v-if="activeTab === 'studio'">
+              <CampaignStudio
+                :account="selectedCampaign.account"
+                :campaign="selectedCampaign.campaign"
+              />
+            </div>
             <div v-if="activeTab === 'brief'">
               <div v-if="campaignDetail?.brief || isEditingBrief" class="glass-panel rounded-2xl p-6 space-y-4">
                 <div class="flex items-center justify-between gap-2">
@@ -876,6 +882,7 @@ import AudienceDeliveries from './marketing/AudienceDeliveries.vue'
 import AudienceEmailCampaigns from './marketing/AudienceEmailCampaigns.vue'
 import AudienceAutomations from './marketing/AudienceAutomations.vue'
 import AudienceAccounts from './marketing/AudienceAccounts.vue'
+import CampaignStudio from './marketing/CampaignStudio.vue'
 
 ChartJS.register(Title, Tooltip, Legend, ArcElement, CategoryScale, LinearScale, BarElement, LineElement, PointElement)
 
@@ -993,6 +1000,7 @@ const currentAccount = computed(() => selectedCampaign.value?.account || focused
 const accountCampaignOptions = computed(() => campaigns.value.filter((campaign) => campaign.account === currentAccount.value))
 
 const availableTabs = computed(() => ([
+  { id: 'studio', label: '✨ Studio' },
   { id: 'brief', label: 'Brief' },
   { id: 'strategy', label: 'Strategy' },
   { id: 'copy', label: 'Copy' },

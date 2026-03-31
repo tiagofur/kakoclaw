@@ -214,5 +214,28 @@ export default {
   },
   audienceListAutomationRuns(id) {
     return client.get(`/marketing/audience/automations/${encodeSegment(id)}/runs`)
+  },
+
+  // ─── Campaign Workflow (Campaign Studio) ─────────────────────────
+  getWorkflowStatus(account, campaign) {
+    return client.get(`/marketing/campaigns/${encodeSegment(account)}/${encodeSegment(campaign)}/workflow`, { timeout: 15000 })
+  },
+  startWorkflow(account, campaign) {
+    return client.post(`/marketing/campaigns/${encodeSegment(account)}/${encodeSegment(campaign)}/workflow/start`, {})
+  },
+  generateStage(account, campaign, params = {}) {
+    return client.post(`/marketing/campaigns/${encodeSegment(account)}/${encodeSegment(campaign)}/workflow/generate`, params, { timeout: 200000 })
+  },
+  approveStage(account, campaign) {
+    return client.post(`/marketing/campaigns/${encodeSegment(account)}/${encodeSegment(campaign)}/workflow/approve`, {})
+  },
+  rejectStage(account, campaign, feedback) {
+    return client.post(`/marketing/campaigns/${encodeSegment(account)}/${encodeSegment(campaign)}/workflow/reject`, { feedback })
+  },
+  skipStage(account, campaign) {
+    return client.post(`/marketing/campaigns/${encodeSegment(account)}/${encodeSegment(campaign)}/workflow/skip`, {})
+  },
+  resetStage(account, campaign, stage) {
+    return client.post(`/marketing/campaigns/${encodeSegment(account)}/${encodeSegment(campaign)}/workflow/reset`, { stage })
   }
 }

@@ -233,6 +233,10 @@ func (s *Server) handleMarketingCampaignsRouter(w http.ResponseWriter, r *http.R
 		s.handleMarketingAnalyticsSummary(w, r)
 		return
 	}
+	if len(parts) >= 3 && parts[2] == "workflow" {
+		s.handleMarketingWorkflowRouter(w, r)
+		return
+	}
 
 	switch r.Method {
 	case http.MethodGet:
