@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -26,12 +27,26 @@ func TestSystemTTSProviderIsAvailable(t *testing.T) {
 	}
 }
 
+func TestElevenLabsSynthesizeEmptyText(t *testing.T) {
+	p := NewElevenLabsProvider("test-key", "test-voice")
+	_, err := p.Synthesize(context.Background(), "")
+	if err == nil {
+		t.Error("expected error for empty text")
+	}
+}
+
 func TestElevenLabsSynthesizeCallsAPI(t *testing.T) {
-	fakeAudio := []byte("fake-elevenlabs-mp3")
+	fakeAudio := []byte("fake-elevenlabs-mp3-data")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("xi-api-key") != "test-key" {
-			t.Errorf("bad api key header: %s", r.Header.Get("xi-api-key"))
+		// Verify the request path contains the voice ID
+		if !strings.Contains(r.URL.Path, "/v1/text-to-speech/test-voice") {
+			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
+		// Verify API key header
+		if r.Header.Get("xi-api-key") != "test-key" {
+			t.Errorf("bad xi-api-key header: %s", r.Header.Get("xi-api-key"))
+		}
+		// Verify content type
 		if r.Header.Get("Content-Type") != "application/json" {
 			t.Errorf("bad content type: %s", r.Header.Get("Content-Type"))
 		}
@@ -41,15 +56,29 @@ func TestElevenLabsSynthesizeCallsAPI(t *testing.T) {
 	defer server.Close()
 
 	p := NewElevenLabsProvider("test-key", "test-voice")
-	// Override the URL to use the test server
-	origSynthesize := p.Synthesize
-	_ = origSynthesize // use the real method but with a mock server
+	p.apiBase = server.URL
 
-	// We need to test via the HTTP mock - create a provider that hits our test server
-	// Since the URL is hardcoded, we test IsAvailable and the error path
-	audio, err := p.Synthesize(context.Background(), "")
-	if err == nil {
-		t.Error("expected error for empty text")
+	audio, err := p.Synthesize(context.Background(), "Hello world")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	_ = audio
+	if string(audio) != string(fakeAudio) {
+		t.Errorf("audio = %q, want %q", audio, fakeAudio)
+	}
+}
+
+func TestElevenLabsSynthesizeAPIError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(`{"error": "invalid api key"}`))
+	}))
+	defer server.Close()
+
+	p := NewElevenLabsProvider("bad-key", "voice")
+	p.apiBase = server.URL
+
+	_, err := p.Synthesize(context.Background(), "Hello")
+	if err == nil {
+		t.Error("expected error for API failure")
+	}
 }

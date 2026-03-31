@@ -23,6 +23,7 @@ type TTSProvider interface {
 type ElevenLabsProvider struct {
 	apiKey     string
 	voiceID    string
+	apiBase    string
 	httpClient *http.Client
 }
 
@@ -34,6 +35,7 @@ func NewElevenLabsProvider(apiKey, voiceID string) *ElevenLabsProvider {
 	return &ElevenLabsProvider{
 		apiKey:  apiKey,
 		voiceID: voiceID,
+		apiBase: "https://api.elevenlabs.io",
 		httpClient: &http.Client{
 			Timeout: 60 * time.Second,
 		},
@@ -51,7 +53,7 @@ func (p *ElevenLabsProvider) Synthesize(ctx context.Context, text string) ([]byt
 		return nil, fmt.Errorf("text is required")
 	}
 
-	url := fmt.Sprintf("https://api.elevenlabs.io/v1/text-to-speech/%s", p.voiceID)
+	url := fmt.Sprintf("%s/v1/text-to-speech/%s", p.apiBase, p.voiceID)
 
 	reqBody := map[string]interface{}{
 		"text":     text,

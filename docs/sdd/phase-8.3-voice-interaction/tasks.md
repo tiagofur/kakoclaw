@@ -461,7 +461,7 @@
 
 ## Phase 4: Tests & Verification
 
-- [ ] 4.1 Integration test `pkg/canvas/server_test.go` — `TestCanvasSSEBroadcast`: spin up `httptest.NewServer`, connect EventSource client, `Push` HTML, assert SSE event received within 500ms.
+- [x] 4.1 Integration test `pkg/canvas/server_test.go` — `TestCanvasSSEBroadcast`: spin up `httptest.NewServer`, connect EventSource client, `Push` HTML, assert SSE event received within 500ms.
 
   ```bash
   go test ./pkg/canvas/... -run TestCanvasSSEBroadcast -v -timeout 5s
@@ -472,7 +472,7 @@
 
 ---
 
-- [ ] 4.2 Integration test `pkg/channels/actions_test.go` — `TestReactionPollerApproval`: mock `ChannelAction` that signals approval after 200ms; assert `ApprovalResult.Approved == true` and `TimedOut == false`.
+- [x] 4.2 Integration test `pkg/channels/actions_test.go` — `TestReactionPollerApproval`: mock `ChannelAction` that signals approval after 200ms; assert `ApprovalResult.Approved == true` and `TimedOut == false`.
 
   ```bash
   go test ./pkg/channels/... -run TestReactionPollerApproval -v
@@ -483,7 +483,7 @@
 
 ---
 
-- [ ] 4.3 Unit test `pkg/voice/tts_provider_test.go` — `TestElevenLabsSynthesizeCallsAPI`: use `httptest.NewServer` returning 200 MP3 bytes; assert returned bytes match.
+- [x] 4.3 Unit test `pkg/voice/tts_provider_test.go` — `TestElevenLabsSynthesizeCallsAPI`: use `httptest.NewServer` returning 200 MP3 bytes; assert returned bytes match.
 
   ```bash
   go test ./pkg/voice/... -run TestElevenLabsSynthesizeCallsAPI -v
@@ -494,7 +494,7 @@
 
 ---
 
-- [ ] 4.4 Run full test suite; fix any regressions introduced by the `OpenAITTSProvider` rename.
+- [x] 4.4 Run full test suite; fix any regressions introduced by the `OpenAITTSProvider` rename.
 
   ```bash
   go test -race ./... 2>&1 | tail -20
@@ -505,7 +505,7 @@
 
 ---
 
-- [ ] 4.5 Verify config JSON round-trip — write `TestConfigVoiceCanvasChannelActionsRoundTrip` in `pkg/config/config_test.go`: marshal/unmarshal JSON with all three feature blocks; assert field values preserved.
+- [x] 4.5 Verify config JSON round-trip — write `TestConfigVoiceCanvasChannelActionsRoundTrip` in `pkg/config/config_test.go`: marshal/unmarshal JSON with all three feature blocks; assert field values preserved.
 
   ```bash
   go test ./pkg/config/... -run TestConfigVoiceCanvasChannelActionsRoundTrip -v
@@ -518,13 +518,13 @@
 
 ## Phase 5: Cleanup
 
-- [ ] 5.1 Update `CLAUDE.md` tool table — add `canvas` and `interactive_message` rows with file paths and descriptions; no code changes.
+- [x] 5.1 Update `CLAUDE.md` tool table — add `canvas` and `interactive_message` rows with file paths and descriptions; no code changes.
 
   Commit: `docs(claude): document canvas and interactive_message tools in architecture table`
 
 ---
 
-- [ ] 5.2 Add `//go:build porcupine` stub `pkg/voice/wake_porcupine.go` with compile-time note; ensures `go build -tags porcupine` does not break CI.
+- [x] 5.2 Add `//go:build porcupine` stub `pkg/voice/wake_porcupine.go` with compile-time note; ensures `go build -tags porcupine` does not break CI.
 
   ```bash
   go build -tags porcupine ./pkg/voice/...

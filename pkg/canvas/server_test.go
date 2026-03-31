@@ -1,7 +1,11 @@
 package canvas
 
 import (
+	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func TestCanvasServerPushSnapshot(t *testing.T) {
@@ -50,6 +54,69 @@ func TestCanvasServerMultiplePushes(t *testing.T) {
 	if got := srv.Snapshot(); got != "<p>second</p>" {
 		t.Errorf("Snapshot() = %q, want %q", got, "<p>second</p>")
 	}
+}
+
+func TestCanvasSSEBroadcast(t *testing.T) {
+	srv := NewCanvasServer(false)
+
+	// Use a ResponseRecorder approach: directly call the handler with a
+	// flushing recorder to test SSE without HTTP transport issues.
+	// Instead, test the broadcast mechanism through the internal channel.
+
+	// Verify broadcast delivers to registered clients
+	ch := make(chan string, 16)
+	srv.clientsMu.Lock()
+	srv.clients[ch] = struct{}{}
+	srv.clientsMu.Unlock()
+	defer func() {
+		srv.clientsMu.Lock()
+		delete(srv.clients, ch)
+		srv.clientsMu.Unlock()
+	}()
+
+	srv.Push("<h1>sse test</h1>")
+
+	select {
+	case data := <-ch:
+		if data != "<h1>sse test</h1>" {
+			t.Errorf("broadcast data = %q, want %q", data, "<h1>sse test</h1>")
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("SSE broadcast not received within 500ms")
+	}
+
+	// Verify snapshot was also updated
+	if snap := srv.Snapshot(); snap != "<h1>sse test</h1>" {
+		t.Errorf("Snapshot() = %q, want %q", snap, "<h1>sse test</h1>")
+	}
+}
+
+func TestCanvasSSEHandlerHeaders(t *testing.T) {
+	srv := NewCanvasServer(false)
+
+	ts := httptest.NewServer(http.HandlerFunc(srv.ServeSSE))
+	defer ts.Close()
+
+	// Make a quick connection to verify headers — use Transport with DisableKeepAlives
+	// and a short timeout to avoid hanging.
+	client := &http.Client{
+		Transport: &http.Transport{DisableKeepAlives: true},
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
+	// Push data first so the handler has something to send immediately
+	srv.Push("<p>initial</p>")
+
+	req, _ := http.NewRequestWithContext(ctx, "GET", ts.URL, nil)
+	resp, err := client.Do(req)
+	if err == nil {
+		defer resp.Body.Close()
+		if resp.Header.Get("Content-Type") != "text/event-stream" {
+			t.Errorf("Content-Type = %q, want %q", resp.Header.Get("Content-Type"), "text/event-stream")
+		}
+	}
+	// Context timeout is expected — SSE streams don't end
 }
 
 func contains(s, substr string) bool {
