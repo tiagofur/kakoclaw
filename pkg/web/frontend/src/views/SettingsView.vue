@@ -807,6 +807,7 @@ import {
   GlobeAltIcon,
   SparklesIcon,
   MegaphoneIcon,
+  WrenchIcon,
   XMarkIcon,
   NoSymbolIcon,
   CheckCircleIcon
@@ -822,6 +823,7 @@ import ToolPermissionsTab from '../components/Settings/ToolPermissionsTab.vue'
 import AuditLogTab from '../components/Settings/AuditLogTab.vue'
 import CoreSystemTab from '../components/Settings/CoreSystemTab.vue'
 import AdminUsersTab from '../components/Settings/AdminUsersTab.vue'
+import ToolsSettingsTab from '../components/Settings/ToolsSettingsTab.vue'
 
 import advancedService from '../services/advancedService'
 import usersService from '../services/usersService'
@@ -845,7 +847,8 @@ const tabs = computed(() => {
     { key: 'agents', label: 'Agents' },
     { key: 'providers', label: 'Providers' },
     { key: 'channels', label: 'Channels' },
-    { key: 'social_media', label: 'Social Media' }
+    { key: 'social_media', label: 'Social Media' },
+    { key: 'tools', label: 'Tools' }
   ]
   if (authStore.user?.role === 'admin') {
     base.push({ key: 'users', label: 'Users' })
@@ -864,6 +867,7 @@ const getTabIcon = (key) => {
     providers: Cog6ToothIcon,
     channels: ChatBubbleLeftRightIcon,
     social_media: MegaphoneIcon,
+    tools: WrenchIcon,
     users: UserGroupIcon,
     permissions: ShieldCheckIcon,
     audit: DocumentMagnifyingGlassIcon,
@@ -882,6 +886,7 @@ const activeTabDescription = computed(() => {
     providers: 'Connect LLM providers and models',
     channels: 'Manage communication channels',
     social_media: 'Connect social media platforms for publishing',
+    tools: 'Developer mode, programmer tools, and browser automation',
     users: 'Manage registered user accounts',
     permissions: 'Configure tool access and permissions',
     audit: 'Review system activity logs',
@@ -900,6 +905,7 @@ const activeTabComponent = computed(() => {
     providers: ProvidersSettingsTab,
     channels: ChannelsSettingsTab,
     social_media: SocialMediaSettingsTab,
+    tools: ToolsSettingsTab,
     users: AdminUsersTab,
     permissions: ToolPermissionsTab,
     audit: AuditLogTab,

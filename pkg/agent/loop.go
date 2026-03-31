@@ -525,6 +525,23 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 	toolsRegistry.Register(editFileTool)
 	toolsRegistry.Register(tools.NewAppendFileTool(workspace, restrict))
 
+	// Register programmer agent tools
+	toolsRegistry.Register(tools.NewGitTool(workspace))
+	toolsRegistry.Register(tools.NewProjectTool(workspace))
+	toolsRegistry.Register(tools.NewBrowserTool(workspace, toolsRegistry))
+	toolsRegistry.Register(tools.NewMobileTool(workspace))
+	toolsRegistry.Register(tools.NewDockerTool(workspace))
+
+	// Enable developer mode on exec tool if configured
+	if cfg.Tools.DeveloperMode {
+		if execTool, found := toolsRegistry.Get("exec"); found {
+			if et, ok := execTool.(*tools.ExecTool); ok {
+				et.SetDeveloperMode(true)
+				logger.InfoC("agent", "Developer mode enabled: extended exec timeout (5min), 50K output, unrestricted workspace")
+			}
+		}
+	}
+
 	// Register task manager tool (shared web tasks DB)
 	if store != nil {
 		if taskTool, err := tools.NewTaskTool(store); err == nil {
@@ -1763,6 +1780,26 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 				}
 			}
 
+			// Check ConfirmableTool interface for semi-autonomous confirmation
+			if tool, found := al.tools.Get(tc.Name); found {
+				if confirmable, ok := tool.(tools.ConfirmableTool); ok {
+					action, _ := tc.Arguments["action"].(string)
+					if needsConfirm, reason := confirmable.RequiresConfirmation(action, tc.Arguments); needsConfirm {
+						messages = append(messages, providers.Message{
+							Role:       "tool",
+							Content:    fmt.Sprintf("[CONFIRMATION REQUIRED] %s\nThis action requires user approval. Please inform the user and ask for confirmation before retrying.", reason),
+							ToolCallID: tc.ID,
+						})
+						logger.InfoCF("agent", "Tool action requires confirmation", map[string]interface{}{
+							"tool":   tc.Name,
+							"action": action,
+							"reason": reason,
+						})
+						continue
+					}
+				}
+			}
+
 			// Notify start of tool call
 			agentName := utils.AgentNameFrom(ctx)
 			if opts.OnTool != nil {
@@ -2148,6 +2185,21 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 					}
 				}
 
+				// Check ConfirmableTool interface for semi-autonomous confirmation
+				if tool, found := al.tools.Get(tc.Name); found {
+					if confirmable, ok := tool.(tools.ConfirmableTool); ok {
+						action, _ := tc.Arguments["action"].(string)
+						if needsConfirm, reason := confirmable.RequiresConfirmation(action, tc.Arguments); needsConfirm {
+							messages = append(messages, providers.Message{
+								Role:       "tool",
+								Content:    fmt.Sprintf("[CONFIRMATION REQUIRED] %s\nThis action requires user approval. Please inform the user and ask for confirmation before retrying.", reason),
+								ToolCallID: tc.ID,
+							})
+							continue
+						}
+					}
+				}
+
 				// Notify start of tool call
 				if opts.OnTool != nil {
 					_ = opts.OnTool(ToolEvent{Name: tc.Name, Args: tc.Arguments, Status: "started"})
@@ -2293,6 +2345,21 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 						"tool": tc.Name,
 					})
 					continue
+				}
+			}
+
+			// Check ConfirmableTool interface for semi-autonomous confirmation
+			if tool, found := al.tools.Get(tc.Name); found {
+				if confirmable, ok := tool.(tools.ConfirmableTool); ok {
+					action, _ := tc.Arguments["action"].(string)
+					if needsConfirm, reason := confirmable.RequiresConfirmation(action, tc.Arguments); needsConfirm {
+						messages = append(messages, providers.Message{
+							Role:       "tool",
+							Content:    fmt.Sprintf("[CONFIRMATION REQUIRED] %s\nThis action requires user approval. Please inform the user and ask for confirmation before retrying.", reason),
+							ToolCallID: tc.ID,
+						})
+						continue
+					}
 				}
 			}
 
