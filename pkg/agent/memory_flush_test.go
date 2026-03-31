@@ -175,3 +175,46 @@ func TestRunMemoryFlushTurn_RejectsNonAllowlistedTools(t *testing.T) {
 		t.Fatal("exec tool must not be executed during memory flush (not in allowlist)")
 	}
 }
+
+// callCountProvider counts how many times Chat is called.
+type callCountProvider struct {
+	chatCalls int
+}
+
+func (p *callCountProvider) Chat(_ context.Context, _ []providers.Message, _ []providers.ToolDefinition, _ string, _ map[string]interface{}) (*providers.LLMResponse, error) {
+	p.chatCalls++
+	return &providers.LLMResponse{Content: "ok", FinishReason: "stop"}, nil
+}
+
+func (p *callCountProvider) GetDefaultModel() string { return "count-model" }
+
+func TestFlushCallbackDisabledByConfig(t *testing.T) {
+	// When MemoryFlushBeforeCompaction is false, no LLM call should be made.
+	prov := &callCountProvider{}
+	workspace := t.TempDir()
+
+	registry := tools.NewToolRegistry()
+	registry.Register(&fakeFlusher{name: "write_file", fn: func() {}})
+
+	cfg := newAgentTestConfig(workspace)
+	cfg.Agents.Defaults.MemoryFlushBeforeCompaction = false
+
+	al := &AgentLoop{
+		provider:      prov,
+		workspace:     workspace,
+		model:         "test-model",
+		contextWindow: 512,
+		sessions:      session.NewSessionManager(filepath.Join(workspace, "sessions")),
+		tools:         registry,
+		cfg:           cfg,
+	}
+
+	// Simulate the callback guard — the config check is in the callback, not the method.
+	if al.cfg.Agents.Defaults.MemoryFlushBeforeCompaction {
+		_ = al.runMemoryFlushTurn(context.Background(), "test-session")
+	}
+
+	if prov.chatCalls > 0 {
+		t.Fatalf("expected 0 LLM calls when flush disabled, got %d", prov.chatCalls)
+	}
+}

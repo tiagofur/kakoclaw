@@ -601,19 +601,14 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 		if loopRef == nil {
 			return nil
 		}
+		if !loopRef.cfg.Agents.Defaults.MemoryFlushBeforeCompaction {
+			return nil
+		}
 		if !loopRef.flushInProgress.CompareAndSwap(false, true) {
 			return nil // re-entrant call — skip to avoid infinite recursion
 		}
 		defer loopRef.flushInProgress.Store(false)
-		if _, ok := loopRef.tools.Get("query_knowledge"); !ok {
-			return nil
-		}
-		syntheticMsg := "Before we continue, save any important facts, decisions, and in-progress work to the knowledge base."
-		_, _ = loopRef.runAgentLoop(ctx, processOptions{
-			UserMessage: syntheticMsg,
-			SessionKey:  sessionKey,
-		})
-		return nil
+		return loopRef.runMemoryFlushTurn(ctx, sessionKey)
 	})
 
 	// Create context builder and set tools registry
