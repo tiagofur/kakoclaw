@@ -54,15 +54,11 @@ func (s *Storage) CreateDelivery(d *EmailDelivery) (*EmailDelivery, error) {
 
 func (s *Storage) GetDeliveryByID(id int64) (*EmailDelivery, error) {
 	var d EmailDelivery
-	err := s.db.QueryRow(`SELECT `+deliverySelectCols+` FROM email_deliveries WHERE id = ?`, id).
-		Scan(&d.ID, &d.CampaignAccount, &d.CampaignName, new(sql.NullInt64),
-			&d.Subject, &d.Status, &d.ProviderMessageID,
-			new(sql.NullString), new(sql.NullString), new(sql.NullString),
-			new(sql.NullString), new(sql.NullString), &d.Error, &d.CreatedAt)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
+	row := s.db.QueryRow(`SELECT `+deliverySelectCols+` FROM email_deliveries WHERE id = ?`, id)
+	if err := scanDelivery(row, &d); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
 		return nil, fmt.Errorf("getting delivery: %w", err)
 	}
 	return &d, nil
@@ -120,21 +116,35 @@ func (s *Storage) ListDeliveries(account, campaign string, page, limit int) ([]E
 	return deliveries, totalCount, rows.Err()
 }
 
+// validDeliveryStatuses is the whitelist of allowed delivery status values.
+var validDeliveryStatuses = map[string]bool{
+	"queued":    true,
+	"sent":      true,
+	"delivered": true,
+	"opened":    true,
+	"clicked":   true,
+	"bounced":   true,
+	"failed":    true,
+	"complained": true,
+}
+
+// deliveryStatusTimestamp maps statuses to their corresponding timestamp column.
+var deliveryStatusTimestamp = map[string]string{
+	"sent":      "sent_at",
+	"delivered": "delivered_at",
+	"opened":    "opened_at",
+	"clicked":   "clicked_at",
+	"bounced":   "bounced_at",
+}
+
 func (s *Storage) UpdateDeliveryStatus(id int64, status string) error {
+	if !validDeliveryStatuses[status] {
+		return fmt.Errorf("invalid delivery status: %q", status)
+	}
+
 	now := time.Now().Format(time.RFC3339)
-	var timestampCol string
-	switch status {
-	case "sent":
-		timestampCol = "sent_at"
-	case "delivered":
-		timestampCol = "delivered_at"
-	case "opened":
-		timestampCol = "opened_at"
-	case "clicked":
-		timestampCol = "clicked_at"
-	case "bounced":
-		timestampCol = "bounced_at"
-	default:
+	timestampCol, hasTimestamp := deliveryStatusTimestamp[status]
+	if !hasTimestamp {
 		_, err := s.db.Exec(`UPDATE email_deliveries SET status = ? WHERE id = ?`, status, id)
 		return err
 	}
@@ -195,20 +205,27 @@ func (s *Storage) SendToList(listID int64, account, campaignName, subject, body 
 		if dbErr != nil {
 			return sent, skipped, fmt.Errorf("creating delivery: %w", dbErr)
 		}
-		deliveryID, _ := res.LastInsertId()
+		deliveryID, idErr := res.LastInsertId()
+		if idErr != nil {
+			return sent, skipped, fmt.Errorf("getting delivery id for contact %d: %w", m.id, idErr)
+		}
 
 		sendErr := sendFunc(m.email, subject, body)
 		if sendErr != nil {
-			s.db.Exec(
+			if _, dbErr := s.db.Exec(
 				`UPDATE email_deliveries SET status = 'failed', error = ? WHERE id = ?`,
 				sendErr.Error(), deliveryID,
-			)
+			); dbErr != nil {
+				return sent, skipped, fmt.Errorf("updating failed delivery %d: %w", deliveryID, dbErr)
+			}
 			skipped++
 		} else {
-			s.db.Exec(
+			if _, dbErr := s.db.Exec(
 				`UPDATE email_deliveries SET status = 'sent', sent_at = ? WHERE id = ?`,
 				time.Now().Format(time.RFC3339), deliveryID,
-			)
+			); dbErr != nil {
+				return sent, skipped, fmt.Errorf("updating sent delivery %d: %w", deliveryID, dbErr)
+			}
 			sent++
 		}
 	}

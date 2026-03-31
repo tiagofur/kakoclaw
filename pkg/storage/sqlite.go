@@ -261,8 +261,8 @@ func (s *Storage) migrateMarketingAudience() error {
 			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		);`,
 		`CREATE TABLE IF NOT EXISTS contact_list_members (
-			contact_id INTEGER NOT NULL,
-			list_id INTEGER NOT NULL,
+			contact_id INTEGER NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+			list_id INTEGER NOT NULL REFERENCES contact_lists(id) ON DELETE CASCADE,
 			added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (contact_id, list_id)
 		);`,
@@ -281,7 +281,7 @@ func (s *Storage) migrateMarketingAudience() error {
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			campaign_account TEXT DEFAULT '',
 			campaign_name TEXT DEFAULT '',
-			contact_id INTEGER,
+			contact_id INTEGER REFERENCES contacts(id) ON DELETE SET NULL,
 			subject TEXT DEFAULT '',
 			status TEXT DEFAULT 'queued',
 			provider_message_id TEXT DEFAULT '',
@@ -299,6 +299,23 @@ func (s *Storage) migrateMarketingAudience() error {
 			return fmt.Errorf("marketing audience migration query: %w", err)
 		}
 	}
+
+	// Performance indexes for frequently filtered columns
+	indexes := []string{
+		`CREATE INDEX IF NOT EXISTS idx_contacts_status ON contacts(status)`,
+		`CREATE INDEX IF NOT EXISTS idx_contacts_created_at ON contacts(created_at)`,
+		`CREATE INDEX IF NOT EXISTS idx_contact_lists_account ON contact_lists(account)`,
+		`CREATE INDEX IF NOT EXISTS idx_segments_account ON segments(account)`,
+		`CREATE INDEX IF NOT EXISTS idx_email_deliveries_campaign ON email_deliveries(campaign_account, campaign_name)`,
+		`CREATE INDEX IF NOT EXISTS idx_email_deliveries_status ON email_deliveries(status)`,
+		`CREATE INDEX IF NOT EXISTS idx_email_deliveries_contact ON email_deliveries(contact_id)`,
+	}
+	for _, idx := range indexes {
+		if _, err := s.db.Exec(idx); err != nil {
+			return fmt.Errorf("creating audience index: %w", err)
+		}
+	}
+
 	return nil
 }
 

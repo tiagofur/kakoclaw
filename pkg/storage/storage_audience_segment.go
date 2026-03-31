@@ -107,7 +107,121 @@ func (s *Storage) ListSegments(account string) ([]Segment, error) {
 	return segments, rows.Err()
 }
 
+// sqlFieldColumns maps rule field names to actual SQL column names.
+var sqlFieldColumns = map[string]string{
+	"email": "email", "first_name": "first_name", "last_name": "last_name",
+	"phone": "phone", "company": "company", "title": "title",
+	"status": "status", "source": "source", "tags": "tags",
+}
+
 func (s *Storage) EvaluateSegmentRules(rules []SegmentRule) ([]int64, error) {
+	if len(rules) == 0 {
+		// No rules = match all contacts
+		rows, err := s.db.Query(`SELECT id FROM contacts`)
+		if err != nil {
+			return nil, fmt.Errorf("loading all contacts: %w", err)
+		}
+		defer rows.Close()
+		var ids []int64
+		for rows.Next() {
+			var id int64
+			if err := rows.Scan(&id); err != nil {
+				return nil, err
+			}
+			ids = append(ids, id)
+		}
+		return ids, rows.Err()
+	}
+
+	// Try SQL-based evaluation for standard fields
+	whereClause, args, fallback := buildSegmentWhereClause(rules)
+	if fallback {
+		// Rules involve custom_fields or tags with complex logic — use in-memory evaluation
+		return s.evaluateSegmentRulesInMemory(rules)
+	}
+
+	query := `SELECT id FROM contacts WHERE ` + whereClause
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("evaluating segment rules: %w", err)
+	}
+	defer rows.Close()
+
+	var matchingIDs []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scanning contact id: %w", err)
+		}
+		matchingIDs = append(matchingIDs, id)
+	}
+	return matchingIDs, rows.Err()
+}
+
+// buildSegmentWhereClause translates rules to SQL WHERE clauses.
+// Returns fallback=true if any rule can't be translated to SQL.
+func buildSegmentWhereClause(rules []SegmentRule) (string, []interface{}, bool) {
+	var conditions []string
+	var args []interface{}
+
+	for _, rule := range rules {
+		col, ok := sqlFieldColumns[rule.Field]
+		if !ok {
+			return "", nil, true // custom field — fall back to in-memory
+		}
+		if rule.Field == "tags" {
+			return "", nil, true // tags need JSON array evaluation — fall back
+		}
+
+		valueStr := fmt.Sprintf("%v", rule.Value)
+		switch rule.Operator {
+		case "equals":
+			conditions = append(conditions, col+" = ?")
+			args = append(args, valueStr)
+		case "not_equals":
+			conditions = append(conditions, col+" != ?")
+			args = append(args, valueStr)
+		case "contains":
+			conditions = append(conditions, col+" LIKE ?")
+			args = append(args, "%"+escapeLikeQuery(valueStr)+"%")
+		case "starts_with":
+			conditions = append(conditions, col+" LIKE ?")
+			args = append(args, escapeLikeQuery(valueStr)+"%")
+		case "ends_with":
+			conditions = append(conditions, col+" LIKE ?")
+			args = append(args, "%"+escapeLikeQuery(valueStr))
+		case "greater_than":
+			conditions = append(conditions, col+" > ?")
+			args = append(args, valueStr)
+		case "less_than":
+			conditions = append(conditions, col+" < ?")
+			args = append(args, valueStr)
+		case "in_list":
+			items := strings.Split(valueStr, ",")
+			placeholders := make([]string, len(items))
+			for i, item := range items {
+				placeholders[i] = "?"
+				args = append(args, strings.TrimSpace(item))
+			}
+			conditions = append(conditions, col+" IN ("+strings.Join(placeholders, ",")+")")
+		case "not_in_list":
+			items := strings.Split(valueStr, ",")
+			placeholders := make([]string, len(items))
+			for i, item := range items {
+				placeholders[i] = "?"
+				args = append(args, strings.TrimSpace(item))
+			}
+			conditions = append(conditions, col+" NOT IN ("+strings.Join(placeholders, ",")+")")
+		default:
+			return "", nil, true // unknown operator — fall back
+		}
+	}
+
+	return strings.Join(conditions, " AND "), args, false
+}
+
+// evaluateSegmentRulesInMemory is the fallback for rules that can't be translated to SQL.
+func (s *Storage) evaluateSegmentRulesInMemory(rules []SegmentRule) ([]int64, error) {
 	rows, err := s.db.Query(`SELECT ` + contactSelectCols + ` FROM contacts`)
 	if err != nil {
 		return nil, fmt.Errorf("loading contacts for segment evaluation: %w", err)
@@ -136,6 +250,32 @@ func (s *Storage) EvaluateSegmentRules(rules []SegmentRule) ([]int64, error) {
 		}
 	}
 	return matchingIDs, rows.Err()
+}
+
+// refreshAllSegmentCounts recalculates contact_count for all segments.
+func (s *Storage) refreshAllSegmentCounts() {
+	segments, err := s.db.Query(`SELECT id, COALESCE(rules, '[]') FROM segments`)
+	if err != nil {
+		return
+	}
+	defer segments.Close()
+
+	for segments.Next() {
+		var id int64
+		var rulesJSON string
+		if err := segments.Scan(&id, &rulesJSON); err != nil {
+			continue
+		}
+		var rules []SegmentRule
+		if err := json.Unmarshal([]byte(rulesJSON), &rules); err != nil {
+			continue
+		}
+		ids, err := s.EvaluateSegmentRules(rules)
+		if err != nil {
+			continue
+		}
+		s.db.Exec(`UPDATE segments SET contact_count = ? WHERE id = ?`, len(ids), id)
+	}
 }
 
 func getContactFieldValue(contact *Contact, field string) (string, error) {
