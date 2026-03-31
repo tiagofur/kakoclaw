@@ -501,6 +501,7 @@ type ToolsConfig struct {
 	SocialMedia         SocialMediaConfig    `json:"social_media"`
 	MCP                 MCPConfig            `json:"mcp"`
 	RequireConfirmation *bool                `json:"require_confirmation,omitempty"`
+	DeveloperMode       bool                 `json:"developer_mode" env:"MAKOCLAW_TOOLS_DEVELOPER_MODE"` // Enables extended exec timeout (5min), 50K output, unrestricted workspace
 }
 
 type MCPConfig struct {

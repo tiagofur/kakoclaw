@@ -40,6 +40,8 @@ type ExecTool struct {
 	denyPatterns        []*regexp.Regexp
 	allowPatterns       []*regexp.Regexp
 	restrictToWorkspace bool
+	developerMode       bool // Disables workspace restriction, extends output/timeout for dev workflows
+	maxOutput           int  // Max output chars (default 10000, developer mode 50000)
 }
 
 func NewExecTool(workingDir string, restrict bool) *ExecTool {
@@ -60,6 +62,7 @@ func NewExecTool(workingDir string, restrict bool) *ExecTool {
 		denyPatterns:        denyPatterns,
 		allowPatterns:       nil,
 		restrictToWorkspace: restrict,
+		maxOutput:           10000,
 	}
 }
 
@@ -161,7 +164,10 @@ func (t *ExecTool) Execute(ctx context.Context, args map[string]interface{}) (st
 		output = "(no output)"
 	}
 
-	maxLen := 10000
+	maxLen := t.maxOutput
+	if maxLen <= 0 {
+		maxLen = 10000
+	}
 	if len(output) > maxLen {
 		output = output[:maxLen] + fmt.Sprintf("\n... (truncated, %d more chars)", len(output)-maxLen)
 	}
@@ -249,6 +255,17 @@ func (t *ExecTool) SetTimeout(timeout time.Duration) {
 
 func (t *ExecTool) SetRestrictToWorkspace(restrict bool) {
 	t.restrictToWorkspace = restrict
+}
+
+// SetDeveloperMode enables developer mode: extends timeout to 5 min,
+// increases output limit to 50K chars, and disables workspace restriction.
+func (t *ExecTool) SetDeveloperMode(enabled bool) {
+	t.developerMode = enabled
+	if enabled {
+		t.timeout = 5 * time.Minute
+		t.maxOutput = 50000
+		t.restrictToWorkspace = false
+	}
 }
 
 func (t *ExecTool) SetAllowPatterns(patterns []string) error {

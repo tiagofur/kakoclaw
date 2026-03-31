@@ -36,6 +36,16 @@ type UserConfigTool interface {
 	SetUserContext(userID int64, userUUID string)
 }
 
+// ConfirmableTool is an optional interface for tools that require user confirmation
+// before executing certain actions (e.g., git push, deploy, delete remote branch).
+// Semi-autonomous: local operations proceed freely, remote/destructive actions pause.
+type ConfirmableTool interface {
+	Tool
+	// RequiresConfirmation returns true and a description if the given action+args
+	// need user confirmation before execution.
+	RequiresConfirmation(action string, args map[string]interface{}) (bool, string)
+}
+
 func ToolToSchema(tool Tool) map[string]interface{} {
 	return map[string]interface{}{
 		"type": "function",

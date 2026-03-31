@@ -525,6 +525,23 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 	toolsRegistry.Register(editFileTool)
 	toolsRegistry.Register(tools.NewAppendFileTool(workspace, restrict))
 
+	// Register programmer agent tools
+	toolsRegistry.Register(tools.NewGitTool(workspace))
+	toolsRegistry.Register(tools.NewProjectTool(workspace))
+	toolsRegistry.Register(tools.NewBrowserTool(workspace, toolsRegistry))
+	toolsRegistry.Register(tools.NewMobileTool(workspace))
+	toolsRegistry.Register(tools.NewDockerTool(workspace))
+
+	// Enable developer mode on exec tool if configured
+	if cfg.Tools.DeveloperMode {
+		if execTool, found := toolsRegistry.Get("exec"); found {
+			if et, ok := execTool.(*tools.ExecTool); ok {
+				et.SetDeveloperMode(true)
+				logger.InfoC("agent", "Developer mode enabled: extended exec timeout (5min), 50K output, unrestricted workspace")
+			}
+		}
+	}
+
 	// Register task manager tool (shared web tasks DB)
 	if store != nil {
 		if taskTool, err := tools.NewTaskTool(store); err == nil {
