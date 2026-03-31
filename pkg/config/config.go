@@ -154,13 +154,15 @@ type AgentsConfig struct {
 
 // SwarmConfig defines a reusable team of specialists that collaborate on tasks
 type SwarmConfig struct {
-	Name         string   `json:"name"`
-	Description  string   `json:"description"`
-	Members      []string `json:"members"`                 // specialist names
-	Mode         string   `json:"mode"`                    // "sequential" (default), "parallel", "consensus"
-	MaxBudget    float64  `json:"max_budget,omitempty"`    // USD limit, 0=unlimited
-	Timeout      int      `json:"timeout,omitempty"`       // seconds, 0=default 300
-	SharedMemory bool     `json:"shared_memory"`           // default true
+	Name               string   `json:"name"`
+	Description        string   `json:"description"`
+	Members            []string `json:"members"`                      // specialist names
+	Mode               string   `json:"mode"`                         // "sequential" (default), "parallel", "consensus"
+	MaxBudget          float64  `json:"max_budget,omitempty"`         // USD limit, 0=unlimited
+	Timeout            int      `json:"timeout,omitempty"`            // seconds, 0=default 300
+	SharedMemory       bool     `json:"shared_memory"`                // default true
+	SharedNotesMaxChars int     `json:"shared_notes_max_chars,omitempty"` // default 4000
+	SynthesizerAgent   string   `json:"synthesizer_agent,omitempty"`  // agent for consensus synthesis
 }
 
 type AgentDefaults struct {
@@ -175,14 +177,18 @@ type AgentDefaults struct {
 }
 
 type OrchestratorConfig struct {
-	Enabled              bool    `json:"enabled"`
-	Provider             string  `json:"provider"`
-	Model                string  `json:"model"`
-	MaxTokens            int     `json:"max_tokens"`
-	Temperature          float64 `json:"temperature"`
-	MaxDelegationRetries int     `json:"max_delegation_retries"`
-	FallbackToDefault    bool    `json:"fallback_to_default"`
-	Description          string  `json:"description"`
+	Enabled                  bool    `json:"enabled"`
+	Provider                 string  `json:"provider"`
+	Model                    string  `json:"model"`
+	MaxTokens                int     `json:"max_tokens"`
+	Temperature              float64 `json:"temperature"`
+	MaxDelegationRetries     int     `json:"max_delegation_retries"`
+	FallbackToDefault        bool    `json:"fallback_to_default"`
+	Description              string  `json:"description"`
+	MaxDelegationsPerMessage int     `json:"max_delegations_per_message,omitempty"` // default 3
+	SpecialistTimeoutSeconds int     `json:"specialist_timeout_seconds,omitempty"`  // default 300
+	FeedbackLoopIterations   int     `json:"feedback_loop_iterations,omitempty"`    // default 3
+	ColleagueMaxDepth        int     `json:"colleague_max_depth,omitempty"`         // default 2
 }
 
 type SpecialistConfig struct {
@@ -198,6 +204,8 @@ type SpecialistConfig struct {
 	Keywords          []string `json:"keywords"`
 	Skills            []string `json:"skills,omitempty"`       // Skill names to load (omitted=all, empty=none)
 	SourceSkill       string   `json:"source_skill,omitempty"` // Skill that registered this specialist (marketplace)
+	MaxBudget         float64  `json:"max_budget,omitempty"`   // USD limit per invocation, 0=unlimited
+	Timeout           int      `json:"timeout,omitempty"`      // seconds, 0=use orchestrator default
 }
 
 type ChannelsConfig struct {

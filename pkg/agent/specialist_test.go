@@ -621,7 +621,7 @@ func TestRequestColleagueTool_Parameters(t *testing.T) {
 func TestNewRequestColleagueTool(t *testing.T) {
 	sr := NewSpecialistRegistry()
 	sa := &SpecialistAgent{name: "dev"}
-	tool := NewRequestColleagueTool(sr, sa)
+	tool := NewRequestColleagueTool(sr, sa, 2)
 
 	if tool == nil {
 		t.Fatal("expected non-nil RequestColleagueTool")

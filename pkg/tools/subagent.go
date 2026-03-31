@@ -11,32 +11,39 @@ import (
 )
 
 type SubagentTask struct {
-	ID            string
-	Task          string
-	Label         string
-	OriginChannel string
-	OriginChatID  string
-	Status        string
-	Result        string
-	Created       int64
+	ID            string `json:"id"`
+	Task          string `json:"task"`
+	Label         string `json:"label"`
+	OriginChannel string `json:"origin_channel"`
+	OriginChatID  string `json:"origin_chat_id"`
+	Status        string `json:"status"`  // "running", "completed", "failed", "stalled", "cancelled"
+	Result        string `json:"result"`
+	Created       int64  `json:"created"`
+	LastActivity  int64  `json:"last_activity"` // unix millis of last output
+	ElapsedMs     int64  `json:"elapsed_ms"`
+	cancel        context.CancelFunc
 }
 
 type SubagentManager struct {
-	tasks     map[string]*SubagentTask
-	mu        sync.RWMutex
-	provider  providers.LLMProvider
-	bus       *bus.MessageBus
-	workspace string
-	nextID    int
+	tasks          map[string]*SubagentTask
+	mu             sync.RWMutex
+	provider       providers.LLMProvider
+	bus            *bus.MessageBus
+	workspace      string
+	nextID         int
+	maxLifetime    time.Duration // max time per task (default 30 min)
+	stallTimeout   time.Duration // stall detection threshold (default 60s)
 }
 
 func NewSubagentManager(provider providers.LLMProvider, workspace string, bus *bus.MessageBus) *SubagentManager {
 	return &SubagentManager{
-		tasks:     make(map[string]*SubagentTask),
-		provider:  provider,
-		bus:       bus,
-		workspace: workspace,
-		nextID:    1,
+		tasks:        make(map[string]*SubagentTask),
+		provider:     provider,
+		bus:          bus,
+		workspace:    workspace,
+		nextID:       1,
+		maxLifetime:  30 * time.Minute,
+		stallTimeout: 60 * time.Second,
 	}
 }
 
@@ -52,6 +59,8 @@ func (sm *SubagentManager) Spawn(ctx context.Context, task, label, originChannel
 	taskID := fmt.Sprintf("subagent-%d", sm.nextID)
 	sm.nextID++
 
+	now := time.Now().UnixMilli()
+	taskCtx, taskCancel := context.WithTimeout(context.Background(), sm.maxLifetime)
 	subagentTask := &SubagentTask{
 		ID:            taskID,
 		Task:          task,
@@ -59,17 +68,19 @@ func (sm *SubagentManager) Spawn(ctx context.Context, task, label, originChannel
 		OriginChannel: originChannel,
 		OriginChatID:  originChatID,
 		Status:        "running",
-		Created:       time.Now().UnixMilli(),
+		Created:       now,
+		LastActivity:  now,
+		cancel:        taskCancel,
 	}
 	sm.tasks[taskID] = subagentTask
 
-	// Use a detached context with timeout so the goroutine doesn't leak
-	// when the parent context is cancelled, but also doesn't run forever.
-	taskCtx, taskCancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	go func() {
 		defer taskCancel()
 		sm.runTask(taskCtx, subagentTask)
 	}()
+
+	// Start stall detector
+	go sm.detectStall(subagentTask)
 
 	if label != "" {
 		return fmt.Sprintf("Spawned subagent '%s' for task: %s", label, task), nil
@@ -78,7 +89,7 @@ func (sm *SubagentManager) Spawn(ctx context.Context, task, label, originChannel
 }
 
 func (sm *SubagentManager) runTask(ctx context.Context, task *SubagentTask) {
-	// Status and Created are already set by Spawn under lock; no need to set again.
+	startTime := time.Now()
 	messages := []providers.Message{
 		{
 			Role:    "system",
@@ -95,27 +106,96 @@ func (sm *SubagentManager) runTask(ctx context.Context, task *SubagentTask) {
 	})
 
 	sm.mu.Lock()
-	defer sm.mu.Unlock()
+	task.ElapsedMs = time.Since(startTime).Milliseconds()
+	task.LastActivity = time.Now().UnixMilli()
 
 	if err != nil {
-		task.Status = "failed"
-		task.Result = fmt.Sprintf("Error: %v", err)
+		if task.Status != "cancelled" { // Don't overwrite if already cancelled
+			task.Status = "failed"
+			task.Result = fmt.Sprintf("Error: %v", err)
+		}
 	} else {
 		task.Status = "completed"
 		task.Result = response.Content
 	}
+	sm.mu.Unlock()
 
 	// Send announce message back to main agent
 	if sm.bus != nil {
-		announceContent := fmt.Sprintf("Task '%s' completed.\n\nResult:\n%s", task.Label, task.Result)
+		label := task.Label
+		if label == "" {
+			label = task.ID
+		}
+		announceContent := fmt.Sprintf("Task '%s' %s (%.1fs).\n\nResult:\n%s",
+			label, task.Status, float64(task.ElapsedMs)/1000, task.Result)
 		sm.bus.PublishInbound(bus.InboundMessage{
 			Channel:  "system",
 			SenderID: fmt.Sprintf("subagent:%s", task.ID),
-			// Format: "original_channel:original_chat_id" for routing back
-			ChatID:  fmt.Sprintf("%s:%s", task.OriginChannel, task.OriginChatID),
-			Content: announceContent,
+			ChatID:   fmt.Sprintf("%s:%s", task.OriginChannel, task.OriginChatID),
+			Content:  announceContent,
 		})
 	}
+}
+
+// detectStall monitors a task for stalls (no activity for stallTimeout)
+func (sm *SubagentManager) detectStall(task *SubagentTask) {
+	ticker := time.NewTicker(sm.stallTimeout / 2)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		sm.mu.RLock()
+		status := task.Status
+		lastAct := task.LastActivity
+		sm.mu.RUnlock()
+
+		if status != "running" {
+			return // Task finished, stop monitoring
+		}
+
+		sinceActivity := time.Since(time.UnixMilli(lastAct))
+		if sinceActivity > sm.stallTimeout {
+			sm.mu.Lock()
+			if task.Status == "running" {
+				task.Status = "stalled"
+			}
+			sm.mu.Unlock()
+
+			// Emit stall warning via bus
+			if sm.bus != nil {
+				label := task.Label
+				if label == "" {
+					label = task.ID
+				}
+				sm.bus.PublishInbound(bus.InboundMessage{
+					Channel:  "system",
+					SenderID: fmt.Sprintf("subagent:%s", task.ID),
+					ChatID:   fmt.Sprintf("%s:%s", task.OriginChannel, task.OriginChatID),
+					Content:  fmt.Sprintf("⚠️ Subagent '%s' appears stalled (no activity for %s)", label, sinceActivity.Round(time.Second)),
+				})
+			}
+			return
+		}
+	}
+}
+
+// CancelTask cancels a running subagent task
+func (sm *SubagentManager) CancelTask(taskID string) error {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	task, ok := sm.tasks[taskID]
+	if !ok {
+		return fmt.Errorf("task %s not found", taskID)
+	}
+	if task.Status != "running" && task.Status != "stalled" {
+		return fmt.Errorf("task %s is not running (status: %s)", taskID, task.Status)
+	}
+
+	task.Status = "cancelled"
+	if task.cancel != nil {
+		task.cancel()
+	}
+	return nil
 }
 
 func (sm *SubagentManager) GetTask(taskID string) (*SubagentTask, bool) {

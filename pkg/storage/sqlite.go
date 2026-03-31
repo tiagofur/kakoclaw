@@ -293,6 +293,17 @@ func (s *Storage) migrateMarketingAudience() error {
 			error TEXT DEFAULT '',
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		);`,
+		`CREATE TABLE IF NOT EXISTS team_contexts (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			execution_id TEXT NOT NULL,
+			swarm_name TEXT NOT NULL,
+			task TEXT DEFAULT '',
+			status TEXT DEFAULT '',
+			shared_notes TEXT DEFAULT '',
+			decisions TEXT DEFAULT '',
+			total_cost REAL DEFAULT 0,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		);`,
 	}
 	for _, q := range queries {
 		if _, err := s.db.Exec(q); err != nil {
@@ -317,6 +328,15 @@ func (s *Storage) migrateMarketingAudience() error {
 	}
 
 	return nil
+}
+
+// SaveTeamContext persists a swarm team context for analysis and follow-up.
+func (s *Storage) SaveTeamContext(executionID, swarmName, task, status, sharedNotes, decisions string, totalCost float64) error {
+	_, err := s.db.Exec(
+		`INSERT INTO team_contexts (execution_id, swarm_name, task, status, shared_notes, decisions, total_cost, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+		executionID, swarmName, task, status, sharedNotes, decisions, totalCost,
+	)
+	return err
 }
 
 func escapeLikeQuery(query string) string {

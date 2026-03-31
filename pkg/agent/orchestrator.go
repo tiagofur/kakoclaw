@@ -357,12 +357,16 @@ func NewOrchestratorAgent(
 		return nil, fmt.Errorf("failed to create orchestrator specialist: %w", err)
 	}
 
+	maxDel := cfg.Agents.Orchestrator.MaxDelegationsPerMessage
+	if maxDel <= 0 {
+		maxDel = 3
+	}
 	orchestrator := &OrchestratorAgent{
 		SpecialistAgent:   specialist,
 		registry:          registry,
 		delegationRetries: cfg.Agents.Orchestrator.MaxDelegationRetries,
 		fallbackToDefault: cfg.Agents.Orchestrator.FallbackToDefault,
-		maxDelegations:    3, // default per-message delegation limit
+		maxDelegations:    maxDel,
 	}
 
 	// Register the delegation tool
@@ -884,8 +888,12 @@ Your final response MUST contain TWO parts:
 The user only sees text below the JSON block — include all findings there.
 ---`
 
-	// Timeout configurable (default: 5 minutes)
-	timeout := 5 * time.Minute
+	// Timeout from config (default: 5 minutes)
+	timeoutSecs := o.cfg.Agents.Orchestrator.SpecialistTimeoutSeconds
+	if timeoutSecs <= 0 {
+		timeoutSecs = 300
+	}
+	timeout := time.Duration(timeoutSecs) * time.Second
 	ctxWithTimeout, cancel := context.WithTimeout(specialistCtx, timeout)
 	defer cancel()
 	effectiveSessionKey := sessionKey
@@ -977,6 +985,12 @@ The user only sees text below the JSON block — include all findings there.
 			ElapsedMs:     elapsed,
 			Timestamp:     time.Now(),
 		})
+
+		// Persist specialist result to user's original session for visibility
+		if effectiveSessionKey != "" && oa.sessions != nil {
+			summaryMsg := fmt.Sprintf("[Agent @%s]\n%s", specialistName, cleanResult)
+			oa.sessions.AddMessage(effectiveSessionKey, "assistant", summaryMsg)
+		}
 
 		// Handle empty/insufficient response
 		if len(strings.TrimSpace(cleanResult)) < 10 {
@@ -1197,7 +1211,10 @@ func (oa *OrchestratorAgent) ProcessOrchestratorMessage(ctx context.Context, use
 // ProcessWithFeedbackLoop processes a user message with iterative feedback and re-delegation
 // This enables true team collaboration where specialists can report back and request help
 func (oa *OrchestratorAgent) ProcessWithFeedbackLoop(ctx context.Context, userMessage string) (string, error) {
-	maxIterations := 3
+	maxIterations := oa.cfg.Agents.Orchestrator.FeedbackLoopIterations
+	if maxIterations <= 0 {
+		maxIterations = 3
+	}
 	var reports []SpecialistReport
 
 	// Initialize team context for this task

@@ -403,11 +403,14 @@ type RequestColleagueTool struct {
 }
 
 // NewRequestColleagueTool creates a new colleague request tool for a specialist
-func NewRequestColleagueTool(registry *SpecialistRegistry, current *SpecialistAgent) *RequestColleagueTool {
+func NewRequestColleagueTool(registry *SpecialistRegistry, current *SpecialistAgent, maxDepth int) *RequestColleagueTool {
+	if maxDepth <= 0 {
+		maxDepth = 2
+	}
 	return &RequestColleagueTool{
 		registry:        registry,
 		currentAgent:    current,
-		maxNestingDepth: 2, // Prevent infinite recursion
+		maxNestingDepth: maxDepth,
 	}
 }
 
@@ -620,7 +623,11 @@ func (sr *SpecialistRegistry) WireColleagueTools() {
 	defer sr.mu.Unlock()
 
 	for name, specialist := range sr.specialists {
-		colleagueTool := NewRequestColleagueTool(sr, specialist)
+		maxDepth := 2
+		if specialist.cfg != nil {
+			maxDepth = specialist.cfg.Agents.Orchestrator.ColleagueMaxDepth
+		}
+		colleagueTool := NewRequestColleagueTool(sr, specialist, maxDepth)
 
 		// Add to specialist's allowed tools
 		specialist.allowedTools["request_colleague"] = true

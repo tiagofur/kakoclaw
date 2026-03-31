@@ -9,6 +9,7 @@ import (
 
 	"github.com/sipeed/makoclaw/pkg/config"
 	"github.com/sipeed/makoclaw/pkg/logger"
+	"github.com/sipeed/makoclaw/pkg/storage"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -16,6 +17,7 @@ import (
 type SwarmRunner struct {
 	registry    *SpecialistRegistry
 	costTracker *AgentCostTracker
+	storage     *storage.Storage // optional, for persisting team contexts
 	mu          sync.RWMutex
 }
 
@@ -64,6 +66,13 @@ func NewSwarmRunner(registry *SpecialistRegistry, costTracker *AgentCostTracker)
 		registry:    registry,
 		costTracker: costTracker,
 	}
+}
+
+// SetStorage sets the storage backend for persisting team contexts.
+func (sr *SwarmRunner) SetStorage(s *storage.Storage) {
+	sr.mu.Lock()
+	defer sr.mu.Unlock()
+	sr.storage = s
 }
 
 // RunSwarm executes a swarm with the given config and task
@@ -174,6 +183,9 @@ func (sr *SwarmRunner) RunSwarm(ctx context.Context, swarmCfg config.SwarmConfig
 		Reason: fmt.Sprintf("Swarm '%s' %s (%.4f USD)", swarmCfg.Name, exec.Status, exec.TotalCost),
 	})
 
+	// Persist TeamContext for analysis and follow-up (best-effort)
+	sr.persistTeamContext(exec)
+
 	return &SwarmResult{
 		ExecutionID:    exec.ID,
 		SwarmName:      exec.SwarmName,
@@ -247,7 +259,75 @@ func (sr *SwarmRunner) runConsensus(ctx context.Context, exec *SwarmExecution) e
 
 	_ = g.Wait() // Collect all results even if some fail
 
-	// Synthesize results by building a summary (no LLM call needed)
+	// Synthesize results via LLM if we have multiple completed results
+	return sr.synthesizeConsensus(ctx, exec)
+}
+
+// synthesizeConsensus uses an LLM call to synthesize results from multiple specialists
+func (sr *SwarmRunner) synthesizeConsensus(ctx context.Context, exec *SwarmExecution) error {
+	exec.mu.Lock()
+	var completedResults []string
+	for member, result := range exec.Results {
+		if result.Status == "completed" && result.Result != "" {
+			completedResults = append(completedResults, fmt.Sprintf("**%s**:\n%s", member, result.Result))
+		}
+	}
+	exec.mu.Unlock()
+
+	if len(completedResults) < 2 {
+		return nil // Not enough results to synthesize
+	}
+
+	// Find the synthesizer agent
+	synthesizerName := exec.Config.SynthesizerAgent
+	if synthesizerName == "" && len(exec.Config.Members) > 0 {
+		synthesizerName = exec.Config.Members[0] // Default to first member
+	}
+
+	synthesizer, err := sr.registry.GetSpecialist(synthesizerName)
+	if err != nil {
+		logger.WarnCF("agent", "Consensus synthesizer not found, skipping synthesis", map[string]interface{}{
+			"synthesizer": synthesizerName,
+			"error":       err.Error(),
+		})
+		return nil
+	}
+
+	synthesisPrompt := fmt.Sprintf(`You are synthesizing consensus from %d independent analyses of the same task.
+
+Original task: %s
+
+Here are the independent analyses:
+
+%s
+
+---
+
+Synthesize a unified consensus answer:
+1. Identify points of agreement across all analyses
+2. Note any significant disagreements or different perspectives
+3. Provide a final consolidated recommendation based on the majority view
+4. Be concise but thorough`, len(completedResults), exec.Task, strings.Join(completedResults, "\n\n---\n\n"))
+
+	result, synthErr := synthesizer.ProcessDirect(ctx, synthesisPrompt, "")
+	if synthErr != nil {
+		logger.WarnCF("agent", "Consensus synthesis failed", map[string]interface{}{
+			"error": synthErr.Error(),
+		})
+		return nil // Non-fatal — individual results still available
+	}
+
+	// Store synthesis as a special result
+	exec.mu.Lock()
+	exec.Results["_consensus"] = &SwarmMemberResult{
+		Member:    "_consensus",
+		Status:    "completed",
+		Result:    result,
+		StartTime: time.Now(),
+		EndTime:   time.Now(),
+	}
+	exec.mu.Unlock()
+
 	return nil
 }
 
@@ -363,7 +443,11 @@ func (sr *SwarmRunner) buildTaskWithSharedNotes(exec *SwarmExecution, currentMem
 			continue
 		}
 		entry := fmt.Sprintf("**%s**: %s\n\n", note.Author, note.Content)
-		if totalLen+len(entry) > 4000 { // Cap shared context
+		maxChars := exec.Config.SharedNotesMaxChars
+		if maxChars <= 0 {
+			maxChars = 4000
+		}
+		if totalLen+len(entry) > maxChars { // Cap shared context
 			sb.WriteString("...(additional context truncated)\n\n")
 			break
 		}
@@ -455,4 +539,38 @@ var BuiltInSwarmTemplates = map[string]config.SwarmConfig{
 		SharedMemory: true,
 		Timeout:      600,
 	},
+}
+
+// persistTeamContext saves the team context to storage for analysis and follow-up.
+func (sr *SwarmRunner) persistTeamContext(exec *SwarmExecution) {
+	sr.mu.RLock()
+	s := sr.storage
+	sr.mu.RUnlock()
+
+	if s == nil || exec.TeamContext == nil {
+		return
+	}
+
+	var notes, decisions string
+	if len(exec.TeamContext.SharedNotes) > 0 {
+		var parts []string
+		for _, n := range exec.TeamContext.SharedNotes {
+			parts = append(parts, fmt.Sprintf("%s: %s", n.Author, n.Content))
+		}
+		notes = strings.Join(parts, "\n---\n")
+	}
+	if len(exec.TeamContext.Decisions) > 0 {
+		var parts []string
+		for _, d := range exec.TeamContext.Decisions {
+			parts = append(parts, fmt.Sprintf("%s: %s", d.Agent, d.Decision))
+		}
+		decisions = strings.Join(parts, "\n---\n")
+	}
+
+	if err := s.SaveTeamContext(exec.ID, exec.SwarmName, exec.Task, exec.Status, notes, decisions, exec.TotalCost); err != nil {
+		logger.WarnCF("agent", "Failed to persist team context", map[string]interface{}{
+			"swarm": exec.SwarmName,
+			"error": err.Error(),
+		})
+	}
 }
