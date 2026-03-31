@@ -160,6 +160,19 @@ export default {
     return client.post(`/marketing/audience/email-campaigns/${encodeSegment(campaignId)}/variants/${encodeSegment(variantId)}/winner`)
   },
 
+  listCompanyProfiles() {
+    return client.get('/marketing/profiles')
+  },
+  getCompanyProfile(account) {
+    return client.get(`/marketing/profiles/${encodeSegment(account)}`)
+  },
+  upsertCompanyProfile(account, data) {
+    return client.put(`/marketing/profiles/${encodeSegment(account)}`, data)
+  },
+  researchCompany(account, data = {}) {
+    return client.post(`/marketing/profiles/${encodeSegment(account)}/research`, data, { timeout: 120000 })
+  },
+
   audienceListCampaignMemory(campaignId) {
     return client.get(`/marketing/audience/email-campaigns/${encodeSegment(campaignId)}/memory`)
   },

@@ -32,6 +32,9 @@ export const useMarketingStore = defineStore('marketing', () => {
   const campaignMemory = ref([])
   const campaignMemoryLoading = ref(false)
 
+  const companyProfiles = ref([])
+  const companyProfilesLoading = ref(false)
+
   const automations = ref([])
   const automationsLoading = ref(false)
   const automationRuns = ref([])
@@ -581,6 +584,40 @@ export const useMarketingStore = defineStore('marketing', () => {
     }, 10000)
   }
 
+  async function fetchCompanyProfiles() {
+    companyProfilesLoading.value = true
+    try {
+      const response = await marketingService.listCompanyProfiles()
+      companyProfiles.value = response.data?.profiles || []
+    } catch (error) {
+      console.error('Failed to load company profiles:', error)
+      companyProfiles.value = []
+    } finally {
+      companyProfilesLoading.value = false
+    }
+  }
+
+  async function getCompanyProfile(account) {
+    const response = await marketingService.getCompanyProfile(account)
+    return response.data
+  }
+
+  async function saveCompanyProfile(account, data) {
+    const response = await marketingService.upsertCompanyProfile(account, data)
+    const idx = companyProfiles.value.findIndex((p) => p.account === account)
+    if (idx >= 0) companyProfiles.value[idx] = response.data
+    else companyProfiles.value.push(response.data)
+    return response.data
+  }
+
+  async function researchCompany(account, website = '') {
+    const response = await marketingService.researchCompany(account, website ? { website } : {})
+    const idx = companyProfiles.value.findIndex((p) => p.account === account)
+    if (idx >= 0) companyProfiles.value[idx] = response.data
+    else companyProfiles.value.push(response.data)
+    return response.data
+  }
+
   async function fetchCampaignMemory(campaignId) {
     campaignMemoryLoading.value = true
     try {
@@ -698,6 +735,12 @@ export const useMarketingStore = defineStore('marketing', () => {
     campaignMemoryLoading,
     fetchCampaignMemory,
     addCampaignMemoryEntry,
-    deleteCampaignMemoryEntry
+    deleteCampaignMemoryEntry,
+    companyProfiles,
+    companyProfilesLoading,
+    fetchCompanyProfiles,
+    getCompanyProfile,
+    saveCompanyProfile,
+    researchCompany
   }
 })

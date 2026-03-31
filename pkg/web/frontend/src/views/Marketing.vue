@@ -724,7 +724,7 @@
               <!-- Sub-tabs -->
               <div class="flex gap-2 border-b border-makoclaw-border/20 pb-3">
                 <button
-                  v-for="sub in [{ id: 'contacts', label: 'Contacts' }, { id: 'lists', label: 'Lists' }, { id: 'segments', label: 'Segments' }, { id: 'deliveries', label: 'Deliveries' }, { id: 'campaigns', label: 'Campaigns' }, { id: 'automations', label: 'Automations' }]"
+                  v-for="sub in [{ id: 'contacts', label: 'Contacts' }, { id: 'lists', label: 'Lists' }, { id: 'segments', label: 'Segments' }, { id: 'deliveries', label: 'Deliveries' }, { id: 'campaigns', label: 'Campaigns' }, { id: 'automations', label: 'Automations' }, { id: 'accounts', label: 'Accounts' }]"
                   :key="sub.id"
                   class="px-4 py-2 rounded-xl text-sm font-medium transition-all"
                   :class="audienceSubTab === sub.id ? 'bg-pink-500/20 text-pink-400' : 'text-white/60 hover:text-white/80'"
@@ -749,6 +749,9 @@
 
               <!-- Automations Sub-tab -->
               <AudienceAutomations v-if="audienceSubTab === 'automations'" @reload="loadAudienceData()" />
+
+              <!-- Accounts Sub-tab -->
+              <AudienceAccounts v-if="audienceSubTab === 'accounts'" />
             </div>
           </div>
         </div>
@@ -872,6 +875,7 @@ import AudienceSegments from './marketing/AudienceSegments.vue'
 import AudienceDeliveries from './marketing/AudienceDeliveries.vue'
 import AudienceEmailCampaigns from './marketing/AudienceEmailCampaigns.vue'
 import AudienceAutomations from './marketing/AudienceAutomations.vue'
+import AudienceAccounts from './marketing/AudienceAccounts.vue'
 
 ChartJS.register(Title, Tooltip, Legend, ArcElement, CategoryScale, LinearScale, BarElement, LineElement, PointElement)
 

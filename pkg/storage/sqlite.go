@@ -382,6 +382,10 @@ func (s *Storage) migrateMarketingAudience() error {
 		return err
 	}
 
+	if err := s.migrateCompanyProfiles(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
