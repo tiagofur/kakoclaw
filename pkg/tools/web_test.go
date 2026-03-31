@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -624,5 +625,122 @@ sufficient content, the library might fall back or return empty results.</p>
 	// The method should be either "readability" or "regex-fallback"
 	if method != "readability" && method != "regex-fallback" {
 		t.Errorf("unexpected extraction method: %q", method)
+	}
+}
+
+func TestTavilySearchProvider_Search(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		var body map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("failed to decode body: %v", err)
+		}
+		if body["api_key"] == nil {
+			t.Error("expected api_key in body")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"results":[{"title":"Tavily Result","url":"https://tavily.com","content":"Some content"}]}`))
+	}))
+	defer server.Close()
+
+	provider := NewTavilySearchProviderWithBaseURL("test-key", server.URL)
+	results, err := provider.Search(context.Background(), "test query", 3)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if results[0].Title != "Tavily Result" {
+		t.Errorf("Title = %q, want %q", results[0].Title, "Tavily Result")
+	}
+	if results[0].Description != "Some content" {
+		t.Errorf("Description = %q, want %q", results[0].Description, "Some content")
+	}
+}
+
+func TestTavilySearchProvider_HTTPError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"error":"internal server error"}`))
+	}))
+	defer server.Close()
+
+	provider := NewTavilySearchProviderWithBaseURL("test-key", server.URL)
+	_, err := provider.Search(context.Background(), "test query", 3)
+	if err == nil {
+		t.Fatal("expected error for HTTP 500, got nil")
+	}
+}
+
+// mockSearchProvider is a test double for SearchProvider.
+type mockSearchProvider struct {
+	name    string
+	results []SearchResult
+	err     error
+	called  int
+}
+
+func (m *mockSearchProvider) Name() string { return m.name }
+func (m *mockSearchProvider) Search(_ context.Context, _ string, _ int) ([]SearchResult, error) {
+	m.called++
+	return m.results, m.err
+}
+
+func TestFallbackSearchProvider_FirstSucceeds(t *testing.T) {
+	p1 := &mockSearchProvider{name: "p1", results: []SearchResult{{Title: "R1", URL: "https://r1.com"}}}
+	p2 := &mockSearchProvider{name: "p2", results: []SearchResult{{Title: "R2", URL: "https://r2.com"}}}
+	fb := NewFallbackSearchProvider(p1, p2)
+
+	results, err := fb.Search(context.Background(), "q", 3)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(results) != 1 || results[0].Title != "R1" {
+		t.Errorf("expected R1 result, got %+v", results)
+	}
+	if p2.called != 0 {
+		t.Error("p2 should not have been called when p1 succeeds")
+	}
+}
+
+func TestFallbackSearchProvider_FirstFailsSecondSucceeds(t *testing.T) {
+	p1 := &mockSearchProvider{name: "p1", err: errors.New("p1 failed")}
+	p2 := &mockSearchProvider{name: "p2", results: []SearchResult{{Title: "R2", URL: "https://r2.com"}}}
+	fb := NewFallbackSearchProvider(p1, p2)
+
+	results, err := fb.Search(context.Background(), "q", 3)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(results) != 1 || results[0].Title != "R2" {
+		t.Errorf("expected R2 result, got %+v", results)
+	}
+}
+
+func TestFallbackSearchProvider_EmptyResultsSkipped(t *testing.T) {
+	p1 := &mockSearchProvider{name: "p1", results: []SearchResult{}} // empty, no error
+	p2 := &mockSearchProvider{name: "p2", results: []SearchResult{{Title: "R2", URL: "https://r2.com"}}}
+	fb := NewFallbackSearchProvider(p1, p2)
+
+	results, err := fb.Search(context.Background(), "q", 3)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(results) != 1 || results[0].Title != "R2" {
+		t.Errorf("expected R2 from p2, got %+v", results)
+	}
+}
+
+func TestFallbackSearchProvider_AllFail(t *testing.T) {
+	p1 := &mockSearchProvider{name: "p1", err: errors.New("p1 failed")}
+	p2 := &mockSearchProvider{name: "p2", err: errors.New("p2 failed")}
+	fb := NewFallbackSearchProvider(p1, p2)
+
+	_, err := fb.Search(context.Background(), "q", 3)
+	if err == nil {
+		t.Fatal("expected error when all providers fail, got nil")
 	}
 }
