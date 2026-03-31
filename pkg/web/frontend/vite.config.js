@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import path from 'path'
 // NOTE: vite-plugin-pwa disabled — incompatible with Node.js v24 (minipass/path-scurry issue)
 // import { VitePWA } from 'vite-plugin-pwa'
 
@@ -9,6 +10,11 @@ export default defineConfig({
   ],
   root: __dirname,
   base: '/',
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, 'src')
+    }
+  },
   build: {
     outDir: '../dist',
     emptyOutDir: true,
