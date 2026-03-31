@@ -25,6 +25,8 @@ config.json
 sessions/
 build/
 
+study/
+
 # Mistaken tilde folder (Windows tilde expansion bug)
 ~/
 

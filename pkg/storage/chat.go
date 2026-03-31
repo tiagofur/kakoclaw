@@ -302,6 +302,7 @@ func (s *Storage) ListSessionsForUser(userKey interface{}, archived *bool, limit
 			LEFT JOIN chats c ON c.session_id = user_counts.session_id AND c.id = user_counts.last_user_msg_id
 			WHERE sess.archived = ?
 			  AND sess.session_id NOT LIKE 'specialist_%'
+			  AND sess.session_id NOT LIKE 'dev_studio_%'
 			ORDER BY sess.updated_at DESC
 			LIMIT ? OFFSET ?
 		`
@@ -332,6 +333,7 @@ func (s *Storage) ListSessionsForUser(userKey interface{}, archived *bool, limit
 			LEFT JOIN chats c ON c.session_id = user_counts.session_id AND c.id = user_counts.last_user_msg_id
 			WHERE sess.user_id = ? AND sess.archived = ?
 			  AND sess.session_id NOT LIKE 'specialist_%'
+			  AND sess.session_id NOT LIKE 'dev_studio_%'
 			ORDER BY sess.updated_at DESC
 			LIMIT ? OFFSET ?
 		`
@@ -371,6 +373,7 @@ func (s *Storage) ListSessionsForUser(userKey interface{}, archived *bool, limit
 				) user_counts ON counts.session_id = user_counts.session_id
 				LEFT JOIN chats c ON c.session_id = user_counts.session_id AND c.id = user_counts.last_user_msg_id
 				WHERE counts.session_id NOT LIKE 'specialist_%'
+				  AND counts.session_id NOT LIKE 'dev_studio_%'
 				ORDER BY counts.last_created_at DESC
 				LIMIT ? OFFSET ?
 			`
@@ -399,6 +402,7 @@ func (s *Storage) ListSessionsForUser(userKey interface{}, archived *bool, limit
 				) user_counts ON counts.session_id = user_counts.session_id
 				LEFT JOIN chats c ON c.session_id = user_counts.session_id AND c.id = user_counts.last_user_msg_id
 				WHERE counts.session_id NOT LIKE 'specialist_%'
+				  AND counts.session_id NOT LIKE 'dev_studio_%'
 				ORDER BY counts.last_created_at DESC
 				LIMIT ? OFFSET ?
 			`

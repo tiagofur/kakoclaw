@@ -187,6 +187,36 @@
         </router-link>
 
         <router-link
+          to="/dev-studio"
+          class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative"
+          active-class="bg-makoclaw-accent/15 text-makoclaw-accent shadow-sm shadow-makoclaw-accent/5"
+          inactive-class="text-makoclaw-text-secondary hover:bg-makoclaw-accent/5 hover:text-makoclaw-text hover:translate-x-1"
+          @click="closeMobileSidebar"
+        >
+          <svg
+            class="w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          ><path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
+          /></svg>
+          <span
+            v-if="!uiStore.sidebarCollapsed"
+            class="font-medium whitespace-nowrap text-sm"
+          >Dev Studio</span>
+          <div
+            v-if="uiStore.sidebarCollapsed"
+            class="tooltip"
+          >
+            Dev Studio
+          </div>
+        </router-link>
+
+        <router-link
           to="/cron"
           class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative"
           active-class="bg-makoclaw-accent/15 text-makoclaw-accent shadow-sm shadow-makoclaw-accent/5"

@@ -7,13 +7,14 @@ import (
 	"time"
 )
 
-const deliverySelectCols = `id, COALESCE(campaign_account, ''), COALESCE(campaign_name, ''), contact_id, COALESCE(subject, ''), COALESCE(status, 'queued'), COALESCE(provider_message_id, ''), sent_at, delivered_at, opened_at, clicked_at, bounced_at, COALESCE(error, ''), created_at`
+const deliverySelectCols = `id, COALESCE(campaign_account, ''), COALESCE(campaign_name, ''), contact_id, COALESCE(variant_id, 0), COALESCE(subject, ''), COALESCE(status, 'queued'), COALESCE(provider_message_id, ''), sent_at, delivered_at, opened_at, clicked_at, bounced_at, COALESCE(error, ''), created_at`
 
 func scanDelivery(sc rowScanner, d *EmailDelivery) error {
 	var contactID sql.NullInt64
 	var sentAt, deliveredAt, openedAt, clickedAt, bouncedAt sql.NullString
 	err := sc.Scan(
 		&d.ID, &d.CampaignAccount, &d.CampaignName, &contactID,
+		&d.VariantID,
 		&d.Subject, &d.Status, &d.ProviderMessageID,
 		&sentAt, &deliveredAt, &openedAt, &clickedAt, &bouncedAt,
 		&d.Error, &d.CreatedAt,
@@ -39,8 +40,8 @@ func (s *Storage) CreateDelivery(d *EmailDelivery) (*EmailDelivery, error) {
 	}
 	now := time.Now().Format(time.RFC3339)
 	res, err := s.db.Exec(
-		`INSERT INTO email_deliveries (campaign_account, campaign_name, contact_id, subject, status, provider_message_id, error, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		d.CampaignAccount, d.CampaignName, d.ContactID, d.Subject, d.Status, d.ProviderMessageID, d.Error, now,
+		`INSERT INTO email_deliveries (campaign_account, campaign_name, contact_id, variant_id, subject, status, provider_message_id, error, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		d.CampaignAccount, d.CampaignName, d.ContactID, d.VariantID, d.Subject, d.Status, d.ProviderMessageID, d.Error, now,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("creating delivery: %w", err)
@@ -118,13 +119,13 @@ func (s *Storage) ListDeliveries(account, campaign string, page, limit int) ([]E
 
 // validDeliveryStatuses is the whitelist of allowed delivery status values.
 var validDeliveryStatuses = map[string]bool{
-	"queued":    true,
-	"sent":      true,
-	"delivered": true,
-	"opened":    true,
-	"clicked":   true,
-	"bounced":   true,
-	"failed":    true,
+	"queued":     true,
+	"sent":       true,
+	"delivered":  true,
+	"opened":     true,
+	"clicked":    true,
+	"bounced":    true,
+	"failed":     true,
 	"complained": true,
 }
 

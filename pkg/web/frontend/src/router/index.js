@@ -28,6 +28,7 @@ import AgentsView from '../views/AgentsView.vue'
 import SetupView from '../views/SetupView.vue'
 import MarketingView from '../views/Marketing.vue'
 import CanvasView from '../views/CanvasView.vue'
+import DevStudioView from '../views/DevStudioView.vue'
 
 const routes = [
   {
@@ -62,6 +63,11 @@ const routes = [
         path: 'marketing',
         name: 'help-marketing',
         component: HelpMarketingView
+      },
+      {
+        path: 'dev-studio',
+        name: 'help-dev-studio',
+        component: () => import('../views/help/HelpDevStudioView.vue')
       }
     ]
   },
@@ -170,6 +176,11 @@ const routes = [
         path: 'canvas',
         name: 'canvas',
         component: CanvasView
+      },
+      {
+        path: 'dev-studio',
+        name: 'dev-studio',
+        component: DevStudioView
       },
     ]
   },

@@ -1,0 +1,15 @@
+{
+  "name": "makoclaw-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild index.ts --bundle --platform=node --format=esm --outfile=bundle.js && esbuild opencode.ts --bundle --platform=node --format=esm --outfile=opencode-bundle.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "latest"
+  },
+  "devDependencies": {
+    "esbuild": "^0.20.0"
+  }
+}

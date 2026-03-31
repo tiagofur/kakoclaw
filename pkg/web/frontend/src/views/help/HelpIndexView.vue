@@ -37,6 +37,21 @@
               <span class="px-2 py-1 text-xs rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium">Analytics</span>
             </div>
           </div>
+        <!-- Dev Studio -->
+        <router-link to="/help/dev-studio" class="group block">
+          <div class="h-full p-6 rounded-2xl border transition-all duration-200 bg-white/60 backdrop-blur-sm border-slate-200/80 hover:border-cyan-300 hover:shadow-xl hover:shadow-cyan-500/10 dark:bg-makoclaw-surface/60 dark:border-makoclaw-border dark:hover:border-cyan-500/50">
+            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-white text-xl mb-4 shadow-lg shadow-cyan-500/25 group-hover:scale-110 transition-transform">
+              ⚡
+            </div>
+            <h3 class="text-lg font-bold text-slate-900 dark:text-makoclaw-text mb-2 group-hover:text-cyan-500 transition-colors">Dev Studio</h3>
+            <p class="text-sm text-slate-500 dark:text-makoclaw-text-secondary leading-relaxed mb-4">
+              Aprende a ejecutar Claude Code u OpenCode dentro del ecosistema de MakoClaw, con memoria semántica local (ONNX).
+            </p>
+            <div class="flex flex-wrap gap-2">
+              <span class="px-2 py-1 text-xs rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 font-medium">Terminal</span>
+              <span class="px-2 py-1 text-xs rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 font-medium">Memoria Local</span>
+            </div>
+          </div>
         </router-link>
 
         <!-- Coming Soon: Channels -->
