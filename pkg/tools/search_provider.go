@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/sipeed/makoclaw/pkg/logger"
 )
@@ -41,7 +42,7 @@ func NewBraveSearchProvider(apiKey string) *BraveSearchProvider {
 // NewBraveSearchProviderWithBaseURL creates a BraveSearchProvider with a custom base URL,
 // useful for testing with httptest.NewServer.
 func NewBraveSearchProviderWithBaseURL(apiKey, baseURL string) *BraveSearchProvider {
-	return &BraveSearchProvider{apiKey: apiKey, baseURL: baseURL}
+	return &BraveSearchProvider{apiKey: apiKey, baseURL: strings.TrimRight(baseURL, "/")}
 }
 
 func (b *BraveSearchProvider) Name() string { return "brave" }
@@ -228,8 +229,12 @@ func (t *TavilySearchProvider) Search(ctx context.Context, query string, count i
 		return nil, fmt.Errorf("search API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 5*1024*1024))
+	if err != nil {
+		return nil, fmt.Errorf("tavily: failed to read response body: %w", err)
+	}
 	var result tavilyResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, fmt.Errorf("tavily: failed to decode response: %w", err)
 	}
 

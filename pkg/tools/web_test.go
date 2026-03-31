@@ -673,6 +673,9 @@ func TestTavilySearchProvider_HTTPError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for HTTP 500, got nil")
 	}
+	if !strings.Contains(err.Error(), "500") {
+		t.Errorf("expected error to mention status 500, got: %v", err)
+	}
 }
 
 // mockSearchProvider is a test double for SearchProvider.
@@ -742,5 +745,8 @@ func TestFallbackSearchProvider_AllFail(t *testing.T) {
 	_, err := fb.Search(context.Background(), "q", 3)
 	if err == nil {
 		t.Fatal("expected error when all providers fail, got nil")
+	}
+	if !strings.Contains(err.Error(), "all search providers failed") {
+		t.Errorf("expected error to mention 'all search providers failed', got: %v", err)
 	}
 }
