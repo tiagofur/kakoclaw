@@ -47,7 +47,27 @@ func scanContact(sc rowScanner, c *Contact) error {
 	return nil
 }
 
+// validateEmail performs basic email format validation.
+func validateEmail(email string) error {
+	email = strings.TrimSpace(email)
+	if email == "" {
+		return fmt.Errorf("email is required")
+	}
+	atIdx := strings.Index(email, "@")
+	if atIdx < 1 {
+		return fmt.Errorf("invalid email format: missing @")
+	}
+	domain := email[atIdx+1:]
+	if !strings.Contains(domain, ".") || strings.HasSuffix(domain, ".") {
+		return fmt.Errorf("invalid email format: invalid domain")
+	}
+	return nil
+}
+
 func (s *Storage) CreateContact(c *Contact) (*Contact, error) {
+	if err := validateEmail(c.Email); err != nil {
+		return nil, err
+	}
 	if c.Tags == "" {
 		c.Tags = "[]"
 	}
@@ -88,17 +108,11 @@ func (s *Storage) CreateContact(c *Contact) (*Contact, error) {
 
 func (s *Storage) GetContactByID(id int64) (*Contact, error) {
 	var c Contact
-	err := s.db.QueryRow(
-		`SELECT `+contactSelectCols+` FROM contacts WHERE id = ?`, id,
-	).Scan(
-		&c.ID, &c.Email, &c.FirstName, &c.LastName, &c.Phone, &c.Company,
-		&c.Title, &c.Tags, &c.CustomFields, &c.Status, &c.Source,
-		new(sql.NullString), new(sql.NullString), &c.CreatedAt, &c.UpdatedAt,
-	)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
+	row := s.db.QueryRow(`SELECT `+contactSelectCols+` FROM contacts WHERE id = ?`, id)
+	if err := scanContact(row, &c); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
 		return nil, fmt.Errorf("getting contact: %w", err)
 	}
 	return &c, nil
@@ -133,7 +147,13 @@ func (s *Storage) DeleteContact(id int64) error {
 	if _, err := tx.Exec(`DELETE FROM contacts WHERE id = ?`, id); err != nil {
 		return fmt.Errorf("deleting contact: %w", err)
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("committing contact deletion: %w", err)
+	}
+
+	// Recalculate segment contact counts (best-effort, non-blocking)
+	s.refreshAllSegmentCounts()
+	return nil
 }
 
 func (s *Storage) ListContacts(filter ContactFilter) ([]Contact, int, error) {
@@ -220,7 +240,7 @@ func (s *Storage) ImportContactsFromCSV(records [][]string, headers []string) (i
 	now := time.Now().Format(time.RFC3339)
 	for _, row := range records {
 		email := getField(row, emailIdx)
-		if email == "" {
+		if email == "" || validateEmail(email) != nil {
 			skipped++
 			continue
 		}
