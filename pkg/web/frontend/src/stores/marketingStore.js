@@ -415,6 +415,16 @@ export const useMarketingStore = defineStore('marketing', () => {
     await fetchAudienceSegments()
   }
 
+  async function previewAudienceSegment(id, rules) {
+    try {
+      const response = await marketingService.audiencePreviewSegment(id, rules)
+      return response.data
+    } catch (error) {
+      console.error('Failed to preview segment:', error)
+      return null
+    }
+  }
+
   async function fetchAudienceDeliveries(params = {}) {
     audienceDeliveriesLoading.value = true
 
@@ -508,6 +518,16 @@ export const useMarketingStore = defineStore('marketing', () => {
     const response = await marketingService.audienceSetWinner(campaignId, variantId)
     await fetchExperimentVariants(campaignId)
     return response.data
+  }
+
+  async function fetchVariantMetrics(campaignId, variantId) {
+    try {
+      const response = await marketingService.audienceVariantMetrics(campaignId, variantId)
+      return response.data
+    } catch (error) {
+      console.error('Failed to load variant metrics:', error)
+      return null
+    }
   }
 
   async function fetchAutomations(params = {}) {
@@ -623,6 +643,7 @@ export const useMarketingStore = defineStore('marketing', () => {
     createAudienceSegment,
     updateAudienceSegment,
     deleteAudienceSegment,
+    previewAudienceSegment,
     fetchAudienceDeliveries,
     sendAudienceEmail,
     emailCampaigns,
@@ -638,6 +659,7 @@ export const useMarketingStore = defineStore('marketing', () => {
     createExperimentVariant,
     deleteExperimentVariant,
     setVariantWinner,
+    fetchVariantMetrics,
     automations,
     automationsLoading,
     automationRuns,

@@ -710,9 +710,12 @@
                 </div>
               </div>
 
-              <div v-else class="flex flex-col items-center justify-center py-16 text-center">
-                <p class="text-sm text-makoclaw-text-secondary">No analytics summary available yet</p>
-                <p class="text-xs text-makoclaw-text-secondary/60 mt-1">Generate analytics reports for this campaign to see charts.</p>
+              <div v-else class="flex flex-col items-center justify-center py-16 text-center px-8">
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-pink-500/20 to-violet-500/20 flex items-center justify-center ring-1 ring-white/10 mb-4">
+                  <svg class="w-7 h-7 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                </div>
+                <p class="text-sm font-semibold text-makoclaw-text">No analytics data yet</p>
+                <p class="text-xs text-makoclaw-text-secondary/60 mt-2 max-w-xs">Ask your AI agent to track performance using the <code class="px-1.5 py-0.5 bg-white/10 rounded text-pink-400 text-[11px]">social_analytics</code> tool. Data will appear here once reports are generated.</p>
               </div>
             </div>
 
@@ -730,449 +733,22 @@
               </div>
 
               <!-- Contacts Sub-tab -->
-              <div v-if="audienceSubTab === 'contacts'" class="space-y-4">
-                <!-- Toolbar -->
-                <div class="flex flex-wrap items-center gap-3">
-                  <input
-                    v-model="audienceSearch"
-                    type="text"
-                    placeholder="Search contacts..."
-                    class="flex-1 min-w-[200px] px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 text-sm focus:border-pink-500/50 focus:outline-none"
-                    @input="audienceSearchDebounced()"
-                  >
-                  <select
-                    v-model="audienceStatusFilter"
-                    class="px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:border-pink-500/50 focus:outline-none"
-                    @change="audienceSearchDebounced()"
-                  >
-                    <option value="">All Status</option>
-                    <option value="active">Active</option>
-                    <option value="unsubscribed">Unsubscribed</option>
-                    <option value="bounced">Bounced</option>
-                    <option value="complained">Complained</option>
-                  </select>
-                  <button class="px-4 py-2 text-sm bg-gradient-to-r from-pink-500 to-violet-500 hover:from-pink-600 hover:to-violet-600 text-white rounded-xl font-medium" @click="audienceShowContactForm = true; audienceContactForm = { email: '', first_name: '', last_name: '', phone: '', company: '', title: '' }">+ Add Contact</button>
-                  <label class="px-4 py-2 text-sm bg-white/5 border border-white/10 rounded-xl text-white/70 hover:text-white cursor-pointer transition-colors">
-                    Import CSV
-                    <input type="file" accept=".csv" class="hidden" @change="async (e) => { const f = e.target.files?.[0]; if (f) { const fd = new FormData(); fd.append('file', f); await store.importAudienceContacts(fd); e.target.value = ''; } }">
-                  </label>
-                  <button class="px-4 py-2 text-sm bg-white/5 border border-white/10 rounded-xl text-white/70 hover:text-white transition-colors" @click="store.exportAudienceContacts({ search: audienceSearch, status: audienceStatusFilter })">Export CSV</button>
-                </div>
-
-                <!-- Create Contact Form -->
-                <div v-if="audienceShowContactForm" class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 space-y-3">
-                  <div class="grid grid-cols-2 gap-3">
-                    <input v-model="audienceContactForm.email" placeholder="Email *" class="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 text-sm focus:border-pink-500/50 focus:outline-none">
-                    <input v-model="audienceContactForm.first_name" placeholder="First Name" class="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 text-sm focus:border-pink-500/50 focus:outline-none">
-                    <input v-model="audienceContactForm.last_name" placeholder="Last Name" class="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 text-sm focus:border-pink-500/50 focus:outline-none">
-                    <input v-model="audienceContactForm.phone" placeholder="Phone" class="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 text-sm focus:border-pink-500/50 focus:outline-none">
-                    <input v-model="audienceContactForm.company" placeholder="Company" class="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 text-sm focus:border-pink-500/50 focus:outline-none">
-                    <input v-model="audienceContactForm.title" placeholder="Title" class="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 text-sm focus:border-pink-500/50 focus:outline-none">
-                  </div>
-                  <div class="flex gap-2 justify-end">
-                    <button class="px-4 py-2 text-sm text-white/60 hover:text-white" @click="audienceShowContactForm = false">Cancel</button>
-                    <button class="px-4 py-2 text-sm bg-gradient-to-r from-pink-500 to-violet-500 text-white rounded-xl font-medium" @click="store.createAudienceContact(audienceContactForm).then(() => { audienceShowContactForm = false; loadAudienceData(); })">Save</button>
-                  </div>
-                </div>
-
-                <!-- Contact Detail -->
-                <div v-if="audienceSelectedContact" class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 space-y-3">
-                  <div class="flex items-center justify-between mb-2">
-                    <h3 class="text-sm font-bold text-white">Contact Detail</h3>
-                    <div class="flex gap-2">
-                      <button class="px-3 py-1.5 text-xs bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30" @click="store.deleteAudienceContact(audienceSelectedContact.id).then(() => { audienceSelectedContact = null; loadAudienceData(); })">Delete</button>
-                      <button class="text-white/40 hover:text-white" @click="audienceSelectedContact = null">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                      </button>
-                    </div>
-                  </div>
-                  <div class="grid grid-cols-2 gap-3">
-                    <div v-for="field in ['email', 'first_name', 'last_name', 'phone', 'company', 'title', 'status']" :key="field">
-                      <label class="block text-[10px] font-bold uppercase tracking-wider text-white/40 mb-1">{{ field.replace('_', ' ') }}</label>
-                      <input v-model="audienceSelectedContact[field]" class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:border-pink-500/50 focus:outline-none">
-                    </div>
-                  </div>
-                  <div class="flex justify-end">
-                    <button class="px-4 py-2 text-sm bg-gradient-to-r from-pink-500 to-violet-500 text-white rounded-xl font-medium" @click="store.updateAudienceContact(audienceSelectedContact.id, audienceSelectedContact).then(() => loadAudienceData())">Save Changes</button>
-                  </div>
-                </div>
-
-                <!-- Contacts Table -->
-                <div v-if="store.audienceContactsLoading" class="flex items-center justify-center py-12">
-                  <svg class="animate-spin w-6 h-6 text-pink-400" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                </div>
-                <div v-else-if="store.audienceContacts.length === 0" class="text-center py-12 text-white/40 text-sm">No contacts found. Add your first contact or import a CSV.</div>
-                <div v-else class="overflow-x-auto bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl">
-                  <table class="w-full text-left">
-                    <thead>
-                      <tr class="border-b border-white/10">
-                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Email</th>
-                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Name</th>
-                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Company</th>
-                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Status</th>
-                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Tags</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="contact in store.audienceContacts" :key="contact.id" class="border-b border-white/5 hover:bg-white/5 cursor-pointer transition-colors" @click="audienceSelectedContact = { ...contact }">
-                        <td class="px-4 py-3 text-sm text-white">{{ contact.email }}</td>
-                        <td class="px-4 py-3 text-sm text-white/70">{{ [contact.first_name, contact.last_name].filter(Boolean).join(' ') || '—' }}</td>
-                        <td class="px-4 py-3 text-sm text-white/70">{{ contact.company || '—' }}</td>
-                        <td class="px-4 py-3">
-                          <span class="px-2 py-1 rounded-full text-xs font-medium" :class="{ 'bg-green-500/20 text-green-400': contact.status === 'active', 'bg-yellow-500/20 text-yellow-400': contact.status === 'unsubscribed', 'bg-red-500/20 text-red-400': ['bounced', 'complained'].includes(contact.status) }">{{ contact.status }}</span>
-                        </td>
-                        <td class="px-4 py-3 text-sm text-white/50">{{ contact.tags || '—' }}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <!-- Pagination -->
-                <div v-if="store.audienceContactsTotal > 25" class="flex items-center justify-center gap-4 text-sm">
-                  <button class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white/70 hover:text-white disabled:opacity-30" :disabled="store.audienceContactsPage <= 1" @click="store.fetchAudienceContacts({ search: audienceSearch, status: audienceStatusFilter, page: store.audienceContactsPage - 1 })">Prev</button>
-                  <span class="text-white/50">Page {{ store.audienceContactsPage }} of {{ Math.ceil(store.audienceContactsTotal / 25) }}</span>
-                  <button class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white/70 hover:text-white disabled:opacity-30" :disabled="store.audienceContactsPage >= Math.ceil(store.audienceContactsTotal / 25)" @click="store.fetchAudienceContacts({ search: audienceSearch, status: audienceStatusFilter, page: store.audienceContactsPage + 1 })">Next</button>
-                </div>
-              </div>
+              <AudienceContacts v-if="audienceSubTab === 'contacts'" @reload="loadAudienceData()" />
 
               <!-- Lists Sub-tab -->
-              <div v-if="audienceSubTab === 'lists'" class="space-y-4">
-                <div class="flex items-center justify-between">
-                  <h3 class="text-lg font-semibold text-white">Contact Lists</h3>
-                  <button class="px-4 py-2 text-sm bg-gradient-to-r from-pink-500 to-violet-500 hover:from-pink-600 hover:to-violet-600 text-white rounded-xl font-medium" @click="audienceShowListForm = true; audienceListForm = { name: '', description: '', type: 'static' }">+ Create List</button>
-                </div>
-
-                <!-- Create List Form -->
-                <div v-if="audienceShowListForm" class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 space-y-3">
-                  <input v-model="audienceListForm.name" placeholder="List Name *" class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 text-sm focus:border-pink-500/50 focus:outline-none">
-                  <input v-model="audienceListForm.description" placeholder="Description" class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 text-sm focus:border-pink-500/50 focus:outline-none">
-                  <select v-model="audienceListForm.type" class="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:border-pink-500/50 focus:outline-none">
-                    <option value="static">Static</option>
-                    <option value="dynamic">Dynamic</option>
-                  </select>
-                  <div class="flex gap-2 justify-end">
-                    <button class="px-4 py-2 text-sm text-white/60 hover:text-white" @click="audienceShowListForm = false">Cancel</button>
-                    <button class="px-4 py-2 text-sm bg-gradient-to-r from-pink-500 to-violet-500 text-white rounded-xl font-medium" @click="store.createAudienceList(audienceListForm).then(() => { audienceShowListForm = false; loadAudienceData(); })">Create</button>
-                  </div>
-                </div>
-
-                <div v-if="store.audienceLists.length === 0" class="text-center py-12 text-white/40 text-sm">No lists yet. Create your first contact list.</div>
-                <div v-else class="grid gap-3">
-                  <div v-for="list in store.audienceLists" :key="list.id" class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 flex items-center justify-between hover:border-pink-500/20 transition-colors">
-                    <div>
-                      <h4 class="text-sm font-semibold text-white">{{ list.name }}</h4>
-                      <p class="text-xs text-white/40 mt-0.5">{{ list.description || 'No description' }} · {{ list.type }}</p>
-                    </div>
-                    <button class="px-3 py-1.5 text-xs bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30" @click="store.deleteAudienceList(list.id).then(() => loadAudienceData())">Delete</button>
-                  </div>
-                </div>
-              </div>
+              <AudienceLists v-if="audienceSubTab === 'lists'" @reload="loadAudienceData()" />
 
               <!-- Segments Sub-tab -->
-              <div v-if="audienceSubTab === 'segments'" class="space-y-4">
-                <div class="flex items-center justify-between">
-                  <h3 class="text-lg font-semibold text-white">Segments</h3>
-                  <button class="px-4 py-2 text-sm bg-gradient-to-r from-pink-500 to-violet-500 hover:from-pink-600 hover:to-violet-600 text-white rounded-xl font-medium" @click="audienceShowSegmentForm = true; audienceSegmentForm = { name: '', rules: [] }">+ Create Segment</button>
-                </div>
-
-                <!-- Segment Builder -->
-                <div v-if="audienceShowSegmentForm" class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 space-y-4">
-                  <input v-model="audienceSegmentForm.name" placeholder="Segment Name *" class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 text-sm focus:border-pink-500/50 focus:outline-none">
-
-                  <div class="space-y-2">
-                    <div class="flex items-center justify-between">
-                      <span class="text-xs font-bold text-white/50 uppercase tracking-wider">Rules</span>
-                      <button class="text-xs text-pink-400 hover:text-pink-300" @click="audienceSegmentForm.rules.push({ field: 'email', operator: 'contains', value: '' })">+ Add Rule</button>
-                    </div>
-                    <div v-for="(rule, idx) in audienceSegmentForm.rules" :key="idx" class="flex gap-2 items-center">
-                      <select v-model="rule.field" class="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:border-pink-500/50 focus:outline-none">
-                        <option v-for="f in ['email', 'first_name', 'last_name', 'phone', 'company', 'title', 'tags', 'status']" :key="f" :value="f">{{ f }}</option>
-                      </select>
-                      <select v-model="rule.operator" class="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:border-pink-500/50 focus:outline-none">
-                        <option v-for="op in ['equals', 'not_equals', 'contains', 'starts_with', 'ends_with', 'greater_than', 'less_than', 'in_list', 'not_in_list']" :key="op" :value="op">{{ op }}</option>
-                      </select>
-                      <input v-model="rule.value" placeholder="Value" class="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 text-sm focus:border-pink-500/50 focus:outline-none">
-                      <button class="text-red-400 hover:text-red-300" @click="audienceSegmentForm.rules.splice(idx, 1)">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                      </button>
-                    </div>
-                    <div v-if="audienceSegmentForm.rules.length === 0" class="text-xs text-white/30 text-center py-2">No rules yet. Click "+ Add Rule" to define targeting criteria.</div>
-                  </div>
-
-                  <div class="flex gap-2 justify-end">
-                    <button class="px-4 py-2 text-sm text-white/60 hover:text-white" @click="audienceShowSegmentForm = false">Cancel</button>
-                    <button class="px-4 py-2 text-sm bg-gradient-to-r from-pink-500 to-violet-500 text-white rounded-xl font-medium" @click="store.createAudienceSegment({ name: audienceSegmentForm.name, rules: JSON.stringify(audienceSegmentForm.rules) }).then(() => { audienceShowSegmentForm = false; loadAudienceData(); })">Save Segment</button>
-                  </div>
-                </div>
-
-                <div v-if="store.audienceSegments.length === 0" class="text-center py-12 text-white/40 text-sm">No segments yet. Create a segment to target specific audiences.</div>
-                <div v-else class="grid gap-3">
-                  <div v-for="seg in store.audienceSegments" :key="seg.id" class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 flex items-center justify-between hover:border-pink-500/20 transition-colors">
-                    <div>
-                      <h4 class="text-sm font-semibold text-white">{{ seg.name }}</h4>
-                      <p class="text-xs text-white/40 mt-0.5">{{ JSON.parse(seg.rules || '[]').length }} rule(s) · {{ seg.contact_count }} contacts</p>
-                    </div>
-                    <button class="px-3 py-1.5 text-xs bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30" @click="store.deleteAudienceSegment(seg.id).then(() => loadAudienceData())">Delete</button>
-                  </div>
-                </div>
-              </div>
+              <AudienceSegments v-if="audienceSubTab === 'segments'" @reload="loadAudienceData()" />
 
               <!-- Deliveries Sub-tab -->
-              <div v-if="audienceSubTab === 'deliveries'" class="space-y-4">
-                <div class="flex items-center justify-between">
-                  <h3 class="text-lg font-semibold text-white">Email Deliveries</h3>
-                </div>
-
-                <!-- Send Form -->
-                <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 space-y-3">
-                  <h4 class="text-sm font-bold text-white/70">Send Email to List</h4>
-                  <select v-model="audienceSendForm.list_id" class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:border-pink-500/50 focus:outline-none">
-                    <option value="">Select a list...</option>
-                    <option v-for="list in store.audienceLists" :key="list.id" :value="list.id">{{ list.name }}</option>
-                  </select>
-                  <input v-model="audienceSendForm.subject" placeholder="Subject" class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 text-sm focus:border-pink-500/50 focus:outline-none">
-                  <textarea v-model="audienceSendForm.body" placeholder="Email body..." rows="4" class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 text-sm focus:border-pink-500/50 focus:outline-none resize-none" />
-                  <div class="flex justify-end">
-                    <button class="px-4 py-2 text-sm bg-gradient-to-r from-pink-500 to-violet-500 text-white rounded-xl font-medium" @click="store.sendAudienceEmail(audienceSendForm).then(() => { audienceSendForm = { list_id: '', subject: '', body: '' }; loadAudienceData(); })">Send</button>
-                  </div>
-                </div>
-
-                <!-- Deliveries Table -->
-                <div v-if="store.audienceDeliveriesLoading" class="flex items-center justify-center py-8">
-                  <svg class="animate-spin w-6 h-6 text-pink-400" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                </div>
-                <div v-else-if="store.audienceDeliveries.length === 0" class="text-center py-8 text-white/40 text-sm">No deliveries yet. Send an email to a list to get started.</div>
-                <div v-else class="overflow-x-auto bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl">
-                  <table class="w-full text-left">
-                    <thead>
-                      <tr class="border-b border-white/10">
-                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Campaign</th>
-                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Subject</th>
-                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Status</th>
-                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="del in store.audienceDeliveries" :key="del.id" class="border-b border-white/5">
-                        <td class="px-4 py-3 text-sm text-white/70">{{ del.campaign_name || '—' }}</td>
-                        <td class="px-4 py-3 text-sm text-white/70">{{ del.subject || '—' }}</td>
-                        <td class="px-4 py-3">
-                          <span class="px-2 py-1 rounded-full text-xs font-medium" :class="{ 'bg-gray-500/20 text-gray-400': del.status === 'queued', 'bg-blue-500/20 text-blue-400': del.status === 'sent', 'bg-green-500/20 text-green-400': del.status === 'delivered', 'bg-purple-500/20 text-purple-400': del.status === 'opened', 'bg-pink-500/20 text-pink-400': del.status === 'clicked', 'bg-red-500/20 text-red-400': ['bounced', 'failed'].includes(del.status) }">{{ del.status }}</span>
-                        </td>
-                        <td class="px-4 py-3 text-sm text-white/40">{{ del.sent_at ? new Date(del.sent_at).toLocaleDateString() : '—' }}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              <AudienceDeliveries v-if="audienceSubTab === 'deliveries'" @reload="loadAudienceData()" />
 
               <!-- Campaigns Sub-tab -->
-              <div v-if="audienceSubTab === 'campaigns'" class="space-y-4">
-                <div class="flex flex-wrap items-center justify-between gap-3">
-                  <div class="flex items-center gap-3">
-                    <h3 class="text-lg font-semibold text-white">Email Campaigns</h3>
-                    <div class="flex gap-1 bg-white/5 rounded-lg p-0.5">
-                      <button
-                        class="px-3 py-1.5 text-xs font-medium rounded-md transition-all"
-                        :class="emailCampaignFilter === 'all' ? 'bg-pink-500/20 text-pink-400' : 'text-white/60 hover:text-white/80'"
-                        @click="emailCampaignFilter = 'all'; loadAudienceData()"
-                      >All</button>
-                      <button
-                        class="px-3 py-1.5 text-xs font-medium rounded-md transition-all"
-                        :class="emailCampaignFilter === 'archived' ? 'bg-pink-500/20 text-pink-400' : 'text-white/60 hover:text-white/80'"
-                        @click="emailCampaignFilter = 'archived'; loadAudienceData()"
-                      >Archived</button>
-                    </div>
-                  </div>
-                  <div class="flex gap-2">
-                    <button v-if="emailCampaignFilter === 'all'" class="px-4 py-2 text-sm bg-white/5 border border-white/10 rounded-xl text-white/70 hover:text-white transition-colors" @click="exportEmailCampaignsCSV">
-                      <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 4v12m0 0l-4-4m4 4l4-4" /></svg>
-                      Export CSV
-                    </button>
-                    <button v-if="emailCampaignFilter === 'archived'" class="px-4 py-2 text-sm bg-white/5 border border-white/10 rounded-xl text-white/70 hover:text-white transition-colors">
-                      <label class="cursor-pointer">
-                        Import CSV
-                        <input type="file" accept=".csv" class="hidden" @change="async (e) => { const f = e.target.files?.[0]; if (f) { const fd = new FormData(); fd.append('file', f); await store.importAudienceContacts(fd); e.target.value = ''; } }">
-                      </label>
-                    </button>
-                    <button v-if="emailCampaignFilter === 'all'" class="px-4 py-2 text-sm bg-gradient-to-r from-pink-500 to-violet-500 hover:from-pink-600 hover:to-violet-600 text-white rounded-xl font-medium" @click="emailCampaignForm = { active: true, id: null, name: '', subject: '', body_html: '', template_slug: '', list_id: '' }">+ New Campaign</button>
-                  </div>
-                </div>
-
-                <div v-if="emailCampaignForm.active" class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 space-y-3">
-                  <div class="grid grid-cols-2 gap-3">
-                    <input v-model="emailCampaignForm.name" placeholder="Campaign Name *" class="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 text-sm focus:border-pink-500/50 focus:outline-none">
-                    <input v-model="emailCampaignForm.subject" placeholder="Subject *" class="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 text-sm focus:border-pink-500/50 focus:outline-none">
-                  </div>
-                  <textarea v-model="emailCampaignForm.body_html" placeholder="HTML Body..." rows="6" class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 text-sm focus:border-pink-500/50 focus:outline-none resize-none" />
-                  <input v-model="emailCampaignForm.template_slug" placeholder="Template Slug (optional)" class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 text-sm focus:border-pink-500/50 focus:outline-none">
-                  <select v-model="emailCampaignForm.list_id" class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:border-pink-500/50 focus:outline-none">
-                    <option value="">Select a list...</option>
-                    <option v-for="list in store.audienceLists" :key="list.id" :value="list.id">{{ list.name }}</option>
-                  </select>
-                  <div class="flex gap-2 justify-end">
-                    <button class="px-4 py-2 text-sm text-white/60 hover:text-white" @click="emailCampaignForm.active = false">Cancel</button>
-                    <button class="px-4 py-2 text-sm bg-gradient-to-r from-pink-500 to-violet-500 text-white rounded-xl font-medium" @click="saveEmailCampaign">Save</button>
-                  </div>
-                </div>
-
-                <div v-if="store.emailCampaignsLoading" class="flex items-center justify-center py-8">
-                  <svg class="animate-spin w-6 h-6 text-pink-400" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                </div>
-                <div v-else-if="filteredEmailCampaigns.length === 0 && emailCampaignFilter === 'archived'" class="flex flex-col items-center justify-center py-16 text-center">
-                  <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-pink-500/10 to-violet-500/10 flex items-center justify-center ring-1 ring-white/5 mb-4">
-                    <svg class="w-7 h-7 text-pink-400/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
-                  </div>
-                  <p class="text-sm text-white/40">No archived campaigns</p>
-                  <p class="text-xs text-white/25 mt-1">Archived campaigns will appear here. Use the archive button to remove campaigns from the active list.</p>
-                </div>
-                <div v-else-if="filteredEmailCampaigns.length === 0" class="text-center py-8 text-white/40 text-sm">No email campaigns yet. Create your first campaign.</div>
-                <div v-else class="overflow-x-auto bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl">
-                  <table class="w-full text-left">
-                    <thead>
-                      <tr class="border-b border-white/10">
-                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Name</th>
-                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Subject</th>
-                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Status</th>
-                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Sent</th>
-                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Date</th>
-                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="camp in filteredEmailCampaigns" :key="camp.id" class="border-b border-white/5 hover:bg-white/5 transition-colors">
-                        <td class="px-4 py-3 text-sm text-white">{{ camp.name }}</td>
-                        <td class="px-4 py-3 text-sm text-white/70">{{ camp.subject }}</td>
-                        <td class="px-4 py-3">
-                          <span class="px-2 py-1 rounded-full text-xs font-medium" :class="{ 'bg-gray-500/20 text-gray-400': camp.status === 'draft', 'bg-blue-500/20 text-blue-400': camp.status === 'sending', 'bg-green-500/20 text-green-400': camp.status === 'sent', 'bg-red-500/20 text-red-400': camp.status === 'failed', 'bg-slate-500/20 text-slate-400': camp.status === 'archived' }">{{ camp.status }}</span>
-                        </td>
-                        <td class="px-4 py-3 text-sm text-white/50">{{ camp.sent_count || 0 }}</td>
-                        <td class="px-4 py-3 text-sm text-white/40">{{ camp.created_at ? new Date(camp.created_at).toLocaleDateString() : '—' }}</td>
-                        <td class="px-4 py-3">
-                          <div class="flex gap-2">
-                            <button v-if="camp.status === 'draft' && emailCampaignFilter === 'all'" class="px-3 py-1 text-xs bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30" @click="handleSendEmailCampaign(camp)">Send</button>
-                            <button v-if="camp.status === 'draft' && emailCampaignFilter === 'all'" class="px-3 py-1 text-xs bg-white/5 text-white/60 rounded-lg hover:text-white" @click="editEmailCampaign(camp)">Edit</button>
-                            <button v-if="emailCampaignFilter === 'all' && camp.status !== 'archived'" class="px-3 py-1 text-xs bg-amber-500/20 text-amber-400 rounded-lg hover:bg-amber-500/30" @click="archiveEmailCampaign(camp)">Archive</button>
-                            <button v-if="emailCampaignFilter === 'archived'" class="px-3 py-1 text-xs bg-white/5 text-white/60 rounded-lg hover:text-white" @click="restoreEmailCampaign(camp)">Restore</button>
-                            <button v-if="emailCampaignFilter === 'archived'" class="px-3 py-1 text-xs bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30" @click="deleteEmailCampaignPermanently(camp)">Delete</button>
-                          </div>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              <AudienceEmailCampaigns v-if="audienceSubTab === 'campaigns'" @reload="loadAudienceData()" />
 
               <!-- Automations Sub-tab -->
-              <div v-if="audienceSubTab === 'automations'" class="space-y-4">
-                <div class="flex items-center justify-between">
-                  <h3 class="text-lg font-semibold text-white">Automations</h3>
-                  <button class="px-4 py-2 text-sm bg-gradient-to-r from-pink-500 to-violet-500 hover:from-pink-600 hover:to-violet-600 text-white rounded-xl font-medium" @click="showAutomationForm = true; automationForm = { name: '', trigger_type: '', trigger_config: '', action_type: '', action_config: '' }">+ New Automation</button>
-                </div>
-
-                <!-- Create Automation Form -->
-                <div v-if="showAutomationForm" class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 space-y-3">
-                  <input v-model="automationForm.name" placeholder="Automation Name *" class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 text-sm focus:border-pink-500/50 focus:outline-none">
-                  <div class="grid grid-cols-2 gap-3">
-                    <select v-model="automationForm.trigger_type" class="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:border-pink-500/50 focus:outline-none">
-                      <option value="">Select Trigger...</option>
-                      <option v-for="t in ['contact_added', 'list_subscribe', 'segment_match', 'date', 'webhook']" :key="t" :value="t">{{ t }}</option>
-                    </select>
-                    <input v-model="automationForm.trigger_config" placeholder="Trigger Config (JSON)" class="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 text-sm focus:border-pink-500/50 focus:outline-none">
-                  </div>
-                  <div class="grid grid-cols-2 gap-3">
-                    <select v-model="automationForm.action_type" class="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:border-pink-500/50 focus:outline-none">
-                      <option value="">Select Action...</option>
-                      <option v-for="a in ['send_email', 'add_to_list', 'remove_from_list', 'add_tag', 'webhook']" :key="a" :value="a">{{ a }}</option>
-                    </select>
-                    <input v-model="automationForm.action_config" placeholder="Action Config (JSON)" class="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 text-sm focus:border-pink-500/50 focus:outline-none">
-                  </div>
-                  <div class="flex gap-2 justify-end">
-                    <button class="px-4 py-2 text-sm text-white/60 hover:text-white" @click="showAutomationForm = false">Cancel</button>
-                    <button class="px-4 py-2 text-sm bg-gradient-to-r from-pink-500 to-violet-500 text-white rounded-xl font-medium" @click="saveAutomation">Save</button>
-                  </div>
-                </div>
-
-                <!-- Automations Table -->
-                <div v-if="store.automationsLoading" class="flex items-center justify-center py-8">
-                  <svg class="animate-spin w-6 h-6 text-pink-400" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                </div>
-                <div v-else-if="store.automations.length === 0" class="text-center py-8 text-white/40 text-sm">No automations yet. Create your first automation.</div>
-                <div v-else class="overflow-x-auto bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl">
-                  <table class="w-full text-left">
-                    <thead>
-                      <tr class="border-b border-white/10">
-                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Name</th>
-                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Trigger</th>
-                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Action</th>
-                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Status</th>
-                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="auto in store.automations" :key="auto.id" class="border-b border-white/5 hover:bg-white/5 transition-colors">
-                        <td class="px-4 py-3 text-sm text-white">{{ auto.name }}</td>
-                        <td class="px-4 py-3 text-sm text-white/70">{{ auto.trigger_type }}</td>
-                        <td class="px-4 py-3 text-sm text-white/70">{{ auto.action_type }}</td>
-                        <td class="px-4 py-3">
-                          <span class="px-2 py-1 rounded-full text-xs font-medium" :class="{ 'bg-green-500/20 text-green-400': auto.status === 'active', 'bg-yellow-500/20 text-yellow-400': auto.status === 'paused', 'bg-gray-500/20 text-gray-400': auto.status === 'draft' }">{{ auto.status || 'draft' }}</span>
-                        </td>
-                        <td class="px-4 py-3">
-                          <div class="flex gap-2">
-                            <button class="px-3 py-1 text-xs bg-white/5 text-white/60 rounded-lg hover:text-white" @click="viewAutomationRuns(auto)">Runs</button>
-                            <button class="px-3 py-1 text-xs bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30" @click="store.deleteAutomation(auto.id).then(() => loadAudienceData())">Delete</button>
-                          </div>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <!-- Automation Runs History -->
-                <div v-if="selectedAutomationId" class="space-y-3">
-                  <div class="flex items-center justify-between">
-                    <h4 class="text-sm font-bold text-white">Run History</h4>
-                    <button class="text-white/40 hover:text-white" @click="selectedAutomationId = null; store.automationRuns = []">
-                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                  </div>
-                  <div v-if="store.automationRuns.length === 0" class="text-center py-6 text-white/40 text-sm">No runs recorded for this automation.</div>
-                  <div v-else class="overflow-x-auto bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl">
-                    <table class="w-full text-left">
-                      <thead>
-                        <tr class="border-b border-white/10">
-                          <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Status</th>
-                          <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Started</th>
-                          <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Completed</th>
-                          <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Error</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr v-for="run in store.automationRuns" :key="run.id" class="border-b border-white/5">
-                          <td class="px-4 py-3">
-                            <span class="px-2 py-1 rounded-full text-xs font-medium" :class="{ 'bg-green-500/20 text-green-400': run.status === 'completed', 'bg-blue-500/20 text-blue-400': run.status === 'running', 'bg-red-500/20 text-red-400': run.status === 'failed' }">{{ run.status }}</span>
-                          </td>
-                          <td class="px-4 py-3 text-sm text-white/70">{{ run.started_at ? new Date(run.started_at).toLocaleString() : '—' }}</td>
-                          <td class="px-4 py-3 text-sm text-white/70">{{ run.completed_at ? new Date(run.completed_at).toLocaleString() : '—' }}</td>
-                          <td class="px-4 py-3 text-sm text-red-400/80">{{ run.error || '—' }}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
+              <AudienceAutomations v-if="audienceSubTab === 'automations'" @reload="loadAudienceData()" />
             </div>
           </div>
         </div>
@@ -1290,6 +866,12 @@ import { useMarketingStore } from '../stores/marketingStore'
 import { useAuthStore } from '../stores/authStore'
 import { useToast } from '../composables/useToast'
 import { buildFilesApiUrl } from '../utils/imagePreview'
+import AudienceContacts from './marketing/AudienceContacts.vue'
+import AudienceLists from './marketing/AudienceLists.vue'
+import AudienceSegments from './marketing/AudienceSegments.vue'
+import AudienceDeliveries from './marketing/AudienceDeliveries.vue'
+import AudienceEmailCampaigns from './marketing/AudienceEmailCampaigns.vue'
+import AudienceAutomations from './marketing/AudienceAutomations.vue'
 
 ChartJS.register(Title, Tooltip, Legend, ArcElement, CategoryScale, LinearScale, BarElement, LineElement, PointElement)
 
@@ -1386,23 +968,6 @@ const mediaCopyTargets = ref({})
 const analyticsLoading = ref(false)
 const engagementBreakdown = ref({ likes: 0, comments: 0, shares: 0 })
 const audienceSubTab = ref('contacts')
-const audienceSearch = ref('')
-const audienceStatusFilter = ref('')
-const audienceContactForm = ref({ email: '', first_name: '', last_name: '', phone: '', company: '', title: '' })
-const audienceShowContactForm = ref(false)
-const audienceSelectedContact = ref(null)
-const audienceListForm = ref({ name: '', description: '', type: 'static' })
-const audienceShowListForm = ref(false)
-const audienceSegmentForm = ref({ name: '', rules: [] })
-const audienceShowSegmentForm = ref(false)
-const audienceSendForm = ref({ list_id: '', subject: '', body: '' })
-const audienceSearchTimeout = ref(null)
-const emailCampaignForm = ref({ active: false, id: null, name: '', subject: '', body_html: '', template_slug: '', list_id: '' })
-const emailCampaignSending = ref(false)
-const emailCampaignFilter = ref('all')
-const showAutomationForm = ref(false)
-const automationForm = ref({ name: '', trigger_type: '', trigger_config: '', action_type: '', action_config: '' })
-const selectedAutomationId = ref(null)
 
 const newCampaign = ref(createEmptyCampaign())
 const templateForm = ref(createEmptyTemplateForm())
@@ -2060,23 +1625,9 @@ async function loadEngagementBreakdown() {
   engagementBreakdown.value = totals
 }
 
-const filteredEmailCampaigns = computed(() => {
-  if (emailCampaignFilter.value === 'archived') {
-    return store.emailCampaigns.filter((c) => c.status === 'archived')
-  }
-  return store.emailCampaigns.filter((c) => c.status !== 'archived')
-})
-
-function audienceSearchDebounced() {
-  clearTimeout(audienceSearchTimeout.value)
-  audienceSearchTimeout.value = setTimeout(() => {
-    store.fetchAudienceContacts({ search: audienceSearch.value, status: audienceStatusFilter.value, page: 1 })
-  }, 300)
-}
-
 async function loadAudienceData() {
   await Promise.allSettled([
-    store.fetchAudienceContacts({ search: audienceSearch.value, status: audienceStatusFilter.value, page: store.audienceContactsPage }),
+    store.fetchAudienceContacts({ page: store.audienceContactsPage }),
     store.fetchAudienceLists(),
     store.fetchAudienceSegments(),
     store.fetchAudienceDeliveries(),
@@ -2085,148 +1636,6 @@ async function loadAudienceData() {
   ])
 }
 
-async function saveEmailCampaign() {
-  const form = emailCampaignForm.value
-  if (!form.name || !form.subject) {
-    toast.error('Name and subject are required')
-    return
-  }
-
-  try {
-    if (form.id) {
-      await store.updateEmailCampaign(form.id, {
-        name: form.name,
-        subject: form.subject,
-        body_html: form.body_html,
-        template_slug: form.template_slug || undefined,
-        list_id: form.list_id || undefined
-      })
-      toast.success('Campaign updated')
-    } else {
-      await store.createEmailCampaign({
-        name: form.name,
-        subject: form.subject,
-        body_html: form.body_html,
-        template_slug: form.template_slug || undefined,
-        list_id: form.list_id || undefined
-      })
-      toast.success('Campaign created')
-    }
-    emailCampaignForm.value = { active: false, id: null, name: '', subject: '', body_html: '', template_slug: '', list_id: '' }
-    await loadAudienceData()
-  } catch (error) {
-    console.error('Failed to save email campaign:', error)
-    toast.error('Failed to save email campaign')
-  }
-}
-
-function editEmailCampaign(camp) {
-  emailCampaignForm.value = {
-    active: true,
-    id: camp.id,
-    name: camp.name || '',
-    subject: camp.subject || '',
-    body_html: camp.body_html || '',
-    template_slug: camp.template_slug || '',
-    list_id: camp.list_id || ''
-  }
-}
-
-async function handleSendEmailCampaign(camp) {
-  if (!window.confirm(`Send "${camp.name}" to contacts?`)) return
-
-  emailCampaignSending.value = true
-  try {
-    await store.sendEmailCampaign(camp.id)
-    toast.success('Campaign sending started')
-    await loadAudienceData()
-  } catch (error) {
-    console.error('Failed to send email campaign:', error)
-    toast.error('Failed to send email campaign')
-  } finally {
-    emailCampaignSending.value = false
-  }
-}
-
-async function archiveEmailCampaign(camp) {
-  if (!window.confirm(`Archive "${camp.name}"?`)) return
-  try {
-    await store.updateEmailCampaign(camp.id, { ...camp, status: 'archived' })
-    toast.success('Campaign archived')
-    await loadAudienceData()
-  } catch (error) {
-    console.error('Failed to archive campaign:', error)
-    toast.error('Failed to archive campaign')
-  }
-}
-
-async function restoreEmailCampaign(camp) {
-  try {
-    await store.updateEmailCampaign(camp.id, { ...camp, status: 'draft' })
-    toast.success('Campaign restored to drafts')
-    await loadAudienceData()
-  } catch (error) {
-    console.error('Failed to restore campaign:', error)
-    toast.error('Failed to restore campaign')
-  }
-}
-
-async function deleteEmailCampaignPermanently(camp) {
-  if (!window.confirm(`Permanently delete "${camp.name}"? This cannot be undone.`)) return
-  try {
-    await store.deleteEmailCampaign(camp.id)
-    toast.success('Campaign permanently deleted')
-    await loadAudienceData()
-  } catch (error) {
-    console.error('Failed to delete campaign:', error)
-    toast.error('Failed to delete campaign')
-  }
-}
-
-async function exportEmailCampaignsCSV() {
-  try {
-    await store.exportEmailCampaignsCSV()
-    toast.success('Campaigns exported')
-  } catch (error) {
-    console.error('Failed to export campaigns:', error)
-    toast.error('Failed to export campaigns')
-  }
-}
-
-async function saveAutomation() {
-  const form = automationForm.value
-  if (!form.name) {
-    toast.error('Name is required')
-    return
-  }
-
-  try {
-    await store.createAutomation({
-      name: form.name,
-      trigger_type: form.trigger_type || undefined,
-      trigger_config: form.trigger_config || undefined,
-      action_type: form.action_type || undefined,
-      action_config: form.action_config || undefined
-    })
-    toast.success('Automation created')
-    showAutomationForm.value = false
-    automationForm.value = { name: '', trigger_type: '', trigger_config: '', action_type: '', action_config: '' }
-    await loadAudienceData()
-  } catch (error) {
-    console.error('Failed to save automation:', error)
-    toast.error('Failed to save automation')
-  }
-}
-
-async function viewAutomationRuns(auto) {
-  selectedAutomationId.value = auto.id
-  try {
-    await store.fetchAutomationRuns(auto.id)
-  } catch (error) {
-    console.error('Failed to load automation runs:', error)
-    toast.error('Failed to load automation runs')
-  }
-}
 
 watch(templateVariables, (variables) => {
   const next = {}
