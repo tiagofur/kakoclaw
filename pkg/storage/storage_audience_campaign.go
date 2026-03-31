@@ -117,6 +117,12 @@ func (s *Storage) CreateCampaign(c *EmailCampaign) (*EmailCampaign, error) {
 }
 
 func (s *Storage) UpdateCampaign(c *EmailCampaign) error {
+	// Auto-version: snapshot current content before overwriting (only when content changes)
+	existing, _ := s.GetCampaignByID(c.ID)
+	if existing != nil && (existing.Subject != c.Subject || existing.BodyHTML != c.BodyHTML || existing.BodyText != c.BodyText) {
+		_, _ = s.SaveCampaignVersion(c.ID, existing.Subject, existing.BodyHTML, existing.BodyText, "auto-saved before update")
+	}
+
 	now := time.Now().Format(time.RFC3339)
 	_, err := s.db.Exec(
 		`UPDATE email_campaigns SET account = ?, name = ?, subject = ?, body_html = ?, body_text = ?, template_slug = ?, list_id = ?, segment_id = ?, status = ?, scheduled_at = ?, sent_count = ?, skipped_count = ?, updated_at = ? WHERE id = ?`,

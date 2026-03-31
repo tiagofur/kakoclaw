@@ -31,6 +31,8 @@ export const useMarketingStore = defineStore('marketing', () => {
   const experimentVariantsLoading = ref(false)
   const campaignMemory = ref([])
   const campaignMemoryLoading = ref(false)
+  const campaignVersions = ref([])
+  const campaignVersionsLoading = ref(false)
 
   const companyProfiles = ref([])
   const companyProfilesLoading = ref(false)
@@ -642,6 +644,31 @@ export const useMarketingStore = defineStore('marketing', () => {
     campaignMemory.value = campaignMemory.value.filter((e) => e.id !== entryId)
   }
 
+  async function fetchCampaignVersions(campaignId) {
+    campaignVersionsLoading.value = true
+    try {
+      const response = await marketingService.audienceListVersions(campaignId)
+      campaignVersions.value = response.data?.versions || []
+    } catch (error) {
+      console.error('Failed to load campaign versions:', error)
+      campaignVersions.value = []
+    } finally {
+      campaignVersionsLoading.value = false
+    }
+  }
+
+  async function saveCampaignVersion(campaignId, note = '') {
+    const response = await marketingService.audienceSaveVersion(campaignId, note ? { note } : {})
+    campaignVersions.value.unshift(response.data)
+    return response.data
+  }
+
+  async function restoreCampaignVersion(campaignId, versionId) {
+    const response = await marketingService.audienceRestoreVersion(campaignId, versionId)
+    await fetchEmailCampaigns()
+    return response.data
+  }
+
   function stopPolling() {
     if (pollInterval) {
       clearInterval(pollInterval)
@@ -736,6 +763,11 @@ export const useMarketingStore = defineStore('marketing', () => {
     fetchCampaignMemory,
     addCampaignMemoryEntry,
     deleteCampaignMemoryEntry,
+    campaignVersions,
+    campaignVersionsLoading,
+    fetchCampaignVersions,
+    saveCampaignVersion,
+    restoreCampaignVersion,
     companyProfiles,
     companyProfilesLoading,
     fetchCompanyProfiles,

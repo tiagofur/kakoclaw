@@ -64,6 +64,11 @@ func (s *Server) audienceEmailCampaignsRouter(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	if len(parts) >= 3 && parts[2] == "versions" {
+		s.audienceCampaignVersionsRouter(w, r, parts)
+		return
+	}
+
 	switch r.Method {
 	case http.MethodGet:
 		s.handleGetEmailCampaign(w, r)
@@ -1045,4 +1050,131 @@ func (s *Server) handleDeleteCampaignMemoryEntry(w http.ResponseWriter, r *http.
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// ── Campaign Versions ────────────────────────────────────────────────────────
+
+func (s *Server) audienceCampaignVersionsRouter(w http.ResponseWriter, r *http.Request, parts []string) {
+	// SplitN(..., 4) so parts = ["email-campaigns", campaignID, "versions", "rest/of/path"]
+	// len(parts)==3 → collection endpoint
+	// len(parts)==4 → parts[3] = "{versionID}" or "{versionID}/restore"
+	if len(parts) == 3 {
+		switch r.Method {
+		case http.MethodGet:
+			s.handleListCampaignVersions(w, r)
+		case http.MethodPost:
+			s.handleSaveCampaignVersion(w, r)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+		return
+	}
+
+	if len(parts) == 4 {
+		subParts := strings.SplitN(parts[3], "/", 2)
+		versionIDStr := subParts[0]
+		subResource := ""
+		if len(subParts) == 2 {
+			subResource = subParts[1]
+		}
+		if subResource == "restore" && r.Method == http.MethodPost {
+			s.handleRestoreCampaignVersion(w, r, versionIDStr)
+			return
+		}
+	}
+
+	http.Error(w, "not found", http.StatusNotFound)
+}
+
+func (s *Server) handleListCampaignVersions(w http.ResponseWriter, r *http.Request) {
+	store, _, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	campaignID, ok := audienceIDFromPath(r)
+	if !ok {
+		http.Error(w, "invalid campaign id", http.StatusBadRequest)
+		return
+	}
+	versions, err := store.ListCampaignVersions(campaignID)
+	if err != nil {
+		http.Error(w, "failed to list versions", http.StatusInternalServerError)
+		return
+	}
+	if versions == nil {
+		versions = []storage.CampaignVersion{}
+	}
+	writeJSONResponse(w, map[string]interface{}{"versions": versions})
+}
+
+func (s *Server) handleSaveCampaignVersion(w http.ResponseWriter, r *http.Request) {
+	store, _, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	campaignID, ok := audienceIDFromPath(r)
+	if !ok {
+		http.Error(w, "invalid campaign id", http.StatusBadRequest)
+		return
+	}
+	var body struct {
+		Note string `json:"note"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+
+	campaign, err := store.GetCampaignByID(campaignID)
+	if err != nil || campaign == nil {
+		http.Error(w, "campaign not found", http.StatusNotFound)
+		return
+	}
+	note := body.Note
+	if note == "" {
+		note = "manual snapshot"
+	}
+	version, err := store.SaveCampaignVersion(campaignID, campaign.Subject, campaign.BodyHTML, campaign.BodyText, note)
+	if err != nil {
+		http.Error(w, "failed to save version", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+	writeJSONResponse(w, version)
+}
+
+func (s *Server) handleRestoreCampaignVersion(w http.ResponseWriter, r *http.Request, versionIDStr string) {
+	store, _, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	campaignID, ok := audienceIDFromPath(r)
+	if !ok {
+		http.Error(w, "invalid campaign id", http.StatusBadRequest)
+		return
+	}
+	versionID, err := strconv.ParseInt(versionIDStr, 10, 64)
+	if err != nil {
+		http.Error(w, "invalid version id", http.StatusBadRequest)
+		return
+	}
+	version, err := store.GetCampaignVersion(versionID)
+	if err != nil || version == nil {
+		http.Error(w, "version not found", http.StatusNotFound)
+		return
+	}
+	campaign, err := store.GetCampaignByID(campaignID)
+	if err != nil || campaign == nil {
+		http.Error(w, "campaign not found", http.StatusNotFound)
+		return
+	}
+	campaign.Subject = version.Subject
+	campaign.BodyHTML = version.BodyHTML
+	campaign.BodyText = version.BodyText
+	if err := store.UpdateCampaign(campaign); err != nil {
+		http.Error(w, "failed to restore version", http.StatusInternalServerError)
+		return
+	}
+	updated, _ := store.GetCampaignByID(campaignID)
+	writeJSONResponse(w, updated)
 }

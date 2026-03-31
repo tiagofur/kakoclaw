@@ -96,6 +96,7 @@
                 <button v-if="camp.status === 'draft' && filter === 'all'" class="px-3 py-1 text-xs bg-white/5 text-white/60 rounded-lg hover:text-white" @click="editCampaign(camp)">Edit</button>
                 <button class="px-3 py-1 text-xs bg-violet-500/20 text-violet-400 rounded-lg hover:bg-violet-500/30" @click="toggleVariants(camp)">A/B</button>
                 <button class="px-3 py-1 text-xs bg-teal-500/20 text-teal-400 rounded-lg hover:bg-teal-500/30" @click="toggleMemory(camp)">Memory</button>
+                <button class="px-3 py-1 text-xs bg-indigo-500/20 text-indigo-400 rounded-lg hover:bg-indigo-500/30" @click="toggleHistory(camp)">History</button>
                 <button v-if="filter === 'all' && camp.status !== 'archived'" class="px-3 py-1 text-xs bg-amber-500/20 text-amber-400 rounded-lg hover:bg-amber-500/30" @click="archiveCampaign(camp)">Archive</button>
                 <button v-if="filter === 'archived'" class="px-3 py-1 text-xs bg-white/5 text-white/60 rounded-lg hover:text-white" @click="restoreCampaign(camp)">Restore</button>
                 <button v-if="filter === 'archived'" class="px-3 py-1 text-xs bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30" @click="deleteCampaignPermanently(camp)">Delete</button>
@@ -146,6 +147,46 @@
         <input v-model="newMemoryContent" type="text" placeholder="Add a note, decision, or agent context..." class="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 text-sm focus:border-teal-500/50 focus:outline-none" />
         <button type="submit" :disabled="!newMemoryContent.trim()" class="px-4 py-2 text-sm bg-teal-600 hover:bg-teal-500 disabled:opacity-40 text-white rounded-xl font-medium transition-colors">Add</button>
       </form>
+    </div>
+
+    <!-- Campaign History Panel -->
+    <div v-if="selectedHistoryCampaignId" class="bg-white/5 backdrop-blur-xl border border-indigo-500/20 rounded-2xl p-5 space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h4 class="text-sm font-bold text-white">Version History</h4>
+          <p class="text-xs text-white/40 mt-0.5">{{ store.emailCampaigns.find(c => c.id === selectedHistoryCampaignId)?.name }}</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button class="px-3 py-1.5 text-xs bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium transition-colors" :disabled="savingVersion" @click="snapshotVersion">
+            <svg v-if="savingVersion" class="animate-spin w-3 h-3 inline mr-1" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>
+            Save Snapshot
+          </button>
+          <button class="text-white/40 hover:text-white" @click="selectedHistoryCampaignId = null; store.campaignVersions = []">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+      </div>
+
+      <div v-if="store.campaignVersionsLoading" class="flex justify-center py-6">
+        <svg class="animate-spin w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>
+      </div>
+      <div v-else-if="store.campaignVersions.length === 0" class="text-center py-6 text-white/40 text-sm">No saved versions yet. Click "Save Snapshot" to capture the current state.</div>
+      <div v-else class="space-y-2">
+        <div v-for="ver in store.campaignVersions" :key="ver.id" class="flex items-start gap-3 p-3 bg-white/5 border border-white/10 rounded-xl group hover:border-indigo-500/30 transition-colors">
+          <div class="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-500/20 flex items-center justify-center">
+            <span class="text-xs font-bold text-indigo-400">v{{ ver.version_number }}</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-white/80 truncate">{{ ver.subject || '(no subject)' }}</p>
+            <p v-if="ver.note" class="text-xs text-white/40 mt-0.5 truncate">{{ ver.note }}</p>
+            <p class="text-xs text-white/25 mt-0.5">{{ new Date(ver.created_at).toLocaleString() }}</p>
+          </div>
+          <button
+            class="flex-shrink-0 px-3 py-1 text-xs bg-indigo-500/20 text-indigo-400 rounded-lg hover:bg-indigo-500/40 opacity-0 group-hover:opacity-100 transition-opacity"
+            @click="doRestoreVersion(ver)"
+          >Restore</button>
+        </div>
+      </div>
     </div>
 
     <!-- A/B Variants Panel -->
@@ -248,6 +289,8 @@ const campaignForm = ref({ active: false, id: null, name: '', subject: '', body_
 const selectedVariantCampaignId = ref(null)
 const variantMetrics = ref({})
 const selectedMemoryCampaignId = ref(null)
+const selectedHistoryCampaignId = ref(null)
+const savingVersion = ref(false)
 const newMemoryContent = ref('')
 const newMemoryRole = ref('note')
 
@@ -402,6 +445,44 @@ async function removeMemoryEntry(entryId) {
     await store.deleteCampaignMemoryEntry(selectedMemoryCampaignId.value, entryId)
   } catch {
     toast.error('Failed to delete memory entry')
+  }
+}
+
+async function toggleHistory(camp) {
+  if (selectedHistoryCampaignId.value === camp.id) {
+    selectedHistoryCampaignId.value = null
+    store.campaignVersions = []
+    return
+  }
+  selectedHistoryCampaignId.value = camp.id
+  try {
+    await store.fetchCampaignVersions(camp.id)
+  } catch {
+    toast.error('Failed to load version history')
+  }
+}
+
+async function snapshotVersion() {
+  if (!selectedHistoryCampaignId.value) return
+  savingVersion.value = true
+  try {
+    await store.saveCampaignVersion(selectedHistoryCampaignId.value)
+    toast.success('Snapshot saved')
+  } catch {
+    toast.error('Failed to save snapshot')
+  } finally {
+    savingVersion.value = false
+  }
+}
+
+async function doRestoreVersion(ver) {
+  if (!window.confirm(`Restore version ${ver.version_number}? This will overwrite the current content.`)) return
+  try {
+    await store.restoreCampaignVersion(selectedHistoryCampaignId.value, ver.id)
+    toast.success(`Restored to version ${ver.version_number}`)
+    emit('reload')
+  } catch {
+    toast.error('Failed to restore version')
   }
 }
 </script>

@@ -387,6 +387,10 @@ func (s *Storage) migrateMarketingAudience() error {
 		return err
 	}
 
+	if err := s.migrateCampaignVersions(); err != nil {
+		return err
+	}
+
 	return nil
 }
 

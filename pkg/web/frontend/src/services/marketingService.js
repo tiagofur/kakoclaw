@@ -187,6 +187,16 @@ export default {
     return client.delete(`/marketing/audience/email-campaigns/${encodeSegment(campaignId)}/memory/${encodeSegment(entryId)}`)
   },
 
+  audienceListVersions(campaignId) {
+    return client.get(`/marketing/audience/email-campaigns/${encodeSegment(campaignId)}/versions`)
+  },
+  audienceSaveVersion(campaignId, data = {}) {
+    return client.post(`/marketing/audience/email-campaigns/${encodeSegment(campaignId)}/versions`, data)
+  },
+  audienceRestoreVersion(campaignId, versionId) {
+    return client.post(`/marketing/audience/email-campaigns/${encodeSegment(campaignId)}/versions/${encodeSegment(versionId)}/restore`)
+  },
+
   audienceListAutomations(params) {
     return client.get('/marketing/audience/automations', { params })
   },
