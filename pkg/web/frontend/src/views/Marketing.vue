@@ -465,73 +465,6 @@
                           <label class="block text-[10px] font-semibold text-makoclaw-text-secondary mb-1">{{ variable }}</label>
                           <input v-model="templatePreviewValues[variable]" type="text" :placeholder="`Value for ${variable}`" class="w-full px-3 py-2 bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500/30 focus:border-pink-500/50 text-makoclaw-text">
               </div>
-
-              <!-- Campaigns Sub-tab -->
-              <div v-if="audienceSubTab === 'campaigns'" class="space-y-4">
-                <div class="flex items-center justify-between">
-                  <h3 class="text-lg font-semibold text-white">Email Campaigns</h3>
-                  <button class="px-4 py-2 text-sm bg-gradient-to-r from-pink-500 to-violet-500 hover:from-pink-600 hover:to-violet-600 text-white rounded-xl font-medium" @click="emailCampaignForm = { active: true, id: null, name: '', subject: '', body_html: '', template_slug: '', list_id: '' }">+ New Campaign</button>
-                </div>
-
-                <!-- Create/Edit Form -->
-                <div v-if="emailCampaignForm.active" class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 space-y-3">
-                  <div class="grid grid-cols-2 gap-3">
-                    <input v-model="emailCampaignForm.name" placeholder="Campaign Name *" class="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 text-sm focus:border-pink-500/50 focus:outline-none">
-                    <input v-model="emailCampaignForm.subject" placeholder="Subject *" class="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 text-sm focus:border-pink-500/50 focus:outline-none">
-                  </div>
-                  <textarea v-model="emailCampaignForm.body_html" placeholder="HTML Body..." rows="6" class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 text-sm focus:border-pink-500/50 focus:outline-none resize-none" />
-                  <input v-model="emailCampaignForm.template_slug" placeholder="Template Slug (optional)" class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 text-sm focus:border-pink-500/50 focus:outline-none">
-                  <select v-model="emailCampaignForm.list_id" class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:border-pink-500/50 focus:outline-none">
-                    <option value="">Select a list...</option>
-                    <option v-for="list in store.audienceLists" :key="list.id" :value="list.id">{{ list.name }}</option>
-                  </select>
-                  <div class="flex gap-2 justify-end">
-                    <button class="px-4 py-2 text-sm text-white/60 hover:text-white" @click="emailCampaignForm.active = false">Cancel</button>
-                    <button class="px-4 py-2 text-sm bg-gradient-to-r from-pink-500 to-violet-500 text-white rounded-xl font-medium" @click="saveEmailCampaign">Save</button>
-                  </div>
-                </div>
-
-                <!-- Campaign List Table -->
-                <div v-if="store.emailCampaignsLoading" class="flex items-center justify-center py-8">
-                  <svg class="animate-spin w-6 h-6 text-pink-400" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                </div>
-                <div v-else-if="store.emailCampaigns.length === 0" class="text-center py-8 text-white/40 text-sm">No email campaigns yet. Create your first campaign.</div>
-                <div v-else class="overflow-x-auto bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl">
-                  <table class="w-full text-left">
-                    <thead>
-                      <tr class="border-b border-white/10">
-                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Name</th>
-                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Subject</th>
-                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Status</th>
-                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Sent</th>
-                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Date</th>
-                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="camp in store.emailCampaigns" :key="camp.id" class="border-b border-white/5 hover:bg-white/5 transition-colors">
-                        <td class="px-4 py-3 text-sm text-white">{{ camp.name }}</td>
-                        <td class="px-4 py-3 text-sm text-white/70">{{ camp.subject }}</td>
-                        <td class="px-4 py-3">
-                          <span class="px-2 py-1 rounded-full text-xs font-medium" :class="{ 'bg-gray-500/20 text-gray-400': camp.status === 'draft', 'bg-blue-500/20 text-blue-400': camp.status === 'sending', 'bg-green-500/20 text-green-400': camp.status === 'sent', 'bg-red-500/20 text-red-400': camp.status === 'failed' }">{{ camp.status }}</span>
-                        </td>
-                        <td class="px-4 py-3 text-sm text-white/50">{{ camp.sent_count || 0 }}</td>
-                        <td class="px-4 py-3 text-sm text-white/40">{{ camp.created_at ? new Date(camp.created_at).toLocaleDateString() : '—' }}</td>
-                        <td class="px-4 py-3">
-                          <div class="flex gap-2">
-                            <button v-if="camp.status === 'draft'" class="px-3 py-1 text-xs bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30" @click="handleSendEmailCampaign(camp)">Send</button>
-                            <button v-if="camp.status === 'draft'" class="px-3 py-1 text-xs bg-white/5 text-white/60 rounded-lg hover:text-white" @click="editEmailCampaign(camp)">Edit</button>
-                            <button class="px-3 py-1 text-xs bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30" @click="store.deleteEmailCampaign(camp.id).then(() => loadAudienceData())">Delete</button>
-                          </div>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
             </div>
                       <p v-else class="text-xs text-makoclaw-text-secondary/70">Add <code>{{ formatTemplateToken('variable') }}</code> tokens to generate a live preview.</p>
                     </div>
@@ -1039,6 +972,106 @@
                 </div>
               </div>
 
+              <!-- Campaigns Sub-tab -->
+              <div v-if="audienceSubTab === 'campaigns'" class="space-y-4">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                  <div class="flex items-center gap-3">
+                    <h3 class="text-lg font-semibold text-white">Email Campaigns</h3>
+                    <div class="flex gap-1 bg-white/5 rounded-lg p-0.5">
+                      <button
+                        class="px-3 py-1.5 text-xs font-medium rounded-md transition-all"
+                        :class="emailCampaignFilter === 'all' ? 'bg-pink-500/20 text-pink-400' : 'text-white/60 hover:text-white/80'"
+                        @click="emailCampaignFilter = 'all'; loadAudienceData()"
+                      >All</button>
+                      <button
+                        class="px-3 py-1.5 text-xs font-medium rounded-md transition-all"
+                        :class="emailCampaignFilter === 'archived' ? 'bg-pink-500/20 text-pink-400' : 'text-white/60 hover:text-white/80'"
+                        @click="emailCampaignFilter = 'archived'; loadAudienceData()"
+                      >Archived</button>
+                    </div>
+                  </div>
+                  <div class="flex gap-2">
+                    <button v-if="emailCampaignFilter === 'all'" class="px-4 py-2 text-sm bg-white/5 border border-white/10 rounded-xl text-white/70 hover:text-white transition-colors" @click="exportEmailCampaignsCSV">
+                      <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 4v12m0 0l-4-4m4 4l4-4" /></svg>
+                      Export CSV
+                    </button>
+                    <button v-if="emailCampaignFilter === 'archived'" class="px-4 py-2 text-sm bg-white/5 border border-white/10 rounded-xl text-white/70 hover:text-white transition-colors">
+                      <label class="cursor-pointer">
+                        Import CSV
+                        <input type="file" accept=".csv" class="hidden" @change="async (e) => { const f = e.target.files?.[0]; if (f) { const fd = new FormData(); fd.append('file', f); await store.importAudienceContacts(fd); e.target.value = ''; } }">
+                      </label>
+                    </button>
+                    <button v-if="emailCampaignFilter === 'all'" class="px-4 py-2 text-sm bg-gradient-to-r from-pink-500 to-violet-500 hover:from-pink-600 hover:to-violet-600 text-white rounded-xl font-medium" @click="emailCampaignForm = { active: true, id: null, name: '', subject: '', body_html: '', template_slug: '', list_id: '' }">+ New Campaign</button>
+                  </div>
+                </div>
+
+                <div v-if="emailCampaignForm.active" class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 space-y-3">
+                  <div class="grid grid-cols-2 gap-3">
+                    <input v-model="emailCampaignForm.name" placeholder="Campaign Name *" class="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 text-sm focus:border-pink-500/50 focus:outline-none">
+                    <input v-model="emailCampaignForm.subject" placeholder="Subject *" class="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 text-sm focus:border-pink-500/50 focus:outline-none">
+                  </div>
+                  <textarea v-model="emailCampaignForm.body_html" placeholder="HTML Body..." rows="6" class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 text-sm focus:border-pink-500/50 focus:outline-none resize-none" />
+                  <input v-model="emailCampaignForm.template_slug" placeholder="Template Slug (optional)" class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 text-sm focus:border-pink-500/50 focus:outline-none">
+                  <select v-model="emailCampaignForm.list_id" class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:border-pink-500/50 focus:outline-none">
+                    <option value="">Select a list...</option>
+                    <option v-for="list in store.audienceLists" :key="list.id" :value="list.id">{{ list.name }}</option>
+                  </select>
+                  <div class="flex gap-2 justify-end">
+                    <button class="px-4 py-2 text-sm text-white/60 hover:text-white" @click="emailCampaignForm.active = false">Cancel</button>
+                    <button class="px-4 py-2 text-sm bg-gradient-to-r from-pink-500 to-violet-500 text-white rounded-xl font-medium" @click="saveEmailCampaign">Save</button>
+                  </div>
+                </div>
+
+                <div v-if="store.emailCampaignsLoading" class="flex items-center justify-center py-8">
+                  <svg class="animate-spin w-6 h-6 text-pink-400" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                </div>
+                <div v-else-if="filteredEmailCampaigns.length === 0 && emailCampaignFilter === 'archived'" class="flex flex-col items-center justify-center py-16 text-center">
+                  <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-pink-500/10 to-violet-500/10 flex items-center justify-center ring-1 ring-white/5 mb-4">
+                    <svg class="w-7 h-7 text-pink-400/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                  </div>
+                  <p class="text-sm text-white/40">No archived campaigns</p>
+                  <p class="text-xs text-white/25 mt-1">Archived campaigns will appear here. Use the archive button to remove campaigns from the active list.</p>
+                </div>
+                <div v-else-if="filteredEmailCampaigns.length === 0" class="text-center py-8 text-white/40 text-sm">No email campaigns yet. Create your first campaign.</div>
+                <div v-else class="overflow-x-auto bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl">
+                  <table class="w-full text-left">
+                    <thead>
+                      <tr class="border-b border-white/10">
+                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Name</th>
+                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Subject</th>
+                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Status</th>
+                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Sent</th>
+                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Date</th>
+                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="camp in filteredEmailCampaigns" :key="camp.id" class="border-b border-white/5 hover:bg-white/5 transition-colors">
+                        <td class="px-4 py-3 text-sm text-white">{{ camp.name }}</td>
+                        <td class="px-4 py-3 text-sm text-white/70">{{ camp.subject }}</td>
+                        <td class="px-4 py-3">
+                          <span class="px-2 py-1 rounded-full text-xs font-medium" :class="{ 'bg-gray-500/20 text-gray-400': camp.status === 'draft', 'bg-blue-500/20 text-blue-400': camp.status === 'sending', 'bg-green-500/20 text-green-400': camp.status === 'sent', 'bg-red-500/20 text-red-400': camp.status === 'failed', 'bg-slate-500/20 text-slate-400': camp.status === 'archived' }">{{ camp.status }}</span>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-white/50">{{ camp.sent_count || 0 }}</td>
+                        <td class="px-4 py-3 text-sm text-white/40">{{ camp.created_at ? new Date(camp.created_at).toLocaleDateString() : '—' }}</td>
+                        <td class="px-4 py-3">
+                          <div class="flex gap-2">
+                            <button v-if="camp.status === 'draft' && emailCampaignFilter === 'all'" class="px-3 py-1 text-xs bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30" @click="handleSendEmailCampaign(camp)">Send</button>
+                            <button v-if="camp.status === 'draft' && emailCampaignFilter === 'all'" class="px-3 py-1 text-xs bg-white/5 text-white/60 rounded-lg hover:text-white" @click="editEmailCampaign(camp)">Edit</button>
+                            <button v-if="emailCampaignFilter === 'all' && camp.status !== 'archived'" class="px-3 py-1 text-xs bg-amber-500/20 text-amber-400 rounded-lg hover:bg-amber-500/30" @click="archiveEmailCampaign(camp)">Archive</button>
+                            <button v-if="emailCampaignFilter === 'archived'" class="px-3 py-1 text-xs bg-white/5 text-white/60 rounded-lg hover:text-white" @click="restoreEmailCampaign(camp)">Restore</button>
+                            <button v-if="emailCampaignFilter === 'archived'" class="px-3 py-1 text-xs bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30" @click="deleteEmailCampaignPermanently(camp)">Delete</button>
+                          </div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
               <!-- Automations Sub-tab -->
               <div v-if="audienceSubTab === 'automations'" class="space-y-4">
                 <div class="flex items-center justify-between">
@@ -1366,6 +1399,7 @@ const audienceSendForm = ref({ list_id: '', subject: '', body: '' })
 const audienceSearchTimeout = ref(null)
 const emailCampaignForm = ref({ active: false, id: null, name: '', subject: '', body_html: '', template_slug: '', list_id: '' })
 const emailCampaignSending = ref(false)
+const emailCampaignFilter = ref('all')
 const showAutomationForm = ref(false)
 const automationForm = ref({ name: '', trigger_type: '', trigger_config: '', action_type: '', action_config: '' })
 const selectedAutomationId = ref(null)
@@ -2026,6 +2060,13 @@ async function loadEngagementBreakdown() {
   engagementBreakdown.value = totals
 }
 
+const filteredEmailCampaigns = computed(() => {
+  if (emailCampaignFilter.value === 'archived') {
+    return store.emailCampaigns.filter((c) => c.status === 'archived')
+  }
+  return store.emailCampaigns.filter((c) => c.status !== 'archived')
+})
+
 function audienceSearchDebounced() {
   clearTimeout(audienceSearchTimeout.value)
   audienceSearchTimeout.value = setTimeout(() => {
@@ -2104,6 +2145,51 @@ async function handleSendEmailCampaign(camp) {
     toast.error('Failed to send email campaign')
   } finally {
     emailCampaignSending.value = false
+  }
+}
+
+async function archiveEmailCampaign(camp) {
+  if (!window.confirm(`Archive "${camp.name}"?`)) return
+  try {
+    await store.updateEmailCampaign(camp.id, { ...camp, status: 'archived' })
+    toast.success('Campaign archived')
+    await loadAudienceData()
+  } catch (error) {
+    console.error('Failed to archive campaign:', error)
+    toast.error('Failed to archive campaign')
+  }
+}
+
+async function restoreEmailCampaign(camp) {
+  try {
+    await store.updateEmailCampaign(camp.id, { ...camp, status: 'draft' })
+    toast.success('Campaign restored to drafts')
+    await loadAudienceData()
+  } catch (error) {
+    console.error('Failed to restore campaign:', error)
+    toast.error('Failed to restore campaign')
+  }
+}
+
+async function deleteEmailCampaignPermanently(camp) {
+  if (!window.confirm(`Permanently delete "${camp.name}"? This cannot be undone.`)) return
+  try {
+    await store.deleteEmailCampaign(camp.id)
+    toast.success('Campaign permanently deleted')
+    await loadAudienceData()
+  } catch (error) {
+    console.error('Failed to delete campaign:', error)
+    toast.error('Failed to delete campaign')
+  }
+}
+
+async function exportEmailCampaignsCSV() {
+  try {
+    await store.exportEmailCampaignsCSV()
+    toast.success('Campaigns exported')
+  } catch (error) {
+    console.error('Failed to export campaigns:', error)
+    toast.error('Failed to export campaigns')
   }
 }
 

@@ -106,8 +106,7 @@ func (t *BrowserTool) checkPlaywrightMCP() string {
 	// Check for any MCP playwright tools
 	tools := t.registry.List()
 	playwrightTools := []string{}
-	for _, tool := range tools {
-		name := tool.Name()
+	for _, name := range tools {
 		if strings.Contains(name, "playwright") || strings.Contains(name, "browser") {
 			playwrightTools = append(playwrightTools, name)
 		}
@@ -248,11 +247,13 @@ func (t *BrowserTool) findMCPTool(names ...string) Tool {
 		return nil
 	}
 	tools := t.registry.List()
-	for _, tool := range tools {
-		toolName := strings.ToLower(tool.Name())
+	for _, toolName := range tools {
+		toolNameLower := strings.ToLower(toolName)
 		for _, name := range names {
-			if strings.Contains(toolName, name) {
-				return tool
+			if strings.Contains(toolNameLower, name) {
+				if tool, ok := t.registry.Get(toolName); ok {
+					return tool
+				}
 			}
 		}
 	}

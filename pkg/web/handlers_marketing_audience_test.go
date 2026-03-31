@@ -256,7 +256,7 @@ func TestHandleAudienceLists_CRUD(t *testing.T) {
 	}
 
 	// List all lists
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/marketing/audience/lists", nil)
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/marketing/audience/lists?account=acme", nil)
 	req = withTestUserContext(t, s, req)
 	rr = httptest.NewRecorder()
 	s.handleMarketingAudienceRouter(rr, req)
@@ -372,6 +372,7 @@ func TestHandleAudienceSegments_CRUD(t *testing.T) {
 	s, _, _ := setupMarketingServer(t)
 
 	// Create segment
+	rules := `[{"field":"status","operator":"equals","value":"active"}]`
 	segBody, _ := json.Marshal(map[string]interface{}{
 		"name":        "Active Users",
 		"description": "All active contacts",
@@ -395,8 +396,8 @@ func TestHandleAudienceSegments_CRUD(t *testing.T) {
 		t.Fatalf("name = %q, want 'Active Users'", createdSeg.Name)
 	}
 
-	// List segments
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/marketing/audience/segments", nil)
+	// List all segments
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/marketing/audience/segments?account=acme", nil)
 	req = withTestUserContext(t, s, req)
 	rr = httptest.NewRecorder()
 	s.handleMarketingAudienceRouter(rr, req)

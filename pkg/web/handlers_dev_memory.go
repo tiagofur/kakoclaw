@@ -44,7 +44,7 @@ func (s *Server) getDevMemory(userUUID string) (*devmemory.Store, error) {
 	_ = os.MkdirAll(userWorkspace, 0755)
 
 	dbPath := filepath.Join(userWorkspace, "dev_memory.db")
-	modelDir := filepath.Join(userWorkspace, "models", "huggingface", s.fullConfig.DevStudio.Memory.ModelDir)
+	modelDir := filepath.Join(userWorkspace, "models", "huggingface", s.fullConfig.DevStudio.Memory.Model)
 
 	var embedder devmemory.Embedder
 	// Check if Hugot is available/enabled

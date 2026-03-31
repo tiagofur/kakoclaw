@@ -599,8 +599,8 @@ func (s *Server) handleRemoveListMember(w http.ResponseWriter, r *http.Request) 
 	}
 
 	suffix := strings.TrimPrefix(r.URL.Path, audiencePrefix+"lists/")
-	pathParts := strings.SplitN(suffix, "/", 4)
-	if len(pathParts) < 4 {
+	pathParts := strings.SplitN(suffix, "/", 3)
+	if len(pathParts) < 3 {
 		http.Error(w, "invalid path", http.StatusBadRequest)
 		return
 	}
@@ -610,7 +610,7 @@ func (s *Server) handleRemoveListMember(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "invalid list id", http.StatusBadRequest)
 		return
 	}
-	contactID, err := strconv.ParseInt(pathParts[3], 10, 64)
+	contactID, err := strconv.ParseInt(pathParts[2], 10, 64)
 	if err != nil {
 		http.Error(w, "invalid contact id", http.StatusBadRequest)
 		return
