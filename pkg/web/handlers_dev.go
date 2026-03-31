@@ -7,9 +7,57 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/sipeed/makoclaw/pkg/bridge"
 )
+
+type bridgeState struct {
+	Status     string `json:"status"`
+	ProjectDir string `json:"project_dir"`
+	Backend    string `json:"backend"`
+	UpdatedAt  string `json:"updated_at"`
+}
+
+func (s *Server) bridgeStateFile(userUUID string) string {
+	storePath := ""
+	if s.fullConfig != nil {
+		storePath = s.fullConfig.Storage.Path
+	}
+	if storePath == "" {
+		storePath = defaultWorkspace()
+	}
+	return filepath.Join(storePath, "bridge", userUUID+"-state.json")
+}
+
+func (s *Server) writeBridgeState(userUUID, status, projectDir string) {
+	st := bridgeState{
+		Status:     status,
+		ProjectDir: projectDir,
+		Backend:    "claude-code",
+		UpdatedAt:  time.Now().Format(time.RFC3339),
+	}
+	if s.fullConfig != nil && s.fullConfig.DevStudio.DefaultBackend != "" {
+		st.Backend = s.fullConfig.DevStudio.DefaultBackend
+	}
+	path := s.bridgeStateFile(userUUID)
+	_ = os.MkdirAll(filepath.Dir(path), 0755)
+	if b, err := json.MarshalIndent(st, "", "  "); err == nil {
+		_ = os.WriteFile(path, b, 0644)
+	}
+}
+
+func (s *Server) readBridgeState(userUUID string) *bridgeState {
+	data, err := os.ReadFile(s.bridgeStateFile(userUUID))
+	if err != nil {
+		return nil
+	}
+	var st bridgeState
+	if err := json.Unmarshal(data, &st); err != nil {
+		return nil
+	}
+	return &st
+}
 
 // getDevBridge retrieves or creates a bridge instance for the given user.
 func (s *Server) getDevBridge(userUUID string) (*bridge.Bridge, error) {
@@ -165,7 +213,8 @@ func (s *Server) handleDevBridgeStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSONResponse(w, map[string]interface{}{"status": "started"})
+	s.writeBridgeState(claims.UUID, "running", req.ProjectDir)
+	writeJSONResponse(w, map[string]interface{}{"status": "started", "project_dir": req.ProjectDir})
 }
 
 func (s *Server) handleDevBridgeStop(w http.ResponseWriter, r *http.Request) {
@@ -191,6 +240,7 @@ func (s *Server) handleDevBridgeStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.writeBridgeState(claims.UUID, "stopped", "")
 	writeJSONResponse(w, map[string]interface{}{"status": "stopped"})
 }
 
@@ -212,8 +262,17 @@ func (s *Server) handleDevBridgeStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	state := b.State()
+	projectDir := b.Cwd()
+	// If bridge is not running, try to restore last known project from state.json
+	if state != "running" {
+		if saved := s.readBridgeState(claims.UUID); saved != nil && saved.ProjectDir != "" {
+			projectDir = saved.ProjectDir
+		}
+	}
 	writeJSONResponse(w, map[string]interface{}{
-		"status": b.State(),
+		"status":      state,
+		"project_dir": projectDir,
 	})
 }
 

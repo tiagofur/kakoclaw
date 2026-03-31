@@ -56,6 +56,10 @@ export const useDevStudioStore = defineStore('devStudio', () => {
     try {
       const { data } = await axios.get('/api/v1/dev/bridge/status')
       bridgeStatus.value = data.status
+      // Restore last active project from state.json (returned by backend)
+      if (data.project_dir && !currentProject.value) {
+        currentProject.value = data.project_dir
+      }
       if (data.status === 'running' && !ws && !usingHttpFallback.value) {
         connectTerminal()
       }

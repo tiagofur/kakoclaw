@@ -7,14 +7,14 @@ import (
 	"time"
 )
 
-const campaignSelectCols = `id, COALESCE(account, ''), name, COALESCE(subject, ''), COALESCE(body_html, ''), COALESCE(body_text, ''), COALESCE(template_slug, ''), list_id, segment_id, COALESCE(status, 'draft'), scheduled_at, sent_count, skipped_count, created_at, updated_at`
+const campaignSelectCols = `id, COALESCE(account, ''), name, COALESCE(subject, ''), COALESCE(body_html, ''), COALESCE(body_text, ''), COALESCE(template_slug, ''), list_id, segment_id, COALESCE(status, 'draft'), scheduled_at, sent_count, skipped_count, COALESCE(delivery_progress, ''), created_at, updated_at`
 
 func scanCampaign(sc rowScanner, c *EmailCampaign) error {
 	var scheduledAt sql.NullString
 	err := sc.Scan(
 		&c.ID, &c.Account, &c.Name, &c.Subject, &c.BodyHTML, &c.BodyText,
 		&c.TemplateSlug, &c.ListID, &c.SegmentID, &c.Status,
-		&scheduledAt, &c.SentCount, &c.SkippedCount,
+		&scheduledAt, &c.SentCount, &c.SkippedCount, &c.DeliveryProgress,
 		&c.CreatedAt, &c.UpdatedAt,
 	)
 	if err != nil {
@@ -22,6 +22,13 @@ func scanCampaign(sc rowScanner, c *EmailCampaign) error {
 	}
 	c.ScheduledAt = parseNullTime(scheduledAt)
 	return nil
+}
+
+// UpdateCampaignDeliveryProgress writes live delivery progress JSON to the campaign row.
+func (s *Storage) UpdateCampaignDeliveryProgress(id int64, progressJSON string) error {
+	_, err := s.db.Exec(`UPDATE email_campaigns SET delivery_progress = ?, updated_at = ? WHERE id = ?`,
+		progressJSON, time.Now().Format(time.RFC3339), id)
+	return err
 }
 
 func (s *Storage) ListCampaigns(account, status string, page, limit int) ([]EmailCampaign, int, error) {

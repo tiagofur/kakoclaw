@@ -6,8 +6,10 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/sipeed/makoclaw/pkg/config"
+	"github.com/sipeed/makoclaw/pkg/logger"
 	"github.com/sipeed/makoclaw/pkg/marketing"
 	"github.com/sipeed/makoclaw/pkg/storage"
 )
@@ -37,6 +39,15 @@ func (s *Server) audienceEmailCampaignsRouter(w http.ResponseWriter, r *http.Req
 	if len(parts) >= 3 && parts[2] == "send" {
 		if r.Method == http.MethodPost {
 			s.handleSendEmailCampaign(w, r)
+			return
+		}
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if len(parts) >= 3 && parts[2] == "progress" {
+		if r.Method == http.MethodGet {
+			s.handleGetCampaignProgress(w, r)
 			return
 		}
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -205,6 +216,14 @@ func (s *Server) handleDeleteEmailCampaign(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusNoContent)
 }
 
+type deliveryProgress struct {
+	Total     int    `json:"total"`
+	Sent      int    `json:"sent"`
+	Skipped   int    `json:"skipped"`
+	Pct       int    `json:"pct"`
+	StartedAt string `json:"started_at"`
+}
+
 func (s *Server) handleSendEmailCampaign(w http.ResponseWriter, r *http.Request) {
 	store, userUUID, ok := s.getUserStorage(r)
 	if !ok {
@@ -227,6 +246,10 @@ func (s *Server) handleSendEmailCampaign(w http.ResponseWriter, r *http.Request)
 		http.Error(w, "campaign not found", http.StatusNotFound)
 		return
 	}
+	if campaign.Status == "delivering" || campaign.Status == "sending" {
+		http.Error(w, "campaign is already being delivered", http.StatusConflict)
+		return
+	}
 
 	emailCfg := s.resolveEmailConfig(userUUID)
 	if !emailCfg.Enabled || emailCfg.Host == "" {
@@ -234,99 +257,151 @@ func (s *Server) handleSendEmailCampaign(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	baseURL := fmt.Sprintf("http://%s", s.cfg.Host+":"+strconv.Itoa(s.cfg.Port))
-	sender := marketing.NewSender(emailCfg, baseURL)
-
-	campaign.Status = "sending"
-	store.UpdateCampaign(campaign)
-
-	variants, _ := store.ListVariants(campaign.ID)
-
 	contacts, err := store.GetListMembers(campaign.ListID)
 	if err != nil {
 		http.Error(w, "failed to load list members", http.StatusInternalServerError)
 		return
 	}
 
-	sent := 0
-	skipped := 0
+	// Mark as delivering immediately and return 202
+	progress := deliveryProgress{
+		Total:     len(contacts),
+		StartedAt: time.Now().Format(time.RFC3339),
+	}
+	progressJSON, _ := json.Marshal(progress)
+	campaign.Status = "delivering"
+	campaign.DeliveryProgress = string(progressJSON)
+	store.UpdateCampaign(campaign)
+	_ = store.UpdateCampaignDeliveryProgress(campaign.ID, string(progressJSON))
 
-	for _, contact := range contacts {
-		if contact.Status != "active" {
-			skipped++
-			continue
-		}
+	w.WriteHeader(http.StatusAccepted)
+	writeJSONResponse(w, map[string]interface{}{
+		"status": "delivering",
+		"total":  len(contacts),
+	})
 
-		subject := campaign.Subject
-		html := campaign.BodyHTML
-		text := campaign.BodyText
-		var variantID int64
+	// Async delivery
+	go func() {
+		baseURL := fmt.Sprintf("http://%s", s.cfg.Host+":"+strconv.Itoa(s.cfg.Port))
+		sender := marketing.NewSender(emailCfg, baseURL)
+		variants, _ := store.ListVariants(campaign.ID)
 
-		if len(variants) > 0 {
-			bucket := contact.ID % 100
-			cumulative := 0
-			for _, v := range variants {
-				cumulative += v.SplitPercent
-				if int(bucket) < cumulative {
-					variantID = v.ID
-					if v.Subject != "" {
-						subject = v.Subject
+		sent := 0
+		skipped := 0
+		total := len(contacts)
+
+		for i, contact := range contacts {
+			if contact.Status != "active" {
+				skipped++
+			} else {
+				subject := campaign.Subject
+				html := campaign.BodyHTML
+				text := campaign.BodyText
+				var variantID int64
+
+				if len(variants) > 0 {
+					bucket := contact.ID % 100
+					cumulative := 0
+					for _, v := range variants {
+						cumulative += v.SplitPercent
+						if int(bucket) < cumulative {
+							variantID = v.ID
+							if v.Subject != "" {
+								subject = v.Subject
+							}
+							if v.BodyHTML != "" {
+								html = v.BodyHTML
+							}
+							if v.BodyText != "" {
+								text = v.BodyText
+							}
+							break
+						}
 					}
-					if v.BodyHTML != "" {
-						html = v.BodyHTML
-					}
-					if v.BodyText != "" {
-						text = v.BodyText
-					}
-					break
+				}
+
+				contactFields := buildContactFields(&contact)
+				html = marketing.Render(html, contactFields)
+				text = marketing.Render(text, contactFields)
+
+				token := sender.GenerateUnsubscribeToken(contact.ID, campaign.ID, unsubscribeSecret)
+				unsubURL := baseURL + "/api/v1/marketing/unsubscribe/" + token
+				html, text = marketing.AppendUnsubscribeFooter(html, text, unsubURL)
+
+				headers := map[string]string{"List-Unsubscribe": "<" + unsubURL + ">"}
+				sendErr := sender.Send(contact.Email, subject, html, text, headers)
+
+				deliveryStatus := "sent"
+				deliveryError := ""
+				if sendErr != nil {
+					deliveryStatus = "failed"
+					deliveryError = sendErr.Error()
+					skipped++
+				} else {
+					sent++
+				}
+
+				store.CreateDelivery(&storage.EmailDelivery{
+					CampaignAccount: campaign.Account,
+					CampaignName:    campaign.Name,
+					ContactID:       &contact.ID,
+					VariantID:       variantID,
+					Subject:         subject,
+					Status:          deliveryStatus,
+					Error:           deliveryError,
+				})
+			}
+
+			// Update progress every 10 contacts or on last
+			if i%10 == 0 || i == total-1 {
+				pct := 0
+				if total > 0 {
+					pct = ((sent + skipped) * 100) / total
+				}
+				p := deliveryProgress{Total: total, Sent: sent, Skipped: skipped, Pct: pct, StartedAt: progress.StartedAt}
+				if b, err := json.Marshal(p); err == nil {
+					_ = store.UpdateCampaignDeliveryProgress(campaign.ID, string(b))
 				}
 			}
 		}
 
-		contactFields := buildContactFields(&contact)
-		html = marketing.Render(html, contactFields)
-		text = marketing.Render(text, contactFields)
-
-		token := sender.GenerateUnsubscribeToken(contact.ID, campaign.ID, unsubscribeSecret)
-		unsubURL := baseURL + "/api/v1/marketing/unsubscribe/" + token
-		html, text = marketing.AppendUnsubscribeFooter(html, text, unsubURL)
-
-		headers := map[string]string{
-			"List-Unsubscribe": "<" + unsubURL + ">",
+		c, _ := store.GetCampaignByID(campaign.ID)
+		if c != nil {
+			c.SentCount = sent
+			c.SkippedCount = skipped
+			c.Status = "sent"
+			finalProgress := deliveryProgress{Total: total, Sent: sent, Skipped: skipped, Pct: 100, StartedAt: progress.StartedAt}
+			if b, err := json.Marshal(finalProgress); err == nil {
+				c.DeliveryProgress = string(b)
+			}
+			if err := store.UpdateCampaign(c); err != nil {
+				logger.ErrorCF("web", "failed to finalize campaign delivery", map[string]interface{}{
+					"campaign_id": campaign.ID, "error": err.Error(),
+				})
+			}
 		}
+	}()
+}
 
-		sendErr := sender.Send(contact.Email, subject, html, text, headers)
-
-		deliveryStatus := "sent"
-		deliveryError := ""
-		if sendErr != nil {
-			deliveryStatus = "failed"
-			deliveryError = sendErr.Error()
-			skipped++
-		} else {
-			sent++
-		}
-
-		store.CreateDelivery(&storage.EmailDelivery{
-			CampaignAccount: campaign.Account,
-			CampaignName:    campaign.Name,
-			ContactID:       &contact.ID,
-			VariantID:       variantID,
-			Subject:         subject,
-			Status:          deliveryStatus,
-			Error:           deliveryError,
-		})
+func (s *Server) handleGetCampaignProgress(w http.ResponseWriter, r *http.Request) {
+	store, _, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
 	}
-
-	campaign.SentCount = sent
-	campaign.SkippedCount = skipped
-	campaign.Status = "sent"
-	store.UpdateCampaign(campaign)
-
-	w.Header().Set("Content-Type", "application/json")
+	id, ok := audienceIDFromPath(r)
+	if !ok {
+		http.Error(w, "invalid campaign id", http.StatusBadRequest)
+		return
+	}
+	campaign, err := store.GetCampaignByID(id)
+	if err != nil || campaign == nil {
+		http.Error(w, "campaign not found", http.StatusNotFound)
+		return
+	}
 	writeJSONResponse(w, map[string]interface{}{
-		"sent":    sent,
-		"skipped": skipped,
+		"status":   campaign.Status,
+		"progress": campaign.DeliveryProgress,
 	})
 }
 

@@ -361,6 +361,7 @@ func (s *Storage) migrateMarketingAudience() error {
 	}
 
 	_, _ = s.db.Exec(`ALTER TABLE email_deliveries ADD COLUMN variant_id INTEGER DEFAULT 0`)
+	_, _ = s.db.Exec(`ALTER TABLE email_campaigns ADD COLUMN delivery_progress TEXT NOT NULL DEFAULT ''`)
 
 	// Performance indexes for frequently filtered columns
 	indexes := []string{

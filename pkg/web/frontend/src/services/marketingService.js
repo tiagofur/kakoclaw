@@ -173,6 +173,10 @@ export default {
     return client.post(`/marketing/profiles/${encodeSegment(account)}/research`, data, { timeout: 120000 })
   },
 
+  audienceCampaignProgress(campaignId) {
+    return client.get(`/marketing/audience/email-campaigns/${encodeSegment(campaignId)}/progress`)
+  },
+
   audienceListCampaignMemory(campaignId) {
     return client.get(`/marketing/audience/email-campaigns/${encodeSegment(campaignId)}/memory`)
   },

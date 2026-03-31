@@ -80,7 +80,13 @@
             <td class="px-4 py-3 text-sm text-white">{{ camp.name }}</td>
             <td class="px-4 py-3 text-sm text-white/70">{{ camp.subject }}</td>
             <td class="px-4 py-3">
-              <span class="px-2 py-1 rounded-full text-xs font-medium" :class="{ 'bg-gray-500/20 text-gray-400': camp.status === 'draft', 'bg-blue-500/20 text-blue-400': camp.status === 'sending', 'bg-green-500/20 text-green-400': camp.status === 'sent', 'bg-red-500/20 text-red-400': camp.status === 'failed', 'bg-slate-500/20 text-slate-400': camp.status === 'archived' }">{{ camp.status }}</span>
+              <span class="px-2 py-1 rounded-full text-xs font-medium" :class="{ 'bg-gray-500/20 text-gray-400': camp.status === 'draft', 'bg-blue-500/20 text-blue-400': camp.status === 'sending', 'bg-amber-500/20 text-amber-400': camp.status === 'delivering', 'bg-green-500/20 text-green-400': camp.status === 'sent', 'bg-red-500/20 text-red-400': camp.status === 'failed', 'bg-slate-500/20 text-slate-400': camp.status === 'archived' }">{{ camp.status }}</span>
+            <div v-if="camp.status === 'delivering' || deliveryProgress[camp.id]?.status === 'delivering'" class="mt-1 w-28">
+              <div class="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                <div class="h-full bg-amber-400 rounded-full transition-all duration-500" :style="{ width: (deliveryProgress[camp.id]?.pct || 0) + '%' }"></div>
+              </div>
+              <p class="text-[10px] text-white/40 mt-0.5">{{ deliveryProgress[camp.id]?.sent || 0 }} / {{ deliveryProgress[camp.id]?.total || '?' }}</p>
+            </div>
             </td>
             <td class="px-4 py-3 text-sm text-white/50">{{ camp.sent_count || 0 }}</td>
             <td class="px-4 py-3 text-sm text-white/40">{{ camp.created_at ? new Date(camp.created_at).toLocaleDateString() : '—' }}</td>
@@ -200,7 +206,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
 import { useMarketingStore } from '../../stores/marketingStore'
 import { useToast } from '../../composables/useToast'
 import marketingService from '../../services/marketingService'
@@ -212,6 +218,32 @@ const toast = useToast()
 
 const filter = ref('all')
 const sending = ref(false)
+const deliveryProgress = ref({}) // campaignId → {status, pct, sent, total}
+let progressPollInterval = null
+
+function startProgressPolling(campaignId) {
+  if (progressPollInterval) return
+  progressPollInterval = setInterval(async () => {
+    try {
+      const res = await marketingService.audienceCampaignProgress(campaignId)
+      const prog = res.data?.progress ? JSON.parse(res.data.progress) : {}
+      deliveryProgress.value[campaignId] = { status: res.data?.status, ...prog }
+      if (res.data?.status !== 'delivering') {
+        stopProgressPolling()
+        emit('reload')
+      }
+    } catch { stopProgressPolling() }
+  }, 2500)
+}
+
+function stopProgressPolling() {
+  if (progressPollInterval) {
+    clearInterval(progressPollInterval)
+    progressPollInterval = null
+  }
+}
+
+onUnmounted(stopProgressPolling)
 const campaignForm = ref({ active: false, id: null, name: '', subject: '', body_html: '', template_slug: '', list_id: '' })
 const selectedVariantCampaignId = ref(null)
 const variantMetrics = ref({})
@@ -251,7 +283,9 @@ async function sendCampaign(camp) {
   sending.value = true
   try {
     await store.sendEmailCampaign(camp.id)
-    toast.success('Campaign sending started')
+    toast.success('Delivery started')
+    deliveryProgress.value[camp.id] = { status: 'delivering', pct: 0 }
+    startProgressPolling(camp.id)
     emit('reload')
   } catch {
     toast.error('Failed to send campaign')
