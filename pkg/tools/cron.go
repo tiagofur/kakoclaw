@@ -609,8 +609,24 @@ func (t *CronTool) ExecuteJob(ctx context.Context, job *cron.CronJob) string {
 			return fmt.Sprintf("Error: %v", err)
 		}
 
-		// Response is automatically sent via MessageBus by AgentLoop
-		_ = response // Will be sent by AgentLoop
+		if channel != "cli" && channel != "" && strings.TrimSpace(response) != "" {
+			t.msgBus.PublishOutbound(bus.OutboundMessage{
+				UserID:  job.UserID,
+				Channel: channel,
+				ChatID:  chatID,
+				Content: formatCronResponse(job.Name, response),
+			})
+		}
 		return "task completed"
 	}
+}
+
+func formatCronResponse(name, response string) string {
+	const maxLen = 2000
+	prefix := fmt.Sprintf("[Scheduled: %s] ", name)
+	maxResponse := maxLen - len(prefix)
+	if len(response) > maxResponse {
+		return prefix + response[:maxResponse] + "... [truncated]"
+	}
+	return prefix + response
 }

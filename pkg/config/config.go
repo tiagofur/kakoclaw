@@ -328,6 +328,21 @@ type SignalConfig struct {
 	DMPolicy    string              `json:"dm_policy,omitempty" env:"MAKOCLAW_CHANNELS_SIGNAL_DM_POLICY"`
 }
 
+// DMPolicyProvider is implemented by channel config structs that expose a DM policy.
+type DMPolicyProvider interface {
+	GetDMPolicy() string
+}
+
+func (c WhatsAppConfig) GetDMPolicy() string  { return c.DMPolicy }
+func (c TelegramConfig) GetDMPolicy() string  { return c.DMPolicy }
+func (c FeishuConfig) GetDMPolicy() string    { return c.DMPolicy }
+func (c DiscordConfig) GetDMPolicy() string   { return c.DMPolicy }
+func (c MaixCamConfig) GetDMPolicy() string   { return c.DMPolicy }
+func (c QQConfig) GetDMPolicy() string        { return c.DMPolicy }
+func (c DingTalkConfig) GetDMPolicy() string  { return c.DMPolicy }
+func (c SlackConfig) GetDMPolicy() string     { return c.DMPolicy }
+func (c SignalConfig) GetDMPolicy() string    { return c.DMPolicy }
+
 type ProvidersConfig struct {
 	Anthropic  ProviderConfig `json:"anthropic"`
 	OpenAI     ProviderConfig `json:"openai"`

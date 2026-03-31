@@ -2,10 +2,12 @@ package channels
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 
 	"github.com/sipeed/makoclaw/pkg/bus"
 	"github.com/sipeed/makoclaw/pkg/config"
+	"github.com/sipeed/makoclaw/pkg/storage"
 )
 
 // mockChannel is a minimal Channel implementation for testing the Manager
@@ -325,5 +327,152 @@ func TestManager_StopAll(t *testing.T) {
 	}
 	if ch2.IsRunning() {
 		t.Error("ch2 should not be running after StopAll")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// applyDMPolicy wiring (Task 4.1)
+// ---------------------------------------------------------------------------
+
+// spyChannel wraps BaseChannel and records SetDMPolicy calls.
+type spyChannel struct {
+	*BaseChannel
+	dmPolicySet   string
+	pairingStore  *storage.PairingStore
+	dmPolicyCalls int
+}
+
+func newSpyChannel(name string) *spyChannel {
+	return &spyChannel{
+		BaseChannel: NewBaseChannel(name, nil, nil, nil),
+	}
+}
+
+func (s *spyChannel) Start(ctx context.Context) error  { return nil }
+func (s *spyChannel) Stop(ctx context.Context) error   { return nil }
+func (s *spyChannel) Send(ctx context.Context, msg bus.OutboundMessage) error { return nil }
+
+func (s *spyChannel) SetDMPolicy(policy string, ps *storage.PairingStore) {
+	s.dmPolicyCalls++
+	s.dmPolicySet = policy
+	s.pairingStore = ps
+	s.BaseChannel.SetDMPolicy(policy, ps)
+}
+
+// mockDMPolicyConfig wraps a policy string and satisfies DMPolicyProvider.
+type mockDMPolicyConfig struct {
+	policy string
+}
+
+func (m mockDMPolicyConfig) GetDMPolicy() string { return m.policy }
+
+func TestApplyDMPolicy_OpenPolicy(t *testing.T) {
+	mb := bus.NewMessageBus()
+	defer mb.Close()
+	mgr := &Manager{channels: make(map[string]Channel), bus: mb}
+
+	ch := newSpyChannel("test")
+	mgr.applyDMPolicy("test", ch, mockDMPolicyConfig{policy: "open"})
+
+	if ch.dmPolicyCalls != 1 {
+		t.Fatalf("SetDMPolicy call count = %d; want 1", ch.dmPolicyCalls)
+	}
+	if ch.dmPolicySet != "open" {
+		t.Errorf("SetDMPolicy policy = %q; want %q", ch.dmPolicySet, "open")
+	}
+	if ch.pairingStore != nil {
+		t.Error("SetDMPolicy pairingStore should be nil for open policy")
+	}
+}
+
+func TestApplyDMPolicy_DisabledPolicy(t *testing.T) {
+	mb := bus.NewMessageBus()
+	defer mb.Close()
+	mgr := &Manager{channels: make(map[string]Channel), bus: mb}
+
+	ch := newSpyChannel("test")
+	mgr.applyDMPolicy("test", ch, mockDMPolicyConfig{policy: "disabled"})
+
+	if ch.dmPolicyCalls != 1 {
+		t.Fatalf("SetDMPolicy call count = %d; want 1", ch.dmPolicyCalls)
+	}
+	if ch.dmPolicySet != "disabled" {
+		t.Errorf("SetDMPolicy policy = %q; want %q", ch.dmPolicySet, "disabled")
+	}
+	if ch.pairingStore != nil {
+		t.Error("SetDMPolicy pairingStore should be nil for disabled policy")
+	}
+}
+
+func TestApplyDMPolicy_PairingWithStorage(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.db")
+	store, err := storage.NewUserStorage(path)
+	if err != nil {
+		t.Fatalf("NewUserStorage: %v", err)
+	}
+	defer store.Close()
+
+	mb := bus.NewMessageBus()
+	defer mb.Close()
+	mgr := &Manager{channels: make(map[string]Channel), bus: mb, storage: store}
+
+	ch := newSpyChannel("test")
+	mgr.applyDMPolicy("test", ch, mockDMPolicyConfig{policy: "pairing"})
+
+	if ch.dmPolicyCalls != 1 {
+		t.Fatalf("SetDMPolicy call count = %d; want 1", ch.dmPolicyCalls)
+	}
+	if ch.dmPolicySet != "pairing" {
+		t.Errorf("SetDMPolicy policy = %q; want %q", ch.dmPolicySet, "pairing")
+	}
+	if ch.pairingStore == nil {
+		t.Error("SetDMPolicy pairingStore should be non-nil when storage is available")
+	}
+}
+
+func TestApplyDMPolicy_PairingWithoutStorage(t *testing.T) {
+	mb := bus.NewMessageBus()
+	defer mb.Close()
+	// Manager has no storage — pairing falls through to SetDMPolicy("pairing", nil)
+	mgr := &Manager{channels: make(map[string]Channel), bus: mb, storage: nil}
+
+	ch := newSpyChannel("test")
+	mgr.applyDMPolicy("test", ch, mockDMPolicyConfig{policy: "pairing"})
+
+	if ch.dmPolicyCalls != 1 {
+		t.Fatalf("SetDMPolicy call count = %d; want 1", ch.dmPolicyCalls)
+	}
+	if ch.dmPolicySet != "pairing" {
+		t.Errorf("SetDMPolicy policy = %q; want %q", ch.dmPolicySet, "pairing")
+	}
+	if ch.pairingStore != nil {
+		t.Error("SetDMPolicy pairingStore should be nil when storage is unavailable")
+	}
+}
+
+func TestApplyDMPolicy_EmptyPolicy(t *testing.T) {
+	mb := bus.NewMessageBus()
+	defer mb.Close()
+	mgr := &Manager{channels: make(map[string]Channel), bus: mb}
+
+	ch := newSpyChannel("test")
+	mgr.applyDMPolicy("test", ch, mockDMPolicyConfig{policy: ""})
+
+	if ch.dmPolicyCalls != 0 {
+		t.Errorf("SetDMPolicy should not be called for empty policy; got %d calls", ch.dmPolicyCalls)
+	}
+}
+
+func TestApplyDMPolicy_NonProvider(t *testing.T) {
+	mb := bus.NewMessageBus()
+	defer mb.Close()
+	mgr := &Manager{channels: make(map[string]Channel), bus: mb}
+
+	ch := newSpyChannel("test")
+	// Pass a plain struct that does NOT implement DMPolicyProvider
+	mgr.applyDMPolicy("test", ch, struct{ Foo string }{Foo: "bar"})
+
+	if ch.dmPolicyCalls != 0 {
+		t.Errorf("SetDMPolicy should not be called when config is not a DMPolicyProvider; got %d calls", ch.dmPolicyCalls)
 	}
 }

@@ -55,6 +55,11 @@ func (c *DiscordChannel) SetCommandHandler(handler *CommandHandler) {
 	c.commandHandler = handler
 }
 
+// GetCommandHandler returns the current command handler, or nil.
+func (c *DiscordChannel) GetCommandHandler() *CommandHandler {
+	return c.commandHandler
+}
+
 func (c *DiscordChannel) getContext() context.Context {
 	return context.Background()
 }
@@ -143,17 +148,10 @@ func (c *DiscordChannel) handleMessage(s *discordgo.Session, m *discordgo.Messag
 		return
 	}
 
-	// 检查白名单，避免为被拒绝的用户下载附件和转录
-	if !c.IsAllowed(m.Author.ID) {
-		logger.DebugCF("discord", "Message rejected by allowlist", map[string]any{
-			"user_id": m.Author.ID,
-		})
-		return
-	}
-
 	senderID := m.Author.ID
 
-	// Check for commands first
+	// Check for commands BEFORE any allowlist/policy gate so that /approve
+	// works even for senders who are not yet paired or in the allowlist.
 	if c.commandHandler != nil && IsCommand(m.Content) {
 		handled, response, err := c.commandHandler.HandleCommand(c.getContext(), "discord", senderID, m.Content)
 		if handled {
@@ -168,6 +166,18 @@ func (c *DiscordChannel) handleMessage(s *discordgo.Session, m *discordgo.Messag
 			}
 			return
 		}
+	}
+
+	// Gate non-command messages before downloading attachments.
+	if !c.ShouldDispatch(senderID) {
+		if c.dmPolicy == "pairing" {
+			c.issuePairingChallenge(senderID, m.ChannelID)
+		}
+		logger.DebugCF("discord", "Message rejected by policy", map[string]any{
+			"user_id": senderID,
+			"policy":  c.dmPolicy,
+		})
+		return
 	}
 
 	senderName := m.Author.Username

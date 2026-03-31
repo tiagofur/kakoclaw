@@ -143,9 +143,13 @@ func (c *SignalChannel) messageLoop(ctx context.Context) {
 func (c *SignalChannel) handleMessage(msg SignalMessage) {
 	senderID := msg.Source
 
-	if !c.IsAllowed(senderID) {
-		logger.DebugCF("signal", "Message rejected by allowlist", map[string]interface{}{
+	if !c.ShouldDispatch(senderID) {
+		if c.dmPolicy == "pairing" {
+			c.issuePairingChallenge(senderID, senderID)
+		}
+		logger.DebugCF("signal", "Message rejected by policy", map[string]interface{}{
 			"sender": senderID,
+			"policy": c.dmPolicy,
 		})
 		return
 	}

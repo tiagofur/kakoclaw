@@ -69,6 +69,11 @@ func (c *SlackChannel) SetCommandHandler(handler *CommandHandler) {
 	c.commandHandler = handler
 }
 
+// GetCommandHandler returns the current command handler, or nil.
+func (c *SlackChannel) GetCommandHandler() *CommandHandler {
+	return c.commandHandler
+}
+
 func (c *SlackChannel) Start(ctx context.Context) error {
 	logger.InfoC("slack", "Starting Slack channel (Socket Mode)")
 
@@ -205,14 +210,6 @@ func (c *SlackChannel) handleMessageEvent(ev *slackevents.MessageEvent) {
 		return
 	}
 
-	// 检查白名单，避免为被拒绝的用户下载附件
-	if !c.IsAllowed(ev.User) {
-		logger.DebugCF("slack", "Message rejected by allowlist", map[string]interface{}{
-			"user_id": ev.User,
-		})
-		return
-	}
-
 	senderID := ev.User
 	channelID := ev.Channel
 	threadTS := ev.ThreadTimeStamp
@@ -223,7 +220,8 @@ func (c *SlackChannel) handleMessageEvent(ev *slackevents.MessageEvent) {
 		chatID = channelID + "/" + threadTS
 	}
 
-	// Check for commands first
+	// Check for commands BEFORE any allowlist/policy gate so that /approve
+	// works even for senders who are not yet paired or in the allowlist.
 	content := ev.Text
 	content = c.stripBotMention(content)
 
@@ -241,6 +239,18 @@ func (c *SlackChannel) handleMessageEvent(ev *slackevents.MessageEvent) {
 			}
 			return
 		}
+	}
+
+	// Gate non-command messages before downloading attachments.
+	if !c.ShouldDispatch(senderID) {
+		if c.dmPolicy == "pairing" {
+			c.issuePairingChallenge(senderID, chatID)
+		}
+		logger.DebugCF("slack", "Message rejected by policy", map[string]interface{}{
+			"user_id": senderID,
+			"policy":  c.dmPolicy,
+		})
+		return
 	}
 
 	// Add reaction to acknowledge receipt

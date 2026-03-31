@@ -85,6 +85,11 @@ func (c *TelegramChannel) SetCommandHandler(handler *CommandHandler) {
 	c.commandHandler = handler
 }
 
+// GetCommandHandler returns the current command handler, or nil.
+func (c *TelegramChannel) GetCommandHandler() *CommandHandler {
+	return c.commandHandler
+}
+
 // cleanupThinking stops the thinking animation and cleans up resources (issue #36)
 func (c *TelegramChannel) cleanupThinking(chatID string) {
 	if stop, ok := c.stopThinking.Load(chatID); ok {
@@ -236,14 +241,6 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, update telego.Updat
 		"text":      utils.Truncate(message.Text, 50),
 	})
 
-	// 检查白名单，避免为被拒绝的用户下载附件
-	if !c.IsAllowed(senderID) {
-		logger.InfoCF("telegram", "Message rejected by allowlist", map[string]interface{}{
-			"sender_id": senderID,
-		})
-		return
-	}
-
 	chatID := message.Chat.ID
 	c.chatIDs.Store(senderID, chatID)
 
@@ -255,7 +252,8 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, update telego.Updat
 		initialContent = message.Caption
 	}
 
-	// Check for commands first
+	// Check for commands BEFORE any allowlist/policy gate so that /approve
+	// works even for senders who are not yet paired or in the allowlist.
 	if c.commandHandler != nil && IsCommand(initialContent) {
 		handled, response, err := c.commandHandler.HandleCommand(ctx, "telegram", senderID, initialContent)
 		if handled {
@@ -270,6 +268,18 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, update telego.Updat
 			}
 			return
 		}
+	}
+
+	// Gate non-command messages: check allowlist / DM policy before downloading media.
+	if !c.ShouldDispatch(senderID) {
+		if c.dmPolicy == "pairing" {
+			c.issuePairingChallenge(senderID, fmt.Sprintf("%d", chatID))
+		}
+		logger.InfoCF("telegram", "Message rejected by policy", map[string]interface{}{
+			"sender_id": senderID,
+			"policy":    c.dmPolicy,
+		})
+		return
 	}
 
 	content := ""

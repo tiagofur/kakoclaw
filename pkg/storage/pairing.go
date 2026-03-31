@@ -22,6 +22,11 @@ func NewPairingStore(db *sql.DB) *PairingStore {
 	return &PairingStore{db: db}
 }
 
+// NewPairingStoreFromStorage creates a PairingStore backed by an existing Storage instance.
+func NewPairingStoreFromStorage(s *Storage) *PairingStore {
+	return &PairingStore{db: s.db}
+}
+
 // GenerateCode returns a 6-character hex challenge code.
 func GenerateCode() (string, error) {
 	b := make([]byte, 3)

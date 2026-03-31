@@ -58,6 +58,7 @@ func (m *Manager) initChannels() error {
 			})
 		} else {
 			m.applyUserResolver("telegram", telegram)
+			m.applyDMPolicy("telegram", telegram, m.config.Channels.Telegram)
 			m.channels["telegram"] = telegram
 			logger.InfoC("channels", "Telegram channel enabled successfully")
 		}
@@ -72,6 +73,7 @@ func (m *Manager) initChannels() error {
 			})
 		} else {
 			m.applyUserResolver("whatsapp", whatsapp)
+			m.applyDMPolicy("whatsapp", whatsapp, m.config.Channels.WhatsApp)
 			m.channels["whatsapp"] = whatsapp
 			logger.InfoC("channels", "WhatsApp channel enabled successfully")
 		}
@@ -86,6 +88,7 @@ func (m *Manager) initChannels() error {
 			})
 		} else {
 			m.applyUserResolver("feishu", feishu)
+			m.applyDMPolicy("feishu", feishu, m.config.Channels.Feishu)
 			m.channels["feishu"] = feishu
 			logger.InfoC("channels", "Feishu channel enabled successfully")
 		}
@@ -100,6 +103,7 @@ func (m *Manager) initChannels() error {
 			})
 		} else {
 			m.applyUserResolver("discord", discord)
+			m.applyDMPolicy("discord", discord, m.config.Channels.Discord)
 			m.channels["discord"] = discord
 			logger.InfoC("channels", "Discord channel enabled successfully")
 		}
@@ -114,6 +118,7 @@ func (m *Manager) initChannels() error {
 			})
 		} else {
 			m.applyUserResolver("maixcam", maixcam)
+			m.applyDMPolicy("maixcam", maixcam, m.config.Channels.MaixCam)
 			m.channels["maixcam"] = maixcam
 			logger.InfoC("channels", "MaixCam channel enabled successfully")
 		}
@@ -128,6 +133,7 @@ func (m *Manager) initChannels() error {
 			})
 		} else {
 			m.applyUserResolver("qq", qq)
+			m.applyDMPolicy("qq", qq, m.config.Channels.QQ)
 			m.channels["qq"] = qq
 			logger.InfoC("channels", "QQ channel enabled successfully")
 		}
@@ -142,6 +148,7 @@ func (m *Manager) initChannels() error {
 			})
 		} else {
 			m.applyUserResolver("dingtalk", dingtalk)
+			m.applyDMPolicy("dingtalk", dingtalk, m.config.Channels.DingTalk)
 			m.channels["dingtalk"] = dingtalk
 			logger.InfoC("channels", "DingTalk channel enabled successfully")
 		}
@@ -156,6 +163,7 @@ func (m *Manager) initChannels() error {
 			})
 		} else {
 			m.applyUserResolver("slack", slackCh)
+			m.applyDMPolicy("slack", slackCh, m.config.Channels.Slack)
 			m.channels["slack"] = slackCh
 			logger.InfoC("channels", "Slack channel enabled successfully")
 		}
@@ -170,6 +178,7 @@ func (m *Manager) initChannels() error {
 			})
 		} else {
 			m.applyUserResolver("signal", signalCh)
+			m.applyDMPolicy("signal", signalCh, m.config.Channels.Signal)
 			m.channels["signal"] = signalCh
 			logger.InfoC("channels", "Signal channel enabled successfully")
 		}
@@ -249,6 +258,51 @@ func (m *Manager) DispatchMessage(ctx context.Context, msg bus.OutboundMessage) 
 	}
 
 	return channel.Send(ctx, msg)
+}
+
+// applyDMPolicy wires the DM policy from the channel config onto the channel.
+// It must be called after applyUserResolver so that storage is already set.
+func (m *Manager) applyDMPolicy(channelName string, channel Channel, channelCfg interface{}) {
+	provider, ok := channelCfg.(config.DMPolicyProvider)
+	if !ok {
+		return
+	}
+	policy := provider.GetDMPolicy()
+	if policy == "" {
+		return
+	}
+
+	setter, ok := channel.(interface {
+		SetDMPolicy(string, *storage.PairingStore)
+	})
+	if !ok {
+		return
+	}
+
+	if policy == "pairing" && m.storage != nil {
+		ps := storage.NewPairingStoreFromStorage(m.storage)
+		setter.SetDMPolicy("pairing", ps)
+
+		// Wire pairingStore into the command handler via the channel's exposed handler
+		type commandHandlerHolder interface {
+			GetCommandHandler() *CommandHandler
+		}
+		if holder, ok := channel.(commandHandlerHolder); ok {
+			if ch := holder.GetCommandHandler(); ch != nil {
+				ch.SetPairingStore(ps)
+			}
+		}
+		logger.InfoCF("channels", "DM pairing policy enabled", map[string]interface{}{
+			"channel": channelName,
+		})
+		return
+	}
+
+	setter.SetDMPolicy(policy, nil)
+	logger.InfoCF("channels", "DM policy set", map[string]interface{}{
+		"channel": channelName,
+		"policy":  policy,
+	})
 }
 
 func (m *Manager) applyUserResolver(channelName string, channel Channel) {
@@ -358,6 +412,30 @@ func (m *Manager) RestartChannel(ctx context.Context, name string) error {
 
 	// 3. Start new channel if successfully created
 	if newChan != nil {
+		m.applyUserResolver(name, newChan)
+
+		// Apply DM policy based on channel type
+		switch name {
+		case "telegram":
+			m.applyDMPolicy(name, newChan, m.config.Channels.Telegram)
+		case "discord":
+			m.applyDMPolicy(name, newChan, m.config.Channels.Discord)
+		case "whatsapp":
+			m.applyDMPolicy(name, newChan, m.config.Channels.WhatsApp)
+		case "slack":
+			m.applyDMPolicy(name, newChan, m.config.Channels.Slack)
+		case "feishu":
+			m.applyDMPolicy(name, newChan, m.config.Channels.Feishu)
+		case "dingtalk":
+			m.applyDMPolicy(name, newChan, m.config.Channels.DingTalk)
+		case "qq":
+			m.applyDMPolicy(name, newChan, m.config.Channels.QQ)
+		case "signal":
+			m.applyDMPolicy(name, newChan, m.config.Channels.Signal)
+		case "maixcam":
+			m.applyDMPolicy(name, newChan, m.config.Channels.MaixCam)
+		}
+
 		m.channels[name] = newChan
 		if err := newChan.Start(ctx); err != nil {
 			return fmt.Errorf("failed to start channel %s: %w", name, err)

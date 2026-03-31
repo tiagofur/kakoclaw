@@ -240,6 +240,85 @@ func TestBaseChannel_HandleMessage_DMPolicy_Blocks(t *testing.T) {
 	}
 }
 
+func TestBaseChannel_DMPolicy_Closed_Blocks(t *testing.T) {
+	// "closed" is not a named policy in ShouldDispatch (falls to default → false).
+	// Verify that an unrecognised policy value behaves like a closed door.
+	b := NewBaseChannel("test", nil, nil, nil)
+	b.SetDMPolicy("closed", nil)
+	if b.ShouldDispatch("any-sender") {
+		t.Error("ShouldDispatch() = true with unrecognised/closed policy, want false")
+	}
+}
+
+func TestBaseChannel_DMPolicy_Pairing_IssuesChallenge(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.db")
+	s, err := storage.NewUserStorage(path)
+	if err != nil {
+		t.Fatalf("NewUserStorage: %v", err)
+	}
+	defer s.Close()
+	ps := s.Pairing()
+
+	mb := bus.NewMessageBus()
+	defer mb.Close()
+
+	b := NewBaseChannel("test", nil, mb, nil)
+	b.SetDMPolicy("pairing", ps)
+
+	// HandleMessage for an unknown sender should issue a challenge on the bus.
+	err = b.HandleMessage("unknown-sender", "chat1", "hello", nil, nil)
+	if err != nil {
+		t.Fatalf("HandleMessage returned err: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	outMsg, ok := mb.SubscribeOutbound(ctx)
+	if !ok {
+		t.Fatal("expected an outbound challenge message but got none")
+	}
+	if outMsg.ChatID != "chat1" {
+		t.Errorf("challenge ChatID = %q; want %q", outMsg.ChatID, "chat1")
+	}
+	if outMsg.Channel != "test" {
+		t.Errorf("challenge Channel = %q; want %q", outMsg.Channel, "test")
+	}
+}
+
+func TestBaseChannel_DMPolicy_Pairing_NoChallengeIfAlreadyPending(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.db")
+	s, err := storage.NewUserStorage(path)
+	if err != nil {
+		t.Fatalf("NewUserStorage: %v", err)
+	}
+	defer s.Close()
+	ps := s.Pairing()
+
+	// Pre-insert a pending entry so HasPending returns true.
+	if err := ps.InsertPending("test", "sender1", "abcdef"); err != nil {
+		t.Fatalf("InsertPending: %v", err)
+	}
+
+	mb := bus.NewMessageBus()
+	defer mb.Close()
+
+	b := NewBaseChannel("test", nil, mb, nil)
+	b.SetDMPolicy("pairing", ps)
+
+	err = b.HandleMessage("sender1", "chat1", "hello", nil, nil)
+	if err != nil {
+		t.Fatalf("HandleMessage returned err: %v", err)
+	}
+
+	// No second challenge should be issued.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel immediately — nothing should be on the bus
+	_, ok := mb.SubscribeOutbound(ctx)
+	if ok {
+		t.Error("expected no outbound challenge for a sender with pending entry, but got one")
+	}
+}
+
 func TestBaseChannel_HandleMessage_DMPolicy_Open_Passes(t *testing.T) {
 	mb := bus.NewMessageBus()
 	defer mb.Close()
