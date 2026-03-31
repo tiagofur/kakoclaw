@@ -247,7 +247,75 @@ func (sr *SwarmRunner) runConsensus(ctx context.Context, exec *SwarmExecution) e
 
 	_ = g.Wait() // Collect all results even if some fail
 
-	// Synthesize results by building a summary (no LLM call needed)
+	// Synthesize results via LLM if we have multiple completed results
+	return sr.synthesizeConsensus(ctx, exec)
+}
+
+// synthesizeConsensus uses an LLM call to synthesize results from multiple specialists
+func (sr *SwarmRunner) synthesizeConsensus(ctx context.Context, exec *SwarmExecution) error {
+	exec.mu.Lock()
+	var completedResults []string
+	for member, result := range exec.Results {
+		if result.Status == "completed" && result.Result != "" {
+			completedResults = append(completedResults, fmt.Sprintf("**%s**:\n%s", member, result.Result))
+		}
+	}
+	exec.mu.Unlock()
+
+	if len(completedResults) < 2 {
+		return nil // Not enough results to synthesize
+	}
+
+	// Find the synthesizer agent
+	synthesizerName := exec.Config.SynthesizerAgent
+	if synthesizerName == "" && len(exec.Config.Members) > 0 {
+		synthesizerName = exec.Config.Members[0] // Default to first member
+	}
+
+	synthesizer, err := sr.registry.GetSpecialist(synthesizerName)
+	if err != nil {
+		logger.WarnCF("agent", "Consensus synthesizer not found, skipping synthesis", map[string]interface{}{
+			"synthesizer": synthesizerName,
+			"error":       err.Error(),
+		})
+		return nil
+	}
+
+	synthesisPrompt := fmt.Sprintf(`You are synthesizing consensus from %d independent analyses of the same task.
+
+Original task: %s
+
+Here are the independent analyses:
+
+%s
+
+---
+
+Synthesize a unified consensus answer:
+1. Identify points of agreement across all analyses
+2. Note any significant disagreements or different perspectives
+3. Provide a final consolidated recommendation based on the majority view
+4. Be concise but thorough`, len(completedResults), exec.Task, strings.Join(completedResults, "\n\n---\n\n"))
+
+	result, synthErr := synthesizer.ProcessDirect(ctx, synthesisPrompt, "")
+	if synthErr != nil {
+		logger.WarnCF("agent", "Consensus synthesis failed", map[string]interface{}{
+			"error": synthErr.Error(),
+		})
+		return nil // Non-fatal — individual results still available
+	}
+
+	// Store synthesis as a special result
+	exec.mu.Lock()
+	exec.Results["_consensus"] = &SwarmMemberResult{
+		Member:    "_consensus",
+		Status:    "completed",
+		Result:    result,
+		StartTime: time.Now(),
+		EndTime:   time.Now(),
+	}
+	exec.mu.Unlock()
+
 	return nil
 }
 
