@@ -1642,8 +1642,14 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 			})
 
 		// Call LLM
+		// Prune old tool results to limit context size (in-memory only, not persisted)
+		prunedMessages := pruneHistoryToolResults(
+			messages,
+			al.cfg.Agents.Defaults.ToolResultKeepRecent,
+			al.cfg.Agents.Defaults.ToolResultMaxChars,
+		)
 		llmStart := time.Now()
-		response, err := al.provider.Chat(ctx, messages, providerToolDefs, model, map[string]interface{}{
+		response, err := al.provider.Chat(ctx, prunedMessages, providerToolDefs, model, map[string]interface{}{
 			"max_tokens":  8192,
 			"temperature": 0.7,
 		})
@@ -2016,8 +2022,14 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 
 		// Try streaming for this iteration
 		if canStream {
+			// Prune old tool results to limit context size (in-memory only, not persisted)
+			prunedMessages := pruneHistoryToolResults(
+				messages,
+				al.cfg.Agents.Defaults.ToolResultKeepRecent,
+				al.cfg.Agents.Defaults.ToolResultMaxChars,
+			)
 			llmStart := time.Now()
-			ch, err := streamingProvider.ChatStream(ctx, messages, providerToolDefs, model, llmOpts)
+			ch, err := streamingProvider.ChatStream(ctx, prunedMessages, providerToolDefs, model, llmOpts)
 			if err != nil {
 				al.metrics.RecordLLMCall(model, time.Since(llmStart), al.estimateTokens(messages), 0, err)
 				logger.ErrorCF("agent", "Streaming LLM call failed",
@@ -2236,8 +2248,14 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 		}
 
 		// Fallback: non-streaming Chat()
+		// Prune old tool results to limit context size (in-memory only, not persisted)
+		prunedMessagesFallback := pruneHistoryToolResults(
+			messages,
+			al.cfg.Agents.Defaults.ToolResultKeepRecent,
+			al.cfg.Agents.Defaults.ToolResultMaxChars,
+		)
 		fallbackStart := time.Now()
-		response, err := al.provider.Chat(ctx, messages, providerToolDefs, model, llmOpts)
+		response, err := al.provider.Chat(ctx, prunedMessagesFallback, providerToolDefs, model, llmOpts)
 		fallbackDur := time.Since(fallbackStart)
 		fallbackTokensIn := al.estimateTokens(messages)
 		fallbackTokensOut := 0
