@@ -2,14 +2,18 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import axios from 'axios'
 
+const MAX_WS_FAILURES = 3
+
 export const useDevStudioStore = defineStore('devStudio', () => {
   const projects = ref([])
   const currentProject = ref(null)
   const bridgeStatus = ref('idle')
   const terminalHistory = ref([])
   const searchResults = ref([])
-  
+  const usingHttpFallback = ref(false)
+
   let ws = null
+  let wsFailures = 0
 
   async function fetchProjects() {
     try {
@@ -25,6 +29,8 @@ export const useDevStudioStore = defineStore('devStudio', () => {
       await axios.post('/api/v1/dev/bridge/start', { project_dir: projectDir })
       currentProject.value = projectDir
       bridgeStatus.value = 'running'
+      wsFailures = 0
+      usingHttpFallback.value = false
       connectTerminal()
     } catch (e) {
       console.error('Failed to start bridge', e)
@@ -35,6 +41,8 @@ export const useDevStudioStore = defineStore('devStudio', () => {
     try {
       await axios.post('/api/v1/dev/bridge/stop')
       bridgeStatus.value = 'stopped'
+      usingHttpFallback.value = false
+      wsFailures = 0
       if (ws) {
         ws.close()
         ws = null
@@ -48,7 +56,7 @@ export const useDevStudioStore = defineStore('devStudio', () => {
     try {
       const { data } = await axios.get('/api/v1/dev/bridge/status')
       bridgeStatus.value = data.status
-      if (data.status === 'running' && !ws) {
+      if (data.status === 'running' && !ws && !usingHttpFallback.value) {
         connectTerminal()
       }
     } catch (e) {
@@ -57,13 +65,17 @@ export const useDevStudioStore = defineStore('devStudio', () => {
   }
 
   function connectTerminal() {
-    if (ws) return
+    if (ws || usingHttpFallback.value) return
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const port = window.location.port ? ':' + window.location.port : ''
     const token = localStorage.getItem('auth.token')
-    
+
     ws = new WebSocket(`${protocol}//${window.location.hostname}${port}/ws/dev/terminal?token=${token}`)
-    
+
+    ws.onopen = () => {
+      wsFailures = 0
+    }
+
     ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data)
@@ -74,16 +86,68 @@ export const useDevStudioStore = defineStore('devStudio', () => {
         console.error('Failed to parse WS msg', e)
       }
     }
-    
+
+    ws.onerror = () => {
+      wsFailures++
+    }
+
     ws.onclose = () => {
       ws = null
-      bridgeStatus.value = 'stopped'
+      if (wsFailures >= MAX_WS_FAILURES) {
+        usingHttpFallback.value = true
+        // Bridge is still running — keep status so the input stays enabled
+      } else {
+        bridgeStatus.value = 'stopped'
+      }
+    }
+  }
+
+  async function sendPromptViaHttp(message) {
+    const token = localStorage.getItem('auth.token')
+    let resp
+    try {
+      resp = await fetch('/api/v1/dev/query', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ message })
+      })
+    } catch (e) {
+      terminalHistory.value.push({ type: 'error', error: 'HTTP fallback request failed: ' + e.message })
+      return
+    }
+    if (!resp.ok) {
+      terminalHistory.value.push({ type: 'error', error: `HTTP fallback error: ${resp.status}` })
+      return
+    }
+    const reader = resp.body.getReader()
+    const decoder = new TextDecoder()
+    let buf = ''
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buf += decoder.decode(value, { stream: true })
+      const lines = buf.split('\n')
+      buf = lines.pop() // keep incomplete last line
+      for (const line of lines) {
+        if (!line.trim()) continue
+        try {
+          const msg = JSON.parse(line)
+          if (msg.type !== 'ping') terminalHistory.value.push(msg)
+        } catch {}
+      }
     }
   }
 
   function sendPrompt(prompt) {
+    terminalHistory.value.push({ type: 'user', message: prompt })
+    if (usingHttpFallback.value) {
+      sendPromptViaHttp(prompt)
+      return
+    }
     if (ws && ws.readyState === WebSocket.OPEN) {
-      terminalHistory.value.push({ type: 'user', message: prompt })
       ws.send(JSON.stringify({ type: 'prompt', message: prompt }))
     }
   }
@@ -119,6 +183,7 @@ export const useDevStudioStore = defineStore('devStudio', () => {
     bridgeStatus,
     terminalHistory,
     searchResults,
+    usingHttpFallback,
     fetchProjects,
     startBridge,
     stopBridge,

@@ -458,6 +458,7 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/dev/bridge/start", s.handleDevBridgeStart)
 	mux.HandleFunc("/api/v1/dev/bridge/stop", s.handleDevBridgeStop)
 	mux.HandleFunc("/api/v1/dev/bridge/status", s.handleDevBridgeStatus)
+	mux.HandleFunc("/api/v1/dev/query", s.handleDevQuery)
 	mux.HandleFunc("/api/v1/dev/memory/search", s.handleDevMemorySearch)
 	mux.HandleFunc("/api/v1/dev/memory/store", s.handleDevMemoryStore)
 	mux.HandleFunc("/api/v1/dev/memory/delete", s.handleDevMemoryDelete)

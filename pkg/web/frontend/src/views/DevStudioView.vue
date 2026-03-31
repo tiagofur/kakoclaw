@@ -25,9 +25,10 @@
       <div class="mt-auto">
         <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Bridge Status</h3>
         <div class="flex items-center text-sm px-3 py-2 bg-slate-800 rounded-md">
-          <span class="w-2 h-2 rounded-full mr-2" 
+          <span class="w-2 h-2 rounded-full mr-2"
                 :class="devStore.bridgeStatus === 'running' ? 'bg-green-500' : 'bg-red-500'"></span>
           {{ devStore.bridgeStatus }}
+          <span v-if="devStore.usingHttpFallback" class="ml-2 text-xs bg-amber-800/60 text-amber-300 px-1.5 py-0.5 rounded" title="WebSocket unavailable — using HTTP fallback">HTTP</span>
         </div>
         <button 
           v-if="devStore.bridgeStatus === 'running'"

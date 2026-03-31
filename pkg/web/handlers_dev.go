@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/sipeed/makoclaw/pkg/bridge"
 )
@@ -214,4 +215,84 @@ func (s *Server) handleDevBridgeStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSONResponse(w, map[string]interface{}{
 		"status": b.State(),
 	})
+}
+
+// handleDevQuery is the HTTP fallback for the WebSocket terminal.
+// POST /api/v1/dev/query — accepts {"message":"..."}, streams bridge events as NDJSON.
+// Used when the client cannot maintain a WebSocket connection after 3 consecutive failures.
+func (s *Server) handleDevQuery(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	claims, ok := s.extractClaims(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req struct {
+		Message string `json:"message"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Message == "" {
+		http.Error(w, "Invalid body: 'message' required", http.StatusBadRequest)
+		return
+	}
+
+	b, err := s.getDevBridge(claims.UUID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	userStore, _, userStorOK := s.getUserStorage(r)
+	projectName := filepath.Base(b.Cwd())
+	sessionID := "dev_studio_" + projectName
+	if userStorOK && userStore != nil {
+		_ = userStore.SaveMessage(sessionID, "user", req.Message)
+	}
+
+	metadata := bridge.RequestOptions{}
+	if devMem, errMem := s.getDevMemory(claims.UUID); errMem == nil {
+		if injected, errInj := devMem.Inject(r.Context(), req.Message, 5); errInj == nil && injected != "" {
+			metadata.PromptInjection = injected
+		}
+	}
+
+	bridgeReq := bridge.Request{
+		Command: "query",
+		Prompt:  req.Message,
+		Options: metadata,
+	}
+
+	ch, errExec := b.Execute(r.Context(), bridgeReq)
+	if errExec != nil {
+		http.Error(w, errExec.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/x-ndjson")
+	w.Header().Set("X-Accel-Buffering", "no")
+	w.Header().Set("Cache-Control", "no-cache")
+	flusher, canFlush := w.(http.Flusher)
+
+	enc := json.NewEncoder(w)
+	var fullResponse strings.Builder
+	for ev := range ch {
+		if ev.Text != "" {
+			fullResponse.WriteString(ev.Text)
+		}
+		if ev.Content != "" {
+			fullResponse.WriteString(ev.Content)
+		}
+		_ = enc.Encode(ev)
+		if canFlush {
+			flusher.Flush()
+		}
+	}
+
+	if userStorOK && userStore != nil && fullResponse.Len() > 0 {
+		_ = userStore.SaveMessage(sessionID, "assistant", fullResponse.String())
+	}
 }
