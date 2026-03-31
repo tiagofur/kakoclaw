@@ -3,7 +3,7 @@
 Documento de referencia para cerrar los gaps identificados en el análisis comparativo MakoClaw vs OpenClaw.
 Cada gap está documentado como un cambio SDD listo para ejecutar con `/sdd:new <change-name>`.
 
-**Última actualización:** 2026-03-31
+**Última actualización:** 2026-03-31 (Onda 1 completa)
 **Estado del análisis:** `docs/superpowers/specs/2026-03-31-memory-flush-pre-compaction-design.md`
 
 ---
@@ -18,15 +18,15 @@ Cada gap está documentado como un cambio SDD listo para ejecutar con `/sdd:new 
 | 4 | API key rotation + model failover | 🔴 Alta | Medio | Pendiente |
 | 5 | Browser control (CDP real) | 🔴 Alta | Alto | Pendiente |
 | 6 | Hook system (event-driven) | 🟡 Media | Medio | Pendiente |
-| 7 | DM Pairing para nuevos senders | 🟡 Media | Bajo | Pendiente |
+| 7 | DM Pairing para nuevos senders | 🟡 Media | Bajo | ✅ **Cerrado** (2026-03-31) |
 | 8 | Voice TTS en respuestas | 🟡 Media | Medio | Pendiente |
 | 9 | Session pruning | 🟡 Media | Bajo | ✅ **Cerrado** (2026-03-31) |
 | 10 | Pluggable context engines | 🟡 Media | Medio | Pendiente |
 | 11 | Auth profiles multi-OAuth | 🟡 Media | Medio | Pendiente |
 | 12 | Tailscale integration | 🟢 Baja | Medio | Pendiente |
 | 13 | Más canales (14 faltantes) | 🟢 Baja | Alto | Pendiente |
-| 14 | Background tasks con delivery | 🟢 Baja | Bajo | Pendiente |
-| 15 | Standing orders | 🟢 Baja | Bajo | Pendiente |
+| 14 | Background tasks con delivery | 🟢 Baja | Bajo | ✅ **Cerrado** (2026-03-31) |
+| 15 | Standing orders | 🟢 Baja | Bajo | ✅ **Cerrado** (2026-03-31) |
 
 ---
 
@@ -193,32 +193,12 @@ No hay forma de ejecutar lógica arbitraria cuando ocurren eventos del agente (n
 
 ---
 
-### GAP-7: DM Pairing para Nuevos Senders
+### GAP-7: DM Pairing para Nuevos Senders ✅ CERRADO
 
-**SDD Change:** `dm-pairing`
-**Comando:** `/sdd:new dm-pairing`
+**Cerrado:** 2026-03-31
+**Commit:** `ec6e7a0`
 
-**Problema actual:**
-Los canales usan allowlist estática. Un sender desconocido es rechazado directamente sin posibilidad de onboarding. No hay mecanismo para que nuevos usuarios se registren dinámicamente.
-
-**Lo que hace OpenClaw:**
-- Cuando llega un DM de sender desconocido, envía un código de emparejamiento de 4-6 caracteres
-- El sender debe responder con el código para quedar habilitado
-- Policy configurable: `pairing` (default), `open` (todos permitidos), `closed` (ninguno nuevo)
-- Códigos expiran después de N minutos
-
-**Lo que queremos construir:**
-1. `PairingPolicy` enum en `BaseChannel`: `open`, `pairing`, `closed`
-2. `PairingStore` en SQLite con `(channel, sender_id, code, expires_at, status)`
-3. Cuando sender desconocido escribe: genera código, responde con instrucciones
-4. Cuando sender responde el código correcto: lo agrega a la allowlist del usuario
-
-**Archivos clave:**
-- `pkg/channels/base.go` — BaseChannel, donde vive allowlist
-- `pkg/storage/sqlite.go` — nueva tabla `pairing_codes`
-- `pkg/config/config.go` — `pairing_policy` por canal
-
-**Dependencias:** Ninguna.
+La infraestructura ya existía (`PairingStore`, `ShouldDispatch`, `HandleMessage`, `/approve`). Se wireó `DMPolicyProvider` en el manager, se corrigieron los adapters de Telegram/Discord/Slack/Signal para pasar por el gate de pairing antes de descargar media. Policies: `open`, `disabled`, `pairing`.
 
 ---
 
@@ -361,36 +341,33 @@ Cada canal es un SDD separado. Seguir el patrón de `pkg/channels/base.go`.
 
 ---
 
-### GAP-14: Background Tasks con Delivery
+### GAP-14: Background Tasks con Delivery ✅ CERRADO
 
-**SDD Change:** `cron-channel-delivery`
-**Comando:** `/sdd:new cron-channel-delivery`
+**Cerrado:** 2026-03-31
+**Commit:** `ec6e7a0`
 
-Cuando un cron job completa, notificar al canal de origen que lo disparó. Hoy los resultados de cron van al log pero no vuelven al usuario.
-
-**Archivos clave:** `pkg/cron/`, `pkg/channels/manager.go`, `pkg/storage/sqlite.go`
+Fix quirúrgico en `pkg/tools/cron.go`: el response del agente era descartado (`_ = response`). Ahora publica un `OutboundMessage` al canal de origen con formato `[Scheduled: nombre] respuesta`. Trunca a 2000 chars. Guard para CLI.
 
 ---
 
-### GAP-15: Standing Orders
+### GAP-15: Standing Orders ✅ CERRADO
 
-**SDD Change:** `standing-orders`
-**Comando:** `/sdd:new standing-orders`
+**Cerrado:** 2026-03-31
+**Commit:** `a10074e`
 
-Tool `standing_orders` para instrucciones persistentes que aplican a todas las sesiones del usuario. Se inyectan en el context builder como parte del system prompt.
-
-**Archivos clave:** `pkg/agent/context.go`, `pkg/storage/sqlite.go` (nueva tabla), `pkg/tools/`
+Tool `standing_orders` con actions `list/create/update/delete/toggle`. Tabla SQLite por usuario con límites (20 órdenes, 200 chars c/u, 4000 total). Inyección en `ContextBuilder` via callback `WithStandingOrders()`. REST API en `/api/v1/standing-orders` y tab en Settings del frontend.
 
 ---
 
 ## Orden de Ejecución Recomendado
 
 ```
-Onda 1 (quick wins, bajo esfuerzo):
-  GAP-9  → session-pruning
-  GAP-7  → dm-pairing
-  GAP-15 → standing-orders
-  GAP-14 → cron-channel-delivery
+Onda 1 (quick wins, bajo esfuerzo): ✅ COMPLETA
+  GAP-9  → session-pruning         ✅ cerrado 2026-03-31
+  GAP-2  → memory-flush            ✅ cerrado 2026-03-31
+  GAP-7  → dm-pairing              ✅ cerrado 2026-03-31
+  GAP-15 → standing-orders         ✅ cerrado 2026-03-31
+  GAP-14 → cron-channel-delivery   ✅ cerrado 2026-03-31
 
 Onda 2 (impacto alto, esfuerzo medio):
   GAP-3  → multi-provider-web-search
