@@ -986,6 +986,12 @@ The user only sees text below the JSON block — include all findings there.
 			Timestamp:     time.Now(),
 		})
 
+		// Persist specialist result to user's original session for visibility
+		if effectiveSessionKey != "" && oa.sessions != nil {
+			summaryMsg := fmt.Sprintf("[Agent @%s]\n%s", specialistName, cleanResult)
+			oa.sessions.AddMessage(effectiveSessionKey, "assistant", summaryMsg)
+		}
+
 		// Handle empty/insufficient response
 		if len(strings.TrimSpace(cleanResult)) < 10 {
 			logger.WarnCF("agent", "Specialist returned insufficient response", map[string]interface{}{
