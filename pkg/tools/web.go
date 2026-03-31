@@ -132,7 +132,7 @@ func (t *WebSearchTool) Parameters() map[string]interface{} {
 
 func (t *WebSearchTool) Execute(ctx context.Context, args map[string]interface{}) (string, error) {
 	if t.provider == nil {
-		return "Error: No search provider configured. Set MAKOCLAW_TOOLS_WEB_SEARCH_SEARXNG_URL or MAKOCLAW_TOOLS_WEB_SEARCH_API_KEY.", nil
+		return "Error: No search provider configured. Set at least one of: MAKOCLAW_TOOLS_WEB_SEARCH_API_KEY (Brave), MAKOCLAW_TOOLS_WEB_SEARCH_SEARXNG_URL (SearXNG), or MAKOCLAW_TOOLS_WEB_SEARCH_TAVILY_API_KEY (Tavily).", nil
 	}
 
 	query, ok := args["query"].(string)

@@ -307,16 +307,33 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 	toolsRegistry.Register(tools.NewExecTool(workspace, restrict))
 	toolsRegistry.Register(tools.NewPDFTool(workspace, restrict))
 
-	// Search provider selection: SearXNG (self-hosted) > Brave (API key)
+	// Build web search providers in priority order with automatic fallback
+	var activeProviders []tools.SearchProvider
+	for _, name := range getPriorityOrder(cfg.Tools.Web.Search.Priority) {
+		switch name {
+		case "searxng":
+			if u := cfg.Tools.Web.Search.SearXNGURL; u != "" {
+				activeProviders = append(activeProviders, tools.NewSearXNGSearchProvider(u))
+			}
+		case "brave":
+			if k := cfg.Tools.Web.Search.APIKey; k != "" {
+				activeProviders = append(activeProviders, tools.NewBraveSearchProvider(k))
+			}
+		case "tavily":
+			if k := cfg.Tools.Web.Search.TavilyAPIKey; k != "" {
+				activeProviders = append(activeProviders, tools.NewTavilySearchProvider(k))
+			}
+		}
+	}
+
 	var searchProvider tools.SearchProvider
-	if searxngURL := cfg.Tools.Web.Search.SearXNGURL; searxngURL != "" {
-		searchProvider = tools.NewSearXNGSearchProvider(searxngURL)
-		logger.InfoCF("agent", "Search provider: SearXNG", map[string]interface{}{"url": searxngURL})
-	} else if braveKey := cfg.Tools.Web.Search.APIKey; braveKey != "" {
-		searchProvider = tools.NewBraveSearchProvider(braveKey)
-		logger.InfoC("agent", "Search provider: Brave Search API")
-	} else {
+	switch len(activeProviders) {
+	case 0:
 		logger.WarnC("agent", "No search provider configured — web_search will return an error")
+	case 1:
+		searchProvider = activeProviders[0]
+	default:
+		searchProvider = tools.NewFallbackSearchProvider(activeProviders...)
 	}
 	toolsRegistry.Register(tools.NewWebSearchTool(searchProvider, cfg.Tools.Web.Search.MaxResults))
 	toolsRegistry.Register(tools.NewWebFetchTool(50000))
@@ -2748,6 +2765,15 @@ func (al *AgentLoop) runMemoryFlushTurn(ctx context.Context, sessionKey string) 
 		"tools_executed": executed,
 	})
 	return nil
+}
+
+// getPriorityOrder returns the configured priority order for web search providers,
+// or the default order if none is configured.
+func getPriorityOrder(priority []string) []string {
+	if len(priority) > 0 {
+		return priority
+	}
+	return []string{"searxng", "brave", "tavily"}
 }
 
 // pruneHistoryToolResults returns a copy of messages where tool-result entries
