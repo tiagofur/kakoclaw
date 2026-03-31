@@ -2642,3 +2642,87 @@ func (al *AgentLoop) estimateTokens(messages []providers.Message) int {
 	}
 	return total
 }
+
+// memoryFlushToolNames is the allowlist of tools available during a memory flush turn.
+// Only memory-related tools are permitted — exec, web, messaging tools are excluded.
+var memoryFlushToolNames = map[string]bool{
+	"write_file":      true,
+	"append_file":     true,
+	"query_knowledge": true,
+}
+
+// runMemoryFlushTurn runs a single silent LLM turn before session compaction.
+// It gives the agent a chance to persist important context to memory files.
+// The turn is best-effort: errors are logged but never block compaction.
+func (al *AgentLoop) runMemoryFlushTurn(ctx context.Context, sessionKey string) error {
+	// Build memory-only tool definitions.
+	var toolDefs []providers.ToolDefinition
+	for _, td := range al.tools.GetDefinitions() {
+		fnMap, ok := td["function"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		name, _ := fnMap["name"].(string)
+		if !memoryFlushToolNames[name] {
+			continue
+		}
+		tdType, _ := td["type"].(string)
+		desc, _ := fnMap["description"].(string)
+		params, _ := fnMap["parameters"].(map[string]interface{})
+		toolDefs = append(toolDefs, providers.ToolDefinition{
+			Type: tdType,
+			Function: providers.ToolFunctionDefinition{
+				Name:        name,
+				Description: desc,
+				Parameters:  params,
+			},
+		})
+	}
+	if len(toolDefs) == 0 {
+		return nil // no memory tools registered — skip silently
+	}
+
+	// Build messages: session history + flush prompt.
+	history := al.sessions.GetHistoryForUser(al.userID, sessionKey)
+	const flushPrompt = "This session is about to be summarized. Before that happens, " +
+		"review the conversation and save anything important to memory — key decisions, " +
+		"facts, user preferences, ongoing tasks, or context that could be lost in " +
+		"summarization. Use the available memory tools to persist this."
+	messages := make([]providers.Message, len(history)+1)
+	copy(messages, history)
+	messages[len(history)] = providers.Message{Role: "user", Content: flushPrompt}
+
+	logger.InfoC("agent", "memory flush before compaction: starting")
+
+	const flushMaxTokens = 2000
+	resp, err := al.provider.Chat(ctx, messages, toolDefs, al.model, map[string]interface{}{
+		"max_tokens": flushMaxTokens,
+	})
+	if err != nil {
+		logger.WarnCF("agent", "memory flush before compaction: LLM call failed", map[string]interface{}{
+			"error": err.Error(),
+		})
+		return nil // best-effort — never block compaction
+	}
+
+	// Execute tool calls from the flush turn.
+	executed := 0
+	for _, tc := range resp.ToolCalls {
+		if _, ok := al.tools.Get(tc.Name); !ok {
+			continue
+		}
+		if _, toolErr := al.tools.Execute(ctx, tc.Name, tc.Arguments); toolErr != nil {
+			logger.WarnCF("agent", "memory flush: tool execution failed", map[string]interface{}{
+				"tool":  tc.Name,
+				"error": toolErr.Error(),
+			})
+			continue
+		}
+		executed++
+	}
+
+	logger.InfoCF("agent", "memory flush before compaction: completed", map[string]interface{}{
+		"tools_executed": executed,
+	})
+	return nil
+}
