@@ -152,8 +152,8 @@ type TTSConfig struct {
 	Enabled  bool   `json:"enabled" env:"MAKOCLAW_TTS_ENABLED"`
 	Provider string `json:"provider" env:"MAKOCLAW_TTS_PROVIDER"` // "openai" (default) or "elevenlabs"
 	APIKey   string `json:"api_key" env:"MAKOCLAW_TTS_API_KEY"`
-	Voice    string `json:"voice" env:"MAKOCLAW_TTS_VOICE"`       // e.g. "alloy", "echo", "fable", "onyx", "nova", "shimmer"
-	Model    string `json:"model" env:"MAKOCLAW_TTS_MODEL"`       // e.g. "tts-1", "tts-1-hd"
+	Voice    string `json:"voice" env:"MAKOCLAW_TTS_VOICE"` // e.g. "alloy", "echo", "fable", "onyx", "nova", "shimmer"
+	Model    string `json:"model" env:"MAKOCLAW_TTS_MODEL"` // e.g. "tts-1", "tts-1-hd"
 }
 
 type StorageConfig struct {
@@ -164,21 +164,21 @@ type AgentsConfig struct {
 	Defaults           AgentDefaults               `json:"defaults"`
 	Orchestrator       OrchestratorConfig          `json:"orchestrator"`
 	Specialists        map[string]SpecialistConfig `json:"specialists"`
-	Swarms             map[string]SwarmConfig       `json:"swarms,omitempty"`
+	Swarms             map[string]SwarmConfig      `json:"swarms,omitempty"`
 	RemovedSpecialists []string                    `json:"removed_specialists,omitempty"` // Agents explicitly removed by user
 }
 
 // SwarmConfig defines a reusable team of specialists that collaborate on tasks
 type SwarmConfig struct {
-	Name               string   `json:"name"`
-	Description        string   `json:"description"`
-	Members            []string `json:"members"`                      // specialist names
-	Mode               string   `json:"mode"`                         // "sequential" (default), "parallel", "consensus"
-	MaxBudget          float64  `json:"max_budget,omitempty"`         // USD limit, 0=unlimited
-	Timeout            int      `json:"timeout,omitempty"`            // seconds, 0=default 300
-	SharedMemory       bool     `json:"shared_memory"`                // default true
-	SharedNotesMaxChars int     `json:"shared_notes_max_chars,omitempty"` // default 4000
-	SynthesizerAgent   string   `json:"synthesizer_agent,omitempty"`  // agent for consensus synthesis
+	Name                string   `json:"name"`
+	Description         string   `json:"description"`
+	Members             []string `json:"members"`                          // specialist names
+	Mode                string   `json:"mode"`                             // "sequential" (default), "parallel", "consensus"
+	MaxBudget           float64  `json:"max_budget,omitempty"`             // USD limit, 0=unlimited
+	Timeout             int      `json:"timeout,omitempty"`                // seconds, 0=default 300
+	SharedMemory        bool     `json:"shared_memory"`                    // default true
+	SharedNotesMaxChars int      `json:"shared_notes_max_chars,omitempty"` // default 4000
+	SynthesizerAgent    string   `json:"synthesizer_agent,omitempty"`      // agent for consensus synthesis
 }
 
 type AgentDefaults struct {
@@ -418,14 +418,25 @@ type FacebookSocialConfig struct {
 	PageID          string `json:"page_id" env:"MAKOCLAW_TOOLS_SOCIAL_FACEBOOK_PAGE_ID"`
 }
 
+type InstagramSocialConfig struct {
+	AccessToken string `json:"access_token" env:"MAKOCLAW_TOOLS_SOCIAL_INSTAGRAM_ACCESS_TOKEN"`
+	AccountID   string `json:"account_id" env:"MAKOCLAW_TOOLS_SOCIAL_INSTAGRAM_ACCOUNT_ID"`
+}
+
+type TikTokSocialConfig struct {
+	AccessToken string `json:"access_token" env:"MAKOCLAW_TOOLS_SOCIAL_TIKTOK_ACCESS_TOKEN"`
+}
+
 // SocialMediaConfig holds credentials for all social media platforms.
 // Each platform is a map of alias → credentials, allowing multiple
 // accounts per platform (e.g., "personal", "brand", "page1").
 type SocialMediaConfig struct {
-	Twitter  map[string]TwitterSocialConfig  `json:"twitter"`
-	Bluesky  map[string]BlueskySocialConfig  `json:"bluesky"`
-	LinkedIn map[string]LinkedInSocialConfig `json:"linkedin"`
-	Facebook map[string]FacebookSocialConfig `json:"facebook"`
+	Twitter   map[string]TwitterSocialConfig   `json:"twitter"`
+	Bluesky   map[string]BlueskySocialConfig   `json:"bluesky"`
+	LinkedIn  map[string]LinkedInSocialConfig  `json:"linkedin"`
+	Facebook  map[string]FacebookSocialConfig  `json:"facebook"`
+	Instagram map[string]InstagramSocialConfig `json:"instagram"`
+	TikTok    map[string]TikTokSocialConfig    `json:"tiktok"`
 }
 
 // UnmarshalJSON handles both the legacy single-account format
@@ -434,10 +445,12 @@ type SocialMediaConfig struct {
 // configs to the "default" alias automatically.
 func (s *SocialMediaConfig) UnmarshalJSON(data []byte) error {
 	type rawFields struct {
-		Twitter  json.RawMessage `json:"twitter"`
-		Bluesky  json.RawMessage `json:"bluesky"`
-		LinkedIn json.RawMessage `json:"linkedin"`
-		Facebook json.RawMessage `json:"facebook"`
+		Twitter   json.RawMessage `json:"twitter"`
+		Bluesky   json.RawMessage `json:"bluesky"`
+		LinkedIn  json.RawMessage `json:"linkedin"`
+		Facebook  json.RawMessage `json:"facebook"`
+		Instagram json.RawMessage `json:"instagram"`
+		TikTok    json.RawMessage `json:"tiktok"`
 	}
 	var raw rawFields
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -458,6 +471,14 @@ func (s *SocialMediaConfig) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	s.Facebook, err = migrateSocialMap[FacebookSocialConfig](raw.Facebook, []string{"page_access_token", "page_id"})
+	if err != nil {
+		return err
+	}
+	s.Instagram, err = migrateSocialMap[InstagramSocialConfig](raw.Instagram, []string{"access_token", "account_id"})
+	if err != nil {
+		return err
+	}
+	s.TikTok, err = migrateSocialMap[TikTokSocialConfig](raw.TikTok, []string{"access_token"})
 	return err
 }
 
@@ -543,7 +564,7 @@ type EmailToolsConfig struct {
 
 // ToolProfileConfig defines a named tool-access preset.
 type ToolProfileConfig struct {
-	Allow        []string `json:"allow"`        // tool names; empty = unrestricted
+	Allow        []string `json:"allow"`         // tool names; empty = unrestricted
 	Deny         []string `json:"deny"`          // tool names always removed
 	ExecSecurity string   `json:"exec_security"` // "deny" | "ask" | "full"
 }
@@ -691,10 +712,12 @@ func DefaultConfig() *Config {
 			},
 			Image: ImageToolsConfig{Provider: "openai", Model: "dall-e-3"},
 			SocialMedia: SocialMediaConfig{
-				Twitter:  map[string]TwitterSocialConfig{},
-				Bluesky:  map[string]BlueskySocialConfig{},
-				LinkedIn: map[string]LinkedInSocialConfig{},
-				Facebook: map[string]FacebookSocialConfig{},
+				Twitter:   map[string]TwitterSocialConfig{},
+				Bluesky:   map[string]BlueskySocialConfig{},
+				LinkedIn:  map[string]LinkedInSocialConfig{},
+				Facebook:  map[string]FacebookSocialConfig{},
+				Instagram: map[string]InstagramSocialConfig{},
+				TikTok:    map[string]TikTokSocialConfig{},
 			},
 			MCP: MCPConfig{
 				Servers: map[string]MCPServerConfig{},
@@ -965,10 +988,12 @@ func GetUserConfigTemplate(globalConfig *Config) *Config {
 				Model:    "dall-e-3",
 			},
 			SocialMedia: SocialMediaConfig{
-				Twitter:  map[string]TwitterSocialConfig{},
-				Bluesky:  map[string]BlueskySocialConfig{},
-				LinkedIn: map[string]LinkedInSocialConfig{},
-				Facebook: map[string]FacebookSocialConfig{},
+				Twitter:   map[string]TwitterSocialConfig{},
+				Bluesky:   map[string]BlueskySocialConfig{},
+				LinkedIn:  map[string]LinkedInSocialConfig{},
+				Facebook:  map[string]FacebookSocialConfig{},
+				Instagram: map[string]InstagramSocialConfig{},
+				TikTok:    map[string]TikTokSocialConfig{},
 			},
 			MCP: MCPConfig{
 				Servers: make(map[string]MCPServerConfig),

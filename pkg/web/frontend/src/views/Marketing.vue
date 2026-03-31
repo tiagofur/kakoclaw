@@ -1038,6 +1038,108 @@
                   </table>
                 </div>
               </div>
+
+              <!-- Automations Sub-tab -->
+              <div v-if="audienceSubTab === 'automations'" class="space-y-4">
+                <div class="flex items-center justify-between">
+                  <h3 class="text-lg font-semibold text-white">Automations</h3>
+                  <button class="px-4 py-2 text-sm bg-gradient-to-r from-pink-500 to-violet-500 hover:from-pink-600 hover:to-violet-600 text-white rounded-xl font-medium" @click="showAutomationForm = true; automationForm = { name: '', trigger_type: '', trigger_config: '', action_type: '', action_config: '' }">+ New Automation</button>
+                </div>
+
+                <!-- Create Automation Form -->
+                <div v-if="showAutomationForm" class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 space-y-3">
+                  <input v-model="automationForm.name" placeholder="Automation Name *" class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 text-sm focus:border-pink-500/50 focus:outline-none">
+                  <div class="grid grid-cols-2 gap-3">
+                    <select v-model="automationForm.trigger_type" class="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:border-pink-500/50 focus:outline-none">
+                      <option value="">Select Trigger...</option>
+                      <option v-for="t in ['contact_added', 'list_subscribe', 'segment_match', 'date', 'webhook']" :key="t" :value="t">{{ t }}</option>
+                    </select>
+                    <input v-model="automationForm.trigger_config" placeholder="Trigger Config (JSON)" class="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 text-sm focus:border-pink-500/50 focus:outline-none">
+                  </div>
+                  <div class="grid grid-cols-2 gap-3">
+                    <select v-model="automationForm.action_type" class="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:border-pink-500/50 focus:outline-none">
+                      <option value="">Select Action...</option>
+                      <option v-for="a in ['send_email', 'add_to_list', 'remove_from_list', 'add_tag', 'webhook']" :key="a" :value="a">{{ a }}</option>
+                    </select>
+                    <input v-model="automationForm.action_config" placeholder="Action Config (JSON)" class="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 text-sm focus:border-pink-500/50 focus:outline-none">
+                  </div>
+                  <div class="flex gap-2 justify-end">
+                    <button class="px-4 py-2 text-sm text-white/60 hover:text-white" @click="showAutomationForm = false">Cancel</button>
+                    <button class="px-4 py-2 text-sm bg-gradient-to-r from-pink-500 to-violet-500 text-white rounded-xl font-medium" @click="saveAutomation">Save</button>
+                  </div>
+                </div>
+
+                <!-- Automations Table -->
+                <div v-if="store.automationsLoading" class="flex items-center justify-center py-8">
+                  <svg class="animate-spin w-6 h-6 text-pink-400" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                </div>
+                <div v-else-if="store.automations.length === 0" class="text-center py-8 text-white/40 text-sm">No automations yet. Create your first automation.</div>
+                <div v-else class="overflow-x-auto bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl">
+                  <table class="w-full text-left">
+                    <thead>
+                      <tr class="border-b border-white/10">
+                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Name</th>
+                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Trigger</th>
+                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Action</th>
+                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Status</th>
+                        <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="auto in store.automations" :key="auto.id" class="border-b border-white/5 hover:bg-white/5 transition-colors">
+                        <td class="px-4 py-3 text-sm text-white">{{ auto.name }}</td>
+                        <td class="px-4 py-3 text-sm text-white/70">{{ auto.trigger_type }}</td>
+                        <td class="px-4 py-3 text-sm text-white/70">{{ auto.action_type }}</td>
+                        <td class="px-4 py-3">
+                          <span class="px-2 py-1 rounded-full text-xs font-medium" :class="{ 'bg-green-500/20 text-green-400': auto.status === 'active', 'bg-yellow-500/20 text-yellow-400': auto.status === 'paused', 'bg-gray-500/20 text-gray-400': auto.status === 'draft' }">{{ auto.status || 'draft' }}</span>
+                        </td>
+                        <td class="px-4 py-3">
+                          <div class="flex gap-2">
+                            <button class="px-3 py-1 text-xs bg-white/5 text-white/60 rounded-lg hover:text-white" @click="viewAutomationRuns(auto)">Runs</button>
+                            <button class="px-3 py-1 text-xs bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30" @click="store.deleteAutomation(auto.id).then(() => loadAudienceData())">Delete</button>
+                          </div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- Automation Runs History -->
+                <div v-if="selectedAutomationId" class="space-y-3">
+                  <div class="flex items-center justify-between">
+                    <h4 class="text-sm font-bold text-white">Run History</h4>
+                    <button class="text-white/40 hover:text-white" @click="selectedAutomationId = null; store.automationRuns = []">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                  <div v-if="store.automationRuns.length === 0" class="text-center py-6 text-white/40 text-sm">No runs recorded for this automation.</div>
+                  <div v-else class="overflow-x-auto bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl">
+                    <table class="w-full text-left">
+                      <thead>
+                        <tr class="border-b border-white/10">
+                          <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Status</th>
+                          <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Started</th>
+                          <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Completed</th>
+                          <th class="px-4 py-3 text-xs font-bold text-white/50 uppercase tracking-wider">Error</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="run in store.automationRuns" :key="run.id" class="border-b border-white/5">
+                          <td class="px-4 py-3">
+                            <span class="px-2 py-1 rounded-full text-xs font-medium" :class="{ 'bg-green-500/20 text-green-400': run.status === 'completed', 'bg-blue-500/20 text-blue-400': run.status === 'running', 'bg-red-500/20 text-red-400': run.status === 'failed' }">{{ run.status }}</span>
+                          </td>
+                          <td class="px-4 py-3 text-sm text-white/70">{{ run.started_at ? new Date(run.started_at).toLocaleString() : '—' }}</td>
+                          <td class="px-4 py-3 text-sm text-white/70">{{ run.completed_at ? new Date(run.completed_at).toLocaleString() : '—' }}</td>
+                          <td class="px-4 py-3 text-sm text-red-400/80">{{ run.error || '—' }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1264,6 +1366,9 @@ const audienceSendForm = ref({ list_id: '', subject: '', body: '' })
 const audienceSearchTimeout = ref(null)
 const emailCampaignForm = ref({ active: false, id: null, name: '', subject: '', body_html: '', template_slug: '', list_id: '' })
 const emailCampaignSending = ref(false)
+const showAutomationForm = ref(false)
+const automationForm = ref({ name: '', trigger_type: '', trigger_config: '', action_type: '', action_config: '' })
+const selectedAutomationId = ref(null)
 
 const newCampaign = ref(createEmptyCampaign())
 const templateForm = ref(createEmptyTemplateForm())
@@ -1934,7 +2039,8 @@ async function loadAudienceData() {
     store.fetchAudienceLists(),
     store.fetchAudienceSegments(),
     store.fetchAudienceDeliveries(),
-    store.fetchEmailCampaigns()
+    store.fetchEmailCampaigns(),
+    store.fetchAutomations()
   ])
 }
 
@@ -1998,6 +2104,41 @@ async function handleSendEmailCampaign(camp) {
     toast.error('Failed to send email campaign')
   } finally {
     emailCampaignSending.value = false
+  }
+}
+
+async function saveAutomation() {
+  const form = automationForm.value
+  if (!form.name) {
+    toast.error('Name is required')
+    return
+  }
+
+  try {
+    await store.createAutomation({
+      name: form.name,
+      trigger_type: form.trigger_type || undefined,
+      trigger_config: form.trigger_config || undefined,
+      action_type: form.action_type || undefined,
+      action_config: form.action_config || undefined
+    })
+    toast.success('Automation created')
+    showAutomationForm.value = false
+    automationForm.value = { name: '', trigger_type: '', trigger_config: '', action_type: '', action_config: '' }
+    await loadAudienceData()
+  } catch (error) {
+    console.error('Failed to save automation:', error)
+    toast.error('Failed to save automation')
+  }
+}
+
+async function viewAutomationRuns(auto) {
+  selectedAutomationId.value = auto.id
+  try {
+    await store.fetchAutomationRuns(auto.id)
+  } catch (error) {
+    console.error('Failed to load automation runs:', error)
+    toast.error('Failed to load automation runs')
   }
 }
 

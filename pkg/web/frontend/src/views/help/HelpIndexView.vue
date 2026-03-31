@@ -37,6 +37,8 @@
               <span class="px-2 py-1 text-xs rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium">Analytics</span>
             </div>
           </div>
+        </router-link>
+
         <!-- Dev Studio -->
         <router-link to="/help/dev-studio" class="group block">
           <div class="h-full p-6 rounded-2xl border transition-all duration-200 bg-white/60 backdrop-blur-sm border-slate-200/80 hover:border-cyan-300 hover:shadow-xl hover:shadow-cyan-500/10 dark:bg-makoclaw-surface/60 dark:border-makoclaw-border dark:hover:border-cyan-500/50">

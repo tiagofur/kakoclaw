@@ -50,6 +50,16 @@ func NewMultiPlatformProvider(cfg config.SocialMediaConfig) *MultiPlatformProvid
 			m.providers["facebook:"+alias] = NewFacebookProvider(fbCfg)
 		}
 	}
+	for alias, igCfg := range cfg.Instagram {
+		if igCfg.AccessToken != "" && igCfg.AccountID != "" {
+			m.providers["instagram:"+alias] = NewInstagramProvider(igCfg)
+		}
+	}
+	for alias, tkCfg := range cfg.TikTok {
+		if tkCfg.AccessToken != "" {
+			m.providers["tiktok:"+alias] = NewTikTokProvider(tkCfg)
+		}
+	}
 
 	return m
 }
