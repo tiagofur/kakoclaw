@@ -182,14 +182,15 @@ type SwarmConfig struct {
 }
 
 type AgentDefaults struct {
-	Workspace           string  `json:"workspace" env:"MAKOCLAW_AGENTS_DEFAULTS_WORKSPACE"`
-	RestrictToWorkspace bool    `json:"restrict_to_workspace" env:"MAKOCLAW_AGENTS_DEFAULTS_RESTRICT_TO_WORKSPACE"`
-	Provider            string  `json:"provider" env:"MAKOCLAW_AGENTS_DEFAULTS_PROVIDER"`
-	Model               string  `json:"model" env:"MAKOCLAW_AGENTS_DEFAULTS_MODEL"`
-	ImageModel          string  `json:"image_model,omitempty"`
-	MaxTokens           int     `json:"max_tokens" env:"MAKOCLAW_AGENTS_DEFAULTS_MAX_TOKENS"`
-	Temperature         float64 `json:"temperature" env:"MAKOCLAW_AGENTS_DEFAULTS_TEMPERATURE"`
-	MaxToolIterations   int     `json:"max_tool_iterations" env:"MAKOCLAW_AGENTS_DEFAULTS_MAX_TOOL_ITERATIONS"`
+	Workspace                   string  `json:"workspace" env:"MAKOCLAW_AGENTS_DEFAULTS_WORKSPACE"`
+	RestrictToWorkspace         bool    `json:"restrict_to_workspace" env:"MAKOCLAW_AGENTS_DEFAULTS_RESTRICT_TO_WORKSPACE"`
+	Provider                    string  `json:"provider" env:"MAKOCLAW_AGENTS_DEFAULTS_PROVIDER"`
+	Model                       string  `json:"model" env:"MAKOCLAW_AGENTS_DEFAULTS_MODEL"`
+	ImageModel                  string  `json:"image_model,omitempty"`
+	MaxTokens                   int     `json:"max_tokens" env:"MAKOCLAW_AGENTS_DEFAULTS_MAX_TOKENS"`
+	Temperature                 float64 `json:"temperature" env:"MAKOCLAW_AGENTS_DEFAULTS_TEMPERATURE"`
+	MaxToolIterations           int     `json:"max_tool_iterations" env:"MAKOCLAW_AGENTS_DEFAULTS_MAX_TOOL_ITERATIONS"`
+	MemoryFlushBeforeCompaction bool    `json:"memory_flush_before_compaction"`
 }
 
 type OrchestratorConfig struct {
@@ -595,13 +596,14 @@ func DefaultConfig() *Config {
 	return &Config{
 		Agents: AgentsConfig{
 			Defaults: AgentDefaults{
-				Workspace:           "~/.MakoClaw/workspace",
-				RestrictToWorkspace: true,
-				Provider:            "",
-				Model:               "",
-				MaxTokens:           8192,
-				Temperature:         0.7,
-				MaxToolIterations:   20,
+				Workspace:                   "~/.MakoClaw/workspace",
+				RestrictToWorkspace:         true,
+				Provider:                    "",
+				Model:                       "",
+				MaxTokens:                   8192,
+				Temperature:                 0.7,
+				MaxToolIterations:           20,
+				MemoryFlushBeforeCompaction: true,
 			},
 			Orchestrator: OrchestratorConfig{
 				Enabled:              false,
@@ -929,13 +931,14 @@ func GetUserConfigTemplate(globalConfig *Config) *Config {
 		Agents: AgentsConfig{
 			Defaults: AgentDefaults{
 				// Inherit non-sensitive defaults
-				Workspace:           filepath.Join("~", ".MakoClaw", "users", "{uuid}", "workspace"),
-				RestrictToWorkspace: globalConfig.Agents.Defaults.RestrictToWorkspace,
-				Provider:            "",                                             // Empty: user must choose
-				Model:               globalConfig.Agents.Defaults.Model,             // Inherit
-				MaxTokens:           globalConfig.Agents.Defaults.MaxTokens,         // Inherit
-				Temperature:         globalConfig.Agents.Defaults.Temperature,       // Inherit
-				MaxToolIterations:   globalConfig.Agents.Defaults.MaxToolIterations, // Inherit
+				Workspace:                   filepath.Join("~", ".MakoClaw", "users", "{uuid}", "workspace"),
+				RestrictToWorkspace:         globalConfig.Agents.Defaults.RestrictToWorkspace,
+				Provider:                    "",                                             // Empty: user must choose
+				Model:                       globalConfig.Agents.Defaults.Model,             // Inherit
+				MaxTokens:                   globalConfig.Agents.Defaults.MaxTokens,         // Inherit
+				Temperature:                 globalConfig.Agents.Defaults.Temperature,       // Inherit
+				MaxToolIterations:           globalConfig.Agents.Defaults.MaxToolIterations, // Inherit
+				MemoryFlushBeforeCompaction: globalConfig.Agents.Defaults.MemoryFlushBeforeCompaction, // Inherit
 			},
 			Orchestrator: OrchestratorConfig{
 				Enabled:              false, // Always start disabled
