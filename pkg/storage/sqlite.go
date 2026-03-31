@@ -227,6 +227,9 @@ func (s *Storage) migrateUserDB() error {
 	if err := s.migrateMarketingAudience(); err != nil {
 		return fmt.Errorf("marketing audience migration: %w", err)
 	}
+	if err := s.migrateStandingOrders(); err != nil {
+		return fmt.Errorf("standing orders migration: %w", err)
+	}
 
 	return nil
 }
@@ -557,6 +560,9 @@ func (s *Storage) migrate() error {
 	}
 	if err := s.migratePackages(); err != nil {
 		return fmt.Errorf("packages migration: %w", err)
+	}
+	if err := s.migrateStandingOrders(); err != nil {
+		return fmt.Errorf("standing orders migration: %w", err)
 	}
 
 	return nil

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/sipeed/makoclaw/pkg/providers"
+	"github.com/sipeed/makoclaw/pkg/storage"
 	"github.com/sipeed/makoclaw/pkg/tools"
 )
 
@@ -465,6 +466,71 @@ func TestWithCentralStore(t *testing.T) {
 
 	if result != cb {
 		t.Error("expected WithCentralStore to return same builder for chaining")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// getUserWorkspacePath
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// WithStandingOrders
+// ---------------------------------------------------------------------------
+
+func TestWithStandingOrders_InjectsBlockWhenOrdersExist(t *testing.T) {
+	cb := NewContextBuilder("/tmp/workspace")
+	cb.SetLightweightMode(true)
+	cb.WithStandingOrders(func() []storage.StandingOrder {
+		return []storage.StandingOrder{
+			{ID: 1, Content: "Always respond in English.", Active: true},
+			{ID: 2, Content: "Be concise.", Active: true},
+		}
+	})
+
+	prompt := cb.BuildSystemPrompt()
+	if !strings.Contains(prompt, "Standing Orders") {
+		t.Error("expected '## Standing Orders' section in system prompt")
+	}
+	if !strings.Contains(prompt, "Always respond in English.") {
+		t.Error("expected first order content in system prompt")
+	}
+	if !strings.Contains(prompt, "Be concise.") {
+		t.Error("expected second order content in system prompt")
+	}
+	if !strings.Contains(prompt, "persistent instructions") {
+		t.Error("expected introductory text about persistent instructions")
+	}
+}
+
+func TestWithStandingOrders_SkipsBlockWhenEmpty(t *testing.T) {
+	cb := NewContextBuilder("/tmp/workspace")
+	cb.SetLightweightMode(true)
+	cb.WithStandingOrders(func() []storage.StandingOrder {
+		return nil
+	})
+
+	prompt := cb.BuildSystemPrompt()
+	if strings.Contains(prompt, "Standing Orders") {
+		t.Error("expected no 'Standing Orders' section when loader returns nil")
+	}
+}
+
+func TestWithStandingOrders_SkipsBlockWhenLoaderNil(t *testing.T) {
+	cb := NewContextBuilder("/tmp/workspace")
+	cb.SetLightweightMode(true)
+	// ordersLoader is nil by default — no WithStandingOrders call
+
+	prompt := cb.BuildSystemPrompt()
+	if strings.Contains(prompt, "Standing Orders") {
+		t.Error("expected no 'Standing Orders' section when loader is nil")
+	}
+}
+
+func TestWithStandingOrders_ReturnsSameBuilder(t *testing.T) {
+	cb := NewContextBuilder("/tmp/workspace")
+	result := cb.WithStandingOrders(nil)
+	if result != cb {
+		t.Error("expected WithStandingOrders to return same builder for chaining")
 	}
 }
 

@@ -29,6 +29,7 @@ type ContextBuilder struct {
 	centralStore      *storage.CentralStorage // Central storage for marketplace usage counts (optional)
 	sessionKey        string              // Session key for skill analytics events
 	userEmail         string              // User's email address for system prompt context
+	ordersLoader      func() []storage.StandingOrder // Loader for active standing orders (optional)
 }
 
 func getGlobalConfigDir() string {
@@ -147,6 +148,13 @@ func (cb *ContextBuilder) WithCentralStore(cs *storage.CentralStorage) *ContextB
 	return cb
 }
 
+// WithStandingOrders sets a loader function for active standing orders.
+// When set, active standing orders are injected into the system prompt before skills.
+func (cb *ContextBuilder) WithStandingOrders(loader func() []storage.StandingOrder) *ContextBuilder {
+	cb.ordersLoader = loader
+	return cb
+}
+
 func (cb *ContextBuilder) getIdentity() string {
 	now := time.Now().Format("2006-01-02 15:04 (Monday)")
 	workspacePath, _ := filepath.Abs(cb.getUserWorkspacePath())
@@ -253,6 +261,21 @@ func (cb *ContextBuilder) BuildSystemPrompt() string {
 		personalityContent := cb.LoadPersonalityFiles()
 		if personalityContent != "" {
 			parts = append(parts, personalityContent)
+		}
+	}
+
+	// Standing orders — persistent user instructions injected before skills
+	if cb.ordersLoader != nil {
+		orders := cb.ordersLoader()
+		if len(orders) > 0 {
+			var sb strings.Builder
+			sb.WriteString("## Standing Orders\n\nThese are persistent instructions from the user. Follow them in every interaction.\n\n")
+			for _, o := range orders {
+				sb.WriteString("- ")
+				sb.WriteString(o.Content)
+				sb.WriteString("\n")
+			}
+			parts = append(parts, sb.String())
 		}
 	}
 

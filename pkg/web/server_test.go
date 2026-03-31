@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -753,5 +754,107 @@ func TestHandleChatSessionMessagesNoID(t *testing.T) {
 	s.handleChatSessionMessages(rr, req)
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", rr.Code)
+	}
+}
+
+// ==================== Standing Orders Tests ====================
+
+func TestHandleStandingOrdersListEmpty(t *testing.T) {
+	s := newTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/standing-orders", nil)
+	req = withTestUserContext(t, s, req)
+	rr := httptest.NewRecorder()
+	s.handleStandingOrders(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	var out map[string]interface{}
+	if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
+		t.Fatalf("invalid JSON response: %v", err)
+	}
+	if _, ok := out["standing_orders"]; !ok {
+		t.Fatal("expected 'standing_orders' key in response")
+	}
+}
+
+func TestHandleStandingOrdersCreate(t *testing.T) {
+	s := newTestServer(t)
+	body := strings.NewReader(`{"content":"Always respond in English","label":"language"}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/standing-orders", body)
+	req = withTestUserContext(t, s, req)
+	rr := httptest.NewRecorder()
+	s.handleStandingOrders(rr, req)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var out map[string]interface{}
+	if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
+		t.Fatalf("invalid JSON response: %v", err)
+	}
+	if out["content"] != "Always respond in English" {
+		t.Fatalf("unexpected content: %v", out["content"])
+	}
+}
+
+func TestHandleStandingOrdersCreateEmptyContent(t *testing.T) {
+	s := newTestServer(t)
+	body := strings.NewReader(`{"content":"","label":""}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/standing-orders", body)
+	req = withTestUserContext(t, s, req)
+	rr := httptest.NewRecorder()
+	s.handleStandingOrders(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rr.Code)
+	}
+}
+
+func TestHandleStandingOrderDeleteAndNotFound(t *testing.T) {
+	s := newTestServer(t)
+
+	// Create one
+	createBody := strings.NewReader(`{"content":"Be concise"}`)
+	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/standing-orders", createBody)
+	createReq = withTestUserContext(t, s, createReq)
+	createRR := httptest.NewRecorder()
+	s.handleStandingOrders(createRR, createReq)
+	if createRR.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", createRR.Code, createRR.Body.String())
+	}
+	var created map[string]interface{}
+	if err := json.Unmarshal(createRR.Body.Bytes(), &created); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	id := int64(created["id"].(float64))
+	idStr := strconv.FormatInt(id, 10)
+
+	// Delete it
+	delReq := httptest.NewRequest(http.MethodDelete, "/api/v1/standing-orders/"+idStr, nil)
+	delReq = withTestUserContext(t, s, delReq)
+	delRR := httptest.NewRecorder()
+	s.handleStandingOrderAction(delRR, delReq)
+	if delRR.Code != http.StatusOK {
+		t.Fatalf("expected 200 delete, got %d: %s", delRR.Code, delRR.Body.String())
+	}
+
+	// Delete again - should be 404
+	delReq2 := httptest.NewRequest(http.MethodDelete, "/api/v1/standing-orders/"+idStr, nil)
+	delReq2 = withTestUserContext(t, s, delReq2)
+	delRR2 := httptest.NewRecorder()
+	s.handleStandingOrderAction(delRR2, delReq2)
+	if delRR2.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", delRR2.Code)
+	}
+}
+
+func TestHandleStandingOrdersRequiresAuth(t *testing.T) {
+	s := newTestServer(t)
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
+	handler := s.authMiddleware(next)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/standing-orders", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 without token, got %d", rr.Code)
 	}
 }

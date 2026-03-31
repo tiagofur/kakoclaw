@@ -570,6 +570,12 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 		toolsRegistry.Register(tools.NewKnowledgeTool(store))
 		// Register system setup tool for admin package management
 		toolsRegistry.Register(tools.NewSystemSetupTool(store))
+		// Register standing orders tool
+		if soTool, err := tools.NewStandingOrderTool(store); err == nil {
+			toolsRegistry.Register(soTool)
+		} else {
+			logger.WarnCF("agent", "Standing orders tool unavailable", map[string]interface{}{"error": err.Error()})
+		}
 	}
 
 	// Register MCP tools from configured servers
@@ -632,6 +638,21 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 	contextBuilder := NewContextBuilder(workspace)
 	contextBuilder.SetToolsRegistry(toolsRegistry)
 
+	// Wire standing orders loader when storage is available at construction time.
+	// This is also wired in SetStorage for the multi-user path.
+	// loopRefForOrders is declared here so it can be set to al after construction.
+	var loopRefForOrders *AgentLoop
+	if store != nil {
+		contextBuilder.WithStandingOrders(func() []storage.StandingOrder {
+			userID := int64(0)
+			if loopRefForOrders != nil {
+				userID = loopRefForOrders.userID
+			}
+			orders, _ := store.ListStandingOrdersForUser(userID, true)
+			return orders
+		})
+	}
+
 	// Expose user's email to system prompt so the agent knows who it's emailing
 	if cfg.Tools.Email.To != "" {
 		contextBuilder.WithUserEmail(cfg.Tools.Email.To)
@@ -676,6 +697,8 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 	}
 	// Resolve the flush callback's self-reference now that the AgentLoop is constructed.
 	loopRef = al
+	// Resolve the standing orders loader's self-reference.
+	loopRefForOrders = al
 	return al
 }
 
@@ -919,6 +942,17 @@ func (al *AgentLoop) SetStorage(store *storage.Storage) {
 		logger.WarnCF("agent", "Task manager tool unavailable after storage switch", map[string]interface{}{"error": err.Error()})
 	}
 	al.baseTools.Register(tools.NewKnowledgeTool(store))
+	if soTool, err := tools.NewStandingOrderTool(store); err == nil {
+		al.baseTools.Register(soTool)
+	} else {
+		logger.WarnCF("agent", "Standing orders tool unavailable after storage switch", map[string]interface{}{"error": err.Error()})
+	}
+
+	// Wire standing orders loader so active orders appear in the system prompt.
+	al.contextBuilder.WithStandingOrders(func() []storage.StandingOrder {
+		orders, _ := store.ListStandingOrdersForUser(al.userID, true)
+		return orders
+	})
 
 	al.tools = filterToolsByPermissions(al.baseTools, al.userRole, al.userID, al.cfg, al.centralStorage)
 	al.contextBuilder.SetToolsRegistry(al.tools)

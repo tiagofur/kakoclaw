@@ -143,6 +143,191 @@ func (s *Server) handlePromptAction(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ==================== STANDING ORDERS ====================
+
+// handleStandingOrders handles GET (list) and POST (create) for standing orders.
+func (s *Server) handleStandingOrders(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	store, _, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized or storage unavailable", http.StatusUnauthorized)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		orders, err := store.ListStandingOrders(false)
+		if err != nil {
+			logger.ErrorCF("web", "failed to list standing orders", map[string]interface{}{"error": err.Error()})
+			http.Error(w, "failed to list standing orders", http.StatusInternalServerError)
+			return
+		}
+		if orders == nil {
+			orders = []storage.StandingOrder{}
+		}
+		writeJSONResponse(w, map[string]interface{}{"standing_orders": orders})
+
+	case http.MethodPost:
+		var req struct {
+			Content string `json:"content"`
+			Label   string `json:"label"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
+		if strings.TrimSpace(req.Content) == "" {
+			http.Error(w, "content is required", http.StatusBadRequest)
+			return
+		}
+		id, err := store.CreateStandingOrder(req.Content, req.Label)
+		if err != nil {
+			errMsg := err.Error()
+			if strings.Contains(errMsg, "maximum of") {
+				http.Error(w, errMsg, http.StatusUnprocessableEntity)
+				return
+			}
+			logger.ErrorCF("web", "failed to create standing order", map[string]interface{}{"error": errMsg})
+			http.Error(w, "failed to create standing order", http.StatusInternalServerError)
+			return
+		}
+		orders, _ := store.ListStandingOrders(false)
+		var created *storage.StandingOrder
+		for i := range orders {
+			if orders[i].ID == id {
+				created = &orders[i]
+				break
+			}
+		}
+		w.WriteHeader(http.StatusCreated)
+		writeJSONResponse(w, created)
+
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// handleStandingOrderAction handles PUT (update) and DELETE for /api/v1/standing-orders/{id}.
+func (s *Server) handleStandingOrderAction(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	store, _, ok := s.getUserStorage(r)
+	if !ok {
+		http.Error(w, "unauthorized or storage unavailable", http.StatusUnauthorized)
+		return
+	}
+
+	idStr := strings.TrimPrefix(r.URL.Path, "/api/v1/standing-orders/")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "invalid standing order ID", http.StatusBadRequest)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodPut:
+		var req struct {
+			Content *string `json:"content"`
+			Label   *string `json:"label"`
+			Active  *bool   `json:"active"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
+
+		// Load existing order first
+		orders, err := store.ListStandingOrders(false)
+		if err != nil {
+			logger.ErrorCF("web", "failed to load standing orders", map[string]interface{}{"error": err.Error()})
+			http.Error(w, "failed to load standing orders", http.StatusInternalServerError)
+			return
+		}
+		var existing *storage.StandingOrder
+		for i := range orders {
+			if orders[i].ID == id {
+				existing = &orders[i]
+				break
+			}
+		}
+		if existing == nil {
+			http.Error(w, "standing order not found", http.StatusNotFound)
+			return
+		}
+
+		// Apply partial updates
+		newContent := existing.Content
+		newLabel := existing.Label
+		if req.Content != nil {
+			newContent = *req.Content
+		}
+		if req.Label != nil {
+			newLabel = *req.Label
+		}
+
+		if strings.TrimSpace(newContent) == "" {
+			http.Error(w, "content cannot be empty", http.StatusBadRequest)
+			return
+		}
+
+		if err := store.UpdateStandingOrder(id, newContent, newLabel); err != nil {
+			logger.ErrorCF("web", "failed to update standing order", map[string]interface{}{"id": id, "error": err.Error()})
+			http.Error(w, "failed to update standing order", http.StatusInternalServerError)
+			return
+		}
+
+		// Toggle active if requested
+		if req.Active != nil && *req.Active != existing.Active {
+			if err := store.ToggleStandingOrder(id); err != nil {
+				logger.ErrorCF("web", "failed to toggle standing order", map[string]interface{}{"id": id, "error": err.Error()})
+				http.Error(w, "failed to toggle standing order", http.StatusInternalServerError)
+				return
+			}
+		}
+
+		// Re-fetch to return updated
+		updated, _ := store.ListStandingOrders(false)
+		for i := range updated {
+			if updated[i].ID == id {
+				writeJSONResponse(w, updated[i])
+				return
+			}
+		}
+		http.Error(w, "standing order not found after update", http.StatusInternalServerError)
+
+	case http.MethodDelete:
+		// Verify existence first
+		orders, err := store.ListStandingOrders(false)
+		if err != nil {
+			logger.ErrorCF("web", "failed to load standing orders", map[string]interface{}{"error": err.Error()})
+			http.Error(w, "failed to load standing orders", http.StatusInternalServerError)
+			return
+		}
+		found := false
+		for _, o := range orders {
+			if o.ID == id {
+				found = true
+				break
+			}
+		}
+		if !found {
+			http.Error(w, "standing order not found", http.StatusNotFound)
+			return
+		}
+
+		if err := store.DeleteStandingOrder(id); err != nil {
+			logger.ErrorCF("web", "failed to delete standing order", map[string]interface{}{"id": id, "error": err.Error()})
+			http.Error(w, "failed to delete standing order", http.StatusInternalServerError)
+			return
+		}
+		writeJSONResponse(w, map[string]string{"status": "deleted"})
+
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
 // ==================== CHAT FILE ATTACHMENTS (F9 - File Upload in Chat) ====================
 
 // handleChatAttachment handles POST /api/v1/chat/attachments

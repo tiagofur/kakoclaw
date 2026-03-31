@@ -824,6 +824,7 @@ import AuditLogTab from '../components/Settings/AuditLogTab.vue'
 import CoreSystemTab from '../components/Settings/CoreSystemTab.vue'
 import AdminUsersTab from '../components/Settings/AdminUsersTab.vue'
 import ToolsSettingsTab from '../components/Settings/ToolsSettingsTab.vue'
+import StandingOrdersTab from '../components/Settings/StandingOrdersTab.vue'
 
 import advancedService from '../services/advancedService'
 import usersService from '../services/usersService'
@@ -848,7 +849,8 @@ const tabs = computed(() => {
     { key: 'providers', label: 'Providers' },
     { key: 'channels', label: 'Channels' },
     { key: 'social_media', label: 'Social Media' },
-    { key: 'tools', label: 'Tools' }
+    { key: 'tools', label: 'Tools' },
+    { key: 'standing_orders', label: 'Standing Orders' }
   ]
   if (authStore.user?.role === 'admin') {
     base.push({ key: 'users', label: 'Users' })
@@ -868,6 +870,7 @@ const getTabIcon = (key) => {
     channels: ChatBubbleLeftRightIcon,
     social_media: MegaphoneIcon,
     tools: WrenchIcon,
+    standing_orders: DocumentMagnifyingGlassIcon,
     users: UserGroupIcon,
     permissions: ShieldCheckIcon,
     audit: DocumentMagnifyingGlassIcon,
@@ -887,6 +890,7 @@ const activeTabDescription = computed(() => {
     channels: 'Manage communication channels',
     social_media: 'Connect social media platforms for publishing',
     tools: 'Developer mode, programmer tools, and browser automation',
+    standing_orders: 'Persistent instructions injected into every agent context',
     users: 'Manage registered user accounts',
     permissions: 'Configure tool access and permissions',
     audit: 'Review system activity logs',
@@ -906,6 +910,7 @@ const activeTabComponent = computed(() => {
     channels: ChannelsSettingsTab,
     social_media: SocialMediaSettingsTab,
     tools: ToolsSettingsTab,
+    standing_orders: StandingOrdersTab,
     users: AdminUsersTab,
     permissions: ToolPermissionsTab,
     audit: AuditLogTab,

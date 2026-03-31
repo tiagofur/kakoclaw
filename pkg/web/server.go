@@ -446,6 +446,8 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/tools", s.handleToolsList)                               // Available tools list
 	mux.HandleFunc("/api/v1/prompts", s.handlePrompts)                               // Prompt templates: list + create
 	mux.HandleFunc("/api/v1/prompts/", s.handlePromptAction)                         // Prompt templates: update/delete
+	mux.HandleFunc("/api/v1/standing-orders", s.handleStandingOrders)               // Standing orders: list + create
+	mux.HandleFunc("/api/v1/standing-orders/", s.handleStandingOrderAction)         // Standing orders: update/delete
 	mux.HandleFunc("/api/v1/chat/attachments", s.handleChatAttachment)               // Chat file upload/extract
 	mux.HandleFunc("/api/v1/workflows", s.handleWorkflows)                           // Workflows: list + create
 	mux.HandleFunc("/api/v1/workflows/approvals", s.handleWorkflowApprovals)         // Workflow approvals: list pending
