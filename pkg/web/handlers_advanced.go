@@ -4333,18 +4333,20 @@ func (s *Server) handleSkillGenerateConfig(w http.ResponseWriter, r *http.Reques
 	defer userAgentLoop.Stop()
 
 	aiPrompt := fmt.Sprintf(`You are a skill configuration generator for MakoClaw.
-Your task is to propose a skill name, description, and additional context based on the user's request.
+Your task is to propose a skill name, description, when_to_use trigger, and additional context based on the user's request.
 A skill is a set of instructions (SKILL.md) that teaches the agent how to perform specific tasks.
 
 Rules:
 1. Name: Use a short, descriptive name with lowercase letters and hyphens (e.g., "github-helper", "system-monitor").
-2. Description: A concise summary of what the skill does.
-3. Additional Context: Detailed instructions or requirements for the skill generator.
+2. Description: A concise summary of what the skill does and when it applies.
+3. When to use: A brief phrase describing the exact situations that should trigger this skill (e.g., "When the user asks to rotate, crop, or edit an image file").
+4. Additional Context: Detailed instructions or requirements for the skill generator.
 
 YOU MUST RESPOND ONLY WITH A JSON OBJECT:
 {
   "name": "proposed-skill-name",
-  "description": "Short description",
+  "description": "Short description of what the skill does",
+  "when_to_use": "When the user asks to ...",
   "prompt": "Proactive details for the SKILL.md template generation"
 }
 

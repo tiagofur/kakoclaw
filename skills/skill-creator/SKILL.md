@@ -319,15 +319,23 @@ If you used `--examples`, delete any placeholder files that are not needed for t
 
 ##### Frontmatter
 
-Write the YAML frontmatter with `name` and `description`:
+Write the YAML frontmatter with `name`, `description`, and optionally `when_to_use`:
 
 - `name`: The skill name
-- `description`: This is the primary triggering mechanism for your skill, and helps the agent understand when to use the skill.
-  - Include both what the Skill does and specific triggers/contexts for when to use it.
-  - Include all "when to use" information here - Not in the body. The body is only loaded after triggering, so "When to Use This Skill" sections in the body are not helpful to the agent.
-  - Example description for a `docx` skill: "Comprehensive document creation, editing, and analysis with support for tracked changes, comments, formatting preservation, and text extraction. Use when the agent needs to work with professional documents (.docx files) for: (1) Creating new documents, (2) Modifying or editing content, (3) Working with tracked changes, (4) Adding comments, or any other document tasks"
+- `description`: A concise summary of what the skill does.
+- `when_to_use` *(optional but recommended)*: A short phrase describing the exact situations that trigger this skill. This is surfaced in the skill catalog so the agent knows when to activate it.
+  - Example: `"When the user asks to rotate, crop, resize, or edit an image file"`
+  - Keep it tight — one sentence describing the trigger condition, starting with "When".
+- Do **not** put "when to use" guidance in the body — the body is only loaded after the skill is already triggered.
 
-Do not include any other fields in YAML frontmatter.
+Example frontmatter for a `docx` skill:
+```yaml
+---
+name: docx
+description: Document creation, editing, and analysis with tracked changes, comments, and formatting preservation.
+when_to_use: When the user needs to create, edit, extract text from, or work with .docx files
+---
+```
 
 ##### Body
 
@@ -370,7 +378,7 @@ The workspace path is shown in your system context under **Runtime Info** (e.g.,
 
 Example — creating a `hello-world` skill:
 ```
-write_file("{workspace}/skills/hello-world/SKILL.md", "---\nname: hello-world\ndescription: Greets the user by name. Use when the user asks to be greeted.\n---\n\n# Hello World\n\nGreet the user warmly by name.\n")
+write_file("{workspace}/skills/hello-world/SKILL.md", "---\nname: hello-world\ndescription: Greets the user by name.\nwhen_to_use: When the user asks to be greeted or says hello\n---\n\n# Hello World\n\nGreet the user warmly by name.\n")
 ```
 
 After writing the file the skill is immediately available — no packaging step needed for personal workspace skills.
