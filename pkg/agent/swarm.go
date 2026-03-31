@@ -9,6 +9,7 @@ import (
 
 	"github.com/sipeed/makoclaw/pkg/config"
 	"github.com/sipeed/makoclaw/pkg/logger"
+	"github.com/sipeed/makoclaw/pkg/storage"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -16,6 +17,7 @@ import (
 type SwarmRunner struct {
 	registry    *SpecialistRegistry
 	costTracker *AgentCostTracker
+	storage     *storage.Storage // optional, for persisting team contexts
 	mu          sync.RWMutex
 }
 
@@ -64,6 +66,13 @@ func NewSwarmRunner(registry *SpecialistRegistry, costTracker *AgentCostTracker)
 		registry:    registry,
 		costTracker: costTracker,
 	}
+}
+
+// SetStorage sets the storage backend for persisting team contexts.
+func (sr *SwarmRunner) SetStorage(s *storage.Storage) {
+	sr.mu.Lock()
+	defer sr.mu.Unlock()
+	sr.storage = s
 }
 
 // RunSwarm executes a swarm with the given config and task
@@ -173,6 +182,9 @@ func (sr *SwarmRunner) RunSwarm(ctx context.Context, swarmCfg config.SwarmConfig
 		Status: exec.Status,
 		Reason: fmt.Sprintf("Swarm '%s' %s (%.4f USD)", swarmCfg.Name, exec.Status, exec.TotalCost),
 	})
+
+	// Persist TeamContext for analysis and follow-up (best-effort)
+	sr.persistTeamContext(exec)
 
 	return &SwarmResult{
 		ExecutionID:    exec.ID,
@@ -527,4 +539,38 @@ var BuiltInSwarmTemplates = map[string]config.SwarmConfig{
 		SharedMemory: true,
 		Timeout:      600,
 	},
+}
+
+// persistTeamContext saves the team context to storage for analysis and follow-up.
+func (sr *SwarmRunner) persistTeamContext(exec *SwarmExecution) {
+	sr.mu.RLock()
+	s := sr.storage
+	sr.mu.RUnlock()
+
+	if s == nil || exec.TeamContext == nil {
+		return
+	}
+
+	var notes, decisions string
+	if len(exec.TeamContext.SharedNotes) > 0 {
+		var parts []string
+		for _, n := range exec.TeamContext.SharedNotes {
+			parts = append(parts, fmt.Sprintf("%s: %s", n.Author, n.Content))
+		}
+		notes = strings.Join(parts, "\n---\n")
+	}
+	if len(exec.TeamContext.Decisions) > 0 {
+		var parts []string
+		for _, d := range exec.TeamContext.Decisions {
+			parts = append(parts, fmt.Sprintf("%s: %s", d.Agent, d.Decision))
+		}
+		decisions = strings.Join(parts, "\n---\n")
+	}
+
+	if err := s.SaveTeamContext(exec.ID, exec.SwarmName, exec.Task, exec.Status, notes, decisions, exec.TotalCost); err != nil {
+		logger.WarnCF("agent", "Failed to persist team context", map[string]interface{}{
+			"swarm": exec.SwarmName,
+			"error": err.Error(),
+		})
+	}
 }
