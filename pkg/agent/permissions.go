@@ -63,7 +63,12 @@ func filterToolsByPermissions(
 			"role":    userRole,
 			"user_id": userID,
 		})
-		// Admin gets full exec access - no allowlist
+		// Admin gets full exec access - enable admin mode (no allowlist, no blacklist, extended limits)
+		if execTool, ok := baseRegistry.Get("exec"); ok {
+			if et, ok := execTool.(*tools.ExecTool); ok {
+				et.SetAdminMode(true)
+			}
+		}
 		filteredRegistry = baseRegistry
 	} else {
 		// Build permission map for quick lookup

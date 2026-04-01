@@ -11,6 +11,7 @@ export const useDevStudioStore = defineStore('devStudio', () => {
   const terminalHistory = ref([])
   const searchResults = ref([])
   const usingHttpFallback = ref(false)
+  const bridgeError = ref('')
 
   let ws = null
   let wsFailures = 0
@@ -21,10 +22,12 @@ export const useDevStudioStore = defineStore('devStudio', () => {
       projects.value = data.projects || []
     } catch (e) {
       console.error('Failed to fetch projects', e)
+      terminalHistory.value.push({ type: 'error', message: 'Failed to load projects. Is Dev Studio enabled in config?' })
     }
   }
 
   async function startBridge(projectDir) {
+    bridgeError.value = ''
     try {
       await axios.post('/api/v1/dev/bridge/start', { project_dir: projectDir })
       currentProject.value = projectDir
@@ -34,6 +37,9 @@ export const useDevStudioStore = defineStore('devStudio', () => {
       connectTerminal()
     } catch (e) {
       console.error('Failed to start bridge', e)
+      const msg = e.response?.data || e.message || 'Unknown error starting bridge'
+      bridgeError.value = typeof msg === 'string' ? msg : JSON.stringify(msg)
+      terminalHistory.value.push({ type: 'error', message: `Bridge start failed: ${bridgeError.value}` })
     }
   }
 
@@ -64,6 +70,8 @@ export const useDevStudioStore = defineStore('devStudio', () => {
         connectTerminal()
       }
     } catch (e) {
+      // Status check can fail if dev studio is disabled — that's expected.
+      // Keep status as 'idle' and let the user see the hint in the terminal.
       console.error('Failed to check status', e)
     }
   }
@@ -100,9 +108,11 @@ export const useDevStudioStore = defineStore('devStudio', () => {
       if (wsFailures >= MAX_WS_FAILURES) {
         usingHttpFallback.value = true
         // Bridge is still running — keep status so the input stays enabled
-      } else {
-        bridgeStatus.value = 'stopped'
       }
+      // Don't change bridgeStatus to 'stopped' on WS close —
+      // the bridge process may still be alive. The WS is just the
+      // transport layer; losing it doesn't mean the bridge died.
+      // The user can still use HTTP fallback or reconnect.
     }
   }
 
@@ -119,11 +129,12 @@ export const useDevStudioStore = defineStore('devStudio', () => {
         body: JSON.stringify({ message })
       })
     } catch (e) {
-      terminalHistory.value.push({ type: 'error', error: 'HTTP fallback request failed: ' + e.message })
+      terminalHistory.value.push({ type: 'error', message: 'HTTP fallback request failed: ' + e.message })
       return
     }
     if (!resp.ok) {
-      terminalHistory.value.push({ type: 'error', error: `HTTP fallback error: ${resp.status}` })
+      const errText = await resp.text().catch(() => `${resp.status}`)
+      terminalHistory.value.push({ type: 'error', message: `HTTP error: ${errText}` })
       return
     }
     const reader = resp.body.getReader()
@@ -147,13 +158,14 @@ export const useDevStudioStore = defineStore('devStudio', () => {
 
   function sendPrompt(prompt) {
     terminalHistory.value.push({ type: 'user', message: prompt })
-    if (usingHttpFallback.value) {
+
+    // If bridge is not running, try HTTP fallback anyway — the backend
+    // will auto-start the bridge if possible.
+    if (usingHttpFallback.value || (!ws || ws.readyState !== WebSocket.OPEN)) {
       sendPromptViaHttp(prompt)
       return
     }
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'prompt', message: prompt }))
-    }
+    ws.send(JSON.stringify({ type: 'prompt', message: prompt }))
   }
 
   async function searchMemory(query, limit = 5) {
@@ -171,7 +183,7 @@ export const useDevStudioStore = defineStore('devStudio', () => {
       const { data } = await axios.get(`/api/v1/chat/sessions/${sessionID}`)
       if (data && data.messages) {
         terminalHistory.value = data.messages.map(m => ({
-          type: m.role === 'user' ? 'user' : 'stdout',
+          type: m.role === 'user' ? 'user' : 'assistant',
           message: m.content
         }))
       }
@@ -188,6 +200,7 @@ export const useDevStudioStore = defineStore('devStudio', () => {
     terminalHistory,
     searchResults,
     usingHttpFallback,
+    bridgeError,
     fetchProjects,
     startBridge,
     stopBridge,

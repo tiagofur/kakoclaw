@@ -19,6 +19,7 @@ type ContextBuilder struct {
 	workspace         string
 	userUUID          string // User UUID for multiuser support
 	userID            int64  // User ID from database
+	userRole          string // User role (admin, user, etc.)
 	skillsLoader      *skills.SkillsLoader
 	memory            *MemoryStore
 	tools             *tools.ToolRegistry // Direct reference to tool registry
@@ -30,6 +31,7 @@ type ContextBuilder struct {
 	sessionKey        string              // Session key for skill analytics events
 	userEmail         string              // User's email address for system prompt context
 	ordersLoader      func() []storage.StandingOrder // Loader for active standing orders (optional)
+	devStudioEnabled  bool                // Whether Dev Studio feature is enabled
 }
 
 func getGlobalConfigDir() string {
@@ -59,6 +61,18 @@ func NewContextBuilder(workspace string) *ContextBuilder {
 // WithUserEmail stores the user's email for inclusion in the system prompt.
 func (cb *ContextBuilder) WithUserEmail(email string) *ContextBuilder {
 	cb.userEmail = email
+	return cb
+}
+
+// WithUserRole stores the user's role for adapting the system prompt.
+func (cb *ContextBuilder) WithUserRole(role string) *ContextBuilder {
+	cb.userRole = role
+	return cb
+}
+
+// WithDevStudio marks Dev Studio as available so the agent can mention it.
+func (cb *ContextBuilder) WithDevStudio(enabled bool) *ContextBuilder {
+	cb.devStudioEnabled = enabled
 	return cb
 }
 
@@ -158,10 +172,52 @@ func (cb *ContextBuilder) WithStandingOrders(loader func() []storage.StandingOrd
 func (cb *ContextBuilder) getIdentity() string {
 	now := time.Now().Format("2006-01-02 15:04 (Monday)")
 	workspacePath, _ := filepath.Abs(cb.getUserWorkspacePath())
-	runtime := fmt.Sprintf("%s %s, Go %s", runtime.GOOS, runtime.GOARCH, runtime.Version())
+	runtimeInfo := fmt.Sprintf("%s %s, Go %s", runtime.GOOS, runtime.GOARCH, runtime.Version())
 
 	// Build tools section dynamically
 	toolsSection := cb.buildToolsSection()
+
+	// Adapt security section based on user role
+	securitySection := `## Security & Permissions
+
+**File Operations**: When workspace restriction is enabled, file operations are limited to the workspace directory.
+
+**Shell Commands**: The exec tool has safety guards that block dangerous patterns (rm -rf, format, etc.) and enforces workspace restrictions for file paths.`
+
+	if cb.userRole == "admin" {
+		securitySection = `## Security & Permissions
+
+**Role**: You are running as **admin** — you have full unrestricted access to all tools.
+
+**File Operations**: Full read/write access, no workspace restriction.
+
+**Shell Commands**: The exec tool runs in developer mode with full access. You can run any command including package managers, build tools, git, docker, and system utilities.`
+	}
+
+	securitySection += `
+
+**HTTP/Network**: HTTP connections are ALLOWED. Tools and skills can make external HTTP requests (e.g., gh CLI for GitHub API, curl, wget, API calls). There is NO safety guard blocking external URLs. You can freely use:
+- GitHub CLI (gh) for api.github.com
+- Web search and fetch tools
+- Any external API or service
+- Skills that require network access
+
+If a command needs network access, you should execute it normally.`
+
+	// Dev Studio section
+	devStudioSection := ""
+	if cb.devStudioEnabled {
+		devStudioSection = `
+
+## Dev Studio
+
+The **Dev Studio** feature is available in the Web UI at /dev-studio. It provides:
+- A terminal interface to interact with Claude Code or OpenCode for coding tasks
+- Per-project bridge sessions that run locally
+- Semantic memory for long-term context across sessions
+
+If the user asks about coding tools, programming assistants, or wants to use Claude Code / OpenCode, direct them to the Dev Studio in the web interface sidebar.`
+	}
 
 	return fmt.Sprintf(`# makoclaw 🦈
 
@@ -189,20 +245,8 @@ Your workspace is at: %s
 
 3. **Memory** - When remembering something, write to %s/memory/MEMORY.md
 
-## Security & Permissions
-
-**File Operations**: When workspace restriction is enabled, file operations are limited to the workspace directory.
-
-**Shell Commands**: The exec tool has safety guards that block dangerous patterns (rm -rf, format, etc.) and enforces workspace restrictions for file paths.
-
-**HTTP/Network**: ⚠️ HTTP connections are ALLOWED. Tools and skills can make external HTTP requests (e.g., gh CLI for GitHub API, curl, wget, API calls). There is NO safety guard blocking external URLs. You can freely use:
-- GitHub CLI (gh) for api.github.com
-- Web search and fetch tools
-- Any external API or service
-- Skills that require network access
-
-If a command needs network access, you should execute it normally.`,
-		now, runtime, workspacePath, workspacePath, workspacePath, workspacePath, toolsSection, workspacePath)
+%s%s`,
+		now, runtimeInfo, workspacePath, workspacePath, workspacePath, workspacePath, toolsSection, workspacePath, securitySection, devStudioSection)
 }
 
 func (cb *ContextBuilder) buildToolsSection() string {
