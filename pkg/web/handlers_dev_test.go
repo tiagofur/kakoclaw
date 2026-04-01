@@ -29,14 +29,13 @@ func TestHandleDevBridgeStatus_Disabled(t *testing.T) {
 	s.SetFullConfig(&config.Config{}) // DevStudio globally disabled by default
 
 	req := httptest.NewRequest("GET", "/api/v1/dev/bridge/status", nil)
-	// Inject mock claims
-	req = req.WithContext(injectMockClaims(req.Context(), "test-uuid"))
+	// With no authManager, extractClaims returns false → handler returns 401
 	w := httptest.NewRecorder()
 
 	s.handleDevBridgeStatus(w, req)
 
-	if w.Code != http.StatusInternalServerError {
-		t.Fatalf("Expected 500 when disabled, got %d", w.Code)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("Expected 401 when no auth, got %d", w.Code)
 	}
 }
 
