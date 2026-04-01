@@ -316,7 +316,11 @@ func (s *Server) handleDevBridgeStatus(w http.ResponseWriter, r *http.Request) {
 
 	b, err := s.getDevBridge(claims.UUID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		// Dev Studio disabled or bridge unavailable — return idle status gracefully
+		writeJSONResponse(w, map[string]interface{}{
+			"status":      "idle",
+			"project_dir": "",
+		})
 		return
 	}
 
