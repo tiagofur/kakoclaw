@@ -6,35 +6,44 @@
     </div>
 
     <!-- Full-width appbar -->
-    <div class="glass-sticky relative z-20 border-b border-makoclaw-border/20 px-4 py-2 flex items-center gap-3">
-      <button
-        class="p-2 min-h-[40px] min-w-[40px] rounded-xl bg-makoclaw-surface/50 border border-makoclaw-border/50 hover:bg-makoclaw-surface-hover hover:border-pink-400/30 transition-all flex items-center justify-center active:scale-95"
-        title="Toggle Sidebar"
-        @click="toggleSidebar"
-      >
-        <svg
-          class="w-4 h-4 text-makoclaw-text-secondary transition-transform duration-500"
-          :class="{ 'rotate-180': !showSidebar }"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-        </svg>
-      </button>
-      <div class="w-6 h-6 rounded-lg bg-gradient-to-br from-pink-500/20 to-violet-500/20 flex items-center justify-center ring-1 ring-white/10">
-        <svg class="w-3.5 h-3.5 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
-        </svg>
+    <div class="glass-sticky relative z-20 border-b border-makoclaw-border/20">
+      <div class="px-4 sm:px-6 py-3">
+        <div class="flex items-center gap-3">
+          <!-- Sidebar Toggle -->
+          <button
+            class="p-2 min-h-[40px] min-w-[40px] rounded-xl bg-makoclaw-surface/50 border border-makoclaw-border/50 hover:bg-makoclaw-surface-hover hover:border-pink-400/30 transition-all flex items-center justify-center active:scale-95"
+            title="Toggle Sidebar"
+            @click="toggleSidebar"
+          >
+            <svg
+              class="w-4 h-4 text-makoclaw-text-secondary transition-transform duration-500"
+              :class="{ 'rotate-180': !showSidebar }"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+            </svg>
+          </button>
+
+          <!-- Icon -->
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500/20 to-violet-500/20 flex items-center justify-center ring-1 ring-white/10 shadow-lg shadow-pink-500/10">
+            <svg class="w-5 h-5 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+            </svg>
+          </div>
+
+          <div class="flex-1 min-w-0">
+            <h1 class="text-xl font-bold bg-gradient-to-r from-makoclaw-text to-pink-400 bg-clip-text text-transparent">
+              Marketing
+            </h1>
+            <p class="text-[10px] text-makoclaw-text-secondary uppercase tracking-widest font-bold">
+              <template v-if="!selectedCampaign">Campaigns &amp; Analytics</template>
+              <template v-else>{{ selectedCampaign.account }} / {{ selectedCampaign.campaign }}</template>
+            </p>
+          </div>
+        </div>
       </div>
-      <span v-if="!selectedCampaign" class="text-sm font-bold text-makoclaw-text">Campaigns</span>
-      <template v-else>
-        <span class="text-xs text-makoclaw-text-secondary">{{ selectedCampaign.account }}</span>
-        <svg class="w-3 h-3 text-makoclaw-text-secondary/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-        </svg>
-        <span class="text-sm font-bold text-makoclaw-text truncate">{{ selectedCampaign.campaign }}</span>
-      </template>
     </div>
 
     <!-- Sidebar + main row -->
