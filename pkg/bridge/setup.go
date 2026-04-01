@@ -15,13 +15,19 @@ func EnsureBridge(targetDir string, bundleJS []byte, backendName string) (string
 		return "", fmt.Errorf("create bridge dir: %w", err)
 	}
 
-	bundlePath := filepath.Join(targetDir, backendName+".js")
+	bundlePath := filepath.Join(targetDir, backendName+".mjs")
 
 	existing, readErr := os.ReadFile(bundlePath)
 	bundleUpToDate := readErr == nil && string(existing) == string(bundleJS)
 
 	if bundleUpToDate {
 		return bundlePath, nil
+	}
+
+	// Clean up old .js file if we migrated to .mjs
+	oldPath := filepath.Join(targetDir, backendName+".js")
+	if oldPath != bundlePath {
+		_ = os.Remove(oldPath)
 	}
 
 	log.Printf("Updating Dev Studio Bridge bundle for backend %q...\n", backendName)
