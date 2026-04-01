@@ -13,6 +13,7 @@ import (
 	"github.com/sipeed/makoclaw/pkg/logger"
 	"github.com/sipeed/makoclaw/pkg/providers"
 	"github.com/sipeed/makoclaw/pkg/storage"
+	"github.com/sipeed/makoclaw/pkg/tools"
 )
 
 type agentTrackerKey struct{}
@@ -224,14 +225,6 @@ type SynthesisEvent struct {
 	Timestamp time.Time `json:"timestamp"`
 }
 
-// ReportSavedEvent is emitted when a specialist saves a report artifact
-type ReportSavedEvent struct {
-	Title     string    `json:"title"`
-	FilePath  string    `json:"file_path"`
-	Summary   string    `json:"summary"`
-	Timestamp time.Time `json:"timestamp"`
-}
-
 // SpecialistStreamCallback is called for each token produced by a specialist
 type SpecialistStreamCallback func(event SpecialistStreamEvent) error
 
@@ -312,26 +305,23 @@ func emitSynthesis(ctx context.Context, phase, token string) {
 	}
 }
 
-// ReportSavedCallback is called when a report artifact is saved by a specialist
-type ReportSavedCallback func(event ReportSavedEvent) error
+// ReportSavedEvent is re-exported from pkg/tools so callers (e.g. pkg/web) do not need
+// a direct import of pkg/tools.
+type ReportSavedEvent = tools.ReportSavedEvent
 
-type reportSavedCallbackKey struct{}
+// ReportSavedCallback is re-exported from pkg/tools.
+type ReportSavedCallback = tools.ReportSavedCallback
 
-// ContextWithReportSavedCallback embeds a ReportSavedCallback into the context
-func ContextWithReportSavedCallback(ctx context.Context, callback ReportSavedCallback) context.Context {
-	return context.WithValue(ctx, reportSavedCallbackKey{}, callback)
-}
-
-func reportSavedCallbackFromCtx(ctx context.Context) ReportSavedCallback {
-	if v, ok := ctx.Value(reportSavedCallbackKey{}).(ReportSavedCallback); ok {
-		return v
-	}
-	return nil
+// ContextWithReportSavedCallback embeds a ReportSavedCallback into the context.
+// Delegates to tools.ContextWithReportSavedCallback so that pkg/tools can emit events
+// without creating an import cycle.
+func ContextWithReportSavedCallback(ctx context.Context, callback tools.ReportSavedCallback) context.Context {
+	return tools.ContextWithReportSavedCallback(ctx, callback)
 }
 
 // emitReportSaved emits a ReportSavedEvent if callback is available
-func emitReportSaved(ctx context.Context, event ReportSavedEvent) {
-	if cb := reportSavedCallbackFromCtx(ctx); cb != nil {
+func emitReportSaved(ctx context.Context, event tools.ReportSavedEvent) {
+	if cb := tools.ReportSavedCallbackFromCtx(ctx); cb != nil {
 		_ = cb(event)
 	}
 }

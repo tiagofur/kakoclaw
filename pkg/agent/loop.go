@@ -306,6 +306,7 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 	toolsRegistry.Register(tools.NewListDirTool(workspace, restrict))
 	toolsRegistry.Register(tools.NewExecTool(workspace, restrict))
 	toolsRegistry.Register(tools.NewPDFTool(workspace, restrict))
+	toolsRegistry.Register(tools.NewSaveReportTool(workspace))
 
 	// Build web search providers in priority order with automatic fallback
 	var activeProviders []tools.SearchProvider
