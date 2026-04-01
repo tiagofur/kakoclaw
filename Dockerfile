@@ -58,12 +58,13 @@ LABEL org.opencontainers.image.title="MakoClaw" \
       org.opencontainers.image.vendor="Sipeed" \
       org.opencontainers.image.source="https://github.com/sipeed/makoclaw"
 
-# Install runtime dependencies
+# Install runtime dependencies + Node.js (required by Dev Studio bridge)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     ca-certificates \
     tzdata \
     curl \
+    nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
