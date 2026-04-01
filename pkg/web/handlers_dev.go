@@ -22,14 +22,17 @@ type bridgeState struct {
 }
 
 func (s *Server) bridgeStateFile(userUUID string) string {
-	storePath := ""
+	return filepath.Join(s.devWorkspaceDir(), "bridge", userUUID+"-state.json")
+}
+
+// devWorkspaceDir returns the workspace directory for dev studio artifacts.
+func (s *Server) devWorkspaceDir() string {
 	if s.fullConfig != nil {
-		storePath = s.fullConfig.Storage.Path
+		if ws := s.fullConfig.WorkspacePath(); ws != "" {
+			return ws
+		}
 	}
-	if storePath == "" {
-		storePath = defaultWorkspace()
-	}
-	return filepath.Join(storePath, "bridge", userUUID+"-state.json")
+	return defaultWorkspace()
 }
 
 func (s *Server) writeBridgeState(userUUID, status, projectDir string) {
@@ -87,12 +90,8 @@ func (s *Server) getDevBridge(userUUID string) (*bridge.Bridge, error) {
 	}
 
 	// Resolve the actual bundle path on disk before creating the bridge.
-	// EnsureBridge extracts the embedded JS bundle to storePath/bridge/ if missing or outdated.
-	storePath := s.fullConfig.Storage.Path
-	if storePath == "" {
-		storePath = defaultWorkspace()
-	}
-	bridgeDir := filepath.Join(storePath, "bridge")
+	// EnsureBridge extracts the embedded JS bundle to workspace/bridge/ if missing or outdated.
+	bridgeDir := filepath.Join(s.devWorkspaceDir(), "bridge")
 
 	backendName := s.fullConfig.DevStudio.DefaultBackend
 	if backendName == "" {

@@ -37,9 +37,7 @@ func (s *Server) getDevMemory(userUUID string) (*devmemory.Store, error) {
 
 	userWorkspace := filepath.Join(defaultWorkspace(), userUUID)
 	if s.userMgr != nil {
-		if storePath := s.fullConfig.Storage.Path; storePath != "" {
-			userWorkspace = filepath.Join(storePath, "users", userUUID, "workspace")
-		}
+		userWorkspace = s.userMgr.UserWorkspacePath(userUUID)
 	}
 	_ = os.MkdirAll(userWorkspace, 0755)
 
