@@ -44,6 +44,49 @@
           />
         </div>
 
+        <!-- Orchestrator delegation cards (orchestrator_think events) -->
+        <div
+          v-if="msg.delegationCards && msg.delegationCards.length > 0"
+          class="mb-3 space-y-2"
+        >
+          <OrchestratorDelegation
+            v-for="card in msg.delegationCards"
+            :key="card.id"
+            :specialist-name="card.specialistName"
+            :task="card.task"
+            :delegation-id="card.id"
+          />
+        </div>
+
+        <!-- Specialist work cards (specialist_stream events) -->
+        <div
+          v-if="msg.specialistWorkCards && msg.specialistWorkCards.length > 0"
+          class="mb-3 space-y-2"
+        >
+          <SpecialistWork
+            v-for="card in msg.specialistWorkCards"
+            :key="card.id"
+            :specialist-name="card.specialistName"
+            :delegation-id="card.id"
+            :tokens="card.tokens"
+            :is-done="card.isDone"
+            :duration-ms="card.durationMs"
+          />
+        </div>
+
+        <!-- Report badges (report_saved events) -->
+        <div
+          v-if="msg.reportBadges && msg.reportBadges.length > 0"
+          class="mb-3 flex flex-wrap gap-2"
+        >
+          <ReportBadge
+            v-for="badge in msg.reportBadges"
+            :key="badge.id"
+            :title="badge.title"
+            :file-path="badge.filePath"
+          />
+        </div>
+
         <!-- Tool Calls Rendering -->
         <div
           v-if="msg.toolCalls && msg.toolCalls.length > 0"
@@ -248,6 +291,9 @@ import SpecialistBadge from './Chat/SpecialistBadge.vue'
 import AgentActivityItem from './Chat/AgentActivityItem.vue'
 import SpecialistSegment from './Chat/SpecialistSegment.vue'
 import ImagePreviewCard from './ImagePreviewCard.vue'
+import OrchestratorDelegation from './Chat/OrchestratorDelegation.vue'
+import SpecialistWork from './Chat/SpecialistWork.vue'
+import ReportBadge from './Chat/ReportBadge.vue'
 import { useAuthStore } from '../stores/authStore'
 import { useChatStore } from '../stores/chatStore'
 import { buildFilesApiUrl, deriveWorkspaceRelativePath, extractImageResultData } from '../utils/imagePreview'

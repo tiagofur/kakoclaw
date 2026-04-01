@@ -37,6 +37,9 @@ export const useChatStore = defineStore('chat', () => {
   const swarmProgress = ref({})          // Member status during swarm run
   const swarmResults = ref(null)         // Last swarm execution results
 
+  // New multi-agent protocol state (orchestrator_think / specialist_stream / report_saved)
+  const activeDelegationsMap = ref({})   // Map<delegationId, {specialistName, task, tokens, isDone, durationMs, startedAt}>
+
   const generateId = (prefix = 'id') => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 
   function addMessage(message) {
@@ -298,6 +301,103 @@ export const useChatStore = defineStore('chat', () => {
       swarmProgress.value = { ...swarmProgress.value, [data.agent]: data.status }
     }
   }
+
+  // ── New multi-agent protocol methods ────────────────────────────────────────
+
+  // Called when orchestrator_think is received — adds a delegation card to the current message
+  function addOrchestratorDelegation(msg) {
+    const delegationId = msg.delegation_id || msg.specialist_name || String(Date.now())
+    // Track in activeDelegationsMap for specialist_stream updates
+    activeDelegationsMap.value[delegationId] = {
+      specialistName: msg.specialist_name || 'specialist',
+      task: msg.task || '',
+      tokens: '',
+      isDone: false,
+      durationMs: null,
+      startedAt: Date.now()
+    }
+    // Attach delegation card to current streaming message
+    if (streamingMessageId.value) {
+      const message = messages.value.find(m => m.id === streamingMessageId.value)
+      if (message) {
+        if (!message.delegationCards) message.delegationCards = []
+        message.delegationCards.push({
+          id: delegationId,
+          specialistName: msg.specialist_name || 'specialist',
+          task: msg.task || ''
+        })
+        if (!message.specialistWorkCards) message.specialistWorkCards = []
+        message.specialistWorkCards.push({
+          id: delegationId,
+          specialistName: msg.specialist_name || 'specialist',
+          tokens: '',
+          isDone: false,
+          durationMs: null
+        })
+      }
+    }
+  }
+
+  // Called when specialist_stream tokens arrive — append to the right work card
+  function appendSpecialistWorkToken(delegationId, token) {
+    if (!delegationId || !token) return
+    // Update activeDelegationsMap
+    if (activeDelegationsMap.value[delegationId]) {
+      activeDelegationsMap.value[delegationId].tokens += token
+    }
+    // Update the work card on the streaming message
+    if (streamingMessageId.value) {
+      const message = messages.value.find(m => m.id === streamingMessageId.value)
+      if (message?.specialistWorkCards) {
+        const card = message.specialistWorkCards.find(c => c.id === delegationId)
+        if (card) {
+          card.tokens = (card.tokens || '') + token
+        }
+      }
+    }
+  }
+
+  // Called when delegation_update with status "complete" is received
+  function markDelegationComplete(delegationId, durationMs) {
+    if (!delegationId) return
+    const entry = activeDelegationsMap.value[delegationId]
+    if (entry) {
+      entry.isDone = true
+      if (durationMs != null) {
+        entry.durationMs = durationMs
+      } else if (entry.startedAt) {
+        entry.durationMs = Date.now() - entry.startedAt
+      }
+    }
+    // Update the work card on the streaming message
+    if (streamingMessageId.value) {
+      const message = messages.value.find(m => m.id === streamingMessageId.value)
+      if (message?.specialistWorkCards) {
+        const card = message.specialistWorkCards.find(c => c.id === delegationId)
+        if (card) {
+          card.isDone = true
+          card.durationMs = entry?.durationMs ?? null
+        }
+      }
+    }
+  }
+
+  // Called when report_saved is received — adds a badge to the current streaming message
+  function addReportBadge(msg) {
+    if (streamingMessageId.value) {
+      const message = messages.value.find(m => m.id === streamingMessageId.value)
+      if (message) {
+        if (!message.reportBadges) message.reportBadges = []
+        message.reportBadges.push({
+          id: String(Date.now()),
+          title: msg.title || 'Report',
+          filePath: msg.file_path || ''
+        })
+      }
+    }
+  }
+
+  // ── End new multi-agent protocol methods ─────────────────────────────────────
 
   // Set delegation summary from stream_end
   function setDelegationSummary(summary) {
@@ -629,7 +729,12 @@ export const useChatStore = defineStore('chat', () => {
     swarmResults,
     handleSwarmStart,
     handleSwarmComplete,
-    handleSwarmAgentStatus
+    handleSwarmAgentStatus,
+    activeDelegationsMap,
+    addOrchestratorDelegation,
+    appendSpecialistWorkToken,
+    markDelegationComplete,
+    addReportBadge
   }
 })
   const normalizeModelsData = (data) => {
