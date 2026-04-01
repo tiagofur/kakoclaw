@@ -168,6 +168,7 @@ func (s *Server) handleGetUserConfig(w http.ResponseWriter, r *http.Request) {
 				"zhipu":     imageProviderInfo(mergedCfg.Tools.ImageProviders.Zhipu, mergedCfg.Providers.Zhipu.APIKey),
 				"bfl":       imageProviderInfo(mergedCfg.Tools.ImageProviders.BFL),
 			},
+			"developer_mode": mergedCfg.Tools.DeveloperMode,
 		},
 	}
 
@@ -866,6 +867,10 @@ func applyConfigUpdates(cfg *config.Config, updates map[string]interface{}) erro
 			if model, ok := imageUpdate["model"].(string); ok {
 				cfg.Tools.Image.Model = model
 			}
+		}
+		// Handle developer_mode toggle
+		if devMode, ok := toolsUpdate["developer_mode"].(bool); ok {
+			cfg.Tools.DeveloperMode = devMode
 		}
 		// Remove "tools" from bulk update map
 		delete(updates, "tools")
