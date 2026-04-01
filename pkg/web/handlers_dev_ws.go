@@ -15,8 +15,9 @@ import (
 )
 
 type devTerminalWSMessage struct {
-	Type    string `json:"type"` // "prompt", "ping", "interrupt"
-	Message string `json:"message,omitempty"`
+	Type      string `json:"type"` // "prompt", "ping", "interrupt"
+	Message   string `json:"message,omitempty"`
+	SessionID string `json:"session_id,omitempty"`
 }
 
 // eventToFrontend normalises a bridge.Event for the frontend.
@@ -70,6 +71,10 @@ func eventToFrontend(ev bridge.Event) map[string]interface{} {
 	}
 	if ev.NumTurns != 0 {
 		out["num_turns"] = ev.NumTurns
+		out["tokens_used"] = ev.NumTurns
+	}
+	if ev.TokensUsed != 0 {
+		out["tokens_used"] = ev.TokensUsed
 	}
 
 	return out
@@ -136,7 +141,7 @@ func (s *Server) handleDevTerminalWS(w http.ResponseWriter, r *http.Request) {
 			// Persistence: get user storage
 			userStore, _, userStorOK := s.getUserStorage(r)
 			projectName := filepath.Base(b.Cwd())
-			sessionID := "dev_studio_" + projectName
+			sessionID := s.resolveDevSessionID(claims.UUID, in.SessionID, projectName)
 
 			if userStorOK && userStore != nil {
 				_ = userStore.SaveMessage(sessionID, "user", in.Message)
@@ -181,6 +186,13 @@ func (s *Server) handleDevTerminalWS(w http.ResponseWriter, r *http.Request) {
 							break
 						}
 					}
+					s.trackDevSessionEvent(ctx, claims.UUID, &sessionID, ev, b, func(msg map[string]interface{}) error {
+						resetBytes, err := json.Marshal(msg)
+						if err != nil {
+							return err
+						}
+						return safeWrite(resetBytes)
+					})
 				}
 				// Save assistant response once finished
 				if userStorOK && userStore != nil && fullResponse.Len() > 0 {

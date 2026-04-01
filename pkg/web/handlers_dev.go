@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,8 +11,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/sipeed/makoclaw/pkg/bridge"
 	"github.com/sipeed/makoclaw/pkg/config"
+	"github.com/sipeed/makoclaw/pkg/logger"
 )
 
 type bridgeState struct {
@@ -279,8 +282,23 @@ func (s *Server) handleDevBridgeStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Verify the bridge process is actually responsive before reporting success.
+	pingCtx, pingCancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer pingCancel()
+	if err := b.Ping(pingCtx); err != nil {
+		_ = b.Stop()
+		s.writeBridgeState(claims.UUID, "stopped", "")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"error": fmt.Sprintf("Bridge started but is not responding (is the backend CLI installed?): %v", err),
+		})
+		return
+	}
+
+	backendName := s.resolveBackendName()
 	s.writeBridgeState(claims.UUID, "running", req.ProjectDir)
-	writeJSONResponse(w, map[string]interface{}{"status": "started", "project_dir": req.ProjectDir})
+	writeJSONResponse(w, map[string]interface{}{"status": "started", "project_dir": req.ProjectDir, "backend": backendName})
 }
 
 func (s *Server) handleDevBridgeStop(w http.ResponseWriter, r *http.Request) {
@@ -310,6 +328,13 @@ func (s *Server) handleDevBridgeStop(w http.ResponseWriter, r *http.Request) {
 	writeJSONResponse(w, map[string]interface{}{"status": "stopped"})
 }
 
+func (s *Server) resolveBackendName() string {
+	if s.fullConfig != nil && s.fullConfig.DevStudio.DefaultBackend != "" {
+		return s.fullConfig.DevStudio.DefaultBackend
+	}
+	return "claude-code"
+}
+
 func (s *Server) handleDevBridgeStatus(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -328,22 +353,109 @@ func (s *Server) handleDevBridgeStatus(w http.ResponseWriter, r *http.Request) {
 		writeJSONResponse(w, map[string]interface{}{
 			"status":      "idle",
 			"project_dir": "",
+			"backend":     "",
 		})
 		return
 	}
 
 	state := b.State()
 	projectDir := b.Cwd()
+	backendName := s.resolveBackendName()
 	// If bridge is not running, try to restore last known project from state.json
 	if state != "running" {
-		if saved := s.readBridgeState(claims.UUID); saved != nil && saved.ProjectDir != "" {
-			projectDir = saved.ProjectDir
+		if saved := s.readBridgeState(claims.UUID); saved != nil {
+			if saved.ProjectDir != "" {
+				projectDir = saved.ProjectDir
+			}
+			if saved.Backend != "" {
+				backendName = saved.Backend
+			}
 		}
 	}
 	writeJSONResponse(w, map[string]interface{}{
 		"status":      state,
 		"project_dir": projectDir,
+		"backend":     backendName,
 	})
+}
+
+func (s *Server) handleSessionStats(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	claims, ok := s.extractClaims(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	stats := SessionStats{TokenLimit: 0}
+	if s.sessionTracker != nil {
+		stats = s.sessionTracker.Stats(claims.UUID, strings.TrimSpace(r.URL.Query().Get("session_id")))
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	writeJSONResponse(w, stats)
+}
+
+func (s *Server) resolveDevSessionID(userUUID, requestedSessionID, projectName string) string {
+	requestedSessionID = strings.TrimSpace(requestedSessionID)
+	if requestedSessionID != "" {
+		return requestedSessionID
+	}
+
+	defaultSessionID := "dev_studio_" + projectName
+	if s.sessionTracker == nil {
+		return defaultSessionID
+	}
+
+	activeSessionID := s.sessionTracker.Stats(userUUID, "").SessionID
+	if activeSessionID == "" {
+		return defaultSessionID
+	}
+	if strings.HasPrefix(activeSessionID, "dev_studio_") && activeSessionID != defaultSessionID {
+		return defaultSessionID
+	}
+	return activeSessionID
+}
+
+func makeSessionResetEvent(newSessionID string) map[string]interface{} {
+	return map[string]interface{}{
+		"type":           bridge.EventSessionReset,
+		"new_session_id": newSessionID,
+		"message":        "Session auto-reset: token limit reached",
+	}
+}
+
+func (s *Server) trackDevSessionEvent(ctx context.Context, userUUID string, sessionID *string, ev bridge.Event, b *bridge.Bridge, emit func(map[string]interface{}) error) {
+	if s.sessionTracker == nil || sessionID == nil || strings.TrimSpace(*sessionID) == "" || ev.Type != "result" {
+		return
+	}
+
+	s.sessionTracker.Record(userUUID, *sessionID, ev.NumTurns, ev.CostUSD)
+	if !s.sessionTracker.ShouldReset(userUUID, *sessionID) {
+		return
+	}
+
+	newSessionID := uuid.NewString()
+	if err := emit(makeSessionResetEvent(newSessionID)); err != nil {
+		logger.WarnCF("web", "failed to emit session reset event", map[string]interface{}{"user_uuid": userUUID, "error": err.Error()})
+		return
+	}
+
+	if b != nil {
+		if err := b.Stop(); err != nil {
+			logger.WarnCF("web", "failed to stop bridge during session reset", map[string]interface{}{"user_uuid": userUUID, "error": err.Error()})
+		}
+		if err := b.Start(ctx); err != nil {
+			logger.WarnCF("web", "failed to restart bridge during session reset", map[string]interface{}{"user_uuid": userUUID, "error": err.Error()})
+		}
+	}
+
+	s.sessionTracker.ZeroSession(userUUID, newSessionID)
+	*sessionID = newSessionID
 }
 
 // handleDevQuery is the HTTP fallback for the WebSocket terminal.
@@ -362,7 +474,8 @@ func (s *Server) handleDevQuery(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Message string `json:"message"`
+		Message   string `json:"message"`
+		SessionID string `json:"session_id,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Message == "" {
 		http.Error(w, "Invalid body: 'message' required", http.StatusBadRequest)
@@ -377,7 +490,7 @@ func (s *Server) handleDevQuery(w http.ResponseWriter, r *http.Request) {
 
 	userStore, _, userStorOK := s.getUserStorage(r)
 	projectName := filepath.Base(b.Cwd())
-	sessionID := "dev_studio_" + projectName
+	sessionID := s.resolveDevSessionID(claims.UUID, req.SessionID, projectName)
 	if userStorOK && userStore != nil {
 		_ = userStore.SaveMessage(sessionID, "user", req.Message)
 	}
@@ -416,6 +529,9 @@ func (s *Server) handleDevQuery(w http.ResponseWriter, r *http.Request) {
 			fullResponse.WriteString(ev.Content)
 		}
 		_ = enc.Encode(eventToFrontend(ev))
+		s.trackDevSessionEvent(r.Context(), claims.UUID, &sessionID, ev, b, func(msg map[string]interface{}) error {
+			return enc.Encode(msg)
+		})
 		if canFlush {
 			flusher.Flush()
 		}

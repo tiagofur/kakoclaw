@@ -66,6 +66,10 @@
               :class="devStore.bridgeStatus === 'running' ? 'text-makoclaw-success' : 'text-makoclaw-text-secondary'"
             >
               Bridge: {{ devStore.bridgeStatus }}
+              <template v-if="devStore.bridgeBackend && devStore.bridgeStatus === 'running'">
+                <span class="mx-1 text-makoclaw-text-secondary/40">|</span>
+                {{ devStore.bridgeBackend === 'opencode' ? 'OpenCode' : 'Claude Code' }}
+              </template>
             </span>
           </div>
         </div>
@@ -266,6 +270,8 @@
             v-show="activeTab === 'Terminal'"
             class="flex-1 flex flex-col min-h-0 bg-black/90 p-4 font-mono text-sm relative"
           >
+            <TerminalHeader class="-mx-4 -mt-4 mb-4" />
+
             <div
               ref="terminalRef"
               class="flex-1 overflow-y-auto pb-4 space-y-2 custom-scrollbar"
@@ -323,6 +329,12 @@
                     >
                       ({{ (msg.duration_ms / 1000).toFixed(1) }}s)
                     </span>
+                  </div>
+                </template>
+                <template v-else-if="msg.type === 'session_reset'">
+                  <div class="flex items-center gap-2 text-makoclaw-warning py-2">
+                    <i class="fas fa-rotate-right" />
+                    <span class="font-bold">{{ msg.message }}</span>
                   </div>
                 </template>
               </div>
@@ -429,6 +441,7 @@
 <script setup>
 import { ref, onMounted, nextTick, watch, computed } from 'vue'
 import { useDevStudioStore } from '@/stores/devStudioStore'
+import TerminalHeader from '@/components/DevStudio/TerminalHeader.vue'
 
 const devStore = useDevStudioStore()
 const activeTab = ref('Terminal')

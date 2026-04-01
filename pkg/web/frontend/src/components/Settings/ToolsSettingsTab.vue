@@ -103,6 +103,25 @@
           <ExclamationTriangleIcon class="w-4 h-4 text-amber-400 shrink-0" />
           <span class="text-amber-400/80"><span class="font-bold">Disabled:</span> Enable Dev Studio to access the workspace from the sidebar</span>
         </div>
+        <div
+          v-if="devStudioEnabled"
+          class="mt-1 px-4 py-3 rounded-2xl bg-makoclaw-bg/30 border border-makoclaw-border/30"
+        >
+          <label class="block text-[10px] font-bold text-makoclaw-text-secondary/70 uppercase tracking-wider mb-2">
+            Default Backend
+          </label>
+          <select
+            v-model="devStudioBackend"
+            class="w-full bg-makoclaw-bg border border-makoclaw-border/50 rounded-xl px-3 py-2 text-xs text-makoclaw-text outline-none focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/20 transition-all"
+            @change="saveDevStudioBackend"
+          >
+            <option value="claude-code">Claude Code</option>
+            <option value="opencode">OpenCode</option>
+          </select>
+          <p class="text-[9px] text-makoclaw-text-secondary/50 mt-1.5">
+            Requires bridge restart to take effect.
+          </p>
+        </div>
       </div>
     </div>
 
@@ -229,6 +248,7 @@ const isAdmin = computed(() => authStore.user?.role === 'admin')
 
 const developerMode = ref(false)
 const devStudioEnabled = ref(false)
+const devStudioBackend = ref('claude-code')
 
 watch(() => props.configData, (newVal) => {
   if (newVal?.tools) {
@@ -236,6 +256,7 @@ watch(() => props.configData, (newVal) => {
   }
   if (newVal?.dev_studio) {
     devStudioEnabled.value = !!newVal.dev_studio.enabled
+    devStudioBackend.value = newVal.dev_studio.default_backend || 'claude-code'
   }
 }, { immediate: true })
 
@@ -245,6 +266,10 @@ const saveDeveloperMode = () => {
 
 const saveDevStudio = () => {
   emit('save', { dev_studio: { enabled: devStudioEnabled.value } })
+}
+
+const saveDevStudioBackend = () => {
+  emit('save', { dev_studio: { default_backend: devStudioBackend.value } })
 }
 
 const programmerTools = [

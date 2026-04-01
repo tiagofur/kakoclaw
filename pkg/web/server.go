@@ -86,9 +86,10 @@ type Server struct {
 	allowedOrigins          []string
 
 	// Dev Studio references (UUID -> instance)
-	devBridgesMu            sync.RWMutex
-	devBridges              map[string]interface{} // *bridge.Bridge (type erased to avoid circular deps if any)
-	devMemories             map[string]interface{} // *devmemory.Store
+	devBridgesMu   sync.RWMutex
+	devBridges     map[string]interface{} // *bridge.Bridge (type erased to avoid circular deps if any)
+	devMemories    map[string]interface{} // *devmemory.Store
+	sessionTracker *SessionTracker
 }
 
 type taskItem struct {
@@ -135,7 +136,7 @@ func (s *Server) checkOrigin(r *http.Request) bool {
 
 func NewServer(cfg config.WebConfig, agentLoop *agent.AgentLoop, store *storage.Storage) *Server {
 	workspace := defaultWorkspace()
-	return &Server{
+	s := &Server{
 		cfg:          cfg,
 		workspace:    workspace,
 		agentLoop:    agentLoop,
@@ -150,6 +151,8 @@ func NewServer(cfg config.WebConfig, agentLoop *agent.AgentLoop, store *storage.
 		devBridges:   make(map[string]interface{}),
 		devMemories:  make(map[string]interface{}),
 	}
+	s.configureSessionTracker(0)
+	return s
 }
 
 func NewServerWithWorkspace(cfg config.WebConfig, agentLoop *agent.AgentLoop, workspace string) *Server {
@@ -158,6 +161,7 @@ func NewServerWithWorkspace(cfg config.WebConfig, agentLoop *agent.AgentLoop, wo
 	}
 	s := NewServer(cfg, agentLoop, nil)
 	s.workspace = workspace
+	s.configureSessionTracker(0)
 	return s
 }
 
@@ -257,6 +261,15 @@ func (s *Server) SetTTSSynthesizer(t *voice.OpenAITTSProvider) {
 // SetFullConfig injects the full config for read-only settings endpoint
 func (s *Server) SetFullConfig(cfg *config.Config) {
 	s.fullConfig = cfg
+	maxTokens := 0
+	if cfg != nil {
+		maxTokens = cfg.DevStudio.MaxSessionTokens
+	}
+	s.configureSessionTracker(maxTokens)
+}
+
+func (s *Server) configureSessionTracker(maxTokens int) {
+	s.sessionTracker = NewSessionTracker(filepath.Join(s.devWorkspaceDir(), "bridge"), maxTokens)
 }
 
 // SetMCPManager injects the MCP manager for REST exposure
@@ -446,8 +459,8 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/tools", s.handleToolsList)                               // Available tools list
 	mux.HandleFunc("/api/v1/prompts", s.handlePrompts)                               // Prompt templates: list + create
 	mux.HandleFunc("/api/v1/prompts/", s.handlePromptAction)                         // Prompt templates: update/delete
-	mux.HandleFunc("/api/v1/standing-orders", s.handleStandingOrders)               // Standing orders: list + create
-	mux.HandleFunc("/api/v1/standing-orders/", s.handleStandingOrderAction)         // Standing orders: update/delete
+	mux.HandleFunc("/api/v1/standing-orders", s.handleStandingOrders)                // Standing orders: list + create
+	mux.HandleFunc("/api/v1/standing-orders/", s.handleStandingOrderAction)          // Standing orders: update/delete
 	mux.HandleFunc("/api/v1/chat/attachments", s.handleChatAttachment)               // Chat file upload/extract
 	mux.HandleFunc("/api/v1/workflows", s.handleWorkflows)                           // Workflows: list + create
 	mux.HandleFunc("/api/v1/workflows/approvals", s.handleWorkflowApprovals)         // Workflow approvals: list pending
@@ -462,6 +475,7 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/v1/dev/bridge/start", s.handleDevBridgeStart)
 	mux.HandleFunc("/api/v1/dev/bridge/stop", s.handleDevBridgeStop)
 	mux.HandleFunc("/api/v1/dev/bridge/status", s.handleDevBridgeStatus)
+	mux.HandleFunc("/api/v1/dev/session/stats", s.handleSessionStats)
 	mux.HandleFunc("/api/v1/dev/query", s.handleDevQuery)
 	mux.HandleFunc("/api/v1/dev/memory/search", s.handleDevMemorySearch)
 	mux.HandleFunc("/api/v1/dev/memory/store", s.handleDevMemoryStore)

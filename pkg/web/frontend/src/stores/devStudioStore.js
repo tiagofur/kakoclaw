@@ -13,9 +13,59 @@ export const useDevStudioStore = defineStore('devStudio', () => {
   const usingHttpFallback = ref(false)
   const projectsRoot = ref('')
   const bridgeError = ref('')
+  const bridgeBackend = ref('')
+  const sessionId = ref('')
+  const sessionTokens = ref(0)
+  const sessionCostUsd = ref(0)
+  const tokenLimit = ref(0)
+  const numTurns = ref(0)
 
   let ws = null
   let wsFailures = 0
+
+  function applySessionStats(stats = {}) {
+    sessionId.value = stats.session_id || ''
+    sessionTokens.value = Number(stats.tokens_used || 0)
+    sessionCostUsd.value = Number(stats.cost_usd || 0)
+    tokenLimit.value = Number(stats.token_limit || 0)
+    numTurns.value = Number(stats.num_turns || 0)
+  }
+
+  async function fetchSessionStats() {
+    try {
+      const { data } = await api.get('/dev/session/stats')
+      applySessionStats(data)
+    } catch (e) {
+      console.error('Failed to fetch session stats', e)
+    }
+  }
+
+  function processTerminalEvent(msg) {
+    if (!msg || msg.type === 'ping') return
+
+    if (msg.type === 'result') {
+      sessionTokens.value += Number(msg.tokens_used || msg.num_turns || 0)
+      sessionCostUsd.value += Number(msg.cost_usd || 0)
+      numTurns.value += Number(msg.num_turns || msg.tokens_used || 0)
+      if (msg.session_id) {
+        sessionId.value = msg.session_id
+      }
+    }
+
+    if (msg.type === 'session_reset') {
+      sessionTokens.value = 0
+      sessionCostUsd.value = 0
+      numTurns.value = 0
+      sessionId.value = msg.new_session_id || ''
+      terminalHistory.value.push({
+        type: 'session_reset',
+        message: msg.message || 'Session auto-reset: token limit reached'
+      })
+      return
+    }
+
+    terminalHistory.value.push(msg)
+  }
 
   async function fetchProjects() {
     try {
@@ -42,12 +92,14 @@ export const useDevStudioStore = defineStore('devStudio', () => {
   async function startBridge(projectDir) {
     bridgeError.value = ''
     try {
-      await api.post('/dev/bridge/start', { project_dir: projectDir })
+      const { data } = await api.post('/dev/bridge/start', { project_dir: projectDir })
       currentProject.value = projectDir
       bridgeStatus.value = 'running'
+      bridgeBackend.value = data?.backend || ''
       wsFailures = 0
       usingHttpFallback.value = false
       connectTerminal()
+      await fetchSessionStats()
     } catch (e) {
       console.error('Failed to start bridge', e)
       // Extract detailed error message from JSON response
@@ -69,12 +121,14 @@ export const useDevStudioStore = defineStore('devStudio', () => {
     try {
       await api.post('/dev/bridge/stop')
       bridgeStatus.value = 'stopped'
+      bridgeBackend.value = ''
       usingHttpFallback.value = false
       wsFailures = 0
       if (ws) {
         ws.close()
         ws = null
       }
+      applySessionStats()
     } catch (e) {
       console.error('Failed to stop bridge', e)
     }
@@ -84,10 +138,14 @@ export const useDevStudioStore = defineStore('devStudio', () => {
     try {
       const { data } = await api.get('/dev/bridge/status')
       bridgeStatus.value = data.status
+      if (data.backend) {
+        bridgeBackend.value = data.backend
+      }
       // Restore last active project from state.json (returned by backend)
       if (data.project_dir && !currentProject.value) {
         currentProject.value = data.project_dir
       }
+      await fetchSessionStats()
       if (data.status === 'running' && !ws && !usingHttpFallback.value) {
         connectTerminal()
       }
@@ -113,9 +171,7 @@ export const useDevStudioStore = defineStore('devStudio', () => {
     ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data)
-        if (msg.type !== 'ping') {
-          terminalHistory.value.push(msg)
-        }
+        processTerminalEvent(msg)
       } catch (e) {
         console.error('Failed to parse WS msg', e)
       }
@@ -148,7 +204,7 @@ export const useDevStudioStore = defineStore('devStudio', () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ message })
+        body: JSON.stringify({ message, session_id: sessionId.value || undefined })
       })
     } catch (e) {
       terminalHistory.value.push({ type: 'error', message: 'HTTP fallback request failed: ' + e.message })
@@ -176,7 +232,7 @@ export const useDevStudioStore = defineStore('devStudio', () => {
         if (!line.trim()) continue
         try {
           const msg = JSON.parse(line)
-          if (msg.type !== 'ping') terminalHistory.value.push(msg)
+          processTerminalEvent(msg)
         } catch (e) {
           // Ignore parse errors for incomplete JSON lines in the stream
         }
@@ -193,7 +249,7 @@ export const useDevStudioStore = defineStore('devStudio', () => {
       sendPromptViaHttp(prompt)
       return
     }
-    ws.send(JSON.stringify({ type: 'prompt', message: prompt }))
+    ws.send(JSON.stringify({ type: 'prompt', message: prompt, session_id: sessionId.value || undefined }))
   }
 
   async function searchMemory(query, limit = 5) {
@@ -230,6 +286,14 @@ export const useDevStudioStore = defineStore('devStudio', () => {
     searchResults,
     usingHttpFallback,
     bridgeError,
+    bridgeBackend,
+    sessionId,
+    sessionTokens,
+    sessionCostUsd,
+    tokenLimit,
+    numTurns,
+    fetchSessionStats,
+    processTerminalEvent,
     fetchProjects,
     createProject,
     startBridge,
