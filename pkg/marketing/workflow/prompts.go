@@ -83,7 +83,7 @@ Save the brief to the campaign workspace using write_file: ` + fmt.Sprintf("`mar
 
 func buildStrategyPrompt(ctx *StageContext) string {
 	prompt := `You are a senior content strategist. Create a comprehensive content strategy based on the campaign brief.` + "\n\n"
-	prompt += fmt.Sprintf("**Account**: %s\n", ctx.Campaign)
+	prompt += fmt.Sprintf("**Account**: %s\n", ctx.Account)
 	prompt += fmt.Sprintf("**Campaign**: %s\n", ctx.Campaign)
 
 	if ctx.Brief != "" {
