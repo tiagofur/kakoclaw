@@ -58,19 +58,28 @@ LABEL org.opencontainers.image.title="MakoClaw" \
       org.opencontainers.image.vendor="Sipeed" \
       org.opencontainers.image.source="https://github.com/sipeed/makoclaw"
 
-# Install runtime dependencies + Node.js (required by Dev Studio bridge)
+# Install runtime dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     ca-certificates \
     tzdata \
     curl \
-    nodejs \
     && rm -rf /var/lib/apt/lists/*
+
+# Copy Node.js runtime from the frontend-builder stage (includes npm)
+COPY --from=frontend-builder /usr/local/bin/node /usr/local/bin/node
+COPY --from=frontend-builder /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \
+    ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 
 # Create non-root user
 RUN useradd -m -u 10001 -s /bin/bash makoclaw && \
     mkdir -p /home/makoclaw/.MakoClaw/workspace && \
     chown -R makoclaw:makoclaw /home/makoclaw
+
+# Install Claude Code CLI globally (required by Dev Studio bridge SDK)
+RUN npm install -g @anthropic-ai/claude-code && \
+    chown -R makoclaw:makoclaw /usr/local/lib/node_modules/@anthropic-ai
 
 # Copy binary and skills
 COPY --from=backend-builder --chown=makoclaw:makoclaw /out/makoclaw /usr/local/bin/makoclaw

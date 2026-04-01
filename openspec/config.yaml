@@ -4,14 +4,17 @@ schema: spec-driven
 context: |
   Project: MakoClaw (github.com/sipeed/makoclaw) — ultra-efficient AI agent framework for resource-constrained hardware
   Backend: Go 1.26, SQLite (modernc.org/sqlite), gorilla/websocket, Anthropic SDK, OpenAI SDK
-  Frontend: Vue 3 + Vite 5 + Tailwind CSS 3 + Pinia + Vue Router + Playwright E2E
+  Frontend: Vue 3 + Vite 5 + Tailwind CSS 3 + Pinia + Vue Router + Playwright E2E + Vitest unit
   Architecture: Channel-centric message bus → Agent Manager → LLM Provider → Tools → Response
   Channels: Telegram, Discord, Slack, WhatsApp, Signal, QQ, DingTalk, Feishu, MaixCam
-  Testing: `go test ./...` (backend, race: `go test -race ./...`), Playwright (frontend)
+  Testing: `go test ./...` (backend, race: `go test -race ./...`), Playwright E2E + Vitest unit (frontend)
   Build: Makefile — `make build`, `make build-all`, `make fmt`, `make vet`, `make security`
   Logging: `logger.InfoCF("component", "msg", fields)` — component-based structured logging
   Config: `~/.MakoClaw/config.json`, env prefix `MAKOCLAW_`, multi-user per-uuid workspaces
   CI: GitHub Actions on push/PR to main — runs `make build-all` (linux-amd64/arm64/riscv64, windows-amd64)
+  Dev Studio: pkg/bridge/ (Node.js subprocess NDJSON bridge), pkg/web/handlers_dev*.go, devStudioStore.js
+
+strict_tdd: true
 
 rules:
   proposal:
@@ -40,7 +43,41 @@ rules:
     - Run `go test ./...` (and `-race` for concurrency changes)
     - Run `make vet` and `make security` for security-impacting changes
     - Compare implementation against every spec scenario
-    - For frontend changes, run Playwright tests
+    - For frontend changes, run `npm run test:unit` (Vitest) and `npm test` (Playwright)
   archive:
     - Warn before merging destructive deltas (large removals, schema migrations)
     - Note any config.json schema changes for operator awareness
+
+testing:
+  strict_tdd: true
+  detected: "2026-04-01"
+
+  go:
+    runner: "go test"
+    command: "go test ./..."
+    race: "go test -race ./..."
+    coverage: "go test -cover ./..."
+    framework: "testing (stdlib) + testify/assert"
+    layers:
+      unit: { available: true, tool: "go test (stdlib)" }
+      integration: { available: true, tool: "net/http/httptest (stdlib)" }
+      e2e: { available: false, tool: "—" }
+
+  frontend:
+    runner: "vitest + playwright"
+    unit_command: "npm run test:unit"
+    e2e_command: "npm test"
+    unit_framework: "vitest 4.x + @vue/test-utils 2.x + jsdom"
+    e2e_framework: "playwright 1.x"
+    layers:
+      unit: { available: true, tool: "vitest" }
+      integration: { available: true, tool: "@vue/test-utils + jsdom" }
+      e2e: { available: true, tool: "playwright" }
+
+  quality:
+    linter_go: "go vet ./..."
+    linter_frontend: "eslint src"
+    formatter_go: "go fmt ./..."
+    formatter_frontend: "prettier"
+    type_checker: "go vet (compile-time)"
+    security: "make security (vet + govulncheck)"

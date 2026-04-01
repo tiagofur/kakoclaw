@@ -8,6 +8,7 @@ export const useUIStore = defineStore('ui', () => {
   const activeTab = ref('chat')
   const canInstallPwa = ref(false)
   const devStudioEnabled = ref(false)
+  const devStudioStatusLoaded = ref(false)
   let deferredPrompt = null
 
   // Capture the PWA install event
@@ -75,6 +76,8 @@ export const useUIStore = defineStore('ui', () => {
       devStudioEnabled.value = !!data?.config?.dev_studio?.enabled
     } catch {
       devStudioEnabled.value = false
+    } finally {
+      devStudioStatusLoaded.value = true
     }
   }
 
@@ -89,6 +92,7 @@ export const useUIStore = defineStore('ui', () => {
     activeTab,
     canInstallPwa,
     devStudioEnabled,
+    devStudioStatusLoaded,
     setTheme,
     toggleTheme,
     toggleSidebar,

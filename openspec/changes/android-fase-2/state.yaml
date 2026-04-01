@@ -68,10 +68,12 @@ milestones:
     estimated_weeks: 2-3
     status: in_progress
     started_at: '2026-03-26'
-    progress: BATCH 3A (workflows) completado, BATCH 3B (metrics) pendiente
+    progress: BATCH 3 completo (workflows, metrics, cron), BATCH 4 pendiente
     completed_batches:
       - BATCH 3A: Feature Workflows (5/5 tareas, 13 archivos)
-    current_focus: BATCH 3B: Feature Metrics
+      - BATCH 3B: Feature Metrics (4/4 tareas, 16 archivos)
+      - BATCH 3C: Feature Cron (4/4 tareas, 14 archivos)
+    current_focus: BATCH 4: Feature Skills, Agents, Memory
 
   - id: milestone-3
     title: Prioridad MEDIA

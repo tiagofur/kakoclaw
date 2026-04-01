@@ -216,6 +216,10 @@ router.beforeEach(async (to, from, next) => {
     // Block dev-studio access when disabled
     if (to.name === 'dev-studio') {
       const uiStore = useUIStore()
+      // Wait for status to load before deciding — prevents false redirect on refresh
+      if (!uiStore.devStudioStatusLoaded) {
+        await uiStore.fetchDevStudioStatus()
+      }
       if (!uiStore.devStudioEnabled) {
         next('/')
         return
