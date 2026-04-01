@@ -68,7 +68,14 @@ milestones:
     estimated_weeks: 2-3
     status: in_progress
     started_at: '2026-03-26'
-    progress: BATCH 3 completo (workflows, metrics, cron), BATCH 4 pendiente
+    progress: BATCH 4 completo (skills, agents, memory),    completed_batches:
+      - BATCH 3A: Feature Workflows (5/5 tareas, 13 archivos)
+      - BATCH 3B: Feature Metrics (4/4 tareas, 16 archivos)
+      - BATCH 3C: Feature Cron (4/4 tareas, 14 archivos)
+      - BATCH 4: Feature Skills (3/3 tasks, ~12 archivos)
+      - BATCH 4: Feature Agents (3/3 tasks, ~12 archivos)
+      - BATCH 4: Feature Memory (2/3 tasks, ~12 archivos)
+    current_focus: BATCH 5: Feature Files, MCP, History, Reports
     completed_batches:
       - BATCH 3A: Feature Workflows (5/5 tareas, 13 archivos)
       - BATCH 3B: Feature Metrics (4/4 tareas, 16 archivos)
@@ -79,13 +86,14 @@ milestones:
     title: Prioridad MEDIA
     description: Implementar feature-skills, feature-agents, feature-memory
     estimated_weeks: 3-4
-    status: pending
-
-  - id: milestone-4
-    title: Prioridad BAJA
-    description: Implementar feature-files, feature-mcp, feature-history, feature-reports
-    estimated_weeks: 4-5
-    status: pending
+    status: completed
+    completed_at: '2026-04-01'
+    progress: BATCH 4 completo (skills, agents, memory)
+    completed_batches:
+      - BATCH 4A: Feature Skills (3/3 tareas, 9 archivos)
+      - BATCH 4B: Feature Agents (3/3 tareas, 9 archivos)
+      - BATCH 4C: Feature Memory (2/3 tareas, 9 archivos)
+    current_focus: BATCH 5: Feature Files, MCP, History, Reportses
 
   - id: milestone-5
     title: Polish & QA

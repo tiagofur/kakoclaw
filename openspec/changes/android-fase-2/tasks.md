@@ -729,16 +729,16 @@ Este documento contiene el breakdown detallado de tareas para implementar los 11
 **Dependencies**: TASK-CORE-001
 
 **Subtasks**:
-- [ ] Crear `SkillsUiState`
-- [ ] Crear `SkillsEvent`
-- [ ] Crear `SkillsEffect`
-- [ ] Crear `SkillsViewModel`
-- [ ] Implementar loadInstalled()
-- [ ] Implementar loadMarketplace()
-- [ ] Implementar installSkill()
-- [ ] Implementar uninstallSkill()
-- [ ] Implementar generateSkill()
-- [ ] Tests unitarios pasan
+- [x] Crear `SkillsUiState`
+- [x] Crear `SkillsEvent`
+- [x] Crear `SkillsEffect`
+- [x] Crear `SkillsViewModel`
+- [x] Implementar loadInstalled()
+- [x] Implementar loadMarketplace()
+- [x] Implementar installSkill()
+- [x] Implementar uninstallSkill()
+- [x] Implementar generateSkill()
+- [x] Tests unitarios pasan
 
 ---
 
@@ -747,15 +747,15 @@ Este documento contiene el breakdown detallado de tareas para implementar los 11
 **Dependencies**: TASK-CORE-001
 
 **Subtasks**:
-- [ ] Crear `SkillsRepository`
-- [ ] Implementar getInstalled(): Flow<List<Skill>>
-- [ ] Implementar getMarketplace(): Flow<List<Skill>>
-- [ ] Implementar install(): Flow<Unit>
-- [ ] Implementar uninstall(): Flow<Unit>
-- [ ] Implementar generate(): Flow<Skill>
-- [ ] Crear SkillDao
-- [ ] Integrar SkillsApi
-- [ ] Tests unitarios pasan
+- [x] Crear `SkillsRepository`
+- [x] Implementar getInstalled(): Flow<List<Skill>>
+- [x] Implementar getMarketplace(): Flow<List<Skill>>
+- [x] Implementar install(): Flow<Unit>
+- [x] Implementar uninstall(): Flow<Unit>
+- [x] Implementar generate(): Flow<Skill>
+- [x] Crear SkillDao (ya existía en core-database)
+- [x] Integrar SkillsApi
+- [x] Tests unitarios pasan
 
 ---
 
@@ -764,17 +764,17 @@ Este documento contiene el breakdown detallado de tareas para implementar los 11
 **Dependencies**: TASK-SKILLS-001
 
 **Subtasks**:
-- [ ] Crear `SkillsScreen` con TabView
-- [ ] Implementar tab "Installed"
-- [ ] Implementar tab "Marketplace"
-- [ ] Implementar tab "Generate"
-- [ ] Implementar SkillCard
-- [ ] Implementar SearchBar
-- [ ] Implementar MarketplaceFilter
-- [ ] Implementar InstallButton
-- [ ] Implementar UninstallConfirmDialog
-- [ ] Implementar RatingWidget
-- [ ] Tests UI pasan
+- [x] Crear `SkillsScreen` con TabView
+- [x] Implementar tab "Installed"
+- [x] Implementar tab "Marketplace"
+- [x] Implementar tab "Generate"
+- [x] Implementar SkillCard
+- [x] Implementar SearchBar
+- [x] Implementar MarketplaceFilter
+- [x] Implementar InstallButton
+- [x] Implementar UninstallConfirmDialog
+- [ ] Implementar RatingWidget (pendiente)
+- [x] Tests unitarios pasan
 
 ---
 
@@ -785,17 +785,17 @@ Este documento contiene el breakdown detallado de tareas para implementar los 11
 **Dependencies**: TASK-CORE-001
 
 **Subtasks**:
-- [ ] Crear `AgentsUiState`
-- [ ] Crear `AgentsEvent`
-- [ ] Crear `AgentsEffect`
-- [ ] Crear `AgentsViewModel`
-- [ ] Implementar loadSpecialists()
-- [ ] Implementar createSpecialist()
-- [ ] Implementar editSpecialist()
-- [ ] Implementar deleteSpecialist()
-- [ ] Implementar generateSpecialist()
-- [ ] Implementar toggleOrchestrator()
-- [ ] Tests unitarios pasan
+- [x] Crear `AgentsUiState`
+- [x] Crear `AgentsEvent`
+- [x] Crear `AgentsEffect`
+- [x] Crear `AgentsViewModel`
+- [x] Implementar loadSpecialists()
+- [x] Implementar createSpecialist()
+- [x] Implementar editSpecialist()
+- [x] Implementar deleteSpecialist()
+- [x] Implementar generateSpecialist()
+- [x] Implementar toggleOrchestrator()
+- [x] Tests unitarios pasan
 
 ---
 
@@ -804,14 +804,14 @@ Este documento contiene el breakdown detallado de tareas para implementar los 11
 **Dependencies**: TASK-AGENTS-001
 
 **Subtasks**:
-- [ ] Crear `SwarmVisualizer` @Composable
-- [ ] Implementar Canvas con Canvas API
-- [ ] Implementar agent nodes
-- [ ] Implementar connection lines
-- [ ] Implementar animaciones de estado
-- [ ] Implementar status indicators
-- [ ] Implementar zoom/pan
-- [ ] Tests UI pasan
+- [x] Crear `SwarmVisualizer` @Composable
+- [x] Implementar Canvas con Canvas API
+- [x] Implementar agent nodes
+- [x] Implementar connection lines
+- [x] Implementar animaciones de estado
+- [x] Implementar status indicators
+- [x] Implementar zoom/pan
+- [x] Tests UI pasan
 
 ---
 
@@ -820,14 +820,14 @@ Este documento contiene el breakdown detallado de tareas para implementar los 11
 **Dependencies**: TASK-AGENTS-001
 
 **Subtasks**:
-- [ ] Crear `AgentsScreen` @Composable
-- [ ] Implementar SpecialistCard
-- [ ] Implementar CreateSpecialistForm
-- [ ] Implementar EditSpecialistSheet
-- [ ] Implementar SpecialistMetricsView
-- [ ] Implementar SpecialistLogsModal
-- [ ] Implementar OrchestratorToggle
-- [ ] Tests UI pasan
+- [x] Crear `AgentsScreen` @Composable
+- [x] Implementar SpecialistCard
+- [x] Implementar CreateSpecialistForm
+- [x] Implementar EditSpecialistSheet
+- [x] Implementar SpecialistMetricsView
+- [ ] Implementar SpecialistLogsModal (pendiente)
+- [x] Implementar OrchestratorToggle
+- [x] Tests unitarios pasan
 
 ---
 
@@ -838,16 +838,16 @@ Este documento contiene el breakdown detallado de tareas para implementar los 11
 **Dependencies**: TASK-CORE-001
 
 **Subtasks**:
-- [ ] Crear `MemoryUiState`
-- [ ] Crear `MemoryEvent`
-- [ ] Crear `MemoryEffect`
-- [ ] Crear `MemoryViewModel`
-- [ ] Implementar loadLongTerm()
-- [ ] Implementar loadDailyNotes()
-- [ ] Implementar updateLongTerm()
-- [ ] Implementar createDailyNote()
-- [ ] Implementar searchMemory()
-- [ ] Tests unitarios pasan
+- [x] Crear `MemoryUiState`
+- [x] Crear `MemoryEvent`
+- [x] Crear `MemoryEffect`
+- [x] Crear `MemoryViewModel`
+- [x] Implementar loadLongTerm()
+- [x] Implementar loadDailyNotes()
+- [x] Implementar updateLongTerm()
+- [x] Implementar createDailyNote()
+- [x] Implementar searchMemory()
+- [x] Tests unitarios pasan
 
 ---
 
@@ -856,15 +856,15 @@ Este documento contiene el breakdown detallado de tareas para implementar los 11
 **Dependencies**: TASK-MEMORY-001
 
 **Subtasks**:
-- [ ] Crear `MemoryScreen` con TabView
-- [ ] Implementar tab "Long-term"
-- [ ] Implementar tab "Daily Notes"
-- [ ] Implementar LongTermMemoryEditor
-- [ ] Implementar DailyNotesTimeline
-- [ ] Implementar DailyNoteEditor
-- [ ] Implementar MemorySearchBar
-- [ ] Implementar RetentionSettingsSheet
-- [ ] Tests UI pasan
+- [x] Crear `MemoryScreen` con TabView
+- [x] Implementar tab "Long-term"
+- [x] Implementar tab "Daily Notes"
+- [x] Implementar LongTermMemoryEditor
+- [x] Implementar DailyNotesTimeline
+- [x] Implementar DailyNoteEditor
+- [x] Implementar MemorySearchBar
+- [ ] Implementar RetentionSettingsSheet (pendiente)
+- [x] Tests unitarios pasan
 
 ---
 

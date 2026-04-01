@@ -1,5 +1,7 @@
 package bridge
 
+const EventSessionReset = "session_reset"
+
 // Event represents a single NDJSON event emitted by the Bridge on stdout.
 // Not all fields are populated for every event type — only the fields relevant
 // to the event's Type are set.
@@ -25,6 +27,7 @@ type Event struct {
 	CostUSD    float64 `json:"cost_usd,omitempty"`
 	DurationMs int64   `json:"duration_ms,omitempty"`
 	NumTurns   int     `json:"num_turns,omitempty"`
+	TokensUsed int     `json:"tokens_used,omitempty"`
 }
 
 // IsTerminal returns true if the event signals the end of a request stream.
