@@ -306,6 +306,7 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 	toolsRegistry.Register(tools.NewListDirTool(workspace, restrict))
 	toolsRegistry.Register(tools.NewExecTool(workspace, restrict))
 	toolsRegistry.Register(tools.NewPDFTool(workspace, restrict))
+	toolsRegistry.Register(tools.NewSaveReportTool(workspace))
 
 	// Build web search providers in priority order with automatic fallback
 	var activeProviders []tools.SearchProvider
@@ -1618,6 +1619,7 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 				Status:    "synthesis_start",
 				Timestamp: time.Now(),
 			})
+			emitSynthesis(ctx, "start", "")
 			synthesisActive = true
 			pendingSynthesis = false
 		}
@@ -1744,11 +1746,15 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 			// synthesis_end is emitted after the final synthesis step completes and
 			// the unified orchestrator summary is ready to return.
 			if synthesisActive {
+				if response.Content != "" {
+					emitSynthesis(ctx, "token", response.Content)
+				}
 				emitAgentStatus(ctx, AgentStatusEvent{
 					Agent:     "orchestrator",
 					Status:    "synthesis_end",
 					Timestamp: time.Now(),
 				})
+				emitSynthesis(ctx, "end", "")
 				synthesisActive = false
 			}
 			finalContent = response.Content
@@ -1961,11 +1967,15 @@ func (al *AgentLoop) runLLMIteration(ctx context.Context, messages []providers.M
 		// synthesis_end is emitted after the forced concluding synthesis step
 		// completes and the unified orchestrator summary is ready.
 		if synthesisActive {
+			if concludeResp.Content != "" {
+				emitSynthesis(ctx, "token", concludeResp.Content)
+			}
 			emitAgentStatus(ctx, AgentStatusEvent{
 				Agent:     "orchestrator",
 				Status:    "synthesis_end",
 				Timestamp: time.Now(),
 			})
+			emitSynthesis(ctx, "end", "")
 			synthesisActive = false
 		}
 		finalContent = concludeResp.Content
@@ -2002,6 +2012,7 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 				Status:    "synthesis_start",
 				Timestamp: time.Now(),
 			})
+			emitSynthesis(ctx, "start", "")
 			synthesisActive = true
 			pendingSynthesis = false
 		}
@@ -2117,6 +2128,9 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 				// Stream text tokens to client
 				if chunk.Content != "" {
 					contentBuilder.WriteString(chunk.Content)
+					if synthesisActive {
+						emitSynthesis(ctx, "token", chunk.Content)
+					}
 					if onToken != nil {
 						if err := onToken(chunk.Content); err != nil {
 							// Client disconnected or error — stop processing
@@ -2174,6 +2188,7 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 						Status:    "synthesis_end",
 						Timestamp: time.Now(),
 					})
+					emitSynthesis(ctx, "end", "")
 					synthesisActive = false
 				}
 				finalContent = streamContent
@@ -2343,11 +2358,15 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 			// synthesis_end is emitted after the fallback synthesis step completes
 			// and the unified orchestrator summary is ready to return.
 			if synthesisActive {
+				if response.Content != "" {
+					emitSynthesis(ctx, "token", response.Content)
+				}
 				emitAgentStatus(ctx, AgentStatusEvent{
 					Agent:     "orchestrator",
 					Status:    "synthesis_end",
 					Timestamp: time.Now(),
 				})
+				emitSynthesis(ctx, "end", "")
 				synthesisActive = false
 			}
 			finalContent = response.Content
@@ -2490,11 +2509,15 @@ func (al *AgentLoop) runLLMIterationStream(ctx context.Context, messages []provi
 		// synthesis_end is emitted after the forced concluding synthesis step
 		// completes and the unified orchestrator summary is ready.
 		if synthesisActive {
+			if concludeResp.Content != "" {
+				emitSynthesis(ctx, "token", concludeResp.Content)
+			}
 			emitAgentStatus(ctx, AgentStatusEvent{
 				Agent:     "orchestrator",
 				Status:    "synthesis_end",
 				Timestamp: time.Now(),
 			})
+			emitSynthesis(ctx, "end", "")
 			synthesisActive = false
 		}
 		finalContent = concludeResp.Content

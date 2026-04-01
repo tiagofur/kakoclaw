@@ -1672,15 +1672,48 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 				}
 				ctx = agent.ContextWithToolCallback(ctx, emitToolCall)
 
-				// Specialist streaming tokens: emit each token with the originating agent name
-				// so the frontend can show a live preview inside the AgentActivityItem collapsible.
-				ctx = agent.ContextWithSpecialistTokenCallback(ctx, func(agentName, token string) error {
+				// SpecialistStream: structured token events from specialist agents
+				ctx = agent.ContextWithSpecialistStreamCallback(ctx, func(ev agent.SpecialistStreamEvent) error {
 					wsMu.Lock()
 					defer wsMu.Unlock()
 					return conn.WriteJSON(map[string]interface{}{
-						"type":  "specialist_stream",
-						"agent": agentName,
-						"token": token,
+						"type":            "specialist_stream",
+						"specialist_name": ev.SpecialistName,
+						"delegation_id":   ev.DelegationID,
+						"token":           ev.Token,
+					})
+				})
+
+				// OrchestratorDelegation: emitted when the orchestrator delegates to a specialist
+				ctx = agent.ContextWithOrchestratorDelegationCallback(ctx, func(ev agent.OrchestratorDelegationEvent) error {
+					wsMu.Lock()
+					defer wsMu.Unlock()
+					return conn.WriteJSON(map[string]interface{}{
+						"type":            "orchestrator_think",
+						"specialist_name": ev.SpecialistName,
+						"task":            ev.Task,
+						"delegation_id":   ev.DelegationID,
+					})
+				})
+
+				// Synthesis: emitted during the orchestrator's final synthesis pass
+				ctx = agent.ContextWithSynthesisCallback(ctx, func(ev agent.SynthesisEvent) error {
+					wsMu.Lock()
+					defer wsMu.Unlock()
+					return conn.WriteJSON(map[string]interface{}{
+						"type":  "synthesis_" + ev.Phase,
+						"token": ev.Token,
+					})
+				})
+
+				// ReportSaved: emitted when a specialist saves a report artifact
+				ctx = agent.ContextWithReportSavedCallback(ctx, func(ev agent.ReportSavedEvent) error {
+					wsMu.Lock()
+					defer wsMu.Unlock()
+					return conn.WriteJSON(map[string]interface{}{
+						"type":      "report_saved",
+						"title":     ev.Title,
+						"file_path": ev.FilePath,
 					})
 				})
 

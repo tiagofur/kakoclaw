@@ -1290,13 +1290,6 @@ const handleMessage = (message) => {
     fetchSessions()
   }
   if (message.type === 'agent_status') {
-    if (message.status === 'synthesis_start') {
-      isSynthesizing.value = true
-    }
-    if (message.status === 'synthesis_end') {
-      isSynthesizing.value = false
-    }
-
     chatStore.setAgentStatus(
       message.agent,
       message.status,
@@ -1394,9 +1387,34 @@ const handleMessage = (message) => {
   }
   if (message.type === 'delegation_update') {
     chatStore.updateDelegationProgress(message)
+    // Mark delegation complete when status is 'complete'
+    if (message.status === 'complete') {
+      const delegationId = message.delegation_id || message.to || ''
+      chatStore.markDelegationComplete(delegationId, message.elapsed_ms ?? null)
+    }
+  }
+  if (message.type === 'orchestrator_think') {
+    chatStore.addOrchestratorDelegation(message)
   }
   if (message.type === 'specialist_stream') {
+    // Legacy: update agentActivity streaming content
     chatStore.appendSpecialistToken(message.agent, message.token)
+    // New: update specialist work card
+    const workDelegationId = message.delegation_id || message.specialist_name || message.agent || ''
+    chatStore.appendSpecialistWorkToken(workDelegationId, message.token || '')
+  }
+  if (message.type === 'synthesis_start') {
+    isSynthesizing.value = true
+  }
+  if (message.type === 'synthesis_token') {
+    // Synthesis tokens go into the normal assistant message stream
+    chatStore.appendStreamToken(message.token || '')
+  }
+  if (message.type === 'synthesis_end') {
+    isSynthesizing.value = false
+  }
+  if (message.type === 'report_saved') {
+    chatStore.addReportBadge(message)
   }
   if (message.type === 'ready') {
     isLoading.value = false
