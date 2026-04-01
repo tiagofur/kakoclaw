@@ -63,10 +63,30 @@
               <span class="text-emerald-400">> </span> <span class="text-emerald-100">{{ msg.message }}</span>
             </template>
             <template v-else-if="msg.type === 'error'">
-              <span class="text-red-500">[ERROR] {{ msg.error || msg.message }}</span>
+              <span class="text-red-500">[ERROR] {{ msg.message || msg.error }}</span>
+            </template>
+            <template v-else-if="msg.type === 'assistant'">
+              <span class="text-slate-300 whitespace-pre-wrap">{{ msg.message }}</span>
+            </template>
+            <template v-else-if="msg.type === 'tool_use'">
+              <span class="text-amber-500">[tool]</span>
+              <span class="text-amber-300 ml-2">{{ msg.name }}</span>
+            </template>
+            <template v-else-if="msg.type === 'tool_result'">
+              <span class="text-slate-500">[result]</span>
+              <span class="text-slate-400 ml-2 whitespace-pre-wrap">{{ msg.message }}</span>
+            </template>
+            <template v-else-if="msg.type === 'system'">
+              <span class="text-cyan-600">[system]</span>
+              <span class="text-cyan-500 ml-2">session={{ msg.session_id }} model={{ msg.model }}</span>
+            </template>
+            <template v-else-if="msg.type === 'result'">
+              <span class="text-green-600">[done]</span>
+              <span class="text-green-500 ml-2">{{ msg.message }}</span>
+              <span v-if="msg.cost_usd" class="text-slate-500 ml-2 text-xs">${{ msg.cost_usd?.toFixed(4) }} · {{ msg.duration_ms }}ms</span>
             </template>
             <template v-else>
-              <span class="text-slate-400">[{{ msg.type }}]</span> 
+              <span class="text-slate-400">[{{ msg.type }}]</span>
               <span class="text-slate-300 ml-2 whitespace-pre-wrap">{{ msg.message }}</span>
             </template>
           </div>

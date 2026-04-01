@@ -345,7 +345,7 @@ func (s *Server) handleDevQuery(w http.ResponseWriter, r *http.Request) {
 		if ev.Content != "" {
 			fullResponse.WriteString(ev.Content)
 		}
-		_ = enc.Encode(ev)
+		_ = enc.Encode(eventToFrontend(ev))
 		if canFlush {
 			flusher.Flush()
 		}

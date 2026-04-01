@@ -19,6 +19,62 @@ type devTerminalWSMessage struct {
 	Message string `json:"message,omitempty"`
 }
 
+// eventToFrontend normalises a bridge.Event for the frontend.
+// The bridge protocol uses "event" as the JSON key for the event type,
+// but the frontend expects "type". This helper also collapses the various
+// content fields (Text, Content, Message) into a single "message" field so
+// the Vue template can render all event types uniformly.
+func eventToFrontend(ev bridge.Event) map[string]interface{} {
+	out := map[string]interface{}{
+		"type": ev.Type,
+	}
+
+	// Build a single "message" string from whichever content field is populated.
+	var msg string
+	switch {
+	case ev.Text != "":
+		msg = ev.Text
+	case ev.Content != "":
+		msg = ev.Content
+	case ev.Message != "":
+		msg = ev.Message
+	}
+	if msg != "" {
+		out["message"] = msg
+	}
+
+	// Preserve auxiliary fields when set.
+	if ev.RequestID != "" {
+		out["request_id"] = ev.RequestID
+	}
+	if ev.SessionID != "" {
+		out["session_id"] = ev.SessionID
+	}
+	if ev.Model != "" {
+		out["model"] = ev.Model
+	}
+	if len(ev.Tools) > 0 {
+		out["tools"] = ev.Tools
+	}
+	if ev.Name != "" {
+		out["name"] = ev.Name
+	}
+	if ev.Input != nil {
+		out["input"] = ev.Input
+	}
+	if ev.CostUSD != 0 {
+		out["cost_usd"] = ev.CostUSD
+	}
+	if ev.DurationMs != 0 {
+		out["duration_ms"] = ev.DurationMs
+	}
+	if ev.NumTurns != 0 {
+		out["num_turns"] = ev.NumTurns
+	}
+
+	return out
+}
+
 func (s *Server) handleDevTerminalWS(w http.ResponseWriter, r *http.Request) {
 	claims, ok := s.extractClaims(r)
 	if !ok {
@@ -35,7 +91,7 @@ func (s *Server) handleDevTerminalWS(w http.ResponseWriter, r *http.Request) {
 
 	b, err := s.getDevBridge(claims.UUID)
 	if err != nil {
-		_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"type":"error","error":"`+err.Error()+`"}`))
+		_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"type":"error","message":"`+err.Error()+`"}`))
 		return
 	}
 
@@ -99,9 +155,9 @@ func (s *Server) handleDevTerminalWS(w http.ResponseWriter, r *http.Request) {
 				Prompt:  in.Message,
 				Options: metadata,
 			}
-			ch, errExec := b.Execute(r.Context(), req)
+			ch, errExec := b.Execute(ctx, req)
 			if errExec != nil {
-				out, _ := json.Marshal(map[string]interface{}{"type": "error", "error": errExec.Error()})
+				out, _ := json.Marshal(map[string]interface{}{"type": "error", "message": errExec.Error()})
 				_ = safeWrite(out)
 				continue
 			}
@@ -119,7 +175,7 @@ func (s *Server) handleDevTerminalWS(w http.ResponseWriter, r *http.Request) {
 					if ev.Message != "" {
 						fullResponse.WriteString(ev.Message)
 					}
-					outBytes, err := json.Marshal(ev)
+					outBytes, err := json.Marshal(eventToFrontend(ev))
 					if err == nil {
 						if writeErr := safeWrite(outBytes); writeErr != nil {
 							break
