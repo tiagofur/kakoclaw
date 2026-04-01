@@ -6,7 +6,7 @@
         <div class="flex items-center gap-3">
           <!-- Sidebar Toggle -->
           <button
-            class="p-2 min-h-[40px] min-w-[40px] rounded-xl bg-makoclaw-surface/50 border border-makoclaw-border/50 hover:bg-makoclaw-surface-hover hover:border-cyan-400/30 transition-all flex items-center justify-center active:scale-95"
+            class="p-2 min-h-[40px] min-w-[40px] rounded-xl bg-makoclaw-surface/50 border border-makoclaw-border/50 hover:bg-makoclaw-surface-hover hover:border-orange-400/30 transition-all flex items-center justify-center active:scale-95"
             title="Toggle Sidebar"
             @click="toggleSidebar"
           >
@@ -27,9 +27,9 @@
           </button>
 
           <!-- Icon -->
-          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center ring-1 ring-white/10 shadow-lg shadow-cyan-500/10">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500/20 to-amber-500/20 flex items-center justify-center ring-1 ring-white/10 shadow-lg shadow-orange-500/10">
             <svg
-              class="w-5 h-5 text-cyan-400"
+              class="w-5 h-5 text-orange-400"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -44,7 +44,7 @@
           </div>
 
           <div class="flex-1 min-w-0">
-            <h1 class="text-xl font-bold bg-gradient-to-r from-makoclaw-text to-cyan-400 bg-clip-text text-transparent">
+            <h1 class="text-xl font-bold bg-gradient-to-r from-makoclaw-text to-orange-400 bg-clip-text text-transparent">
               Dev Studio
             </h1>
             <p class="text-[10px] text-makoclaw-text-secondary uppercase tracking-widest font-bold">
@@ -82,34 +82,42 @@
         ]"
       >
         <div class="p-4 border-b border-makoclaw-border/30 bg-makoclaw-surface/30">
-          <div class="flex justify-between items-center mb-4">
-            <div class="flex items-center gap-2 capitalize">
-              <i
-                class="fas fa-project-diagram text-cyan-400 text-xs"
-              />
-              <span class="text-xs font-bold text-makoclaw-text tracking-wider">Projects</span>
+          <div class="flex justify-between items-center mb-3">
+            <div class="flex items-center gap-2">
+              <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500/20 to-amber-500/20 flex items-center justify-center ring-1 ring-white/10">
+                <i class="fas fa-code-branch text-orange-400 text-xs" />
+              </div>
+              <h2 class="text-sm font-bold text-makoclaw-text uppercase tracking-wider">Projects</h2>
             </div>
             <button
-              class="p-1.5 hover:bg-cyan-500/10 rounded-lg text-makoclaw-text-secondary hover:text-cyan-400 transition-all active:scale-95 ring-1 ring-white/5"
+              class="p-2 hover:bg-orange-500/10 rounded-lg text-makoclaw-text-secondary hover:text-orange-400 transition-all flex items-center justify-center ring-1 ring-white/5 active:scale-95"
               title="New Project"
               @click="showNewProjectForm = !showNewProjectForm"
             >
-              <i
-                class="fas"
-                :class="showNewProjectForm ? 'fa-times' : 'fa-plus'"
-              />
+              <i class="fas w-4 h-4" :class="showNewProjectForm ? 'fa-times' : 'fa-plus'" />
             </button>
           </div>
 
           <!-- Project Search -->
-          <div class="relative group/search mb-4">
-            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-[10px] text-makoclaw-text-secondary group-focus-within/search:text-cyan-400 transition-colors" />
+          <div class="relative group/search">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-makoclaw-text-secondary group-focus-within/search:text-orange-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
             <input
               v-model="searchQuery"
               type="text"
               placeholder="Search projects..."
-              class="w-full pl-9 pr-4 py-1.5 bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-xl text-xs outline-none focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/10 transition-all font-medium"
+              class="w-full pl-10 pr-8 py-1.5 bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-xl text-xs outline-none focus:border-orange-400/50 focus:ring-2 focus:ring-orange-400/20 transition-all font-medium"
             >
+            <button
+              v-if="searchQuery"
+              class="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-makoclaw-surface rounded-lg text-makoclaw-text-secondary"
+              @click="searchQuery = ''"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
 
           <!-- New Project Form (Branded) -->
@@ -129,7 +137,7 @@
                 id="gitInit"
                 v-model="newProjectGitInit"
                 type="checkbox"
-                class="rounded border-makoclaw-border bg-makoclaw-bg text-cyan-500 focus:ring-cyan-500/30"
+                class="rounded border-makoclaw-border bg-makoclaw-bg text-orange-500 focus:ring-orange-500/30"
               >
               <label
                 for="gitInit"
@@ -137,7 +145,7 @@
               >Initialize git repository</label>
             </div>
             <button
-              class="btn-primary w-full py-1.5 text-xs bg-cyan-600 hover:bg-cyan-500"
+              class="btn-primary w-full py-1.5 text-xs bg-orange-600 hover:bg-orange-500"
               :disabled="!newProjectName.trim() || creatingProject"
               @click="handleCreateProject"
             >
@@ -155,8 +163,8 @@
             :class="devStore.currentProject === p.path ? 'bg-makoclaw-surface border-makoclaw-border shadow-sm' : ''"
           >
             <!-- Hover effects -->
-            <div class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-0 bg-gradient-to-b from-transparent via-cyan-400/40 to-transparent group-hover/proj:h-2/3 transition-all duration-300 pointer-events-none" />
-            <div class="absolute bottom-0 left-0 h-[1.5px] w-0 bg-gradient-to-r from-cyan-400 to-blue-500 group-hover/proj:w-full transition-all duration-500 opacity-30 pointer-events-none" />
+            <div class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-0 bg-gradient-to-b from-transparent via-orange-400/40 to-transparent group-hover/proj:h-2/3 transition-all duration-300 pointer-events-none" />
+            <div class="absolute bottom-0 left-0 h-[1.5px] w-0 bg-gradient-to-r from-orange-400 to-amber-500 group-hover/proj:w-full transition-all duration-500 opacity-30 pointer-events-none" />
 
             <button
               class="w-full text-left px-3 py-2.5 rounded-xl text-xs transition-all duration-200"
@@ -165,11 +173,11 @@
               <div class="flex items-center gap-3">
                 <div
                   class="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0"
-                  :class="devStore.currentProject === p.path ? 'bg-cyan-500/20' : 'bg-makoclaw-surface/50 border border-makoclaw-border/50'"
+                  :class="devStore.currentProject === p.path ? 'bg-orange-500/20' : 'bg-makoclaw-surface/50 border border-makoclaw-border/50'"
                 >
                   <i
                     class="fas fa-folder text-[10px]"
-                    :class="devStore.currentProject === p.path ? 'text-cyan-400' : 'text-makoclaw-text-secondary'"
+                    :class="devStore.currentProject === p.path ? 'text-orange-400' : 'text-makoclaw-text-secondary'"
                   />
                 </div>
                 <div class="flex-1 min-w-0">
@@ -214,7 +222,7 @@
             </div>
           </div>
           <button
-            class="w-full py-1.5 rounded-lg text-[10px] font-bold text-makoclaw-text-secondary hover:text-cyan-400 hover:bg-cyan-500/5 transition-all flex items-center justify-center gap-1.5 bg-makoclaw-surface/30 border border-makoclaw-border/30"
+            class="w-full py-1.5 rounded-lg text-[10px] font-bold text-makoclaw-text-secondary hover:text-orange-400 hover:bg-orange-500/5 transition-all flex items-center justify-center gap-1.5 bg-makoclaw-surface/30 border border-makoclaw-border/30"
             @click="devStore.fetchProjects()"
           >
             <i class="fas fa-sync" /> REFRESH LIST
@@ -246,7 +254,7 @@
             class="hidden md:flex ml-auto items-center gap-2"
           >
             <i class="fas fa-chevron-right text-[10px] text-makoclaw-text-secondary/30" />
-            <span class="text-[10px] font-bold text-cyan-400/70 tracking-wider font-mono">
+            <span class="text-[10px] font-bold text-orange-400/70 tracking-wider font-mono">
               {{ devStore.currentProject.split(/[\\/]/).pop() }}
             </span>
           </div>
@@ -280,7 +288,7 @@
                 class="break-words"
               >
                 <template v-if="msg.type === 'user'">
-                  <span class="text-cyan-400 font-bold">$ </span>
+                  <span class="text-orange-400 font-bold">$ </span>
                   <span class="text-white">{{ msg.message }}</span>
                 </template>
                 <template v-else-if="msg.type === 'error'">
@@ -328,13 +336,13 @@
               >
                 <span
                   class="absolute left-3 font-bold text-xs"
-                  :class="devStore.bridgeStatus === 'running' ? 'text-cyan-500' : 'text-makoclaw-text-secondary/40'"
+                  :class="devStore.bridgeStatus === 'running' ? 'text-orange-500' : 'text-makoclaw-text-secondary/40'"
                 >$</span>
                 <input
                   ref="inputRef"
                   v-model="prompt"
                   type="text"
-                  class="w-full bg-makoclaw-bg/30 border rounded-xl py-2.5 pl-8 pr-4 text-cyan-50 focus:outline-none focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/10 transition-all font-mono text-xs"
+                  class="w-full bg-makoclaw-bg/30 border rounded-xl py-2.5 pl-8 pr-4 text-orange-50 focus:outline-none focus:border-orange-500/50 focus:ring-2 focus:ring-orange-500/10 transition-all font-mono text-xs"
                   :class="devStore.bridgeStatus === 'running' ? 'border-makoclaw-border/50' : 'border-makoclaw-border/20'"
                   :placeholder="devStore.bridgeStatus === 'running' ? 'Enter command or ask assistant...' : 'Select a project to enable input...'"
                 >

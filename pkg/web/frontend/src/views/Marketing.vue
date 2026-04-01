@@ -5,25 +5,52 @@
       <div class="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-violet-500/20 via-transparent to-transparent" />
     </div>
 
-    <div class="relative z-10 w-72 flex-shrink-0 glass-panel border-r border-makoclaw-border/30 flex flex-col overflow-hidden">
-      <div class="px-4 pt-4 pb-3 border-b border-makoclaw-border/20">
-        <div class="flex items-center justify-between gap-2">
+    <div
+      :class="[
+        'relative z-10 flex-shrink-0 glass-panel border-r border-makoclaw-border/30 flex flex-col overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]',
+        showSidebar ? 'w-72 opacity-100' : 'w-0 opacity-0 border-none overflow-hidden scale-95 origin-left'
+      ]"
+    >
+      <div class="p-3 sm:p-4 border-b border-makoclaw-border/30 bg-makoclaw-surface/30">
+        <div class="flex justify-between items-center gap-2 mb-3">
           <div class="flex items-center gap-2">
             <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500/20 to-violet-500/20 flex items-center justify-center ring-1 ring-white/10">
               <svg class="w-4 h-4 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
               </svg>
             </div>
-            <span class="text-sm font-bold text-makoclaw-text">Campaigns</span>
+            <h2 class="text-sm font-bold text-makoclaw-text uppercase tracking-wider">Campaigns</h2>
           </div>
           <button
-            class="px-2.5 py-1.5 text-xs bg-gradient-to-r from-pink-500 to-violet-500 hover:from-pink-600 hover:to-violet-600 text-white rounded-lg transition-all shadow-sm shadow-pink-500/20 font-semibold flex items-center gap-1"
+            class="p-2 hover:bg-pink-500/10 rounded-lg text-makoclaw-text-secondary hover:text-pink-400 transition-all flex items-center justify-center ring-1 ring-white/5 active:scale-95"
+            title="New Campaign"
             @click="showNewModal = true"
           >
-            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
             </svg>
-            New
+          </button>
+        </div>
+
+        <!-- Search -->
+        <div class="relative group/search">
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-makoclaw-text-secondary group-focus-within/search:text-pink-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="Search campaigns..."
+            class="w-full pl-10 pr-8 py-1.5 bg-makoclaw-bg/50 border border-makoclaw-border/50 rounded-xl text-xs outline-none focus:border-pink-400/50 focus:ring-2 focus:ring-pink-400/20 transition-all font-medium"
+          >
+          <button
+            v-if="searchQuery"
+            class="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-makoclaw-surface rounded-lg text-makoclaw-text-secondary"
+            @click="searchQuery = ''"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
       </div>
@@ -95,6 +122,33 @@
     </div>
 
     <div class="relative z-10 flex-1 flex flex-col overflow-hidden">
+      <!-- Sidebar toggle bar -->
+      <div class="glass-sticky top-0 z-20 border-b border-makoclaw-border/20 px-4 py-2 flex items-center gap-3">
+        <button
+          class="p-2 min-h-[40px] min-w-[40px] rounded-xl bg-makoclaw-surface/50 border border-makoclaw-border/50 hover:bg-makoclaw-surface-hover hover:border-pink-400/30 transition-all flex items-center justify-center active:scale-95"
+          title="Toggle Sidebar"
+          @click="toggleSidebar"
+        >
+          <svg
+            class="w-4 h-4 text-makoclaw-text-secondary transition-transform duration-500"
+            :class="{ 'rotate-180': !showSidebar }"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+          </svg>
+        </button>
+        <span v-if="!selectedCampaign" class="text-sm font-bold text-makoclaw-text">Campaigns</span>
+        <template v-else>
+          <span class="text-xs text-makoclaw-text-secondary">{{ selectedCampaign.account }}</span>
+          <svg class="w-3 h-3 text-makoclaw-text-secondary/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
+          <span class="text-sm font-bold text-makoclaw-text truncate">{{ selectedCampaign.campaign }}</span>
+        </template>
+      </div>
+
       <div v-if="!selectedCampaign" class="flex-1 overflow-y-auto custom-scrollbar p-6">
         <div class="max-w-6xl mx-auto space-y-6">
           <div class="text-center py-6">
@@ -952,6 +1006,13 @@ const toast = useToast()
 const store = useMarketingStore()
 const { campaigns, selectedCampaign, campaignDetail, templates, media, analyticsSummary, loadingList, loadingDetail, expandedAccounts } = storeToRefs(store)
 
+const showSidebar = ref(localStorage.getItem('marketing.sidebar') !== 'false')
+const toggleSidebar = () => {
+  showSidebar.value = !showSidebar.value
+  localStorage.setItem('marketing.sidebar', showSidebar.value)
+}
+const searchQuery = ref('')
+
 const activeTab = ref('brief')
 const previewedFile = ref(null)
 const filePreviewContent = ref(null)
@@ -987,8 +1048,10 @@ const platformOptions = ['Twitter', 'LinkedIn', 'Facebook', 'Instagram', 'TikTok
 const statusOptions = ['draft', 'active', 'paused', 'completed', 'archived']
 
 const groupedCampaigns = computed(() => {
+  const q = searchQuery.value.toLowerCase().trim()
   const groups = {}
   for (const campaign of campaigns.value) {
+    if (q && !campaign.account.toLowerCase().includes(q) && !campaign.campaign.toLowerCase().includes(q)) continue
     if (!groups[campaign.account]) groups[campaign.account] = []
     groups[campaign.account].push(campaign)
   }
