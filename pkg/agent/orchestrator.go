@@ -277,6 +277,13 @@ func orchestratorDelegationCallbackFromCtx(ctx context.Context) OrchestratorDele
 	return nil
 }
 
+// emitOrchestratorDelegation emits an OrchestratorDelegationEvent if callback is available
+func emitOrchestratorDelegation(ctx context.Context, event OrchestratorDelegationEvent) {
+	if cb := orchestratorDelegationCallbackFromCtx(ctx); cb != nil {
+		_ = cb(event)
+	}
+}
+
 // SynthesisCallback is called during the orchestrator's final synthesis pass
 type SynthesisCallback func(event SynthesisEvent) error
 
@@ -320,6 +327,13 @@ func reportSavedCallbackFromCtx(ctx context.Context) ReportSavedCallback {
 		return v
 	}
 	return nil
+}
+
+// emitReportSaved emits a ReportSavedEvent if callback is available
+func emitReportSaved(ctx context.Context, event ReportSavedEvent) {
+	if cb := reportSavedCallbackFromCtx(ctx); cb != nil {
+		_ = cb(event)
+	}
 }
 
 // OrchestratorAgent is a special agent that analyzes tasks and delegates to specialists
@@ -1045,14 +1059,12 @@ The user only sees text below the JSON block — include all findings there.
 	})
 
 	// Emit orchestrator delegation event with full task sent to specialist
-	if cb := orchestratorDelegationCallbackFromCtx(ctx); cb != nil {
-		_ = cb(OrchestratorDelegationEvent{
-			SpecialistName: specialistName,
-			Task:           taskWithFormat,
-			DelegationID:   delegationID,
-			Timestamp:      time.Now(),
-		})
-	}
+	emitOrchestratorDelegation(ctx, OrchestratorDelegationEvent{
+		SpecialistName: specialistName,
+		Task:           taskWithFormat,
+		DelegationID:   delegationID,
+		Timestamp:      time.Now(),
+	})
 
 	// Bridge SpecialistStreamCallback → SpecialistTokenCallback so specialist tokens
 	// are forwarded as SpecialistStreamEvents to whoever registered the stream callback.
