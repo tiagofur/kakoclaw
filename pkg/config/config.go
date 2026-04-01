@@ -334,15 +334,15 @@ type DMPolicyProvider interface {
 	GetDMPolicy() string
 }
 
-func (c WhatsAppConfig) GetDMPolicy() string  { return c.DMPolicy }
-func (c TelegramConfig) GetDMPolicy() string  { return c.DMPolicy }
-func (c FeishuConfig) GetDMPolicy() string    { return c.DMPolicy }
-func (c DiscordConfig) GetDMPolicy() string   { return c.DMPolicy }
-func (c MaixCamConfig) GetDMPolicy() string   { return c.DMPolicy }
-func (c QQConfig) GetDMPolicy() string        { return c.DMPolicy }
-func (c DingTalkConfig) GetDMPolicy() string  { return c.DMPolicy }
-func (c SlackConfig) GetDMPolicy() string     { return c.DMPolicy }
-func (c SignalConfig) GetDMPolicy() string    { return c.DMPolicy }
+func (c WhatsAppConfig) GetDMPolicy() string { return c.DMPolicy }
+func (c TelegramConfig) GetDMPolicy() string { return c.DMPolicy }
+func (c FeishuConfig) GetDMPolicy() string   { return c.DMPolicy }
+func (c DiscordConfig) GetDMPolicy() string  { return c.DMPolicy }
+func (c MaixCamConfig) GetDMPolicy() string  { return c.DMPolicy }
+func (c QQConfig) GetDMPolicy() string       { return c.DMPolicy }
+func (c DingTalkConfig) GetDMPolicy() string { return c.DMPolicy }
+func (c SlackConfig) GetDMPolicy() string    { return c.DMPolicy }
+func (c SignalConfig) GetDMPolicy() string   { return c.DMPolicy }
 
 type ProvidersConfig struct {
 	Anthropic  ProviderConfig `json:"anthropic"`
@@ -958,11 +958,11 @@ func GetUserConfigTemplate(globalConfig *Config) *Config {
 				// Inherit non-sensitive defaults
 				Workspace:                   filepath.Join("~", ".MakoClaw", "users", "{uuid}", "workspace"),
 				RestrictToWorkspace:         globalConfig.Agents.Defaults.RestrictToWorkspace,
-				Provider:                    "",                                             // Empty: user must choose
-				Model:                       globalConfig.Agents.Defaults.Model,             // Inherit
-				MaxTokens:                   globalConfig.Agents.Defaults.MaxTokens,         // Inherit
-				Temperature:                 globalConfig.Agents.Defaults.Temperature,       // Inherit
-				MaxToolIterations:           globalConfig.Agents.Defaults.MaxToolIterations, // Inherit
+				Provider:                    "",                                                       // Empty: user must choose
+				Model:                       globalConfig.Agents.Defaults.Model,                       // Inherit
+				MaxTokens:                   globalConfig.Agents.Defaults.MaxTokens,                   // Inherit
+				Temperature:                 globalConfig.Agents.Defaults.Temperature,                 // Inherit
+				MaxToolIterations:           globalConfig.Agents.Defaults.MaxToolIterations,           // Inherit
 				MemoryFlushBeforeCompaction: globalConfig.Agents.Defaults.MemoryFlushBeforeCompaction, // Inherit
 				ToolResultMaxChars:          globalConfig.Agents.Defaults.ToolResultMaxChars,          // Inherit
 				ToolResultKeepRecent:        globalConfig.Agents.Defaults.ToolResultKeepRecent,        // Inherit
@@ -1425,6 +1425,13 @@ func MergeConfigs(global, user *Config) *Config {
 		merged.TTS = user.TTS
 	} else {
 		merged.TTS = global.TTS
+	}
+
+	// Merge DevStudio section (user overrides global; enabled wins)
+	if user.DevStudio.Enabled || user.DevStudio.DefaultBackend != "" || user.DevStudio.NodePath != "" {
+		merged.DevStudio = user.DevStudio
+	} else {
+		merged.DevStudio = global.DevStudio
 	}
 
 	// Preserve DegradedMode flag
