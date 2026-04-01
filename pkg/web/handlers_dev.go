@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -125,11 +126,6 @@ func (s *Server) getDevBridge(userUUID string) (*bridge.Bridge, error) {
 }
 
 func (s *Server) handleDevProjects(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	claims, ok := s.extractClaims(r)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -142,31 +138,93 @@ func (s *Server) handleDevProjects(w http.ResponseWriter, r *http.Request) {
 			userWorkspace = filepath.Join(storePath, "users", claims.UUID, "workspace")
 		}
 	}
-	
-	// Ensure workspace exists
-	_ = os.MkdirAll(userWorkspace, 0755)
 
-	entries, err := os.ReadDir(userWorkspace)
+	projectsSubdir := "repos"
+	if s.fullConfig != nil && s.fullConfig.DevStudio.ProjectsDir != "" {
+		projectsSubdir = s.fullConfig.DevStudio.ProjectsDir
+	}
+	projectsDir := filepath.Join(userWorkspace, projectsSubdir)
+
+	// Ensure projects directory exists
+	_ = os.MkdirAll(projectsDir, 0755)
+
+	if r.Method == http.MethodPost {
+		var req struct {
+			Name    string `json:"name"`
+			GitInit bool   `json:"git_init"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Name == "" {
+			http.Error(w, "Invalid body: 'name' required", http.StatusBadRequest)
+			return
+		}
+
+		// Prevent path traversal
+		projectName := filepath.Base(req.Name)
+		newProjectPath := filepath.Join(projectsDir, projectName)
+
+		if err := os.MkdirAll(newProjectPath, 0755); err != nil {
+			http.Error(w, "Failed to create project directory", http.StatusInternalServerError)
+			return
+		}
+
+		if req.GitInit {
+			// Try to run git init
+			cmd := exec.CommandContext(r.Context(), "git", "init")
+			cmd.Dir = newProjectPath
+			_ = cmd.Run()
+		}
+
+		writeJSONResponse(w, map[string]interface{}{
+			"status": "created",
+			"name":   projectName,
+			"path":   newProjectPath,
+		})
+		return
+	}
+
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	entries, err := os.ReadDir(projectsDir)
 	if err != nil {
 		http.Error(w, "Failed to read projects directory", http.StatusInternalServerError)
 		return
 	}
 
+	// System directories to ignore
+	systemDirs := map[string]bool{
+		"memory":   true,
+		"sessions": true,
+		"skills":   true,
+		"cron":     true,
+		"tasks":    true,
+		"temp":     true,
+	}
+
 	var projects []map[string]interface{}
 	for _, entry := range entries {
-		if entry.IsDir() {
-			info, _ := entry.Info()
-			projects = append(projects, map[string]interface{}{
-				"name":    entry.Name(),
-				"path":    filepath.Join(userWorkspace, entry.Name()),
-				"modTime": info.ModTime(),
-			})
+		if !entry.IsDir() {
+			continue
 		}
+		name := entry.Name()
+		if strings.HasPrefix(name, ".") || systemDirs[name] {
+			continue
+		}
+
+		info, _ := entry.Info()
+		projects = append(projects, map[string]interface{}{
+			"name":    name,
+			"path":    filepath.Join(projectsDir, name),
+			"modTime": info.ModTime(),
+		})
 	}
 
 	writeJSONResponse(w, map[string]interface{}{
-		"projects": projects,
-		"root":     userWorkspace,
+		"projects":     projects,
+		"projects_dir": projectsDir,
+		"root":         userWorkspace,
 	})
 }
 

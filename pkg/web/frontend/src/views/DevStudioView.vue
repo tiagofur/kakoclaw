@@ -4,23 +4,61 @@
     <div class="w-64 border-r border-slate-700 p-4 shrink-0 flex flex-col">
       <h2 class="text-xl font-bold mb-4 text-white">Dev Studio</h2>
 
-      <div class="mb-6">
-        <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Projects</h3>
+      <div class="mb-6 flex-1 overflow-y-auto">
+        <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex justify-between items-center">
+          Projects
+          <button @click="showNewProjectForm = !showNewProjectForm" class="text-xs text-cyan-500 hover:text-cyan-400 normal-case tracking-normal">
+            <i class="fas" :class="showNewProjectForm ? 'fa-times' : 'fa-plus mr-1'"></i>
+            {{ showNewProjectForm ? '' : 'New' }}
+          </button>
+        </h3>
+
+        <!-- New Project Form -->
+        <div v-if="showNewProjectForm" class="mb-4 p-3 bg-slate-800 rounded-md border border-slate-700">
+          <input
+            v-model="newProjectName"
+            type="text"
+            class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500"
+            placeholder="Project name..."
+            @keyup.enter="handleCreateProject"
+          />
+          <div class="flex items-center mt-2">
+            <input type="checkbox" v-model="newProjectGitInit" id="gitInit" class="mr-2">
+            <label for="gitInit" class="text-[10px] text-slate-400 select-none">Initialize git repo</label>
+          </div>
+          <button
+            @click="handleCreateProject"
+            :disabled="!newProjectName.trim() || creatingProject"
+            class="w-full mt-2 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-700 disabled:text-slate-500 text-white text-xs py-1.5 rounded transition-colors"
+          >
+            {{ creatingProject ? 'Creating...' : 'Create Project' }}
+          </button>
+        </div>
+
         <ul class="space-y-1">
           <li v-for="p in devStore.projects" :key="p.path">
             <button
               @click="devStore.fetchHistory(p.name); devStore.startBridge(p.path)"
-              :class="['w-full text-left px-3 py-2 rounded-md transition-colors text-sm',
+              :class="['w-full text-left px-3 py-2 rounded-md transition-colors text-sm truncate',
                        devStore.currentProject === p.path ? 'bg-cyan-900/50 text-cyan-400' : 'hover:bg-slate-800 text-slate-300']"
+              :title="p.path"
             >
               <i class="fas fa-folder mr-2"></i> {{ p.name }}
             </button>
           </li>
         </ul>
-        <div v-if="devStore.projects.length === 0" class="text-xs text-slate-500 mt-2 px-3">
-          No projects found. Create a folder in your workspace to get started.
+        <div v-if="devStore.projects.length === 0 && !showNewProjectForm" class="text-xs text-slate-500 mt-2 px-3">
+          No projects found.
         </div>
-        <button @click="devStore.fetchProjects()" class="mt-4 text-xs text-cyan-500 hover:text-cyan-400">
+        
+        <div v-if="devStore.projectsRoot" class="mt-4 px-3">
+          <div class="text-[10px] text-slate-600 uppercase font-bold mb-1">Projects Path:</div>
+          <div class="text-[10px] text-slate-500 break-all bg-slate-800/30 p-1.5 rounded border border-slate-800/50">
+            {{ devStore.projectsRoot }}
+          </div>
+        </div>
+
+        <button @click="devStore.fetchProjects()" class="mt-4 px-3 text-xs text-cyan-500 hover:text-cyan-400">
           <i class="fas fa-sync mr-1"></i> Refresh List
         </button>
       </div>
@@ -160,6 +198,11 @@ const memoryQuery = ref('')
 const terminalRef = ref(null)
 const inputRef = ref(null)
 
+const showNewProjectForm = ref(false)
+const newProjectName = ref('')
+const newProjectGitInit = ref(true)
+const creatingProject = ref(false)
+
 onMounted(() => {
   devStore.fetchProjects()
   devStore.checkStatus()
@@ -168,6 +211,20 @@ onMounted(() => {
     if (inputRef.value) inputRef.value.focus()
   })
 })
+
+const handleCreateProject = async () => {
+  if (!newProjectName.value.trim() || creatingProject.value) return
+  creatingProject.value = true
+  try {
+    await devStore.createProject(newProjectName.value, newProjectGitInit.value)
+    newProjectName.value = ''
+    showNewProjectForm.value = false
+  } catch (e) {
+    devStore.terminalHistory.push({ type: 'error', message: `Failed to create project: ${e.message}` })
+  } finally {
+    creatingProject.value = false
+  }
+}
 
 const submitPrompt = () => {
   if (!prompt.value.trim()) return

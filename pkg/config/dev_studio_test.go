@@ -30,6 +30,9 @@ func TestDevStudioConfig_DefaultConfig(t *testing.T) {
 	if cfg.DevStudio.MaxSessionTokens != 200000 {
 		t.Errorf("Default session tokens should be 200000, got %d", cfg.DevStudio.MaxSessionTokens)
 	}
+	if cfg.DevStudio.ProjectsDir != "repos" {
+		t.Errorf("Default projects directory should be 'repos', got %s", cfg.DevStudio.ProjectsDir)
+	}
 	if cfg.DevStudio.Memory.Enabled {
 		t.Error("DefaultConfig() should have DevStudio Memory disabled by default")
 	}

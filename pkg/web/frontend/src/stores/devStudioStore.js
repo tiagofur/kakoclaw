@@ -11,6 +11,7 @@ export const useDevStudioStore = defineStore('devStudio', () => {
   const terminalHistory = ref([])
   const searchResults = ref([])
   const usingHttpFallback = ref(false)
+  const projectsRoot = ref('')
   const bridgeError = ref('')
 
   let ws = null
@@ -20,9 +21,21 @@ export const useDevStudioStore = defineStore('devStudio', () => {
     try {
       const { data } = await axios.get('/api/v1/dev/projects')
       projects.value = data.projects || []
+      projectsRoot.value = data.projects_dir || data.root || ''
     } catch (e) {
       console.error('Failed to fetch projects', e)
       terminalHistory.value.push({ type: 'error', message: 'Failed to load projects. Is Dev Studio enabled in config?' })
+    }
+  }
+
+  async function createProject(name, gitInit = true) {
+    try {
+      await axios.post('/api/v1/dev/projects', { name, git_init: gitInit })
+      await fetchProjects()
+    } catch (e) {
+      console.error('Failed to create project', e)
+      const msg = e.response?.data || e.message || 'Unknown error creating project'
+      throw new Error(msg)
     }
   }
 
@@ -140,9 +153,13 @@ export const useDevStudioStore = defineStore('devStudio', () => {
     const reader = resp.body.getReader()
     const decoder = new TextDecoder()
     let buf = ''
-    while (true) {
+    let streamDone = false
+    while (!streamDone) {
       const { done, value } = await reader.read()
-      if (done) break
+      if (done) {
+        streamDone = true
+        break
+      }
       buf += decoder.decode(value, { stream: true })
       const lines = buf.split('\n')
       buf = lines.pop() // keep incomplete last line
@@ -151,7 +168,9 @@ export const useDevStudioStore = defineStore('devStudio', () => {
         try {
           const msg = JSON.parse(line)
           if (msg.type !== 'ping') terminalHistory.value.push(msg)
-        } catch {}
+        } catch (e) {
+          // Ignore parse errors for incomplete JSON lines in the stream
+        }
       }
     }
   }
@@ -195,6 +214,7 @@ export const useDevStudioStore = defineStore('devStudio', () => {
 
   return {
     projects,
+    projectsRoot,
     currentProject,
     bridgeStatus,
     terminalHistory,
@@ -202,6 +222,7 @@ export const useDevStudioStore = defineStore('devStudio', () => {
     usingHttpFallback,
     bridgeError,
     fetchProjects,
+    createProject,
     startBridge,
     stopBridge,
     checkStatus,

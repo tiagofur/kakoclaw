@@ -125,6 +125,7 @@ type DevStudioConfig struct {
 	NodePath         string          `json:"node_path,omitempty"`
 	Memory           DevMemoryConfig `json:"memory"`
 	MaxSessionTokens int             `json:"max_session_tokens,omitempty"` // default 200000
+	ProjectsDir      string          `json:"projects_dir,omitempty"`       // Default: "repos"
 }
 
 // VoiceWakeConfig configures wake word detection and voice interaction.
@@ -809,6 +810,7 @@ func DefaultConfig() *Config {
 			DefaultBackend:   "claude-code",
 			NodePath:         "node",
 			MaxSessionTokens: 200000,
+			ProjectsDir:      "repos",
 			Memory: DevMemoryConfig{
 				Enabled: false,
 				Model:   "all-MiniLM-L6-v2",
