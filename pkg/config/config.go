@@ -1543,6 +1543,13 @@ func mergeToolsConfig(global, user *ToolsConfig) ToolsConfig {
 		merged.RequireConfirmation = global.RequireConfirmation
 	}
 
+	// Merge DeveloperMode (user overrides global; true wins)
+	if user.DeveloperMode {
+		merged.DeveloperMode = true
+	} else {
+		merged.DeveloperMode = global.DeveloperMode
+	}
+
 	return merged
 }
 
