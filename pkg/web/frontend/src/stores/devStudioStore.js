@@ -50,9 +50,18 @@ export const useDevStudioStore = defineStore('devStudio', () => {
       connectTerminal()
     } catch (e) {
       console.error('Failed to start bridge', e)
-      const msg = e.response?.data || e.message || 'Unknown error starting bridge'
-      bridgeError.value = typeof msg === 'string' ? msg : JSON.stringify(msg)
-      terminalHistory.value.push({ type: 'error', message: `Bridge start failed: ${bridgeError.value}` })
+      // Extract detailed error message from JSON response
+      const respData = e.response?.data
+      let msg = 'Unknown error starting bridge'
+      if (typeof respData === 'object' && respData?.error) {
+        msg = respData.error
+      } else if (typeof respData === 'string') {
+        msg = respData
+      } else if (e.message) {
+        msg = e.message
+      }
+      bridgeError.value = msg
+      terminalHistory.value.push({ type: 'error', message: `Bridge start failed: ${msg}` })
     }
   }
 

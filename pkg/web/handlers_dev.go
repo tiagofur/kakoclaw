@@ -255,7 +255,11 @@ func (s *Server) handleDevBridgeStart(w http.ResponseWriter, r *http.Request) {
 
 	b, err := s.getDevBridge(claims.UUID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"error": err.Error(),
+		})
 		return
 	}
 
