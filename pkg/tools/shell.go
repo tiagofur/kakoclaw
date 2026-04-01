@@ -268,6 +268,15 @@ func (t *ExecTool) SetDeveloperMode(enabled bool) {
 	}
 }
 
+// SetAdminMode enables full unrestricted access for admin users:
+// developer mode + clears the deny patterns blacklist so no commands are blocked.
+func (t *ExecTool) SetAdminMode(enabled bool) {
+	t.SetDeveloperMode(enabled)
+	if enabled {
+		t.denyPatterns = nil
+	}
+}
+
 func (t *ExecTool) SetAllowPatterns(patterns []string) error {
 	t.allowPatterns = make([]*regexp.Regexp, 0, len(patterns))
 	for _, p := range patterns {

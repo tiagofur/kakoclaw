@@ -658,6 +658,11 @@ func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers
 		contextBuilder.WithUserEmail(cfg.Tools.Email.To)
 	}
 
+	// Let the agent know about Dev Studio if enabled
+	if cfg.DevStudio.Enabled {
+		contextBuilder.WithDevStudio(true)
+	}
+
 	// Initialize audit logger if storage is available
 	var auditLogger *tools.SQLiteAuditLogger
 	if store != nil {
@@ -734,6 +739,7 @@ func (al *AgentLoop) SetUserForAgent(userUUID string, userID int64) {
 			filteredTools := filterToolsByPermissions(al.baseTools, user.Role, userID, al.cfg, al.centralStorage)
 			al.tools = filteredTools
 			al.contextBuilder.SetToolsRegistry(filteredTools)
+			al.contextBuilder.WithUserRole(user.Role)
 
 			logger.InfoCF("agent", "User configured with role-based tool permissions", map[string]interface{}{
 				"user_id":    userID,
@@ -747,9 +753,11 @@ func (al *AgentLoop) SetUserForAgent(userUUID string, userID int64) {
 				"error":   err.Error(),
 			})
 			al.userRole = "admin"
+			al.contextBuilder.WithUserRole("admin")
 		}
 	} else {
 		al.userRole = "admin" // Default to admin for backwards compatibility
+		al.contextBuilder.WithUserRole("admin")
 	}
 
 	if userUUID == "" {
