@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import axios from 'axios'
+import api from '../services/api'
 
 const MAX_WS_FAILURES = 3
 
@@ -19,7 +19,7 @@ export const useDevStudioStore = defineStore('devStudio', () => {
 
   async function fetchProjects() {
     try {
-      const { data } = await axios.get('/api/v1/dev/projects')
+      const { data } = await api.get('/dev/projects')
       projects.value = data.projects || []
       projectsRoot.value = data.projects_dir || data.root || ''
     } catch (e) {
@@ -30,7 +30,7 @@ export const useDevStudioStore = defineStore('devStudio', () => {
 
   async function createProject(name, gitInit = true) {
     try {
-      await axios.post('/api/v1/dev/projects', { name, git_init: gitInit })
+      await api.post('/dev/projects', { name, git_init: gitInit })
       await fetchProjects()
     } catch (e) {
       console.error('Failed to create project', e)
@@ -42,7 +42,7 @@ export const useDevStudioStore = defineStore('devStudio', () => {
   async function startBridge(projectDir) {
     bridgeError.value = ''
     try {
-      await axios.post('/api/v1/dev/bridge/start', { project_dir: projectDir })
+      await api.post('/dev/bridge/start', { project_dir: projectDir })
       currentProject.value = projectDir
       bridgeStatus.value = 'running'
       wsFailures = 0
@@ -58,7 +58,7 @@ export const useDevStudioStore = defineStore('devStudio', () => {
 
   async function stopBridge() {
     try {
-      await axios.post('/api/v1/dev/bridge/stop')
+      await api.post('/dev/bridge/stop')
       bridgeStatus.value = 'stopped'
       usingHttpFallback.value = false
       wsFailures = 0
@@ -73,7 +73,7 @@ export const useDevStudioStore = defineStore('devStudio', () => {
 
   async function checkStatus() {
     try {
-      const { data } = await axios.get('/api/v1/dev/bridge/status')
+      const { data } = await api.get('/dev/bridge/status')
       bridgeStatus.value = data.status
       // Restore last active project from state.json (returned by backend)
       if (data.project_dir && !currentProject.value) {
@@ -189,7 +189,7 @@ export const useDevStudioStore = defineStore('devStudio', () => {
 
   async function searchMemory(query, limit = 5) {
     try {
-      const { data } = await axios.post('/api/v1/dev/memory/search', { query, limit })
+      const { data } = await api.post('/dev/memory/search', { query, limit })
       searchResults.value = data.results || []
     } catch (e) {
       console.error('Failed to search memory', e)
@@ -199,7 +199,7 @@ export const useDevStudioStore = defineStore('devStudio', () => {
   async function fetchHistory(projectName) {
     try {
       const sessionID = `dev_studio_${projectName}`
-      const { data } = await axios.get(`/api/v1/chat/sessions/${sessionID}`)
+      const { data } = await api.get(`/chat/sessions/${sessionID}`)
       if (data && data.messages) {
         terminalHistory.value = data.messages.map(m => ({
           type: m.role === 'user' ? 'user' : 'assistant',
