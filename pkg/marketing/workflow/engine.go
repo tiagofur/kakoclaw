@@ -198,14 +198,16 @@ func (e *Engine) Start(account, campaign, campaignPath string) (*WorkflowState, 
 
 // Generate invokes AI to generate content for the current stage.
 func (e *Engine) Generate(ctx context.Context, campaignPath string, invoker AIInvoker, req GenerateRequest) (*WorkflowState, string, error) {
+	// Phase 1: Validate and mark as generating (short lock)
 	e.mu.Lock()
-	defer e.mu.Unlock()
 
 	state, err := e.Load(campaignPath)
 	if err != nil {
+		e.mu.Unlock()
 		return nil, "", fmt.Errorf("load workflow: %w", err)
 	}
 	if state == nil {
+		e.mu.Unlock()
 		return nil, "", fmt.Errorf("workflow not started")
 	}
 
@@ -214,22 +216,39 @@ func (e *Engine) Generate(ctx context.Context, campaignPath string, invoker AIIn
 
 	// Allow re-generating if awaiting approval or pending
 	if info.State != StatePending && info.State != StateAwaitingApproval {
+		e.mu.Unlock()
 		return nil, "", fmt.Errorf("stage %s is in state %s, cannot generate", stage, info.State)
 	}
 
 	info.State = StateGenerating
 	if err := e.Save(campaignPath, state); err != nil {
+		e.mu.Unlock()
 		return nil, "", err
 	}
 
 	// Read existing context to build the prompt
-	context := e.buildContext(campaignPath, state, req)
+	stageCtx := e.buildContext(campaignPath, state, req)
 
 	// Build the prompt for this stage
-	prompt := buildStagePrompt(stage, context, req)
+	prompt := buildStagePrompt(stage, stageCtx, req)
+
+	// Release lock before AI invocation (can take minutes)
+	e.mu.Unlock()
 
 	sessionKey := fmt.Sprintf("marketing_workflow_%s_%s_%s", state.Account, state.Campaign, stage)
 	result, err := invoker.Invoke(ctx, prompt, sessionKey)
+
+	// Phase 2: Update state with result (short lock)
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	// Re-load state in case it changed while we were unlocked
+	state, loadErr := e.Load(campaignPath)
+	if loadErr != nil {
+		return nil, "", fmt.Errorf("reload workflow after generation: %w", loadErr)
+	}
+	info = state.Stages[stage]
+
 	if err != nil {
 		info.State = StatePending // rollback
 		_ = e.Save(campaignPath, state)

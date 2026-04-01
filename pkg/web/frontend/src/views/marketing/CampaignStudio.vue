@@ -183,6 +183,22 @@
                 Skip
               </button>
             </div>
+
+            <!-- Error banner -->
+            <div v-if="generateError" class="flex items-start gap-3 p-3 rounded-xl bg-red-500/10 border border-red-500/20">
+              <svg class="w-5 h-5 text-red-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <div class="flex-1 min-w-0">
+                <p class="text-xs font-semibold text-red-400">Generation failed</p>
+                <p class="text-xs text-red-400/70 mt-0.5 break-words">{{ generateError }}</p>
+              </div>
+              <button class="text-red-400/50 hover:text-red-400 transition-colors" @click="generateError = ''">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           <!-- State: Pending (future stage, not yet reachable) -->
@@ -408,6 +424,7 @@ const stageIcons = {
 const selectedStageView = ref(null)
 const showRejectModal = ref(false)
 const rejectFeedback = ref('')
+const generateError = ref('')
 const generateParams = ref({
   objective: '',
   target_audience: '',
@@ -480,8 +497,13 @@ async function handleStart() {
 }
 
 async function handleGenerate() {
+  generateError.value = ''
+  // Optimistic UI: switch to generating state immediately
+  if (wf.value?.stages?.[currentStage.value]) {
+    wf.value.stages[currentStage.value].state = 'generating'
+  }
   try {
-    const result = await store.generateStage(props.account, props.campaign, {
+    await store.generateStage(props.account, props.campaign, {
       objective: generateParams.value.objective || undefined,
       target_audience: generateParams.value.target_audience || undefined,
       platforms: generateParams.value.platforms || undefined,
@@ -491,6 +513,11 @@ async function handleGenerate() {
     })
   } catch (e) {
     console.error('generate failed', e)
+    // Revert to pending on error
+    if (wf.value?.stages?.[currentStage.value]) {
+      wf.value.stages[currentStage.value].state = 'pending'
+    }
+    generateError.value = e?.response?.data || e?.message || 'Generation failed. Please try again.'
   }
 }
 
