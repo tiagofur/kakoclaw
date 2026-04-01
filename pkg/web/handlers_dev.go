@@ -495,20 +495,22 @@ func (s *Server) handleDevQuery(w http.ResponseWriter, r *http.Request) {
 		_ = userStore.SaveMessage(sessionID, "user", req.Message)
 	}
 
-	metadata := bridge.RequestOptions{}
-	if devMem, errMem := s.getDevMemory(claims.UUID); errMem == nil {
-		if injected, errInj := devMem.Inject(r.Context(), req.Message, 5); errInj == nil && injected != "" {
-			metadata.PromptInjection = injected
-		}
+	devReq, err := s.devPipeline.RunPre(r.Context(), &DevRequest{
+		UserUUID: claims.UUID,
+		Prompt:   req.Message,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	bridgeReq := bridge.Request{
 		Command: "query",
-		Prompt:  req.Message,
-		Options: metadata,
+		Prompt:  devReq.Prompt,
+		Options: bridge.RequestOptions{PromptInjection: devReq.PromptInjection},
 	}
 
-	ch, errExec := b.Execute(r.Context(), bridgeReq)
+	ch, _, errExec := s.executeDevBridge(r.Context(), claims.UUID, bridgeReq)
 	if errExec != nil {
 		http.Error(w, errExec.Error(), http.StatusInternalServerError)
 		return

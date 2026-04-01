@@ -22,6 +22,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/sipeed/makoclaw/pkg/agent"
+	"github.com/sipeed/makoclaw/pkg/bridge"
 	"github.com/sipeed/makoclaw/pkg/bus"
 	"github.com/sipeed/makoclaw/pkg/canvas"
 	"github.com/sipeed/makoclaw/pkg/channels"
@@ -48,6 +49,8 @@ type activeExecution struct {
 	StartedAt time.Time
 	Cancel    context.CancelFunc
 }
+
+type devBridgeExecutor func(context.Context, bridge.Request) (<-chan bridge.Event, error)
 
 type Server struct {
 	cfg                     config.WebConfig
@@ -89,6 +92,8 @@ type Server struct {
 	devBridgesMu   sync.RWMutex
 	devBridges     map[string]interface{} // *bridge.Bridge (type erased to avoid circular deps if any)
 	devMemories    map[string]interface{} // *devmemory.Store
+	devPipeline    *DevPipeline
+	devBridgeExecs map[string]devBridgeExecutor
 	sessionTracker *SessionTracker
 }
 
@@ -137,20 +142,23 @@ func (s *Server) checkOrigin(r *http.Request) bool {
 func NewServer(cfg config.WebConfig, agentLoop *agent.AgentLoop, store *storage.Storage) *Server {
 	workspace := defaultWorkspace()
 	s := &Server{
-		cfg:          cfg,
-		workspace:    workspace,
-		agentLoop:    agentLoop,
-		store:        store,
-		loginLimit:   ratelimit.NewRateLimiter(),
-		apiRateLimit: ratelimit.NewRateLimiter(),
-		tasksClients: make(map[*websocket.Conn]struct{}),
-		connMu:       make(map[*websocket.Conn]*sync.Mutex),
-		memory:       agent.NewMemoryStore(workspace),
-		userMetrics:  make(map[string]*observability.Metrics),
-		activeExecs:  make(map[string]*activeExecution),
-		devBridges:   make(map[string]interface{}),
-		devMemories:  make(map[string]interface{}),
+		cfg:            cfg,
+		workspace:      workspace,
+		agentLoop:      agentLoop,
+		store:          store,
+		loginLimit:     ratelimit.NewRateLimiter(),
+		apiRateLimit:   ratelimit.NewRateLimiter(),
+		tasksClients:   make(map[*websocket.Conn]struct{}),
+		connMu:         make(map[*websocket.Conn]*sync.Mutex),
+		memory:         agent.NewMemoryStore(workspace),
+		userMetrics:    make(map[string]*observability.Metrics),
+		activeExecs:    make(map[string]*activeExecution),
+		devBridges:     make(map[string]interface{}),
+		devMemories:    make(map[string]interface{}),
+		devPipeline:    NewDevPipeline(),
+		devBridgeExecs: make(map[string]devBridgeExecutor),
 	}
+	s.devPipeline.Use(MemoryInjectionMiddleware(s.getDevMemory))
 	s.configureSessionTracker(0)
 	return s
 }
@@ -266,6 +274,25 @@ func (s *Server) SetFullConfig(cfg *config.Config) {
 		maxTokens = cfg.DevStudio.MaxSessionTokens
 	}
 	s.configureSessionTracker(maxTokens)
+}
+
+func (s *Server) executeDevBridge(ctx context.Context, userUUID string, req bridge.Request) (<-chan bridge.Event, *bridge.Bridge, error) {
+	if execFn, ok := s.devBridgeExecs[userUUID]; ok && execFn != nil {
+		ch, err := execFn(ctx, req)
+		return ch, nil, err
+	}
+
+	b, err := s.getDevBridge(userUUID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	ch, err := b.Execute(ctx, req)
+	if err != nil {
+		return nil, b, err
+	}
+
+	return ch, b, nil
 }
 
 func (s *Server) configureSessionTracker(maxTokens int) {

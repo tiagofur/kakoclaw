@@ -147,20 +147,22 @@ func (s *Server) handleDevTerminalWS(w http.ResponseWriter, r *http.Request) {
 				_ = userStore.SaveMessage(sessionID, "user", in.Message)
 			}
 
-			// Add injected context from devmemory if enabled
-			metadata := bridge.RequestOptions{}
-			if devMem, errMap := s.getDevMemory(claims.UUID); errMap == nil {
-				if injected, errInject := devMem.Inject(ctx, in.Message, 5); errInject == nil && injected != "" {
-					metadata.PromptInjection = injected
-				}
+			devReq, err := s.devPipeline.RunPre(ctx, &DevRequest{
+				UserUUID: claims.UUID,
+				Prompt:   in.Message,
+			})
+			if err != nil {
+				out, _ := json.Marshal(map[string]interface{}{"type": "error", "message": err.Error()})
+				_ = safeWrite(out)
+				continue
 			}
 
 			req := bridge.Request{
 				Command: "query",
-				Prompt:  in.Message,
-				Options: metadata,
+				Prompt:  devReq.Prompt,
+				Options: bridge.RequestOptions{PromptInjection: devReq.PromptInjection},
 			}
-			ch, errExec := b.Execute(ctx, req)
+			ch, execBridge, errExec := s.executeDevBridge(ctx, claims.UUID, req)
 			if errExec != nil {
 				out, _ := json.Marshal(map[string]interface{}{"type": "error", "message": errExec.Error()})
 				_ = safeWrite(out)
@@ -186,7 +188,7 @@ func (s *Server) handleDevTerminalWS(w http.ResponseWriter, r *http.Request) {
 							break
 						}
 					}
-					s.trackDevSessionEvent(ctx, claims.UUID, &sessionID, ev, b, func(msg map[string]interface{}) error {
+					s.trackDevSessionEvent(ctx, claims.UUID, &sessionID, ev, execBridge, func(msg map[string]interface{}) error {
 						resetBytes, err := json.Marshal(msg)
 						if err != nil {
 							return err
