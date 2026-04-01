@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/sipeed/makoclaw/pkg/bridge"
+	"github.com/sipeed/makoclaw/pkg/config"
 )
 
 type bridgeState struct {
@@ -77,8 +78,12 @@ func (s *Server) getDevBridge(userUUID string) (*bridge.Bridge, error) {
 		return b.(*bridge.Bridge), nil
 	}
 
-	if s.fullConfig == nil || !s.fullConfig.DevStudio.Enabled {
-		return nil, fmt.Errorf("dev studio is disabled globally")
+	if s.fullConfig == nil {
+		return nil, fmt.Errorf("server configuration not available")
+	}
+	// Check per-user config — DevStudio.Enabled is a user-level setting
+	if userCfg, err := config.LoadConfigForUser(userUUID); err != nil || !userCfg.DevStudio.Enabled {
+		return nil, fmt.Errorf("dev studio is not enabled for this user")
 	}
 
 	// Resolve the actual bundle path on disk before creating the bridge.
@@ -250,7 +255,7 @@ func (s *Server) handleDevBridgeStart(w http.ResponseWriter, r *http.Request) {
 
 	b, err := s.getDevBridge(claims.UUID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		return
 	}
 
