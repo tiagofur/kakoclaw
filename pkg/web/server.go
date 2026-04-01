@@ -1672,18 +1672,6 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 				}
 				ctx = agent.ContextWithToolCallback(ctx, emitToolCall)
 
-				// Specialist streaming tokens: emit each token with the originating agent name
-				// so the frontend can show a live preview inside the AgentActivityItem collapsible.
-				ctx = agent.ContextWithSpecialistTokenCallback(ctx, func(agentName, token string) error {
-					wsMu.Lock()
-					defer wsMu.Unlock()
-					return conn.WriteJSON(map[string]interface{}{
-						"type":  "specialist_stream",
-						"agent": agentName,
-						"token": token,
-					})
-				})
-
 				// SpecialistStream: structured token events from specialist agents
 				ctx = agent.ContextWithSpecialistStreamCallback(ctx, func(ev agent.SpecialistStreamEvent) error {
 					wsMu.Lock()
