@@ -461,6 +461,16 @@ func extractOutputFiles(stage Stage, campaignPath string) []string {
 	var dir string
 
 	switch stage {
+	case StageBrief:
+		if _, err := os.Stat(filepath.Join(campaignPath, "brief.md")); err == nil {
+			return []string{"brief.md"}
+		}
+		return files
+	case StageStrategy:
+		if _, err := os.Stat(filepath.Join(campaignPath, "strategy.md")); err == nil {
+			return []string{"strategy.md"}
+		}
+		return files
 	case StageCopy:
 		dir = filepath.Join(campaignPath, "copy")
 	case StageVisuals:

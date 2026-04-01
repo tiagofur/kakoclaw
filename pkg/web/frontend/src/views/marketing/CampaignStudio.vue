@@ -185,6 +185,17 @@
             </div>
           </div>
 
+          <!-- State: Pending (future stage, not yet reachable) -->
+          <div v-if="currentStageState === 'pending' && !isCurrentStage" class="glass-panel rounded-2xl p-6 flex flex-col items-center justify-center text-center space-y-3">
+            <div class="w-12 h-12 rounded-2xl bg-makoclaw-surface/50 flex items-center justify-center">
+              <span class="text-2xl">{{ stageIcons[viewingStage] }}</span>
+            </div>
+            <h3 class="text-sm font-bold text-makoclaw-text">{{ stageLabels[viewingStage] }}</h3>
+            <p class="text-xs text-makoclaw-text-secondary">
+              This stage is waiting. Complete <strong>{{ stageLabels[currentStage] }}</strong> first.
+            </p>
+          </div>
+
           <!-- State: Generating -->
           <div v-if="currentStageState === 'generating'" class="glass-panel rounded-2xl p-8 flex flex-col items-center justify-center text-center space-y-4">
             <div class="relative">
@@ -486,11 +497,8 @@ async function handleGenerate() {
 async function handleApprove() {
   try {
     await store.approveStage(props.account, props.campaign)
-    // Auto-advance view to next stage
-    const idx = stageOrder.indexOf(currentStage.value)
-    if (idx < stageOrder.length - 1) {
-      selectedStageView.value = stageOrder[idx + 1]
-    }
+    // Sync view to the new current stage (backend already advanced it)
+    selectedStageView.value = currentStage.value
   } catch (e) {
     console.error('approve failed', e)
   }
@@ -510,10 +518,8 @@ async function handleReject() {
 async function handleSkip() {
   try {
     await store.skipStage(props.account, props.campaign)
-    const idx = stageOrder.indexOf(currentStage.value)
-    if (idx < stageOrder.length - 1) {
-      selectedStageView.value = stageOrder[idx + 1]
-    }
+    // Sync view to the new current stage (backend already advanced it)
+    selectedStageView.value = currentStage.value
   } catch (e) {
     console.error('skip failed', e)
   }
