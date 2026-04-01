@@ -202,6 +202,126 @@ func delegationChainFromCtx(ctx context.Context) []string {
 	return []string{"orchestrator"}
 }
 
+// SpecialistStreamEvent is emitted for each token produced by a specialist during streaming
+type SpecialistStreamEvent struct {
+	SpecialistName string    `json:"specialist_name"`
+	Token          string    `json:"token"`
+	Timestamp      time.Time `json:"timestamp"`
+}
+
+// OrchestratorDelegationEvent is emitted when the orchestrator delegates a task to a specialist
+type OrchestratorDelegationEvent struct {
+	SpecialistName string    `json:"specialist_name"`
+	Task           string    `json:"task"`           // full prompt sent to specialist
+	DelegationID   string    `json:"delegation_id"`
+	Timestamp      time.Time `json:"timestamp"`
+}
+
+// SynthesisEvent is emitted around the orchestrator's final synthesis pass
+type SynthesisEvent struct {
+	Phase     string    `json:"phase"`           // "start" | "token" | "end"
+	Token     string    `json:"token,omitempty"` // only when Phase == "token"
+	Timestamp time.Time `json:"timestamp"`
+}
+
+// ReportSavedEvent is emitted when a specialist saves a report artifact
+type ReportSavedEvent struct {
+	Title     string    `json:"title"`
+	FilePath  string    `json:"file_path"`
+	Summary   string    `json:"summary"`
+	Timestamp time.Time `json:"timestamp"`
+}
+
+// SpecialistStreamCallback is called for each token produced by a specialist
+type SpecialistStreamCallback func(event SpecialistStreamEvent) error
+
+type specialistStreamCallbackKey struct{}
+
+// ContextWithSpecialistStreamCallback embeds a SpecialistStreamCallback into the context
+func ContextWithSpecialistStreamCallback(ctx context.Context, callback SpecialistStreamCallback) context.Context {
+	return context.WithValue(ctx, specialistStreamCallbackKey{}, callback)
+}
+
+func specialistStreamCallbackFromCtx(ctx context.Context) SpecialistStreamCallback {
+	if v, ok := ctx.Value(specialistStreamCallbackKey{}).(SpecialistStreamCallback); ok {
+		return v
+	}
+	return nil
+}
+
+// emitSpecialistStream emits a SpecialistStreamEvent if callback is available
+func emitSpecialistStream(ctx context.Context, specialistName, token string) {
+	if cb := specialistStreamCallbackFromCtx(ctx); cb != nil {
+		_ = cb(SpecialistStreamEvent{
+			SpecialistName: specialistName,
+			Token:          token,
+			Timestamp:      time.Now(),
+		})
+	}
+}
+
+// OrchestratorDelegationCallback is called when the orchestrator delegates to a specialist
+type OrchestratorDelegationCallback func(event OrchestratorDelegationEvent) error
+
+type orchestratorDelegationCallbackKey struct{}
+
+// ContextWithOrchestratorDelegationCallback embeds an OrchestratorDelegationCallback into the context
+func ContextWithOrchestratorDelegationCallback(ctx context.Context, callback OrchestratorDelegationCallback) context.Context {
+	return context.WithValue(ctx, orchestratorDelegationCallbackKey{}, callback)
+}
+
+func orchestratorDelegationCallbackFromCtx(ctx context.Context) OrchestratorDelegationCallback {
+	if v, ok := ctx.Value(orchestratorDelegationCallbackKey{}).(OrchestratorDelegationCallback); ok {
+		return v
+	}
+	return nil
+}
+
+// SynthesisCallback is called during the orchestrator's final synthesis pass
+type SynthesisCallback func(event SynthesisEvent) error
+
+type synthesisCallbackKey struct{}
+
+// ContextWithSynthesisCallback embeds a SynthesisCallback into the context
+func ContextWithSynthesisCallback(ctx context.Context, callback SynthesisCallback) context.Context {
+	return context.WithValue(ctx, synthesisCallbackKey{}, callback)
+}
+
+func synthesisCallbackFromCtx(ctx context.Context) SynthesisCallback {
+	if v, ok := ctx.Value(synthesisCallbackKey{}).(SynthesisCallback); ok {
+		return v
+	}
+	return nil
+}
+
+// emitSynthesis emits a SynthesisEvent if callback is available
+func emitSynthesis(ctx context.Context, phase, token string) {
+	if cb := synthesisCallbackFromCtx(ctx); cb != nil {
+		_ = cb(SynthesisEvent{
+			Phase:     phase,
+			Token:     token,
+			Timestamp: time.Now(),
+		})
+	}
+}
+
+// ReportSavedCallback is called when a report artifact is saved by a specialist
+type ReportSavedCallback func(event ReportSavedEvent) error
+
+type reportSavedCallbackKey struct{}
+
+// ContextWithReportSavedCallback embeds a ReportSavedCallback into the context
+func ContextWithReportSavedCallback(ctx context.Context, callback ReportSavedCallback) context.Context {
+	return context.WithValue(ctx, reportSavedCallbackKey{}, callback)
+}
+
+func reportSavedCallbackFromCtx(ctx context.Context) ReportSavedCallback {
+	if v, ok := ctx.Value(reportSavedCallbackKey{}).(ReportSavedCallback); ok {
+		return v
+	}
+	return nil
+}
+
 // OrchestratorAgent is a special agent that analyzes tasks and delegates to specialists
 type OrchestratorAgent struct {
 	*SpecialistAgent
@@ -924,12 +1044,35 @@ The user only sees text below the JSON block — include all findings there.
 		Timestamp:     time.Now(),
 	})
 
+	// Emit orchestrator delegation event with full task sent to specialist
+	if cb := orchestratorDelegationCallbackFromCtx(ctx); cb != nil {
+		_ = cb(OrchestratorDelegationEvent{
+			SpecialistName: specialistName,
+			Task:           taskWithFormat,
+			DelegationID:   delegationID,
+			Timestamp:      time.Now(),
+		})
+	}
+
+	// Bridge SpecialistStreamCallback → SpecialistTokenCallback so specialist tokens
+	// are forwarded as SpecialistStreamEvents to whoever registered the stream callback.
+	streamCtx := ctxWithTimeout
+	if streamCb := specialistStreamCallbackFromCtx(ctx); streamCb != nil {
+		streamCtx = ContextWithSpecialistTokenCallback(ctxWithTimeout, func(agentName, token string) error {
+			return streamCb(SpecialistStreamEvent{
+				SpecialistName: agentName,
+				Token:          token,
+				Timestamp:      time.Now(),
+			})
+		})
+	}
+
 	// Execute in goroutine to detect timeout
 	resultChan := make(chan string, 1)
 	errChan := make(chan error, 1)
 
 	go func() {
-		result, err := specialist.ProcessWithSpecialityForUserStream(ctxWithTimeout, oa.userUUID, oa.userID, taskWithFormat, effectiveSessionKey)
+		result, err := specialist.ProcessWithSpecialityForUserStream(streamCtx, oa.userUUID, oa.userID, taskWithFormat, effectiveSessionKey)
 		if err != nil {
 			errChan <- err
 			return
