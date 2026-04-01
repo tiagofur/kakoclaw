@@ -132,11 +132,11 @@ func (s *Server) handleDevProjects(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userWorkspace := filepath.Join(defaultWorkspace(), claims.UUID)
+	var userWorkspace string
 	if s.userMgr != nil {
-		if storePath := s.fullConfig.Storage.Path; storePath != "" {
-			userWorkspace = filepath.Join(storePath, "users", claims.UUID, "workspace")
-		}
+		userWorkspace = s.userMgr.UserWorkspacePath(claims.UUID)
+	} else {
+		userWorkspace = s.fullConfig.WorkspacePath()
 	}
 
 	projectsSubdir := "repos"
