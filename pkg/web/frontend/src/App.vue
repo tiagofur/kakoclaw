@@ -24,6 +24,8 @@ onMounted(async () => {
     try {
       await configStore.checkStatus()
       await onboardingStore.checkOnboardingStatus()
+      // Hydrate Dev Studio visibility flag from user config
+      await uiStore.fetchDevStudioStatus()
     } catch (error) {
       console.error('Failed to check configuration status:', error)
     }

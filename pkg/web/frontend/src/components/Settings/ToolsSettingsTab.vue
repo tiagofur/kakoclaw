@@ -1,8 +1,10 @@
 <template>
   <div class="space-y-5 animate-fade-in-up">
-    <!-- Developer Mode -->
-    <div class="glass-panel rounded-2xl p-5 border border-makoclaw-border/50 transition-all duration-300 hover:border-makoclaw-accent/30 hover:shadow-lg">
-      <div class="flex items-center justify-between mb-5">
+    <!-- Developer Mode — Admin Only -->
+    <div
+      v-if="isAdmin"
+      class="glass-panel rounded-2xl p-5 border border-makoclaw-border/50 transition-all duration-300 hover:border-makoclaw-accent/30 hover:shadow-lg"
+    >      <div class="flex items-center justify-between mb-5">
         <div class="flex items-center gap-3">
           <div class="p-2 rounded-xl bg-yellow-500/10 text-yellow-400">
             <CommandLineIcon class="w-5 h-5" />
@@ -38,6 +40,68 @@
         <div class="flex items-center gap-2 px-4 py-3 rounded-2xl bg-makoclaw-bg/30 border border-makoclaw-border/30">
           <FolderOpenIcon class="w-4 h-4 text-makoclaw-accent shrink-0" />
           <span><span class="font-bold text-makoclaw-text">Unrestricted workspace:</span> Access files outside workspace directory</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dev Studio — Admin Only -->
+    <div
+      v-if="isAdmin"
+      class="glass-panel rounded-2xl p-5 border border-makoclaw-border/50 transition-all duration-300 hover:border-makoclaw-accent/30 hover:shadow-lg"
+    >
+      <div class="flex items-center justify-between mb-5">
+        <div class="flex items-center gap-3">
+          <div class="p-2 rounded-xl bg-cyan-500/10 text-cyan-400">
+            <svg
+              class="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
+            /></svg>
+          </div>
+          <div>
+            <h3 class="text-xs font-medium tracking-wide text-makoclaw-text-secondary/70 uppercase">
+              Dev Studio
+            </h3>
+            <p class="text-[10px] text-makoclaw-text-secondary/50 mt-0.5">
+              AI-powered coding workspace with bridge integration
+            </p>
+          </div>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input
+            v-model="devStudioEnabled"
+            type="checkbox"
+            class="sr-only peer"
+            @change="saveDevStudio"
+          >
+          <div class="w-12 h-7 rounded-full bg-makoclaw-border/70 peer-checked:bg-cyan-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:after:translate-x-5"></div>
+        </label>
+      </div>
+      <div class="space-y-3 text-xs text-makoclaw-text-secondary/70">
+        <div class="flex items-center gap-2 px-4 py-3 rounded-2xl bg-makoclaw-bg/30 border border-makoclaw-border/30">
+          <CodeBracketIcon class="w-4 h-4 text-cyan-400 shrink-0" />
+          <span><span class="font-bold text-makoclaw-text">Bridge integration:</span> Connect AI backends (Claude Code, OpenCode) to your projects</span>
+        </div>
+        <div class="flex items-center gap-2 px-4 py-3 rounded-2xl bg-makoclaw-bg/30 border border-makoclaw-border/30">
+          <CpuChipIcon class="w-4 h-4 text-cyan-400 shrink-0" />
+          <span><span class="font-bold text-makoclaw-text">Project workspace:</span> Create and manage local development projects</span>
+        </div>
+        <div class="flex items-center gap-2 px-4 py-3 rounded-2xl bg-makoclaw-bg/30 border border-makoclaw-border/30">
+          <CommandLineIcon class="w-4 h-4 text-cyan-400 shrink-0" />
+          <span><span class="font-bold text-makoclaw-text">Interactive terminal:</span> Real-time AI coding assistance via WebSocket</span>
+        </div>
+        <div
+          v-if="!devStudioEnabled"
+          class="flex items-center gap-2 px-4 py-3 rounded-2xl bg-amber-500/5 border border-amber-500/20"
+        >
+          <ExclamationTriangleIcon class="w-4 h-4 text-amber-400 shrink-0" />
+          <span class="text-amber-400/80"><span class="font-bold">Disabled:</span> Enable Dev Studio to access the workspace from the sidebar</span>
         </div>
       </div>
     </div>
@@ -135,7 +199,8 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
+import { useAuthStore } from '../../stores/authStore'
 import {
   CommandLineIcon,
   ClockIcon,
@@ -159,16 +224,27 @@ const props = defineProps({
 })
 const emit = defineEmits(['save'])
 
+const authStore = useAuthStore()
+const isAdmin = computed(() => authStore.user?.role === 'admin')
+
 const developerMode = ref(false)
+const devStudioEnabled = ref(false)
 
 watch(() => props.configData, (newVal) => {
   if (newVal?.tools) {
     developerMode.value = !!newVal.tools.developer_mode
   }
+  if (newVal?.dev_studio) {
+    devStudioEnabled.value = !!newVal.dev_studio.enabled
+  }
 }, { immediate: true })
 
 const saveDeveloperMode = () => {
   emit('save', { tools: { developer_mode: developerMode.value } })
+}
+
+const saveDevStudio = () => {
+  emit('save', { dev_studio: { enabled: devStudioEnabled.value } })
 }
 
 const programmerTools = [

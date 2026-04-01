@@ -159,16 +159,27 @@ func (s *Server) handleGetUserConfig(w http.ResponseWriter, r *http.Request) {
 				"model":    mergedCfg.Tools.Image.Model,
 			},
 			"image_providers": map[string]interface{}{
-				"together":  imageProviderInfo(mergedCfg.Tools.ImageProviders.Together),
-				"openai":    imageProviderInfo(mergedCfg.Tools.ImageProviders.OpenAI, mergedCfg.Providers.OpenAI.APIKey),
+				"together":   imageProviderInfo(mergedCfg.Tools.ImageProviders.Together),
+				"openai":     imageProviderInfo(mergedCfg.Tools.ImageProviders.OpenAI, mergedCfg.Providers.OpenAI.APIKey),
 				"openrouter": imageProviderInfo(mergedCfg.Tools.ImageProviders.OpenRouter, mergedCfg.Providers.OpenRouter.APIKey),
-				"google":    imageProviderInfo(mergedCfg.Tools.ImageProviders.Google, mergedCfg.Providers.Gemini.APIKey),
-				"fal":       imageProviderInfo(mergedCfg.Tools.ImageProviders.Fal),
-				"replicate": imageProviderInfo(mergedCfg.Tools.ImageProviders.Replicate),
-				"zhipu":     imageProviderInfo(mergedCfg.Tools.ImageProviders.Zhipu, mergedCfg.Providers.Zhipu.APIKey),
-				"bfl":       imageProviderInfo(mergedCfg.Tools.ImageProviders.BFL),
+				"google":     imageProviderInfo(mergedCfg.Tools.ImageProviders.Google, mergedCfg.Providers.Gemini.APIKey),
+				"fal":        imageProviderInfo(mergedCfg.Tools.ImageProviders.Fal),
+				"replicate":  imageProviderInfo(mergedCfg.Tools.ImageProviders.Replicate),
+				"zhipu":      imageProviderInfo(mergedCfg.Tools.ImageProviders.Zhipu, mergedCfg.Providers.Zhipu.APIKey),
+				"bfl":        imageProviderInfo(mergedCfg.Tools.ImageProviders.BFL),
 			},
 			"developer_mode": mergedCfg.Tools.DeveloperMode,
+		},
+		"dev_studio": map[string]interface{}{
+			"enabled":            mergedCfg.DevStudio.Enabled,
+			"default_backend":    mergedCfg.DevStudio.DefaultBackend,
+			"node_path":          mergedCfg.DevStudio.NodePath,
+			"projects_dir":       mergedCfg.DevStudio.ProjectsDir,
+			"max_session_tokens": mergedCfg.DevStudio.MaxSessionTokens,
+			"memory": map[string]interface{}{
+				"enabled": mergedCfg.DevStudio.Memory.Enabled,
+				"model":   mergedCfg.DevStudio.Memory.Model,
+			},
 		},
 	}
 
@@ -874,6 +885,35 @@ func applyConfigUpdates(cfg *config.Config, updates map[string]interface{}) erro
 		}
 		// Remove "tools" from bulk update map
 		delete(updates, "tools")
+	}
+
+	// Handle dev_studio updates — only enabled can be toggled from the UI
+	if dsUpdate, ok := updates["dev_studio"].(map[string]interface{}); ok {
+		if enabled, ok := dsUpdate["enabled"].(bool); ok {
+			cfg.DevStudio.Enabled = enabled
+		}
+		if backend, ok := dsUpdate["default_backend"].(string); ok {
+			cfg.DevStudio.DefaultBackend = backend
+		}
+		if nodePath, ok := dsUpdate["node_path"].(string); ok {
+			cfg.DevStudio.NodePath = nodePath
+		}
+		if projectsDir, ok := dsUpdate["projects_dir"].(string); ok {
+			cfg.DevStudio.ProjectsDir = projectsDir
+		}
+		if tokens, ok := dsUpdate["max_session_tokens"].(float64); ok {
+			cfg.DevStudio.MaxSessionTokens = int(tokens)
+		}
+		if memUpdate, ok := dsUpdate["memory"].(map[string]interface{}); ok {
+			if memEnabled, ok := memUpdate["enabled"].(bool); ok {
+				cfg.DevStudio.Memory.Enabled = memEnabled
+			}
+			if memModel, ok := memUpdate["model"].(string); ok {
+				cfg.DevStudio.Memory.Model = memModel
+			}
+		}
+		// Remove "dev_studio" from bulk update map
+		delete(updates, "dev_studio")
 	}
 
 	// Marshaling/Unmarshaling approach for the rest of simpler fields

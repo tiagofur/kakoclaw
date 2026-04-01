@@ -830,9 +830,11 @@ import advancedService from '../services/advancedService'
 import usersService from '../services/usersService'
 import { useToast } from '../composables/useToast'
 import { useAuthStore } from '../stores/authStore'
+import { useUIStore } from '../stores/uiStore'
 
 const toast = useToast()
 const authStore = useAuthStore()
+const uiStore = useUIStore()
 const route = useRoute()
 const loading = ref(true)
 const saving = ref(false)
@@ -976,9 +978,13 @@ const saveConfig = async (payload) => {
   saving.value = true
   try {
     const hasSystemSettings = payload.web || payload.gateway || payload.storage
-    const hasUserSettings = payload.tools || payload.channels || payload.agents || payload.providers
+    const hasUserSettings = payload.tools || payload.channels || payload.agents || payload.providers || payload.dev_studio
     if (hasSystemSettings && authStore.user?.role === 'admin') await advancedService.updateConfig(payload)
     if (hasUserSettings) await advancedService.updateUserConfig(payload)
+    // Update sidebar visibility immediately after dev_studio toggle
+    if (payload.dev_studio && typeof payload.dev_studio.enabled === 'boolean') {
+      uiStore.setDevStudioEnabled(payload.dev_studio.enabled)
+    }
     toast.success('Settings saved')
     setTimeout(loadData, 500)
   } catch (err) {

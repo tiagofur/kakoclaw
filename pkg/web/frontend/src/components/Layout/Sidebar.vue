@@ -187,6 +187,7 @@
         </router-link>
 
         <router-link
+          v-if="uiStore.devStudioEnabled"
           to="/dev-studio"
           class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative"
           active-class="bg-makoclaw-accent/15 text-makoclaw-accent shadow-sm shadow-makoclaw-accent/5"

@@ -1,11 +1,13 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import api from '../services/api'
 
 export const useUIStore = defineStore('ui', () => {
   const theme = ref('dark')
   const sidebarCollapsed = ref(false)
   const activeTab = ref('chat')
   const canInstallPwa = ref(false)
+  const devStudioEnabled = ref(false)
   let deferredPrompt = null
 
   // Capture the PWA install event
@@ -66,16 +68,34 @@ export const useUIStore = defineStore('ui', () => {
     }
   }
 
+  // Fetch Dev Studio enabled status from user config
+  async function fetchDevStudioStatus() {
+    try {
+      const { data } = await api.get('/me/config')
+      devStudioEnabled.value = !!data?.config?.dev_studio?.enabled
+    } catch {
+      devStudioEnabled.value = false
+    }
+  }
+
+  // Set Dev Studio status locally (called after toggle save)
+  function setDevStudioEnabled(enabled) {
+    devStudioEnabled.value = enabled
+  }
+
   return {
     theme,
     sidebarCollapsed,
     activeTab,
     canInstallPwa,
+    devStudioEnabled,
     setTheme,
     toggleTheme,
     toggleSidebar,
     setActiveTab,
     restoreUIPreferences,
-    installPwa
+    installPwa,
+    fetchDevStudioStatus,
+    setDevStudioEnabled
   }
 })

@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
 import { useConfigStore } from '../stores/configStore'
 import { useOnboardingStore } from '../stores/onboardingStore'
+import { useUIStore } from '../stores/uiStore'
 import LandingPage from '../views/LandingPage.vue'
 import HelpLayout from '../views/help/HelpLayout.vue'
 import HelpIndexView from '../views/help/HelpIndexView.vue'
@@ -212,6 +213,14 @@ router.beforeEach(async (to, from, next) => {
   } else if (!requiresAuth && authStore.isAuthenticated && ['login', 'signup', 'landing'].includes(to.name)) {
     next('/')
   } else if (authStore.isAuthenticated && requiresAuth) {
+    // Block dev-studio access when disabled
+    if (to.name === 'dev-studio') {
+      const uiStore = useUIStore()
+      if (!uiStore.devStudioEnabled) {
+        next('/')
+        return
+      }
+    }
     // Check if onboarding is needed (only for authenticated users)
     // Skip onboarding check if already on onboarding page or certain exception routes
     const skipOnboardingCheck = ['onboarding', 'setup', 'logout'].includes(to.name) || to.path.startsWith('/api')
