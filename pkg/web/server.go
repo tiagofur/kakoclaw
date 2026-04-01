@@ -1679,6 +1679,7 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 					return conn.WriteJSON(map[string]interface{}{
 						"type":            "specialist_stream",
 						"specialist_name": ev.SpecialistName,
+						"delegation_id":   ev.DelegationID,
 						"token":           ev.Token,
 					})
 				})

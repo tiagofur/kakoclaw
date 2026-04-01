@@ -91,6 +91,12 @@ func (t *SaveReportTool) Execute(ctx context.Context, args map[string]interface{
 			slug = "report"
 		}
 		filename = fmt.Sprintf("%s-%s.md", time.Now().Format("2006-01-02"), slug)
+	} else {
+		// Strip directory components to prevent path traversal
+		filename = filepath.Base(filename)
+		if !strings.HasSuffix(filename, ".md") {
+			filename += ".md"
+		}
 	}
 
 	t.mu.RLock()

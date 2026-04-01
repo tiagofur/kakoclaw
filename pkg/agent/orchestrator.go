@@ -206,6 +206,7 @@ func delegationChainFromCtx(ctx context.Context) []string {
 // SpecialistStreamEvent is emitted for each token produced by a specialist during streaming
 type SpecialistStreamEvent struct {
 	SpecialistName string    `json:"specialist_name"`
+	DelegationID   string    `json:"delegation_id"`
 	Token          string    `json:"token"`
 	Timestamp      time.Time `json:"timestamp"`
 }
@@ -1063,6 +1064,7 @@ The user only sees text below the JSON block — include all findings there.
 		streamCtx = ContextWithSpecialistTokenCallback(ctxWithTimeout, func(agentName, token string) error {
 			return streamCb(SpecialistStreamEvent{
 				SpecialistName: agentName,
+				DelegationID:   delegationID,
 				Token:          token,
 				Timestamp:      time.Now(),
 			})

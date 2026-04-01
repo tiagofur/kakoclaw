@@ -1290,13 +1290,6 @@ const handleMessage = (message) => {
     fetchSessions()
   }
   if (message.type === 'agent_status') {
-    if (message.status === 'synthesis_start') {
-      isSynthesizing.value = true
-    }
-    if (message.status === 'synthesis_end') {
-      isSynthesizing.value = false
-    }
-
     chatStore.setAgentStatus(
       message.agent,
       message.status,
