@@ -40,6 +40,22 @@ export const useDevStudioStore = defineStore('devStudio', () => {
     }
   }
 
+  const AUTH_ERROR_KEYWORDS = ['authentication', 'login', 'unauthorized', 'unauthenticated', 'not logged in', 'api key', 'auth']
+
+  function enrichAuthError(msg) {
+    if (msg?.type !== 'error') return msg
+    const text = (msg.message || msg.error || '').toLowerCase()
+    const isAuth = AUTH_ERROR_KEYWORDS.some((kw) => text.includes(kw))
+    if (!isAuth) return msg
+    // Avoid adding duplicate hints (bridge may have already added one)
+    if (text.includes('hint:')) return msg
+    const backend = bridgeBackend.value
+    const hint = backend === 'opencode'
+      ? '\n\nHint: Run `opencode auth login` in your terminal to authenticate OpenCode.'
+      : '\n\nHint: Run `claude login` in your terminal to authenticate Claude Code.'
+    return { ...msg, message: (msg.message || msg.error || '') + hint }
+  }
+
   function processTerminalEvent(msg) {
     if (!msg || msg.type === 'ping') return
 
@@ -64,7 +80,7 @@ export const useDevStudioStore = defineStore('devStudio', () => {
       return
     }
 
-    terminalHistory.value.push(msg)
+    terminalHistory.value.push(enrichAuthError(msg))
   }
 
   async function fetchProjects() {

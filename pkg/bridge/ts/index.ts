@@ -107,6 +107,20 @@ interface OutEvent {
   [key: string]: unknown;
 }
 
+// ── Auth helpers ─────────────────────────────────────────────────────────────
+
+const AUTH_KEYWORDS = ["authentication", "login", "unauthorized", "unauthenticated", "not logged in", "api key", "auth"];
+
+function isAuthError(msg: string): boolean {
+  const lower = msg.toLowerCase();
+  return AUTH_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
+function withAuthHint(errMsg: string): string {
+  if (isAuthError(errMsg)) return errMsg + "\n\nHint: Run `claude login` in your terminal to authenticate Claude Code.";
+  return errMsg;
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function emit(obj: OutEvent): void {
@@ -253,13 +267,13 @@ async function handleQuery(req: Request): Promise<void> {
         case "result":
           const subtype = msg.subtype as string | undefined;
           if (subtype === "success") emitReq({ event: "result", content: msg.result as string, cost_usd: msg.total_cost_usd as number, session_id: msg.session_id as string, duration_ms: msg.duration_ms as number, num_turns: msg.num_turns as number });
-          else emitReq({ event: "error", message: (msg.errors as string[] | undefined)?.join("; ") ?? `result error: ${subtype}`, subtype: subtype ?? "unknown" });
+          else emitReq({ event: "error", message: withAuthHint((msg.errors as string[] | undefined)?.join("; ") ?? `result error: ${subtype}`), subtype: subtype ?? "unknown" });
           break;
       }
     }
   } catch (err: unknown) {
     const errMsg = err instanceof Error ? err.message : String(err);
-    emitReq({ event: "error", message: errMsg });
+    emitReq({ event: "error", message: withAuthHint(errMsg) });
   } finally {
     clearTimeout(timeout);
   }

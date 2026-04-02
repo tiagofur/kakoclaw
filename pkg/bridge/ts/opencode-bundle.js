@@ -1,6 +1,12 @@
 // opencode.ts
 import { createInterface } from "node:readline";
 import { spawn } from "node:child_process";
+var QUERY_TIMEOUT_MS = 10 * 60 * 1e3;
+var AUTH_KEYWORDS = ["authentication", "login", "unauthorized", "unauthenticated", "not logged in", "api key", "auth"];
+function isAuthError(msg) {
+  const lower = msg.toLowerCase();
+  return AUTH_KEYWORDS.some((kw) => lower.includes(kw));
+}
 function emit(obj) {
   process.stdout.write(JSON.stringify(obj) + "\n");
 }
@@ -12,8 +18,23 @@ async function handleQuery(req) {
   const reqId = req.request_id || "";
   const emitReq = (obj) => emit({ ...obj, request_id: reqId });
   const cwd = req.options?.cwd || process.cwd();
-  log(`query start \u2014 rid=${reqId} prompt="${req.prompt.slice(0, 80)}..."`);
-  const args = ["-p", req.prompt, "--non-interactive"];
+  let effectivePrompt = req.prompt;
+  if (req.options?.prompt_injection) {
+    effectivePrompt = `${req.options.prompt_injection}
+
+---
+
+${effectivePrompt}`;
+  }
+  if (req.options?.system_prompt) {
+    effectivePrompt = `SYSTEM: ${req.options.system_prompt}
+
+---
+
+${effectivePrompt}`;
+  }
+  log(`query start \u2014 rid=${reqId} prompt="${effectivePrompt.slice(0, 80)}..."`);
+  const args = ["-p", effectivePrompt, "--non-interactive"];
   if (req.options?.model) {
     args.push("-m", req.options.model);
   }
@@ -22,6 +43,7 @@ async function handleQuery(req) {
     stdio: ["ignore", "pipe", "pipe"]
   });
   emitReq({ event: "system", session_id: `opencode-${reqId}`, tools: [], model: req.options?.model || "opencode-default" });
+  const stderrLines = [];
   if (child.stdout) {
     const rl = createInterface({ input: child.stdout, terminal: false });
     rl.on("line", (line) => {
@@ -35,15 +57,27 @@ async function handleQuery(req) {
     rl.on("line", (line) => {
       if (line.trim()) {
         log(`subprocess stderr: ${line}`);
+        stderrLines.push(line);
       }
     });
   }
+  const timeoutHandle = setTimeout(() => {
+    log("query timeout \u2014 killing child process");
+    child.kill("SIGTERM");
+    emitReq({ event: "error", message: "query timeout: no result after 10 minutes" });
+  }, QUERY_TIMEOUT_MS);
   return new Promise((resolve) => {
     child.on("close", (code) => {
+      clearTimeout(timeoutHandle);
       if (code === 0) {
         emitReq({ event: "result", content: "done", duration_ms: 0, cost_usd: 0, num_turns: 1, session_id: `opencode-${reqId}` });
       } else {
-        emitReq({ event: "error", message: `opencode exited with code ${code}` });
+        const stderrSummary = stderrLines.slice(-10).join(" | ");
+        let errMsg = `opencode exited with code ${code}`;
+        if (stderrSummary) errMsg += `
+Process output: ${stderrSummary}`;
+        if (isAuthError(errMsg)) errMsg += "\n\nHint: Run `opencode auth login` in your terminal to authenticate OpenCode.";
+        emitReq({ event: "error", message: errMsg });
       }
       resolve();
     });
@@ -81,8 +115,7 @@ function main() {
   const rl = createInterface({ input: process.stdin, terminal: false });
   rl.on("line", (line) => {
     const trimmed = line.trim();
-    if (trimmed)
-      handleRequest(trimmed).catch((err) => emit({ event: "error", message: `internal bridge error: ${err instanceof Error ? err.message : String(err)}` }));
+    if (trimmed) handleRequest(trimmed).catch((err) => emit({ event: "error", message: `internal bridge error: ${err instanceof Error ? err.message : String(err)}` }));
   });
   rl.on("close", () => process.exit(0));
 }
