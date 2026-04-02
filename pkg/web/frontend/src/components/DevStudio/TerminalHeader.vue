@@ -6,7 +6,15 @@
       </div>
       <div class="min-w-0">
         <div class="text-xs font-bold uppercase tracking-[0.2em] text-makoclaw-text-secondary">Terminal</div>
-        <div class="text-[10px] text-makoclaw-text-secondary/70 truncate">Live Dev Studio session usage</div>
+        <div
+          v-if="devStore.bridgeStatus === 'running' && devStore.currentProject"
+          class="text-[9px] text-makoclaw-text-secondary/50 font-mono truncate max-w-[300px]"
+          :title="devStore.currentProject"
+        >
+          <i class="fas fa-folder-open text-orange-400/40 mr-1" />
+          {{ devStore.currentProject }}
+        </div>
+        <div v-else class="text-[10px] text-makoclaw-text-secondary/70 truncate">Live Dev Studio session usage</div>
       </div>
     </div>
 
