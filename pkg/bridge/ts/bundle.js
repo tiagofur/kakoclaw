@@ -1,6 +1,8 @@
 // index.ts
 import { createInterface } from "node:readline";
 import { readFile } from "node:fs/promises";
+import { existsSync as existsSync2, realpathSync as realpathSync2 } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -17533,6 +17535,35 @@ function log(msg) {
   process.stderr.write(`[bridge] ${msg}
 `);
 }
+var cachedExePath;
+function findClaudeCodeExecutable() {
+  if (cachedExePath !== void 0)
+    return cachedExePath;
+  try {
+    const claudeBin = execFileSync("which", ["claude"], { encoding: "utf8" }).trim();
+    if (claudeBin && existsSync2(claudeBin)) {
+      cachedExePath = realpathSync2(claudeBin);
+      return cachedExePath;
+    }
+  } catch {
+  }
+  const globalPrefixes = [
+    "/opt/node22/lib/node_modules",
+    "/usr/local/lib/node_modules",
+    "/usr/lib/node_modules",
+    join(homedir(), ".npm/lib/node_modules"),
+    join(homedir(), "node_modules")
+  ];
+  for (const prefix of globalPrefixes) {
+    const candidate = join(prefix, "@anthropic-ai/claude-code/cli.js");
+    if (existsSync2(candidate)) {
+      cachedExePath = candidate;
+      return cachedExePath;
+    }
+  }
+  cachedExePath = null;
+  return null;
+}
 async function buildSDKOptions(opts) {
   if (!opts)
     return {};
@@ -17569,6 +17600,19 @@ async function buildSDKOptions(opts) {
     sdkOpts.mcpServers = merged;
   if (opts.disabled_tools && opts.disabled_tools.length > 0)
     sdkOpts.disallowedTools = opts.disabled_tools;
+  const exePath = findClaudeCodeExecutable();
+  if (exePath) {
+    sdkOpts.pathToClaudeCodeExecutable = exePath;
+    log(`Resolved Claude Code executable: ${exePath}`);
+  } else {
+    log("WARNING: Could not find Claude Code executable \u2014 query() may fail");
+  }
+  if (!sdkOpts.env) {
+    const cleanEnv = { ...process.env };
+    delete cleanEnv.CLAUDECODE;
+    delete cleanEnv.CLAUDE_CODE_SESSION;
+    sdkOpts.env = cleanEnv;
+  }
   return sdkOpts;
 }
 function extractText(content) {
