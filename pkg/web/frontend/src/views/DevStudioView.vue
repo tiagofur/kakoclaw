@@ -52,6 +52,18 @@
             </p>
           </div>
 
+          <!-- Backend Selector -->
+          <div class="hidden sm:flex items-center">
+            <select
+              v-model="selectedBackend"
+              class="bg-makoclaw-surface/50 border border-makoclaw-border/50 rounded-xl px-2.5 py-1.5 text-[10px] font-bold text-makoclaw-text-secondary uppercase tracking-wider outline-none focus:border-orange-400/50 focus:ring-2 focus:ring-orange-400/20 transition-all cursor-pointer hover:border-orange-400/30"
+              @change="handleBackendChange"
+            >
+              <option value="claude-code">Claude Code</option>
+              <option value="opencode">OpenCode</option>
+            </select>
+          </div>
+
           <!-- Bridge Status Indicator (Header) -->
           <div
             class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all"
@@ -331,6 +343,12 @@
                     </span>
                   </div>
                 </template>
+                <template v-else-if="msg.type === 'system'">
+                  <div class="flex items-start gap-2 text-cyan-400/70 py-1.5 px-3 rounded-lg bg-cyan-500/5 border border-cyan-500/10 my-1">
+                    <i class="fas fa-info-circle mt-0.5 text-[10px]" />
+                    <span class="text-[11px] font-mono whitespace-pre-wrap">{{ msg.message }}</span>
+                  </div>
+                </template>
                 <template v-else-if="msg.type === 'session_reset'">
                   <div class="flex items-center gap-2 text-makoclaw-warning py-2">
                     <i class="fas fa-rotate-right" />
@@ -451,6 +469,7 @@ const terminalRef = ref(null)
 const inputRef = ref(null)
 const searchQuery = ref('')
 const showSidebar = ref(localStorage.getItem('dev_studio_show_sidebar') !== 'false')
+const selectedBackend = ref(devStore.bridgeBackend || 'claude-code')
 
 const filteredProjects = computed(() => {
   if (!searchQuery.value) return devStore.projects
@@ -468,9 +487,25 @@ const newProjectName = ref('')
 const newProjectGitInit = ref(true)
 const creatingProject = ref(false)
 
+const handleBackendChange = () => {
+  devStore.changeBackend(selectedBackend.value)
+}
+
+// Keep selectedBackend in sync with store
+watch(() => devStore.bridgeBackend, (newVal) => {
+  if (newVal && newVal !== selectedBackend.value) {
+    selectedBackend.value = newVal
+  }
+})
+
 onMounted(() => {
   devStore.fetchProjects()
-  devStore.checkStatus()
+  devStore.checkStatus().then(() => {
+    // Sync backend selector after status check loads the backend value
+    if (devStore.bridgeBackend) {
+      selectedBackend.value = devStore.bridgeBackend
+    }
+  })
   // Auto-focus the terminal input
   nextTick(() => {
     if (inputRef.value) inputRef.value.focus()

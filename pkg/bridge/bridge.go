@@ -2,6 +2,7 @@ package bridge
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -13,6 +14,8 @@ import (
 )
 
 const eventChannelBuffer = 16
+
+const maxStderrBytes = 4096
 
 // Bridge manages a long-lived CLI process and communicates via stdin/stdout using NDJSON.
 type Bridge struct {
@@ -28,6 +31,8 @@ type Bridge struct {
 
 	state   string
 	stateMu sync.RWMutex
+
+	stderrBuf bytes.Buffer
 
 	reqCounter atomic.Uint64
 	done       chan struct{}
@@ -62,6 +67,13 @@ func (b *Bridge) setState(s string) {
 	b.state = s
 }
 
+// BackendName returns the logical backend name ("claude-code" or "opencode").
+func (b *Bridge) BackendName() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.cfg.BackendName
+}
+
 // Cwd returns the working directory configured for this bridge.
 func (b *Bridge) Cwd() string {
 	b.mu.Lock()
@@ -83,24 +95,29 @@ func (b *Bridge) Start(ctx context.Context) error {
 	return b.startLocked(ctx)
 }
 
+// LastStderr returns the last captured stderr output from the bridge process
+// (up to maxStderrBytes). Useful for diagnosing process crashes.
+func (b *Bridge) LastStderr() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	s := b.stderrBuf.String()
+	if len(s) > maxStderrBytes {
+		s = s[len(s)-maxStderrBytes:]
+	}
+	return s
+}
+
 func (b *Bridge) startLocked(ctx context.Context) error {
 	if b.State() == "running" {
 		return nil
 	}
 
-	var cmd *exec.Cmd
-	if b.cfg.Backend == "opencode" {
-		cmd = exec.CommandContext(ctx, "opencode")
-	} else {
-		// claude-code requires node and the extracted bundle.js
-		// Bundle path logic will be resolved via the setup later.
-		// For now we assume b.cfg.Backend has the executable path if not standard.
-		// We'll just run Node on the bundle path defined in Backend string for now,
-		// or "node" with the bundle.
-		// Actually, let's keep it simple: node + bundle.js
-		cmd = exec.CommandContext(ctx, b.cfg.NodePath, b.cfg.Backend)
-	}
+	// Reset stderr buffer for this launch
+	b.stderrBuf.Reset()
 
+	// Both backends run via Node.js on their respective bundle scripts.
+	// The cfg.Backend field holds the path to the extracted .mjs bundle.
+	cmd := exec.CommandContext(ctx, b.cfg.NodePath, b.cfg.Backend)
 	cmd.Dir = b.cfg.Cwd
 
 	stdinPipe, err := cmd.StdinPipe()
@@ -112,7 +129,8 @@ func (b *Bridge) startLocked(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("bridge: stdout pipe: %w", err)
 	}
-	cmd.Stderr = os.Stderr
+	// Capture stderr for error reporting while also printing to server console.
+	cmd.Stderr = io.MultiWriter(os.Stderr, &b.stderrBuf)
 
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("bridge: start process: %w", err)
@@ -122,7 +140,7 @@ func (b *Bridge) startLocked(ctx context.Context) error {
 	b.stdin = stdinPipe
 	b.scanner = bufio.NewScanner(stdoutPipe)
 	b.scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-	
+
 	b.setState("running")
 	b.done = make(chan struct{})
 

@@ -2,6 +2,7 @@ package bridge
 
 import (
 	"encoding/json"
+	"fmt"
 )
 
 func safeClose(ch chan Event) {
@@ -58,8 +59,12 @@ func (b *Bridge) readLoop() {
 	b.mu.Unlock()
 
 	if !isStopping && cb != nil {
-		// Provide an error or just call the OnDeath closure
-		cb(nil) 
+		stderrMsg := b.LastStderr()
+		if stderrMsg != "" {
+			cb(fmt.Errorf("bridge process died: %s", stderrMsg))
+		} else {
+			cb(fmt.Errorf("bridge process died unexpectedly"))
+		}
 	}
 
 	// Cleanup all pending

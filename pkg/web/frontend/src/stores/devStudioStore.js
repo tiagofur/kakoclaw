@@ -89,10 +89,12 @@ export const useDevStudioStore = defineStore('devStudio', () => {
     }
   }
 
-  async function startBridge(projectDir) {
+  async function startBridge(projectDir, backend) {
     bridgeError.value = ''
     try {
-      const { data } = await api.post('/dev/bridge/start', { project_dir: projectDir })
+      const body = { project_dir: projectDir }
+      if (backend) body.backend = backend
+      const { data } = await api.post('/dev/bridge/start', body)
       currentProject.value = projectDir
       bridgeStatus.value = 'running'
       bridgeBackend.value = data?.backend || ''
@@ -100,6 +102,12 @@ export const useDevStudioStore = defineStore('devStudio', () => {
       usingHttpFallback.value = false
       connectTerminal()
       await fetchSessionStats()
+      // Show system message confirming active project and backend
+      const backendLabel = bridgeBackend.value === 'opencode' ? 'OpenCode' : 'Claude Code'
+      terminalHistory.value.push({
+        type: 'system',
+        message: `Bridge started | Backend: ${backendLabel} | Working in: ${projectDir}`
+      })
     } catch (e) {
       console.error('Failed to start bridge', e)
       // Extract detailed error message from JSON response
@@ -114,6 +122,24 @@ export const useDevStudioStore = defineStore('devStudio', () => {
       }
       bridgeError.value = msg
       terminalHistory.value.push({ type: 'error', message: `Bridge start failed: ${msg}` })
+    }
+  }
+
+  async function changeBackend(newBackend) {
+    try {
+      await api.post('/me/config/update', { dev_studio: { default_backend: newBackend } })
+      bridgeBackend.value = newBackend
+      const backendLabel = newBackend === 'opencode' ? 'OpenCode' : 'Claude Code'
+      if (bridgeStatus.value === 'running' && currentProject.value) {
+        terminalHistory.value.push({ type: 'system', message: `Switching backend to ${backendLabel}...` })
+        await stopBridge()
+        await startBridge(currentProject.value, newBackend)
+      } else {
+        terminalHistory.value.push({ type: 'system', message: `Backend changed to ${backendLabel}. Will apply on next bridge start.` })
+      }
+    } catch (e) {
+      console.error('Failed to change backend', e)
+      terminalHistory.value.push({ type: 'error', message: `Failed to change backend: ${e.message}` })
     }
   }
 
@@ -301,6 +327,7 @@ export const useDevStudioStore = defineStore('devStudio', () => {
     checkStatus,
     sendPrompt,
     searchMemory,
-    fetchHistory
+    fetchHistory,
+    changeBackend
   }
 })

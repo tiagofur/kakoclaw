@@ -2,12 +2,13 @@ package bridge
 
 // BridgeConfig configures the execution environment for a bridge process.
 type BridgeConfig struct {
-	Backend    string // "claude-code" | "opencode"
-	Cwd        string
-	Model      string
-	NodePath   string // defaults to "node"
-	MaxRetries int
-	OnDeath    func(error)
+	Backend     string // path to the bundle script (set by EnsureBridge)
+	BackendName string // logical backend name: "claude-code" | "opencode"
+	Cwd         string
+	Model       string
+	NodePath    string // defaults to "node"
+	MaxRetries  int
+	OnDeath     func(error)
 }
 
 // Request sent to Bridge process via stdin as JSON.

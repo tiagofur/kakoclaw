@@ -38,15 +38,12 @@ func (s *Server) devWorkspaceDir() string {
 	return defaultWorkspace()
 }
 
-func (s *Server) writeBridgeState(userUUID, status, projectDir string) {
+func (s *Server) writeBridgeState(userUUID, status, projectDir, backendName string) {
 	st := bridgeState{
 		Status:     status,
 		ProjectDir: projectDir,
-		Backend:    "claude-code",
+		Backend:    backendName,
 		UpdatedAt:  time.Now().Format(time.RFC3339),
-	}
-	if s.fullConfig != nil && s.fullConfig.DevStudio.DefaultBackend != "" {
-		st.Backend = s.fullConfig.DevStudio.DefaultBackend
 	}
 	path := s.bridgeStateFile(userUUID)
 	_ = os.MkdirAll(filepath.Dir(path), 0755)
@@ -67,39 +64,21 @@ func (s *Server) readBridgeState(userUUID string) *bridgeState {
 	return &st
 }
 
-// getDevBridge retrieves or creates a bridge instance for the given user.
-func (s *Server) getDevBridge(userUUID string) (*bridge.Bridge, error) {
-	s.devBridgesMu.RLock()
-	if b, ok := s.devBridges[userUUID]; ok {
-		s.devBridgesMu.RUnlock()
-		return b.(*bridge.Bridge), nil
+// resolveBackendNameForUser returns the backend preference for a specific user
+// by loading their merged config (user overrides on top of global defaults).
+func (s *Server) resolveBackendNameForUser(userUUID string) string {
+	if merged, err := config.LoadMergedConfigForUser(userUUID); err == nil && merged.DevStudio.DefaultBackend != "" {
+		return merged.DevStudio.DefaultBackend
 	}
-	s.devBridgesMu.RUnlock()
-
-	s.devBridgesMu.Lock()
-	defer s.devBridgesMu.Unlock()
-
-	// Double check
-	if b, ok := s.devBridges[userUUID]; ok {
-		return b.(*bridge.Bridge), nil
+	if s.fullConfig != nil && s.fullConfig.DevStudio.DefaultBackend != "" {
+		return s.fullConfig.DevStudio.DefaultBackend
 	}
+	return "claude-code"
+}
 
-	if s.fullConfig == nil {
-		return nil, fmt.Errorf("server configuration not available")
-	}
-	// Check per-user config — DevStudio.Enabled is a user-level setting
-	if userCfg, err := config.LoadConfigForUser(userUUID); err != nil || !userCfg.DevStudio.Enabled {
-		return nil, fmt.Errorf("dev studio is not enabled for this user")
-	}
-
-	// Resolve the actual bundle path on disk before creating the bridge.
-	// EnsureBridge extracts the embedded JS bundle to workspace/bridge/ if missing or outdated.
+// createBridgeForBackend creates a new bridge instance for the given backend name.
+func (s *Server) createBridgeForBackend(backendName string) (*bridge.Bridge, error) {
 	bridgeDir := filepath.Join(s.devWorkspaceDir(), "bridge")
-
-	backendName := s.fullConfig.DevStudio.DefaultBackend
-	if backendName == "" {
-		backendName = "claude-code"
-	}
 
 	var bundlePath string
 	var bundleErr error
@@ -112,20 +91,73 @@ func (s *Server) getDevBridge(userUUID string) (*bridge.Bridge, error) {
 		return nil, fmt.Errorf("failed to setup bridge bundle: %w", bundleErr)
 	}
 
-	nodePath := s.fullConfig.DevStudio.NodePath
-	if nodePath == "" {
-		nodePath = "node"
+	nodePath := "node"
+	if s.fullConfig != nil && s.fullConfig.DevStudio.NodePath != "" {
+		nodePath = s.fullConfig.DevStudio.NodePath
 	}
 
-	// Create new bridge
+	// Verify node is available
+	if _, err := exec.LookPath(nodePath); err != nil {
+		return nil, fmt.Errorf("node binary not found at %q — install Node.js or set node_path in config", nodePath)
+	}
+
 	cfg := bridge.BridgeConfig{
-		Backend:    bundlePath,
-		NodePath:   nodePath,
-		MaxRetries: 3,
+		Backend:     bundlePath,
+		BackendName: backendName,
+		NodePath:    nodePath,
+		MaxRetries:  3,
 	}
 	b := bridge.New(cfg)
 	if b == nil {
 		return nil, fmt.Errorf("failed to create bridge")
+	}
+	return b, nil
+}
+
+// getDevBridge retrieves or creates a bridge instance for the given user.
+// If the user's backend preference has changed, the cached bridge is invalidated.
+func (s *Server) getDevBridge(userUUID string) (*bridge.Bridge, error) {
+	wantBackend := s.resolveBackendNameForUser(userUUID)
+
+	s.devBridgesMu.RLock()
+	if existing, ok := s.devBridges[userUUID]; ok {
+		b := existing.(*bridge.Bridge)
+		// Check if the cached bridge matches the current backend preference
+		if b.BackendName() == wantBackend {
+			s.devBridgesMu.RUnlock()
+			return b, nil
+		}
+		// Backend changed — need to recreate
+		s.devBridgesMu.RUnlock()
+	} else {
+		s.devBridgesMu.RUnlock()
+	}
+
+	s.devBridgesMu.Lock()
+	defer s.devBridgesMu.Unlock()
+
+	// Double check under write lock
+	if existing, ok := s.devBridges[userUUID]; ok {
+		b := existing.(*bridge.Bridge)
+		if b.BackendName() == wantBackend {
+			return b, nil
+		}
+		// Stop the old bridge before replacing
+		_ = b.Stop()
+		delete(s.devBridges, userUUID)
+	}
+
+	if s.fullConfig == nil {
+		return nil, fmt.Errorf("server configuration not available")
+	}
+	// Check per-user config — DevStudio.Enabled is a user-level setting
+	if userCfg, err := config.LoadConfigForUser(userUUID); err != nil || !userCfg.DevStudio.Enabled {
+		return nil, fmt.Errorf("dev studio is not enabled for this user")
+	}
+
+	b, err := s.createBridgeForBackend(wantBackend)
+	if err != nil {
+		return nil, err
 	}
 
 	s.devBridges[userUUID] = b
@@ -249,10 +281,24 @@ func (s *Server) handleDevBridgeStart(w http.ResponseWriter, r *http.Request) {
 
 	var req struct {
 		ProjectDir string `json:"project_dir"`
+		Backend    string `json:"backend,omitempty"` // optional override: "claude-code" | "opencode"
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid body", http.StatusBadRequest)
 		return
+	}
+
+	// Validate project directory exists
+	if req.ProjectDir != "" {
+		info, err := os.Stat(req.ProjectDir)
+		if err != nil || !info.IsDir() {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"error": fmt.Sprintf("Project directory does not exist or is not accessible: %s", req.ProjectDir),
+			})
+			return
+		}
 	}
 
 	b, err := s.getDevBridge(claims.UUID)
@@ -278,7 +324,14 @@ func (s *Server) handleDevBridgeStart(w http.ResponseWriter, r *http.Request) {
 	b.SetCwd(req.ProjectDir)
 
 	if err := b.Start(r.Context()); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		stderrOutput := b.LastStderr()
+		errMsg := err.Error()
+		if stderrOutput != "" {
+			errMsg = fmt.Sprintf("%s\nProcess output:\n%s", errMsg, stderrOutput)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{"error": errMsg})
 		return
 	}
 
@@ -286,18 +339,24 @@ func (s *Server) handleDevBridgeStart(w http.ResponseWriter, r *http.Request) {
 	pingCtx, pingCancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer pingCancel()
 	if err := b.Ping(pingCtx); err != nil {
+		stderrOutput := b.LastStderr()
 		_ = b.Stop()
-		s.writeBridgeState(claims.UUID, "stopped", "")
+		backendName := s.resolveBackendNameForUser(claims.UUID)
+		s.writeBridgeState(claims.UUID, "stopped", "", backendName)
+		errMsg := fmt.Sprintf("Bridge started but is not responding (is the backend CLI installed?): %v", err)
+		if stderrOutput != "" {
+			errMsg = fmt.Sprintf("%s\nProcess output:\n%s", errMsg, stderrOutput)
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusServiceUnavailable)
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"error": fmt.Sprintf("Bridge started but is not responding (is the backend CLI installed?): %v", err),
+			"error": errMsg,
 		})
 		return
 	}
 
-	backendName := s.resolveBackendName()
-	s.writeBridgeState(claims.UUID, "running", req.ProjectDir)
+	backendName := s.resolveBackendNameForUser(claims.UUID)
+	s.writeBridgeState(claims.UUID, "running", req.ProjectDir, backendName)
 	writeJSONResponse(w, map[string]interface{}{"status": "started", "project_dir": req.ProjectDir, "backend": backendName})
 }
 
@@ -324,10 +383,12 @@ func (s *Server) handleDevBridgeStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.writeBridgeState(claims.UUID, "stopped", "")
+	s.writeBridgeState(claims.UUID, "stopped", "", b.BackendName())
 	writeJSONResponse(w, map[string]interface{}{"status": "stopped"})
 }
 
+// resolveBackendName returns the global default backend name.
+// Prefer resolveBackendNameForUser when a user UUID is available.
 func (s *Server) resolveBackendName() string {
 	if s.fullConfig != nil && s.fullConfig.DevStudio.DefaultBackend != "" {
 		return s.fullConfig.DevStudio.DefaultBackend
@@ -360,7 +421,7 @@ func (s *Server) handleDevBridgeStatus(w http.ResponseWriter, r *http.Request) {
 
 	state := b.State()
 	projectDir := b.Cwd()
-	backendName := s.resolveBackendName()
+	backendName := s.resolveBackendNameForUser(claims.UUID)
 	// If bridge is not running, try to restore last known project from state.json
 	if state != "running" {
 		if saved := s.readBridgeState(claims.UUID); saved != nil {
