@@ -6,6 +6,7 @@ interface RequestOptions {
   cwd?: string;
   model?: string;
   system_prompt?: string;
+  prompt_injection?: string;
 }
 
 interface Request {
@@ -19,6 +20,15 @@ interface OutEvent {
   event: string;
   request_id?: string;
   [key: string]: unknown;
+}
+
+const QUERY_TIMEOUT_MS = 10 * 60 * 1000;
+
+const AUTH_KEYWORDS = ["authentication", "login", "unauthorized", "unauthenticated", "not logged in", "api key", "auth"];
+
+function isAuthError(msg: string): boolean {
+  const lower = msg.toLowerCase();
+  return AUTH_KEYWORDS.some((kw) => lower.includes(kw));
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -35,49 +45,72 @@ async function handleQuery(req: Request): Promise<void> {
   const emitReq = (obj: OutEvent) => emit({ ...obj, request_id: reqId });
   const cwd = req.options?.cwd || process.cwd();
 
-  log(`query start — rid=${reqId} prompt="${req.prompt.slice(0, 80)}..."`);
+  // Build effective prompt in order: system_prompt → prompt_injection → user prompt
+  const promptParts: string[] = [];
+  if (req.options?.system_prompt) promptParts.push(`SYSTEM: ${req.options.system_prompt}`);
+  if (req.options?.prompt_injection) promptParts.push(req.options.prompt_injection);
+  promptParts.push(req.prompt);
+  const effectivePrompt = promptParts.join("\n\n---\n\n");
+
+  log(`query start — rid=${reqId} prompt="${effectivePrompt.slice(0, 80)}..."`);
 
   // Start OpenCode CLI as subprocess for this specific query
-  const args = ["-p", req.prompt, "--non-interactive"];
+  const args = ["-p", effectivePrompt, "--non-interactive"];
   if (req.options?.model) {
-      args.push("-m", req.options.model);
+    args.push("-m", req.options.model);
   }
 
   const child = spawn("opencode", args, {
-      cwd,
-      stdio: ["ignore", "pipe", "pipe"]
+    cwd,
+    stdio: ["ignore", "pipe", "pipe"],
   });
 
   emitReq({ event: "system", session_id: `opencode-${reqId}`, tools: [], model: req.options?.model || "opencode-default" });
 
+  // Keep last 10 stderr lines for error context to avoid unbounded memory growth with verbose output
+  const stderrLines: string[] = [];
+
   if (child.stdout) {
-      const rl = createInterface({ input: child.stdout, terminal: false });
-      rl.on("line", (line) => {
-          if (line.trim()) {
-              // Echo stdout as assistant text
-              emitReq({ event: "assistant", text: line + "\n" });
-          }
-      });
+    const rl = createInterface({ input: child.stdout, terminal: false });
+    rl.on("line", (line) => {
+      if (line.trim()) {
+        emitReq({ event: "assistant", text: line + "\n" });
+      }
+    });
   }
 
   if (child.stderr) {
-      const rl = createInterface({ input: child.stderr, terminal: false });
-      rl.on("line", (line) => {
-          if (line.trim()) {
-              log(`subprocess stderr: ${line}`);
-          }
-      });
+    const rl = createInterface({ input: child.stderr, terminal: false });
+    rl.on("line", (line) => {
+      if (line.trim()) {
+        log(`subprocess stderr: ${line}`);
+        stderrLines.push(line);
+        // Cap buffer to last 10 lines
+        if (stderrLines.length > 10) stderrLines.shift();
+      }
+    });
   }
 
+  const timeoutHandle = setTimeout(() => {
+    log("query timeout — killing child process");
+    child.kill("SIGTERM");
+    emitReq({ event: "error", message: "query timeout: no result after 10 minutes" });
+  }, QUERY_TIMEOUT_MS);
+
   return new Promise<void>((resolve) => {
-      child.on("close", (code) => {
-          if (code === 0) {
-              emitReq({ event: "result", content: "done", duration_ms: 0, cost_usd: 0, num_turns: 1, session_id: `opencode-${reqId}` });
-          } else {
-              emitReq({ event: "error", message: `opencode exited with code ${code}` });
-          }
-          resolve();
-      });
+    child.on("close", (code) => {
+      clearTimeout(timeoutHandle);
+      if (code === 0) {
+        emitReq({ event: "result", content: "done", duration_ms: 0, cost_usd: 0, num_turns: 1, session_id: `opencode-${reqId}` });
+      } else {
+        const stderrSummary = stderrLines.join(" | ");
+        let errMsg = `opencode exited with code ${code}`;
+        if (stderrSummary) errMsg += `\nProcess output: ${stderrSummary}`;
+        if (isAuthError(errMsg)) errMsg += "\n\nHint: Run `opencode auth login` in your terminal to authenticate OpenCode.";
+        emitReq({ event: "error", message: errMsg });
+      }
+      resolve();
+    });
   });
 }
 
