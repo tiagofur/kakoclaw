@@ -18,21 +18,11 @@ async function handleQuery(req) {
   const reqId = req.request_id || "";
   const emitReq = (obj) => emit({ ...obj, request_id: reqId });
   const cwd = req.options?.cwd || process.cwd();
-  let effectivePrompt = req.prompt;
-  if (req.options?.prompt_injection) {
-    effectivePrompt = `${req.options.prompt_injection}
-
----
-
-${effectivePrompt}`;
-  }
-  if (req.options?.system_prompt) {
-    effectivePrompt = `SYSTEM: ${req.options.system_prompt}
-
----
-
-${effectivePrompt}`;
-  }
+  const promptParts = [];
+  if (req.options?.system_prompt) promptParts.push(`SYSTEM: ${req.options.system_prompt}`);
+  if (req.options?.prompt_injection) promptParts.push(req.options.prompt_injection);
+  promptParts.push(req.prompt);
+  const effectivePrompt = promptParts.join("\n\n---\n\n");
   log(`query start \u2014 rid=${reqId} prompt="${effectivePrompt.slice(0, 80)}..."`);
   const args = ["-p", effectivePrompt, "--non-interactive"];
   if (req.options?.model) {
@@ -58,6 +48,7 @@ ${effectivePrompt}`;
       if (line.trim()) {
         log(`subprocess stderr: ${line}`);
         stderrLines.push(line);
+        if (stderrLines.length > 10) stderrLines.shift();
       }
     });
   }
@@ -72,7 +63,7 @@ ${effectivePrompt}`;
       if (code === 0) {
         emitReq({ event: "result", content: "done", duration_ms: 0, cost_usd: 0, num_turns: 1, session_id: `opencode-${reqId}` });
       } else {
-        const stderrSummary = stderrLines.slice(-10).join(" | ");
+        const stderrSummary = stderrLines.join(" | ");
         let errMsg = `opencode exited with code ${code}`;
         if (stderrSummary) errMsg += `
 Process output: ${stderrSummary}`;

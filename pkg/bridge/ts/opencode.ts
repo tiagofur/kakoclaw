@@ -45,14 +45,12 @@ async function handleQuery(req: Request): Promise<void> {
   const emitReq = (obj: OutEvent) => emit({ ...obj, request_id: reqId });
   const cwd = req.options?.cwd || process.cwd();
 
-  // Build effective prompt: prepend memory injection and/or system prompt when provided
-  let effectivePrompt = req.prompt;
-  if (req.options?.prompt_injection) {
-    effectivePrompt = `${req.options.prompt_injection}\n\n---\n\n${effectivePrompt}`;
-  }
-  if (req.options?.system_prompt) {
-    effectivePrompt = `SYSTEM: ${req.options.system_prompt}\n\n---\n\n${effectivePrompt}`;
-  }
+  // Build effective prompt in order: system_prompt → prompt_injection → user prompt
+  const promptParts: string[] = [];
+  if (req.options?.system_prompt) promptParts.push(`SYSTEM: ${req.options.system_prompt}`);
+  if (req.options?.prompt_injection) promptParts.push(req.options.prompt_injection);
+  promptParts.push(req.prompt);
+  const effectivePrompt = promptParts.join("\n\n---\n\n");
 
   log(`query start — rid=${reqId} prompt="${effectivePrompt.slice(0, 80)}..."`);
 
@@ -69,6 +67,7 @@ async function handleQuery(req: Request): Promise<void> {
 
   emitReq({ event: "system", session_id: `opencode-${reqId}`, tools: [], model: req.options?.model || "opencode-default" });
 
+  // Keep last 10 stderr lines for error context to avoid unbounded memory growth with verbose output
   const stderrLines: string[] = [];
 
   if (child.stdout) {
@@ -86,6 +85,8 @@ async function handleQuery(req: Request): Promise<void> {
       if (line.trim()) {
         log(`subprocess stderr: ${line}`);
         stderrLines.push(line);
+        // Cap buffer to last 10 lines
+        if (stderrLines.length > 10) stderrLines.shift();
       }
     });
   }
@@ -102,7 +103,7 @@ async function handleQuery(req: Request): Promise<void> {
       if (code === 0) {
         emitReq({ event: "result", content: "done", duration_ms: 0, cost_usd: 0, num_turns: 1, session_id: `opencode-${reqId}` });
       } else {
-        const stderrSummary = stderrLines.slice(-10).join(" | ");
+        const stderrSummary = stderrLines.join(" | ");
         let errMsg = `opencode exited with code ${code}`;
         if (stderrSummary) errMsg += `\nProcess output: ${stderrSummary}`;
         if (isAuthError(errMsg)) errMsg += "\n\nHint: Run `opencode auth login` in your terminal to authenticate OpenCode.";
