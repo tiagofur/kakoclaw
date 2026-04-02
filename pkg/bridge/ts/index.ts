@@ -1,7 +1,9 @@
 import { createInterface } from "node:readline";
 import { readFile } from "node:fs/promises";
+import { existsSync, realpathSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, dirname, resolve } from "node:path";
 import { query } from "@anthropic-ai/claude-agent-sdk";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -115,6 +117,44 @@ function log(msg: string): void {
   process.stderr.write(`[bridge] ${msg}\n`);
 }
 
+// ── Claude Code Executable Resolution ──────────────────────────────────────
+// The Agent SDK uses pathToClaudeCodeExecutable to find Claude Code.
+// It supports both native binaries and cli.js files (auto-detected by extension).
+// When the bundle runs outside the Claude Code package directory, we resolve
+// the executable path ourselves.
+
+let cachedExePath: string | null | undefined;
+
+function findClaudeCodeExecutable(): string | null {
+  if (cachedExePath !== undefined) return cachedExePath;
+
+  // Method 1: Find the 'claude' binary via which (preferred — uses the
+  // installed native binary which has its own auth and is usually up to date)
+  try {
+    const claudeBin = execFileSync("which", ["claude"], { encoding: "utf8" }).trim();
+    if (claudeBin && existsSync(claudeBin)) {
+      cachedExePath = realpathSync(claudeBin);
+      return cachedExePath;
+    }
+  } catch { /* which not available or claude not found */ }
+
+  // Method 2: Check common global npm paths for cli.js fallback
+  const globalPrefixes = [
+    "/opt/node22/lib/node_modules",
+    "/usr/local/lib/node_modules",
+    "/usr/lib/node_modules",
+    join(homedir(), ".npm/lib/node_modules"),
+    join(homedir(), "node_modules"),
+  ];
+  for (const prefix of globalPrefixes) {
+    const candidate = join(prefix, "@anthropic-ai/claude-code/cli.js");
+    if (existsSync(candidate)) { cachedExePath = candidate; return cachedExePath; }
+  }
+
+  cachedExePath = null;
+  return null;
+}
+
 async function buildSDKOptions(opts: RequestOptions | undefined) {
   if (!opts) return {};
   const sdkOpts: Record<string, unknown> = {};
@@ -138,6 +178,27 @@ async function buildSDKOptions(opts: RequestOptions | undefined) {
   const merged = { ...cloudServers, ...agentServers };
   if (Object.keys(merged).length > 0) sdkOpts.mcpServers = merged;
   if (opts.disabled_tools && opts.disabled_tools.length > 0) sdkOpts.disallowedTools = opts.disabled_tools;
+
+  // Resolve pathToClaudeCodeExecutable so the SDK can find Claude Code
+  // even when the bundle runs outside the Claude Code package directory.
+  const exePath = findClaudeCodeExecutable();
+  if (exePath) {
+    sdkOpts.pathToClaudeCodeExecutable = exePath;
+    log(`Resolved Claude Code executable: ${exePath}`);
+  } else {
+    log("WARNING: Could not find Claude Code executable — query() may fail");
+  }
+
+  // Prevent "cannot be launched inside another Claude Code session" error.
+  // When the bridge runs inside a Claude Code session (e.g. Dev Studio launched
+  // from within Claude Code), the CLAUDECODE env var triggers nested session
+  // detection. We strip it so the spawned Claude Code runs independently.
+  if (!sdkOpts.env) {
+    const cleanEnv = { ...process.env };
+    delete cleanEnv.CLAUDECODE;
+    delete cleanEnv.CLAUDE_CODE_SESSION;
+    sdkOpts.env = cleanEnv;
+  }
 
   return sdkOpts;
 }
