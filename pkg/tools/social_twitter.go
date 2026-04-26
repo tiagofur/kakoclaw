@@ -120,13 +120,13 @@ func (t *TwitterProvider) oauthSign(method, rawURL string, params map[string]str
 	}
 
 	// Sort and encode parameters
-	var keys []string
+	keys := make([]string, 0, len(allParams))
 	for k := range allParams {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 
-	var paramPairs []string
+	paramPairs := make([]string, 0, len(keys))
 	for _, k := range keys {
 		paramPairs = append(paramPairs, url.QueryEscape(k)+"="+url.QueryEscape(allParams[k]))
 	}
@@ -146,7 +146,7 @@ func (t *TwitterProvider) oauthSign(method, rawURL string, params map[string]str
 	oauthParams["oauth_signature"] = signature
 
 	// Build Authorization header
-	var headerParts []string
+	headerParts := make([]string, 0, len(oauthParams))
 	for k, v := range oauthParams {
 		headerParts = append(headerParts, fmt.Sprintf(`%s="%s"`, url.QueryEscape(k), url.QueryEscape(v)))
 	}
