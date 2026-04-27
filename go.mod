@@ -1,6 +1,6 @@
 module github.com/sipeed/makoclaw
 
-go 1.26
+go 1.24.3
 
 require (
 	github.com/adhocore/gronx v1.19.6

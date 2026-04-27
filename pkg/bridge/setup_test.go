@@ -19,7 +19,7 @@ func TestEnsureBridge_CreatesAndUpdatesFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("First EnsureBridge error: %v", err)
 	}
-	expectedPath := filepath.Join(dir, backend+".js")
+	expectedPath := filepath.Join(dir, backend+".mjs")
 	if path1 != expectedPath {
 		t.Errorf("Path mismatch: got %s, want %s", path1, expectedPath)
 	}
