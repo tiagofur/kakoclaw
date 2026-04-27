@@ -3,12 +3,12 @@ package web
 import (
 	"bytes"
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha1"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"sort"
@@ -299,8 +299,11 @@ func socialOAuthSign(method, rawURL string, extraParams map[string]string,
 func socialGenerateNonce() string {
 	const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		panic(fmt.Sprintf("failed to read random bytes for nonce: %v", err))
+	}
 	for i := range b {
-		b[i] = chars[rand.Intn(len(chars))]
+		b[i] = chars[int(b[i])%len(chars)]
 	}
 	return string(b)
 }
