@@ -9,12 +9,12 @@ import (
 	"bytes"
 	"context"
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha1"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/rand"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -158,8 +158,11 @@ func (t *TwitterProvider) oauthSign(method, rawURL string, params map[string]str
 func generateNonce() string {
 	const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		panic(fmt.Sprintf("failed to read random bytes for nonce: %v", err))
+	}
 	for i := range b {
-		b[i] = chars[rand.Intn(len(chars))]
+		b[i] = chars[int(b[i])%len(chars)]
 	}
 	return string(b)
 }
